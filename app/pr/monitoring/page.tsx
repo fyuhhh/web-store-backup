@@ -1,0 +1,1746 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+
+// Import exceljs for Excel export with style support
+import * as ExcelJS from "exceljs";
+
+import { MainLayout } from "@/components/layout/main-layout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  ShoppingCart,
+  Search,
+  Download,
+  ChevronDown,
+} from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { type PRData, initializeDummyData } from "@/lib/dummy-data";
+
+export default function MonitoringPRPage() {
+  const [prData, setPrData] = useState<PRData[]>([]);
+  const [selectedPRs, setSelectedPRs] = useState<string[]>([]);
+
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter states
+  const [filterNamaBarang, setFilterNamaBarang] = useState("");
+  // New state for Qty dropdown filter
+  const [filterQty, setFilterQty] = useState<number[]>([]);
+  const [filterQtySearchTerm, setFilterQtySearchTerm] = useState("");
+  // Remove old min/max Qty states
+  // const [filterQtyMin, setFilterQtyMin] = useState<number | "">("");
+  // const [filterQtyMax, setFilterQtyMax] = useState<number | "">("");
+  const [filterQtyPRAwalMin, setFilterQtyPRAwalMin] = useState<number | "">("");
+  const [filterQtyPRAwalMax, setFilterQtyPRAwalMax] = useState<number | "">("");
+  const [filterSatuan, setFilterSatuan] = useState<string[]>([]);
+  const [satuanSearchTerm, setSatuanSearchTerm] = useState("");
+  const [filterKeterangan, setFilterKeterangan] = useState("");
+  const [filterUrgensi, setFilterUrgensi] = useState<string[]>([]);
+  const [urgensiSearchTerm, setUrgensiSearchTerm] = useState("");
+  const [filterDivisi, setFilterDivisi] = useState<string[]>([]);
+  const [divisiSearchTerm, setDivisiSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string[]>([]);
+  const [statusSearchTerm, setStatusSearchTerm] = useState("");
+  const [filterTanggalPR, setFilterTanggalPR] = useState<string[]>([]);
+  const [tanggalPRSearchTerm, setTanggalPRSearchTerm] = useState("");
+  const [filterNoPR, setFilterNoPR] = useState<string[]>([]);
+  const [noPRSearchTerm, setNoPRSearchTerm] = useState("");
+
+  // Compute unique NoPR values
+  const uniqueNoPR = Array.from(
+    new Set(
+      prData
+        .map((pr) => pr.noPR)
+        .filter((n): n is string => n !== undefined && n.trim() !== "")
+    )
+  ).sort();
+  const [filterDibuatOleh, setFilterDibuatOleh] = useState<string[]>([]);
+  const [dibuatOlehSearchTerm, setDibuatOlehSearchTerm] = useState("");
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+
+  // Compute unique values
+  const uniqueSatuan = Array.from(
+    new Set(prData.flatMap((pr) => pr.items?.map((item) => item.satuan) || []))
+  ).sort();
+
+  // Compute unique quantities for Qty filter dropdown
+  const uniqueQty = Array.from(
+    new Set(prData.flatMap((pr) => pr.items?.map((item) => item.jumlah) || []))
+  ).sort((a, b) => a - b);
+
+  const uniqueUrgensi = ["Low", "Medium", "High"];
+  const uniqueDivisi = ["IT", "Civil", "Eng", "FAD", "HRD"];
+  const uniqueStatus = [
+    "Draft",
+    "Submitted",
+    "Approved",
+    "Processed",
+    "Clear",
+    "Gantung",
+    "Menunggu",
+    "Telah Selesai",
+  ];
+  const uniqueTanggalPR = Array.from(
+    new Set(
+      prData
+        .map((pr) => pr.tanggalPR)
+        .filter((t): t is string => t !== undefined && t.trim() !== "")
+    )
+  ).sort();
+  const uniqueDibuatOleh = Array.from(
+    new Set(
+      prData
+        .map((pr) => pr.dibuatOleh)
+        .filter((d): d is string => d !== undefined && d.trim() !== "")
+    )
+  ).sort();
+
+  useEffect(() => {
+    initializeDummyData();
+    loadPRData();
+  }, []);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    filterNamaBarang,
+    filterQty,
+    filterQtyPRAwalMin,
+    filterQtyPRAwalMax,
+    filterSatuan,
+    filterKeterangan,
+    filterUrgensi,
+    filterDivisi,
+    filterStatus,
+    filterTanggalPR,
+    filterNoPR,
+    filterDibuatOleh,
+  ]);
+
+  const loadPRData = () => {
+    const stored = localStorage.getItem("prData");
+    if (stored) {
+      const parsedData = JSON.parse(stored);
+      // Ensure type safety by validating and casting each field properly
+      const validatedData = parsedData.map((pr: any) => ({
+        ...pr,
+        divisi: (["IT", "Civil", "Eng", "FAD", "HRD"].includes(pr.divisi)
+          ? pr.divisi
+          : "IT") as "IT" | "Civil" | "Eng" | "FAD" | "HRD",
+        urgensi: (["Low", "Medium", "High"].includes(pr.urgensi)
+          ? pr.urgensi
+          : "Medium") as "Low" | "Medium" | "High",
+        status: ([
+          "Draft",
+          "Submitted",
+          "Approved",
+          "Processed",
+          "Clear",
+          "Gantung",
+          "Menunggu",
+          "Telah Selesai",
+        ].includes(pr.status)
+          ? pr.status
+          : "Menunggu") as
+          | "Draft"
+          | "Submitted"
+          | "Approved"
+          | "Processed"
+          | "Clear"
+          | "Gantung"
+          | "Menunggu"
+          | "Telah Selesai",
+      })) as PRData[];
+      setPrData(validatedData);
+    }
+  };
+
+  const savePRData = (data: PRData[]) => {
+    localStorage.setItem("prData", JSON.stringify(data));
+    // Ensure type safety when setting state
+    setPrData(data as PRData[]);
+  };
+
+  const handleEdit = (pr: PRData) => {
+    // Redirect to input page for editing
+    localStorage.setItem("editingPR", JSON.stringify(pr));
+    window.location.href = "/pr/input";
+  };
+
+  const handleDelete = (id: string) => {
+    if (
+      confirm(
+        "Apakah Anda yakin ingin menghapus PR ini? Data yang dihapus tidak dapat dikembalikan."
+      )
+    ) {
+      try {
+        const updatedData = prData.filter((pr) => pr.id !== id);
+        savePRData(updatedData);
+
+        // Remove from selected PRs if it was selected
+        setSelectedPRs(selectedPRs.filter((prId) => prId !== id));
+
+        // Show success message
+        alert("PR berhasil dihapus!");
+
+        // Reload data to ensure consistency
+        loadPRData();
+      } catch (error) {
+        console.error("Error deleting PR:", error);
+        alert("Terjadi kesalahan saat menghapus PR. Silakan coba lagi.");
+      }
+    }
+  };
+
+  const handleSelectPR = (prId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedPRs([...selectedPRs, prId]);
+    } else {
+      setSelectedPRs(selectedPRs.filter((id) => id !== prId));
+    }
+  };
+
+  // Perbaiki handleSelectAll agar hanya memilih PR yang sedang difilter
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedPRs(paginatedData.map((pr) => pr.id));
+    } else {
+      setSelectedPRs([]);
+    }
+  };
+
+  // Perbaiki handleCreatePO - hanya redirect ke PO status page tanpa mengubah status PR
+  const handleCreatePO = () => {
+    if (selectedPRs.length === 0) {
+      alert("Pilih minimal satu PR untuk diproses ke PO");
+      return;
+    }
+    // Simpan data PR yang dipilih ke localStorage untuk PO (tanpa mengubah status)
+    const selectedPRData = prData.filter((pr) => selectedPRs.includes(pr.id));
+    localStorage.setItem("selectedPRsForPO", JSON.stringify(selectedPRData));
+    window.location.href = "/po/status";
+  };
+
+  // Ambil daftar PR yang sudah diproses ke PO dari localStorage
+  const getProcessedPRIds = (): string[] => {
+    try {
+      const data = JSON.parse(localStorage.getItem("selectedPRsForPO") || "[]");
+      return Array.isArray(data) ? data.map((pr: any) => pr.id) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // Filter data
+  const filteredPRData = prData
+    .map((pr) => {
+      // Status default "Diproses" jika belum ada status, atau gunakan status yang sudah ada
+      let status = pr.status || "Diproses";
+      return { ...pr, status };
+    })
+    .filter((pr) => {
+      const matchesSearch =
+        (pr.items &&
+          pr.items.some((item) =>
+            item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
+          )) ||
+        pr.noPR.toLowerCase().includes(searchTerm.toLowerCase());
+
+      const matchesNamaBarang =
+        !filterNamaBarang ||
+        pr.items?.some((item) =>
+          item.namaBarang.toLowerCase().includes(filterNamaBarang.toLowerCase())
+        );
+
+      // Updated matchesQty to check if item's jumlah is in filterQty array if filterQty is not empty
+      const matchesQty =
+        filterQty.length === 0 ||
+        pr.items?.some((item) => filterQty.includes(item.jumlah));
+
+      const matchesQtyPRAwal =
+        (filterQtyPRAwalMin === "" ||
+          pr.items?.some(
+            (item) => item.quantityAwalPR >= Number(filterQtyPRAwalMin)
+          )) &&
+        (filterQtyPRAwalMax === "" ||
+          pr.items?.some(
+            (item) => item.quantityAwalPR <= Number(filterQtyPRAwalMax)
+          ));
+
+      const matchesSatuan =
+        filterSatuan.length === 0 ||
+        pr.items?.some((item) => filterSatuan.includes(item.satuan));
+
+      const matchesKeterangan =
+        !filterKeterangan ||
+        pr.items?.some(
+          (item) =>
+            item.keterangan &&
+            item.keterangan
+              .toLowerCase()
+              .includes(filterKeterangan.toLowerCase())
+        );
+
+      const matchesUrgensi =
+        filterUrgensi.length === 0 || filterUrgensi.includes(pr.urgensi);
+
+      const matchesDivisi =
+        filterDivisi.length === 0 || filterDivisi.includes(pr.divisi);
+
+      const matchesStatus =
+        filterStatus.length === 0 || filterStatus.includes(pr.status);
+
+      const matchesNoPR =
+        filterNoPR.length === 0 ||
+        filterNoPR.some((noPr) =>
+          pr.noPR.toLowerCase().includes(noPr.toLowerCase())
+        );
+
+      const matchesTanggalPR =
+        filterTanggalPR.length === 0 || filterTanggalPR.includes(pr.tanggalPR);
+
+      const matchesDibuatOleh =
+        filterDibuatOleh.length === 0 ||
+        filterDibuatOleh.includes(pr.dibuatOleh);
+
+      return (
+        matchesSearch &&
+        matchesNamaBarang &&
+        matchesQty &&
+        matchesQtyPRAwal &&
+        matchesSatuan &&
+        matchesKeterangan &&
+        matchesUrgensi &&
+        matchesDivisi &&
+        matchesStatus &&
+        matchesNoPR &&
+        matchesTanggalPR &&
+        matchesDibuatOleh
+      );
+    });
+  //.filter((pr) => pr.items?.some((item) => item.jumlah > 0));
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredPRData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = filteredPRData.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+  // Badge status: "Telah Selesai" warna hijau untuk Processed/Clear/Telah Selesai, "Menunggu" warna kuning, "Gantung" warna orange
+  const getStatusBadge = (status: string) => {
+    if (
+      status === "Processed" ||
+      status === "Clear" ||
+      status === "Telah Selesai"
+    ) {
+      return (
+        <Badge className="bg-success/10 text-success border-success/20">
+          Telah Selesai
+        </Badge>
+      );
+    }
+    if (status === "Menunggu") {
+      return (
+        <Badge className="bg-warning/10 text-warning border-warning/20">
+          {status}
+        </Badge>
+      );
+    }
+    if (status === "Gantung") {
+      return (
+        <Badge className="bg-destructive/10 text-destructive border-destructive/20">
+          {status}
+        </Badge>
+      );
+    }
+    return <Badge variant="secondary">{status}</Badge>;
+  };
+
+  const getUrgensiBadge = (urgensi: string) => {
+    const colors: Record<string, string> = {
+      Low: "bg-success/10 text-success",
+      Medium: "bg-warning/10 text-warning",
+      High: "bg-destructive/10 text-destructive",
+    };
+    return (
+      <span
+        className={`px-2 py-1 rounded-full text-xs font-medium ${
+          colors[urgensi] || "bg-muted/50 text-muted-foreground"
+        }`}
+      >
+        {urgensi}
+      </span>
+    );
+  };
+
+  const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
+    "all"
+  );
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+
+  // Data untuk export sesuai mode
+  const getExportPRData = () => {
+    if (exportMode === "selected") {
+      return filteredPRData.filter((pr) => selectedPRs.includes(pr.id));
+    }
+    if (exportMode === "range" && exportStartDate && exportEndDate) {
+      return filteredPRData.filter(
+        (pr) => pr.tanggalPR >= exportStartDate && pr.tanggalPR <= exportEndDate
+      );
+    }
+    return filteredPRData;
+  };
+
+  const handleExport = async () => {
+    const exportPRData = getExportPRData();
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Monitoring PR");
+
+    const headers = [
+      "No. PR",
+      "Tanggal PR",
+      "Daftar Barang",
+      "Quantity",
+      "Qty PR Awal",
+      "Satuan",
+      "Keterangan",
+      "Urgensi",
+      "Divisi",
+      "Status",
+      "Dibuat Oleh",
+    ];
+
+    // Add header row with bold font
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "left", vertical: "middle" };
+    });
+
+    // Prepare and add data rows
+    exportPRData.forEach((pr) => {
+      const validItems = pr.items?.filter((item) => item.jumlah > 0) || [];
+      if (validItems.length > 0) {
+        validItems.forEach((item, index) => {
+          const rowData = [
+            index === 0 ? pr.noPR : "",
+            index === 0 ? pr.tanggalPR : "",
+            item.namaBarang,
+            String(item.jumlah),
+            String(item.quantityAwalPR),
+            item.satuan,
+            item.keterangan || "",
+            index === 0 ? pr.urgensi : "",
+            index === 0 ? pr.divisi : "",
+            index === 0 ? pr.status : "",
+            index === 0 ? pr.dibuatOleh : "",
+          ];
+
+          const dataRow = worksheet.addRow(rowData);
+          dataRow.eachCell((cell) => {
+            cell.alignment = { horizontal: "left", vertical: "middle" };
+          });
+        });
+      } else {
+        // Handle PR without items
+        const rowData = [
+          pr.noPR,
+          pr.tanggalPR,
+          "",
+          "",
+          "",
+          "",
+          pr.urgensi,
+          pr.divisi,
+          pr.status,
+          pr.dibuatOleh,
+        ];
+
+        const dataRow = worksheet.addRow(rowData);
+        dataRow.eachCell((cell) => {
+          cell.alignment = { horizontal: "left", vertical: "middle" };
+        });
+      }
+    });
+
+    // Auto-fit columns based on max length of cell values
+    worksheet.columns.forEach((column) => {
+      let maxLength = 10;
+      column.eachCell({ includeEmpty: true }, (cell) => {
+        const cellValue = cell.value ? String(cell.value) : "";
+        maxLength = Math.max(maxLength, cellValue.length + 2);
+      });
+      column.width = maxLength;
+    });
+
+    // Set row heights for better readability
+    worksheet.eachRow((row, rowNumber) => {
+      row.height = rowNumber === 1 ? 22 : 18;
+      row.alignment = { vertical: "middle" };
+    });
+
+    // Freeze header row
+    worksheet.views = [{ state: "frozen", ySplit: 1 }];
+
+    // Generate XLSX file and trigger download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `monitoring-pr-${new Date().toISOString().split("T")[0]}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Fungsi untuk menghitung sisa qty PR per barang
+  function getQtyPR(pr: any, item: any, poData: any[]): number {
+    let totalQtyPO = 0;
+    poData.forEach((po) => {
+      po.poItems?.forEach((poItem: any) => {
+        if (poItem.noPR === pr.noPR) {
+          poItem.items?.forEach((itm: any) => {
+            if (itm.namaBarang === item.namaBarang) {
+              totalQtyPO += itm.jumlahPO ?? 0;
+            }
+          });
+        }
+      });
+    });
+    const qtyAwal = item.quantityAwalPR ?? item.jumlah;
+    return Math.max(0, qtyAwal - totalQtyPO);
+  }
+
+  // Ambil data PO dari localStorage
+  const [poData, setPOData] = useState<any[]>([]);
+  useEffect(() => {
+    const poRaw = localStorage.getItem("poData");
+    let poArr: any[] = [];
+    try {
+      poArr = poRaw ? JSON.parse(poRaw) : [];
+    } catch {
+      poArr = [];
+    }
+    setPOData(poArr);
+  }, []);
+
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Monitoring PR
+            </h1>
+            <p className="text-muted-foreground">
+              Lihat dan kelola Purchase Request yang sudah dibuat
+            </p>
+          </div>
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
+                Mode Export
+              </Label>
+              <Select
+                value={exportMode}
+                onValueChange={(val) =>
+                  setExportMode(val as "all" | "selected" | "range")
+                }
+              >
+                <SelectTrigger id="exportMode" className="w-[140px] h-9">
+                  <SelectValue placeholder="Export Mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="selected">Terpilih</SelectItem>
+                  <SelectItem value="range">Rentang Tanggal</SelectItem>
+                </SelectContent>
+              </Select>
+              {exportMode === "range" && (
+                <div className="flex items-center gap-2 ml-2">
+                  <Label className="text-xs font-medium">Tanggal PR</Label>
+                  <Input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    className="w-[130px] h-9"
+                    placeholder="Mulai"
+                  />
+                  <span className="mx-1">-</span>
+                  <Input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    className="w-[130px] h-9"
+                    placeholder="Akhir"
+                  />
+                </div>
+              )}
+              <Button
+                onClick={handleExport}
+                className="bg-primary hover:bg-primary/90 h-9 ml-2"
+                disabled={
+                  (exportMode === "selected" && selectedPRs.length === 0) ||
+                  (exportMode === "range" &&
+                    (!exportStartDate || !exportEndDate))
+                }
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <Card className="bg-card border-border">
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[200px]">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    placeholder="Cari berdasarkan nama barang atau no PR..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-[150px] justify-between"
+                  >
+                    Divisi ({filterDivisi.length || "Semua"})
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                  <Input
+                    placeholder="Cari divisi..."
+                    value={divisiSearchTerm}
+                    onChange={(e) => setDivisiSearchTerm(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="select-all-divisi"
+                        checked={
+                          filterDivisi.length === uniqueDivisi.length &&
+                          uniqueDivisi.length > 0
+                        }
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setFilterDivisi([...uniqueDivisi]);
+                          } else {
+                            setFilterDivisi([]);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="select-all-divisi" className="text-sm">
+                        Pilih Semua
+                      </Label>
+                    </div>
+                    {uniqueDivisi
+                      .filter((divisi) =>
+                        divisi
+                          .toLowerCase()
+                          .includes(divisiSearchTerm.toLowerCase())
+                      )
+                      .map((divisi) => (
+                        <div
+                          key={divisi}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={`divisi-${divisi}`}
+                            checked={filterDivisi.includes(divisi)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFilterDivisi([...filterDivisi, divisi]);
+                              } else {
+                                setFilterDivisi(
+                                  filterDivisi.filter((f) => f !== divisi)
+                                );
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`divisi-${divisi}`}
+                            className="text-sm"
+                          >
+                            {divisi}
+                          </Label>
+                        </div>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-[150px] justify-between"
+                  >
+                    Status ({filterStatus.length || "Semua"})
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                  <Input
+                    placeholder="Cari status..."
+                    value={statusSearchTerm}
+                    onChange={(e) => setStatusSearchTerm(e.target.value)}
+                    className="mb-2"
+                  />
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="select-all-status"
+                        checked={
+                          filterStatus.length === uniqueStatus.length &&
+                          uniqueStatus.length > 0
+                        }
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setFilterStatus([...uniqueStatus]);
+                          } else {
+                            setFilterStatus([]);
+                          }
+                        }}
+                      />
+                      <Label htmlFor="select-all-status" className="text-sm">
+                        Pilih Semua
+                      </Label>
+                    </div>
+                    {uniqueStatus
+                      .filter((status) =>
+                        status
+                          .toLowerCase()
+                          .includes(statusSearchTerm.toLowerCase())
+                      )
+                      .map((status) => (
+                        <div
+                          key={status}
+                          className="flex items-center space-x-2"
+                        >
+                          <Checkbox
+                            id={`status-${status}`}
+                            checked={filterStatus.includes(status)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setFilterStatus([...filterStatus, status]);
+                              } else {
+                                setFilterStatus(
+                                  filterStatus.filter((f) => f !== status)
+                                );
+                              }
+                            }}
+                          />
+                          <Label
+                            htmlFor={`status-${status}`}
+                            className="text-sm"
+                          >
+                            {status}
+                          </Label>
+                        </div>
+                      ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Table */}
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle>Daftar Purchase Request</CardTitle>
+            <CardDescription>
+              Total: {filteredPRData.length} PR | Dipilih: {selectedPRs.length}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">
+                      {/* Checkbox Select All */}
+                      <Checkbox
+                        checked={
+                          selectedPRs.length === paginatedData.length &&
+                          paginatedData.length > 0
+                        }
+                        onCheckedChange={handleSelectAll}
+                        style={{
+                          boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
+                          border: "1.5px solid #bbb",
+                          borderRadius: 4,
+                        }}
+                        className="focus:ring-2 focus:ring-primary"
+                      />
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter No. PR"
+                          >
+                            No. PR <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari No. PR..."
+                            value={noPRSearchTerm}
+                            onChange={(e) => setNoPRSearchTerm(e.target.value)}
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-noPR"
+                                checked={
+                                  filterNoPR.length === uniqueNoPR.length &&
+                                  uniqueNoPR.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterNoPR([...uniqueNoPR]);
+                                  } else {
+                                    setFilterNoPR([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-noPR"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueNoPR
+                              .filter((noPR) =>
+                                noPR
+                                  .toLowerCase()
+                                  .includes(noPRSearchTerm.toLowerCase())
+                              )
+                              .map((noPR) => (
+                                <div
+                                  key={noPR}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`noPR-${noPR}`}
+                                    checked={filterNoPR.includes(noPR)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterNoPR([...filterNoPR, noPR]);
+                                      } else {
+                                        setFilterNoPR(
+                                          filterNoPR.filter((f) => f !== noPR)
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`noPR-${noPR}`}
+                                    className="text-sm"
+                                  >
+                                    {noPR}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Tanggal PR"
+                          >
+                            Tanggal PR <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari tanggal PR..."
+                            value={tanggalPRSearchTerm}
+                            onChange={(e) =>
+                              setTanggalPRSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-tanggalPR"
+                                checked={
+                                  filterTanggalPR.length ===
+                                    uniqueTanggalPR.length &&
+                                  uniqueTanggalPR.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterTanggalPR([...uniqueTanggalPR]);
+                                  } else {
+                                    setFilterTanggalPR([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-tanggalPR"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueTanggalPR
+                              .filter((tanggalPR) =>
+                                tanggalPR
+                                  .toLowerCase()
+                                  .includes(tanggalPRSearchTerm.toLowerCase())
+                              )
+                              .map((tanggalPR) => (
+                                <div
+                                  key={tanggalPR}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`tanggalPR-${tanggalPR}`}
+                                    checked={filterTanggalPR.includes(
+                                      tanggalPR
+                                    )}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterTanggalPR([
+                                          ...filterTanggalPR,
+                                          tanggalPR,
+                                        ]);
+                                      } else {
+                                        setFilterTanggalPR(
+                                          filterTanggalPR.filter(
+                                            (f) => f !== tanggalPR
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`tanggalPR-${tanggalPR}`}
+                                    className="text-sm"
+                                  >
+                                    {tanggalPR}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Daftar Barang"
+                          >
+                            Daftar Barang <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari nama barang..."
+                            value={filterNamaBarang}
+                            onChange={(e) =>
+                              setFilterNamaBarang(e.target.value)
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Qty"
+                          >
+                            Qty <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari quantity..."
+                            value={filterQtySearchTerm}
+                            onChange={(e) =>
+                              setFilterQtySearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-qty"
+                                checked={
+                                  filterQty.length === uniqueQty.length &&
+                                  uniqueQty.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterQty([...uniqueQty]);
+                                  } else {
+                                    setFilterQty([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-qty"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueQty
+                              .filter((qty) =>
+                                qty
+                                  .toString()
+                                  .toLowerCase()
+                                  .includes(filterQtySearchTerm.toLowerCase())
+                              )
+                              .map((qty) => (
+                                <div
+                                  key={qty}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`qty-${qty}`}
+                                    checked={filterQty.includes(qty)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterQty([...filterQty, qty]);
+                                      } else {
+                                        setFilterQty(
+                                          filterQty.filter((f) => f !== qty)
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`qty-${qty}`}
+                                    className="text-sm"
+                                  >
+                                    {qty}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Qty PR Awal"
+                          >
+                            Qty PR Awal <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <div className="space-y-2">
+                            <Input
+                              type="number"
+                              placeholder="Min Qty PR Awal"
+                              value={filterQtyPRAwalMin}
+                              onChange={(e) =>
+                                setFilterQtyPRAwalMin(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Max Qty PR Awal"
+                              value={filterQtyPRAwalMax}
+                              onChange={(e) =>
+                                setFilterQtyPRAwalMax(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Satuan"
+                          >
+                            Satuan <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari satuan..."
+                            value={satuanSearchTerm}
+                            onChange={(e) =>
+                              setSatuanSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-satuan"
+                                checked={
+                                  filterSatuan.length === uniqueSatuan.length &&
+                                  uniqueSatuan.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterSatuan([...uniqueSatuan]);
+                                  } else {
+                                    setFilterSatuan([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-satuan"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueSatuan
+                              .filter((satuan) =>
+                                satuan
+                                  .toLowerCase()
+                                  .includes(satuanSearchTerm.toLowerCase())
+                              )
+                              .map((satuan) => (
+                                <div
+                                  key={satuan}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`satuan-${satuan}`}
+                                    checked={filterSatuan.includes(satuan)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterSatuan([
+                                          ...filterSatuan,
+                                          satuan,
+                                        ]);
+                                      } else {
+                                        setFilterSatuan(
+                                          filterSatuan.filter(
+                                            (f) => f !== satuan
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`satuan-${satuan}`}
+                                    className="text-sm"
+                                  >
+                                    {satuan}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Keterangan"
+                          >
+                            Keterangan <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari keterangan..."
+                            value={filterKeterangan}
+                            onChange={(e) =>
+                              setFilterKeterangan(e.target.value)
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Urgensi"
+                          >
+                            Urgensi <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari urgensi..."
+                            value={urgensiSearchTerm}
+                            onChange={(e) =>
+                              setUrgensiSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-urgensi"
+                                checked={
+                                  filterUrgensi.length ===
+                                    uniqueUrgensi.length &&
+                                  uniqueUrgensi.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterUrgensi([...uniqueUrgensi]);
+                                  } else {
+                                    setFilterUrgensi([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-urgensi"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueUrgensi
+                              .filter((urgensi) =>
+                                urgensi
+                                  .toLowerCase()
+                                  .includes(urgensiSearchTerm.toLowerCase())
+                              )
+                              .map((urgensi) => (
+                                <div
+                                  key={urgensi}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`urgensi-${urgensi}`}
+                                    checked={filterUrgensi.includes(urgensi)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterUrgensi([
+                                          ...filterUrgensi,
+                                          urgensi,
+                                        ]);
+                                      } else {
+                                        setFilterUrgensi(
+                                          filterUrgensi.filter(
+                                            (f) => f !== urgensi
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`urgensi-${urgensi}`}
+                                    className="text-sm"
+                                  >
+                                    {urgensi}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Divisi"
+                          >
+                            Divisi <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari divisi..."
+                            value={divisiSearchTerm}
+                            onChange={(e) =>
+                              setDivisiSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-divisi"
+                                checked={
+                                  filterDivisi.length === uniqueDivisi.length &&
+                                  uniqueDivisi.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterDivisi([...uniqueDivisi]);
+                                  } else {
+                                    setFilterDivisi([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-divisi"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueDivisi
+                              .filter((divisi) =>
+                                divisi
+                                  .toLowerCase()
+                                  .includes(divisiSearchTerm.toLowerCase())
+                              )
+                              .map((divisi) => (
+                                <div
+                                  key={divisi}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`divisi-${divisi}`}
+                                    checked={filterDivisi.includes(divisi)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterDivisi([
+                                          ...filterDivisi,
+                                          divisi,
+                                        ]);
+                                      } else {
+                                        setFilterDivisi(
+                                          filterDivisi.filter(
+                                            (f) => f !== divisi
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`divisi-${divisi}`}
+                                    className="text-sm"
+                                  >
+                                    {divisi}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Status"
+                          >
+                            Status <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari status..."
+                            value={statusSearchTerm}
+                            onChange={(e) =>
+                              setStatusSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-status"
+                                checked={
+                                  filterStatus.length === uniqueStatus.length &&
+                                  uniqueStatus.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterStatus([...uniqueStatus]);
+                                  } else {
+                                    setFilterStatus([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-status"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueStatus
+                              .filter((status) =>
+                                status
+                                  .toLowerCase()
+                                  .includes(statusSearchTerm.toLowerCase())
+                              )
+                              .map((status) => (
+                                <div
+                                  key={status}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`status-${status}`}
+                                    checked={filterStatus.includes(status)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterStatus([
+                                          ...filterStatus,
+                                          status,
+                                        ]);
+                                      } else {
+                                        setFilterStatus(
+                                          filterStatus.filter(
+                                            (f) => f !== status
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`status-${status}`}
+                                    className="text-sm"
+                                  >
+                                    {status}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            aria-label="Filter Dibuat Oleh"
+                          >
+                            Dibuat Oleh <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari pembuat..."
+                            value={dibuatOlehSearchTerm}
+                            onChange={(e) =>
+                              setDibuatOlehSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-48 overflow-y-auto space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="select-all-dibuatOleh"
+                                checked={
+                                  filterDibuatOleh.length ===
+                                    uniqueDibuatOleh.length &&
+                                  uniqueDibuatOleh.length > 0
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setFilterDibuatOleh([...uniqueDibuatOleh]);
+                                  } else {
+                                    setFilterDibuatOleh([]);
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor="select-all-dibuatOleh"
+                                className="text-sm"
+                              >
+                                Pilih Semua
+                              </Label>
+                            </div>
+                            {uniqueDibuatOleh
+                              .filter((dibuatOleh) =>
+                                dibuatOleh
+                                  .toLowerCase()
+                                  .includes(dibuatOlehSearchTerm.toLowerCase())
+                              )
+                              .map((dibuatOleh) => (
+                                <div
+                                  key={dibuatOleh}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`dibuatOleh-${dibuatOleh}`}
+                                    checked={filterDibuatOleh.includes(
+                                      dibuatOleh
+                                    )}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterDibuatOleh([
+                                          ...filterDibuatOleh,
+                                          dibuatOleh,
+                                        ]);
+                                      } else {
+                                        setFilterDibuatOleh(
+                                          filterDibuatOleh.filter(
+                                            (f) => f !== dibuatOleh
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`dibuatOleh-${dibuatOleh}`}
+                                    className="text-sm"
+                                  >
+                                    {dibuatOleh}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead className="w-24">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.map((pr) => {
+                    // Include all items without filtering by jumlah
+                    const validItems = pr.items || [];
+                    if (validItems.length === 0) return null; // Skip PR if no items
+
+                    return (
+                      <React.Fragment key={pr.id}>
+                        {/* Main row with first item */}
+                        <TableRow>
+                          <TableCell rowSpan={validItems.length}>
+                            {/* Checkbox per baris */}
+                            <Checkbox
+                              checked={selectedPRs.includes(pr.id)}
+                              onCheckedChange={(checked) =>
+                                handleSelectPR(pr.id, checked as boolean)
+                              }
+                              style={{
+                                boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
+                                border: "1.5px solid #bbb",
+                                borderRadius: 4,
+                              }}
+                              className="focus:ring-2 focus:ring-primary"
+                            />
+                          </TableCell>
+                          <TableCell
+                            className="font-medium"
+                            rowSpan={validItems.length}
+                          >
+                            {pr.noPR}
+                          </TableCell>
+                          <TableCell rowSpan={validItems.length}>
+                            {pr.tanggalPR}
+                          </TableCell>
+                          <TableCell>{validItems[0]?.namaBarang}</TableCell>
+                          <TableCell>
+                            {getQtyPR(pr, validItems[0], poData)}
+                          </TableCell>
+                          <TableCell>
+                            {validItems[0]?.quantityAwalPR ??
+                              validItems[0]?.jumlah}
+                          </TableCell>
+                          <TableCell>{validItems[0]?.satuan}</TableCell>
+                          <TableCell>
+                            <div
+                              className="text-sm text-muted-foreground max-w-xs truncate"
+                              title={validItems[0]?.keterangan}
+                            >
+                              {validItems[0]?.keterangan}
+                            </div>
+                          </TableCell>
+                          <TableCell rowSpan={validItems.length}>
+                            {getUrgensiBadge(pr.urgensi)}
+                          </TableCell>
+                          <TableCell rowSpan={validItems.length}>
+                            {pr.divisi}
+                          </TableCell>
+                          <TableCell rowSpan={validItems.length}>
+                            {getStatusBadge(pr.status)}
+                          </TableCell>
+                          <TableCell rowSpan={validItems.length}>
+                            {pr.dibuatOleh}
+                          </TableCell>
+                          <TableCell rowSpan={validItems.length}>
+                            <div className="flex space-x-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleEdit(pr)}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDelete(pr.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+
+                        {/* Additional rows for remaining items */}
+                        {validItems.slice(1).map((item, index) => (
+                          <TableRow key={`${pr.id}-item-${index + 1}`}>
+                            <TableCell>{item.namaBarang}</TableCell>
+                            <TableCell>{getQtyPR(pr, item, poData)}</TableCell>
+                            <TableCell>
+                              {item.quantityAwalPR ?? item.jumlah}
+                            </TableCell>
+                            <TableCell>{item.satuan}</TableCell>
+                            <TableCell>
+                              <div
+                                className="text-sm text-muted-foreground max-w-xs truncate"
+                                title={item.keterangan}
+                              >
+                                {item.keterangan}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+          <Pagination className="mt-4">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  className={
+                    currentPage === 1 ? "pointer-events-none opacity-50" : ""
+                  }
+                />
+              </PaginationItem>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                )
+              )}
+              <PaginationItem>
+                <PaginationNext
+                  onClick={() =>
+                    setCurrentPage(Math.min(totalPages, currentPage + 1))
+                  }
+                  className={
+                    currentPage === totalPages
+                      ? "pointer-events-none opacity-50"
+                      : ""
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </Card>
+      </div>
+    </MainLayout>
+  );
+}
