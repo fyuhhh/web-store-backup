@@ -26,6 +26,10 @@ import { type PRData, initializeDummyData } from "@/lib/dummy-data";
 
 export default function InputBaruPRPage() {
   const [prData, setPrData] = useState<PRData[]>([]);
+  const [notif, setNotif] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -109,7 +113,8 @@ export default function InputBaruPRPage() {
       !formData.divisi ||
       !formData.urgensi
     ) {
-      alert("Semua field harus diisi");
+      setNotif({ type: "error", message: "Semua field harus diisi" });
+      setTimeout(() => setNotif(null), 2500);
       return;
     }
 
@@ -119,7 +124,11 @@ export default function InputBaruPRPage() {
     );
 
     if (validItems.length === 0) {
-      alert("Minimal satu item harus diisi dengan lengkap");
+      setNotif({
+        type: "error",
+        message: "Minimal satu item harus diisi dengan lengkap",
+      });
+      setTimeout(() => setNotif(null), 2500);
       return;
     }
 
@@ -145,9 +154,20 @@ export default function InputBaruPRPage() {
       createdAt: new Date().toISOString(),
     };
 
+    // Cek No PR unik
+    if (prData.some((pr) => pr.noPR === formData.noPR)) {
+      setNotif({
+        type: "error",
+        message: "No PR sudah pernah digunakan, gunakan nomor lain!",
+      });
+      setTimeout(() => setNotif(null), 2500);
+      return;
+    }
+
     savePRData([...prData, newPR]);
     resetForm();
-    alert("PR berhasil dibuat!");
+    setNotif({ type: "success", message: "PR berhasil dibuat!" });
+    setTimeout(() => setNotif(null), 2000);
   };
 
   const addItem = () => {
@@ -201,6 +221,21 @@ export default function InputBaruPRPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Notifikasi tengah layar */}
+        {notif && (
+          <div
+            className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
+              ${
+                notif.type === "success"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
+            style={{ minWidth: 280, maxWidth: 400 }}
+          >
+            {notif.message}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>

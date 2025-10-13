@@ -277,14 +277,21 @@ export default function InputPOPage() {
     };
   };
 
+  const [notif, setNotif] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
   const handleCreatePO = () => {
     if (!poFormData.supplier.trim()) {
-      alert("Supplier harus diisi!");
+      setNotif({ type: "error", message: "Supplier harus diisi!" });
+      setTimeout(() => setNotif(null), 2500);
       return;
     }
 
     if (poItems.length === 0) {
-      alert("Minimal satu item harus dipilih!");
+      setNotif({ type: "error", message: "Minimal satu item harus dipilih!" });
+      setTimeout(() => setNotif(null), 2500);
       return;
     }
 
@@ -366,9 +373,11 @@ export default function InputPOPage() {
     setPoItems([]);
     setDiscountBreakdown([]);
 
-    alert(`PO ${newPO.noPO} berhasil dibuat!`);
-    // Navigate back to status page or monitoring
-    window.location.href = "/po/status";
+    setNotif({ type: "success", message: `PO ${newPO.noPO} berhasil dibuat!` });
+    setTimeout(() => {
+      setNotif(null);
+      window.location.href = "/po/status";
+    }, 1800);
   };
 
   useEffect(() => {
@@ -458,6 +467,21 @@ export default function InputPOPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Notifikasi tengah layar */}
+        {notif && (
+          <div
+            className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
+              ${
+                notif.type === "success"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
+            style={{ minWidth: 280, maxWidth: 400 }}
+          >
+            {notif.message}
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>

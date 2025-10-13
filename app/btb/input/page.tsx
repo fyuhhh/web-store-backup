@@ -274,6 +274,12 @@ export default function BTBInputPage() {
       setTimeout(() => setNotif(null), 3000);
       return;
     }
+    // Validasi: No BTB dan Tanggal wajib diisi
+    if (!formData.noBTB || !formData.tanggal) {
+      setNotif({ type: "error", message: "No BTB dan Tanggal wajib diisi." });
+      setTimeout(() => setNotif(null), 2500);
+      return;
+    }
 
     // For each selected PO, create BTB for items with qty > 0
     const newBTBs: BTBData[] = [];
@@ -359,7 +365,10 @@ export default function BTBInputPage() {
     setPoData(updatedPOs);
 
     setNotif({ type: "success", message: "BTB berhasil disimpan!" });
-    setTimeout(() => setNotif(null), 1500);
+    setTimeout(() => {
+      setNotif(null);
+      // Redirect jika perlu
+    }, 1800);
 
     resetForm();
   };
@@ -665,14 +674,16 @@ export default function BTBInputPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Notifikasi */}
+        {/* Notifikasi tengah layar */}
         {notif && (
           <div
-            className={`mb-4 px-4 py-2 rounded ${
-              notif.type === "success"
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-            }`}
+            className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
+              ${
+                notif.type === "success"
+                  ? "bg-green-600 text-white"
+                  : "bg-red-600 text-white"
+              }`}
+            style={{ minWidth: 280, maxWidth: 400 }}
           >
             {notif.message}
           </div>
