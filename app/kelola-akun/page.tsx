@@ -25,7 +25,7 @@ export default function KelolaAkunPage() {
     password: "",
     role: "",
     division: "",
-    schema: "",
+    skema: "", // ganti schema -> skema
   });
   const [accounts, setAccounts] = useState<any[]>(() => {
     try {
@@ -34,6 +34,7 @@ export default function KelolaAkunPage() {
       return [];
     }
   });
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function KelolaAkunPage() {
         password: "superadminpentaewalk",
         role: "superadmin",
         division: undefined,
-        schema: undefined,
+        skema: undefined, // ganti schema -> skema
         createdAt: new Date().toISOString(),
       };
       const updated = [superadmin, ...accounts];
@@ -57,6 +58,40 @@ export default function KelolaAkunPage() {
     }
   }, []);
 
+  const handleEditAccount = (idx: number) => {
+    setEditingIndex(idx);
+    setForm({
+      username: accounts[idx].username,
+      password: accounts[idx].password,
+      role: accounts[idx].role,
+      division: accounts[idx].division || "",
+      skema: accounts[idx].skema || "",
+    });
+    setTab("buat");
+  };
+
+  const handleDeleteAccount = (idx: number) => {
+    if (
+      window.confirm(
+        "Yakin ingin menghapus akun ini? Data yang dihapus tidak dapat dikembalikan."
+      )
+    ) {
+      const updated = accounts.filter((_, i) => i !== idx);
+      setAccounts(updated);
+      localStorage.setItem("accounts", JSON.stringify(updated));
+      if (editingIndex === idx) {
+        setEditingIndex(null);
+        setForm({
+          username: "",
+          password: "",
+          role: "",
+          division: "",
+          skema: "",
+        });
+      }
+    }
+  };
+
   const handleCreateAccount = (e: React.FormEvent) => {
     e.preventDefault();
     if (
@@ -64,30 +99,50 @@ export default function KelolaAkunPage() {
       !form.password ||
       !form.role ||
       (form.role === "divisi" && !form.division) ||
-      !form.schema
+      !form.skema // ganti schema -> skema
     ) {
       alert("Mohon lengkapi semua field");
       return;
     }
-    const newAccount = {
-      username: form.username,
-      password: form.password,
-      role: form.role,
-      division: form.role === "divisi" ? form.division : undefined,
-      schema: form.schema,
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...accounts, newAccount];
-    setAccounts(updated);
-    localStorage.setItem("accounts", JSON.stringify(updated));
+    if (editingIndex !== null) {
+      // Edit mode
+      const updated = accounts.map((acc, idx) =>
+        idx === editingIndex
+          ? {
+              ...acc,
+              username: form.username,
+              password: form.password,
+              role: form.role,
+              division: form.role === "divisi" ? form.division : undefined,
+              skema: form.skema,
+            }
+          : acc
+      );
+      setAccounts(updated);
+      localStorage.setItem("accounts", JSON.stringify(updated));
+      setEditingIndex(null);
+      alert("Akun berhasil diupdate!");
+    } else {
+      const newAccount = {
+        username: form.username,
+        password: form.password,
+        role: form.role,
+        division: form.role === "divisi" ? form.division : undefined,
+        skema: form.skema, // ganti schema -> skema
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [...accounts, newAccount];
+      setAccounts(updated);
+      localStorage.setItem("accounts", JSON.stringify(updated));
+      alert("Akun berhasil dibuat!");
+    }
     setForm({
       username: "",
       password: "",
       role: "",
       division: "",
-      schema: "",
+      skema: "", // ganti schema -> skema
     });
-    alert("Akun berhasil dibuat!");
   };
 
   const handleLogout = () => {
@@ -96,21 +151,21 @@ export default function KelolaAkunPage() {
   };
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
+    <div className="p-8 max-w-4xl mx-auto">
       <div className="flex justify-end mb-4">
         <Button variant="outline" onClick={handleLogout}>
           Keluar
         </Button>
       </div>
-      <Card>
+      <Card className="shadow-lg border border-border rounded-xl bg-white mx-auto" style={{ maxWidth: "1300px" }}>
         <CardHeader>
           <CardTitle>Kelola Akun</CardTitle>
           <div className="mt-2">
             <Select value={tab} onValueChange={(v) => setTab(v as any)}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[200px] bg-white border border-border rounded-md">
                 <SelectValue placeholder="Pilih menu" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white border border-border rounded-md shadow-md">
                 <SelectItem value="buat">Buat Akun Baru</SelectItem>
                 <SelectItem value="monitoring">Monitoring Akun</SelectItem>
               </SelectContent>
@@ -184,8 +239,8 @@ export default function KelolaAkunPage() {
               <div>
                 <Label>Skema Database</Label>
                 <Select
-                  value={form.schema}
-                  onValueChange={(v) => setForm({ ...form, schema: v })}
+                  value={form.skema} // ganti schema -> skema
+                  onValueChange={(v) => setForm({ ...form, skema: v })}
                   required
                 >
                   <SelectTrigger>
@@ -201,41 +256,96 @@ export default function KelolaAkunPage() {
                 </Select>
               </div>
               <Button type="submit" className="bg-primary hover:bg-primary/90">
-                Buat Akun
+                {editingIndex !== null ? "Update Akun" : "Buat Akun"}
               </Button>
+              {editingIndex !== null && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="ml-2"
+                  onClick={() => {
+                    setEditingIndex(null);
+                    setForm({
+                      username: "",
+                      password: "",
+                      role: "",
+                      division: "",
+                      skema: "",
+                    });
+                  }}
+                >
+                  Batal Edit
+                </Button>
+              )}
             </form>
           )}
           {tab === "monitoring" && (
             <div>
               <h2 className="font-semibold mb-2">Daftar Akun</h2>
-              <table className="w-full border text-sm">
-                <thead>
-                  <tr>
-                    <th className="border px-2 py-1">Nama Pengguna</th>
-                    <th className="border px-2 py-1">Password</th>
-                    <th className="border px-2 py-1">Peran</th>
-                    <th className="border px-2 py-1">Divisi</th>
-                    <th className="border px-2 py-1">Skema</th>
-                    <th className="border px-2 py-1">Dibuat</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {accounts.map((acc, idx) => (
-                    <tr key={idx}>
-                      <td className="border px-2 py-1">{acc.username}</td>
-                      <td className="border px-2 py-1">{acc.password}</td>
-                      <td className="border px-2 py-1">{acc.role}</td>
-                      <td className="border px-2 py-1">
-                        {acc.division || "-"}
-                      </td>
-                      <td className="border px-2 py-1">{acc.schema}</td>
-                      <td className="border px-2 py-1">
-                        {acc.createdAt?.slice(0, 10)}
-                      </td>
+              <div className="w-full overflow-x-auto">
+                <table className="min-w-[1200px] w-full border-collapse rounded-lg shadow-sm mx-auto">
+                  <thead>
+                    <tr className="bg-muted/20">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[140px]">
+                        Nama Pengguna
+                      </th>
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[140px]">
+                        Password
+                      </th>
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                        Peran
+                      </th>
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                        Divisi
+                      </th>
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                        Skema
+                      </th>
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                        Dibuat
+                      </th>
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                        Aksi
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {accounts.map((acc, idx) => (
+                      <tr key={idx} className="hover:bg-muted/10 transition">
+                        <td className="border px-4 py-2">{acc.username}</td>
+                        <td className="border px-4 py-2">{acc.password}</td>
+                        <td className="border px-4 py-2">{acc.role}</td>
+                        <td className="border px-4 py-2">
+                          {acc.division || "-"}
+                        </td>
+                        <td className="border px-4 py-2">{acc.skema}</td>
+                        <td className="border px-4 py-2">
+                          {acc.createdAt?.slice(0, 10)}
+                        </td>
+                        <td className="border px-4 py-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditAccount(idx)}
+                            className="mr-2"
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteAccount(idx)}
+                            className="text-destructive"
+                            disabled={acc.username === "superadmin"}
+                          >
+                            Hapus
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </CardContent>

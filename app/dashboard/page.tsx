@@ -32,6 +32,7 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 // Dummy data for dashboard
 const kpiData = {
@@ -72,16 +73,6 @@ export default function DashboardPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Dashboard Monitoring
-          </h1>
-          <p className="text-muted-foreground">
-            Ringkasan aktivitas PR-PO-BTB-BKB
-          </p>
-        </div>
-
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="bg-card border-border">
@@ -355,3 +346,6 @@ export default function DashboardPage() {
     </MainLayout>
   );
 }
+
+// Jika ada filter data, pastikan menggunakan skema
+// Contoh: data.filter((d) => !userSkema || d.skema === userSkema)

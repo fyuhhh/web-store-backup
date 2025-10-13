@@ -47,7 +47,7 @@ import {
 
 import ExcelJS from "exceljs";
 
-// Kolom sesuai urutan permintaan
+// Kolom sesuai urutan permintaan, tambahkan skema di samping masing-masing kolom
 const columns = [
   { key: "tahunPR", label: "Tahun PR" },
   { key: "bulanPR", label: "Bulan PR" },
@@ -60,7 +60,8 @@ const columns = [
   { key: "satuanPR", label: "Satuan PR" },
   { key: "keteranganPR", label: "Keterangan PR" },
   { key: "divisi", label: "Divisi" },
-  { key: "dibuatOleh", label: "Dibuat Oleh" }, // Tambah di sini
+  { key: "dibuatOleh", label: "Dibuat Oleh" },
+  { key: "skemaPR", label: "Skema PR" }, // 1. Skema PR
   { key: "targetTanggalPO", label: "Target Tanggal PO" },
   { key: "delay", label: "Delay" },
   { key: "noPO", label: "No. PO" },
@@ -79,7 +80,8 @@ const columns = [
   { key: "kode", label: "Kode" },
   { key: "statusPengiriman", label: "Status Pengiriman" },
   { key: "supplier", label: "Supplier" },
-  { key: "diorderOleh", label: "Diorder Oleh" }, // Tambah di sini
+  { key: "diorderOleh", label: "Diorder Oleh" },
+  { key: "skemaPO", label: "Skema PO" }, // 2. Skema PO
   { key: "noBTB", label: "No. BTB" },
   { key: "tanggalBTB", label: "Tanggal BTB" },
   { key: "periodeBTB", label: "Periode" },
@@ -89,14 +91,16 @@ const columns = [
   { key: "quantityBTB", label: "Quantity BTB" },
   { key: "satuanBTB", label: "Satuan BTB" },
   { key: "biayaBTB", label: "Biaya BTB" },
-  { key: "diterimaOleh", label: "Diterima Oleh" }, // Tambah di sini
+  { key: "diterimaOleh", label: "Diterima Oleh" },
+  { key: "skemaBTB", label: "Skema BTB" }, // 3. Skema BTB
   { key: "noBKB", label: "No. BKB" },
   { key: "tanggalBKB", label: "Tanggal BKB" },
   { key: "namaBarangBKB", label: "Nama Barang BKB" },
   { key: "quantityBKB", label: "Quantity BKB" },
   { key: "satuanBKB", label: "Satuan BKB" },
   { key: "keteranganBKB", label: "Keterangan BKB" },
-  { key: "dikeluarkanOleh", label: "Dikeluarkan Oleh" }, // Tambah di sini
+  { key: "dikeluarkanOleh", label: "Dikeluarkan Oleh" },
+  { key: "skemaBKB", label: "Skema BKB" }, // 4. Skema BKB (modif kolom skema lama)
 ];
 
 function getMonthName(dateStr: string) {
@@ -208,6 +212,7 @@ export default function RekapFullPage() {
             ppnRp: "",
             totalHarga: "",
             dibuatOleh: pr.dibuatOleh,
+            skemaPR: pr.skema ?? "", // 1. Skema PR
             tanggalEstimasiDiterima: "",
             kode: "",
             statusPengiriman: "",
@@ -232,6 +237,7 @@ export default function RekapFullPage() {
             diorderOleh: "", // tetap kosong jika tidak ada PO
             diterimaOleh: "", // <-- kosong jika tidak ada BTB
             dikeluarkanOleh: "", // <-- kosong jika tidak ada BKB
+            skemaBKB: "", // 4. Skema BKB (modif kolom skema lama)
           });
         }
         // Untuk setiap PO terkait barang PR ini, buat baris rekap
@@ -306,6 +312,7 @@ export default function RekapFullPage() {
                     keteranganBKB: bkbItem.keterangan || bkb.keterangan || "",
                     dibuatOleh: bkb.dibuatOleh ?? "",
                     dikeluarkanOleh: bkb.dikeluarkanOleh ?? "", // <-- ambil dari monitoring BKB
+                    skemaBKB: bkb.skema ?? "",
                   };
                   break;
                 }
@@ -393,10 +400,12 @@ export default function RekapFullPage() {
             ppnRp: ppnRp, // <-- pastikan ambil dari ppnAmount atau hitung manual
             totalHarga: totalHarga,
             dibuatOleh: pr.dibuatOleh,
+            skemaPR: pr.skema ?? "",
             tanggalEstimasiDiterima: po.estimasiTanggalDiterima ?? "",
             kode: po.statusPermintaan ?? "",
             statusPengiriman: po.statusPengiriman ?? "",
             supplier: po.supplier ?? "",
+            skemaPO: po.skema ?? "",
             // Data BTB dari struktur monitoring BTB
             noBTB: btbMatch?.noBTB ?? "",
             tanggalBTB: btbMatch?.tanggal ?? "",
@@ -412,6 +421,7 @@ export default function RekapFullPage() {
                 : btbMatch?.biaya !== undefined && btbMatch?.biaya !== ""
                 ? formatRupiah(btbMatch.biaya)
                 : "",
+            skemaBTB: btbMatch?.skema ?? "",
             // Kolom BKB
             noBKB: bkbRow?.noBKB ?? "",
             tanggalBKB: bkbRow?.tanggalBKB ?? "",
@@ -422,6 +432,12 @@ export default function RekapFullPage() {
             diorderOleh: po.orderedBy ?? "", // <-- ambil dari monitoring PO, kolom kanan status
             diterimaOleh: btbMatch?.diterimaOleh ?? "", // <-- ambil dari monitoring BTB
             dikeluarkanOleh: bkbRow?.dikeluarkanOleh ?? "", // <-- ambil dari BKB, field dikeluarkanOleh
+            skemaBKB:
+              pr.skema ||
+              relatedPOs[0]?.skemaBKB ||
+              btbMatch?.skema ||
+              bkbRow?.skemaBKB ||
+              "", // <-- logic ambil skema
           });
         });
       });
@@ -441,6 +457,17 @@ export default function RekapFullPage() {
     }
   }, []);
 
+  // Ambil userSchema dari localStorage
+  const [userSchema, setUserSchema] = useState<string>("");
+  useEffect(() => {
+    const userRaw = localStorage.getItem("userData");
+    let schema = "";
+    try {
+      schema = userRaw ? JSON.parse(userRaw).schema ?? "" : "";
+    } catch {}
+    setUserSchema(schema);
+  }, []);
+
   // Unique values for dropdown filter
   const uniqueValues: { [key: string]: string[] } = {};
   columns.forEach((col) => {
@@ -456,6 +483,15 @@ export default function RekapFullPage() {
       if ((row.divisi ?? "").toLowerCase() !== userDivision.toLowerCase()) {
         return false;
       }
+    }
+    // Jika user punya schema dan bukan superadmin, filter sesuai skema
+    if (
+      userSchema &&
+      userRole !== "superadmin" &&
+      row.skemaBKB &&
+      row.skemaBKB !== userSchema
+    ) {
+      return false;
     }
     // Global search
     const matchesSearch =

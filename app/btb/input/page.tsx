@@ -135,6 +135,7 @@ export default function BTBInputPage() {
     diterimaOleh: "",
     poId: "",
     tanggalDiterima: "",
+    skema: "", // <-- tambah field skema
   });
 
   // Add: for BTB form, store array of items from selected PO(s)
@@ -165,10 +166,14 @@ export default function BTBInputPage() {
     message: string;
   } | null>(null);
 
+  const [userSchema, setUserSchema] = useState<string>("");
+
   useEffect(() => {
     loadData();
-    // Clear any previous selectedPOsForBTB on mount
     setSelectedPOsForBTB([]);
+    // Ambil skema user dari localStorage
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    setUserSchema(userData.schema || "");
   }, []);
 
   // Reset to page 1 when filters change
@@ -202,7 +207,12 @@ export default function BTBInputPage() {
     }
 
     if (storedBTB) {
-      setBtbData(JSON.parse(storedBTB));
+      // Pastikan semua BTB punya field skema
+      const btbArr = JSON.parse(storedBTB).map((btb: any) => ({
+        ...btb,
+        skema: btb.skema ?? "pentacity", // default jika belum ada
+      }));
+      setBtbData(btbArr);
     } else {
       // Initialize with dummy BTB data
       const dummyBTB: BTBData[] = [
@@ -221,6 +231,7 @@ export default function BTBInputPage() {
           poId: "PO-001",
           status: "Received",
           createdAt: new Date().toISOString(),
+          skema: "pentacity", // <-- tambah skema di dummy
         },
       ];
       localStorage.setItem("btbData", JSON.stringify(dummyBTB));
@@ -322,12 +333,13 @@ export default function BTBInputPage() {
           periode: formData.periode,
           supplier: po.supplier,
           kodeSupplier: `SUP-${po.id.split("-")[1]}`,
-          items: itemsWithQty, // <-- simpan array items
+          items: itemsWithQty,
           biaya: itemsWithQty.reduce((sum, i) => sum + i.biaya, 0),
           diterimaOleh: userData.username || formData.diterimaOleh,
           poId: po.id,
           status: "Draft",
           createdAt: new Date().toISOString(),
+          skema: userData.schema || formData.skema || "pentacity", // <-- simpan skema
         });
       }
 
@@ -358,6 +370,7 @@ export default function BTBInputPage() {
       diterimaOleh: "",
       poId: "",
       tanggalDiterima: "",
+      skema: "",
     });
     setShowForm(false);
     setEditingBTB(null);
@@ -385,6 +398,7 @@ export default function BTBInputPage() {
   };
 
   const handleBuatBTB = () => {
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     // Find selected PO objects
     const selectedPOObjects = poData.filter((po) =>
       selectedPOs.includes(po.id)
@@ -422,13 +436,14 @@ export default function BTBInputPage() {
       periode: "",
       supplier: firstPO.supplier,
       kodeSupplier: `SUP-${firstPO.id.split("-")[1]}`,
-      barang: "", // will be handled below
-      jumlah: "", // will be handled below
-      satuan: "", // will be handled below
+      barang: "",
+      jumlah: "",
+      satuan: "",
       biaya: firstPO.totalPembayaran.toString(),
       diterimaOleh: "",
       poId: firstPO.id,
       tanggalDiterima: "",
+      skema: userData.schema || "pentacity", // <-- otomatis isi skema
     });
   };
 
@@ -484,6 +499,7 @@ export default function BTBInputPage() {
 
   // Filter data untuk tabel PO (copy dari monitoring\page.tsx)
   const filteredPOData = poData
+    .filter((po) => !userSchema || po.skema === userSchema) // <-- filter by schema
     .map((po) => {
       let status = po.status || "Menunggu";
       return { ...po, status };
@@ -1633,6 +1649,12 @@ export default function BTBInputPage() {
                       placeholder="0"
                       required
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="skema">Skema</Label>
+                    <div className="min-h-[40px] flex items-center text-base font-semibold text-muted-foreground">
+                      {formData.skema}
+                    </div>
                   </div>
                 </div>
                 <div className="flex space-x-2 justify-end">

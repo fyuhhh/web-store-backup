@@ -36,11 +36,18 @@ export default function InputBaruPRPage() {
     items: [
       { id: "1", namaBarang: "", jumlah: "", satuan: "", keterangan: "" },
     ],
+    skema: "", // tambah field skema
   });
 
   useEffect(() => {
     initializeDummyData();
     loadPRData();
+    // Set skema otomatis dari userData
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    setFormData((prev) => ({
+      ...prev,
+      skema: userData.skema || "", // ganti schema -> skema
+    }));
   }, []);
 
   const loadPRData = () => {
@@ -115,6 +122,7 @@ export default function InputBaruPRPage() {
     const itemsWithNumbers = validItems.map((item) => ({
       ...item,
       jumlah: Number.parseInt(item.jumlah),
+      originalJumlah: Number.parseInt(item.jumlah),
       quantityAwalPR: Number.parseInt(item.jumlah), // set sekali dari input awal
     }));
 
@@ -128,6 +136,7 @@ export default function InputBaruPRPage() {
       urgensi: formData.urgensi as "Low" | "Medium" | "High",
       status: "Menunggu",
       dibuatOleh: userData.username || "Unknown",
+      skema: formData.skema, // simpan skema dari form
       createdAt: new Date().toISOString(),
     };
 
@@ -171,6 +180,7 @@ export default function InputBaruPRPage() {
   };
 
   const resetForm = () => {
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setFormData({
       noPR: "",
       tanggalPR: "",
@@ -179,6 +189,7 @@ export default function InputBaruPRPage() {
       items: [
         { id: "1", namaBarang: "", jumlah: "", satuan: "", keterangan: "" },
       ],
+      skema: userData.skema || "", // reset skema otomatis
     });
   };
 
@@ -302,7 +313,7 @@ export default function InputBaruPRPage() {
                 {formData.items.map((item, index) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border rounded-lg"
+                    className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border rounded-lg min-w-[900px]"
                   >
                     <div className="md:col-span-5">
                       <Label htmlFor={`namaBarang-${item.id}`}>
@@ -381,6 +392,18 @@ export default function InputBaruPRPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Skema Section */}
+              <div>
+                <Label htmlFor="skema">Skema</Label>
+                <Input
+                  id="skema"
+                  value={formData.skema}
+                  readOnly
+                  disabled
+                  className="bg-gray-100"
+                />
               </div>
 
               <div className="flex space-x-2">

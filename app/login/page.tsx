@@ -32,7 +32,7 @@ export default function LoginPage() {
         password: "superadminpentaewalk",
         role: "superadmin",
         division: undefined,
-        schema: undefined,
+        skema: undefined, // ganti schema -> skema
         createdAt: new Date().toISOString(),
       };
       const updated = [superadmin, ...accounts];
@@ -66,7 +66,7 @@ export default function LoginPage() {
       username: user.username,
       role: user.role,
       division: user.division,
-      schema: user.schema,
+      skema: user.skema, // ganti schema -> skema
       loginTime: new Date().toISOString(),
     };
     localStorage.setItem("userData", JSON.stringify(userData));

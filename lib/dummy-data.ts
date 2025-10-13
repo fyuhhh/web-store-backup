@@ -4,6 +4,7 @@ export interface PRItem {
   namaBarang: string;
   jumlah: number;
   originalJumlah: number; // Original quantity from first input
+  quantityAwalPR: number; // Initial PR quantity
   satuan: string;
   keterangan?: string; // Item-specific description
 }
@@ -27,6 +28,7 @@ export interface PRData {
     | "Telah Selesai";
   createdAt: string;
   keterangan?: string;
+  skema?: string;
 }
 
 export interface POData {
@@ -60,6 +62,7 @@ export interface POData {
     | "Gantung"
     | "Telah dibuat BTB";
   keterangan?: string;
+  skema?: string;
   createdAt: string;
 }
 
@@ -188,6 +191,7 @@ export const generateDummyPRData = (): PRData[] => {
         namaBarang: "Barang A",
         jumlah: 10,
         originalJumlah: 10,
+        quantityAwalPR: 10,
         satuan: "pcs",
         keterangan: "Test item A",
       },
@@ -196,6 +200,7 @@ export const generateDummyPRData = (): PRData[] => {
         namaBarang: "Barang B",
         jumlah: 15,
         originalJumlah: 15,
+        quantityAwalPR: 15,
         satuan: "pcs",
         keterangan: "Test item B",
       },
@@ -204,6 +209,7 @@ export const generateDummyPRData = (): PRData[] => {
         namaBarang: "Barang C",
         jumlah: 10,
         originalJumlah: 10,
+        quantityAwalPR: 10,
         satuan: "pcs",
         keterangan: "Test item C",
       },
@@ -235,6 +241,7 @@ export const generateDummyPRData = (): PRData[] => {
         namaBarang: barang[Math.floor(Math.random() * barang.length)],
         jumlah,
         originalJumlah: jumlah,
+        quantityAwalPR: jumlah,
         satuan: satuan[Math.floor(Math.random() * satuan.length)],
         keterangan,
       });

@@ -66,19 +66,25 @@ export default function InputPOPage() {
     ppn: "11",
     statusPengiriman: "",
     statusPermintaan: "",
+    skema: "", // <-- add skema field
   });
+
+  const [userSkema, setUserSkema] = useState("");
 
   // State for PO items with pricing
   const [poItems, setPoItems] = useState<
     Array<{
       prId: string;
       noPR: string;
+      skema: string;
       items: Array<
         PRItem & {
           hargaSatuan: number;
           jumlahPO: number;
           jumlahAsli: number;
           diskonItem: number;
+          skema: string;
+          dibuatOleh: string;
         }
       >;
     }>
@@ -125,6 +131,7 @@ export default function InputPOPage() {
 
   // Filtered PO items
   const filteredPOItems = poItems
+    .filter((poItem) => !userSkema || poItem.skema === userSkema) // <-- filter by skema
     .map((poItem) => ({
       ...poItem,
       items: poItem.items.filter((item) => {
@@ -284,9 +291,9 @@ export default function InputPOPage() {
     const calculations = calculateTotal();
 
     // Create new PO
-    const userDataString = localStorage.getItem("userData");
-    const userData = userDataString ? JSON.parse(userDataString) : null;
-    const orderedByUser = userData?.username || "Admin";
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    const orderedByUser = userData.username || "Admin";
+    // const userSchema = userData.schema || poFormData.skema || ""; // use state
 
     const newPO: POData = {
       id: `PO-${Date.now()}`,
@@ -296,7 +303,7 @@ export default function InputPOPage() {
       diskon: calculations.totalDiscount.toString(),
       originalDiskon: poFormData.diskon,
       ppn: parseFloat(poFormData.ppn),
-      ppnAmount: calculations.ppnAmount, // <-- add this field
+      ppnAmount: calculations.ppnAmount,
       totalPembayaran: calculations.totalPayment,
       orderedBy: orderedByUser,
       estimasiTanggalDiterima: poFormData.estimasiTanggalDiterima,
@@ -306,6 +313,7 @@ export default function InputPOPage() {
       poItems: poItems,
       status: "Menunggu",
       createdAt: new Date().toISOString(),
+      skema: userSkema, // simpan skema dari userData.skema
     };
 
     // Save new PO
@@ -353,6 +361,7 @@ export default function InputPOPage() {
       ppn: "11",
       statusPengiriman: "",
       statusPermintaan: "",
+      skema: userSkema, // reset skema dari userData.skema
     });
     setPoItems([]);
     setDiscountBreakdown([]);
@@ -364,6 +373,14 @@ export default function InputPOPage() {
 
   useEffect(() => {
     loadData();
+    // Ambil skema dari userData.schema (bukan skema)
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    const userSkemaVal = userData.skema || "";
+    setUserSkema(userSkemaVal);
+    setPoFormData((prev) => ({
+      ...prev,
+      skema: userSkemaVal,
+    }));
     // Check if there are selected PRs from status page
     const selectedFromStatus = localStorage.getItem("selectedPRsForPO");
     if (selectedFromStatus) {
@@ -376,6 +393,7 @@ export default function InputPOPage() {
           ...prev,
           noPO: `PO/2024/${String(poData.length + 1).padStart(3, "0")}`,
           tanggalPO: new Date().toISOString().split("T")[0],
+          skema: userSkemaVal, // pastikan skema diambil dari userData.schema
         }));
 
         // Set PO items with individual pricing
@@ -383,11 +401,15 @@ export default function InputPOPage() {
           selectedPRData.map((pr: any) => ({
             prId: pr.id,
             noPR: pr.noPR,
+            skema: pr.skema || "",
             items: pr.items.map((item: any) => ({
               ...item,
               hargaSatuan: 0, // Will be set by user
               jumlahPO: 0, // Default to 0
               jumlahAsli: item.jumlah, // Store original quantity for validation
+              diskonItem: 0,
+              skema: pr.skema || "",
+              dibuatOleh: pr.dibuatOleh || "",
             })),
           }))
         );
@@ -608,10 +630,10 @@ export default function InputPOPage() {
                         })
                       }
                     >
-                      <SelectTrigger className="border-border focus:border-primary/50">
+                      <SelectTrigger className="border-border focus:border-primary/50 bg-white">
                         <SelectValue placeholder="Pilih status pengiriman" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white">
                         <SelectItem value="Fabrikasi">Fabrikasi</SelectItem>
                         <SelectItem value="Indent Part">Indent Part</SelectItem>
                         <SelectItem value="Schedule">Schedule</SelectItem>
@@ -636,10 +658,10 @@ export default function InputPOPage() {
                         })
                       }
                     >
-                      <SelectTrigger className="border-border focus:border-primary/50">
+                      <SelectTrigger className="border-border focus:border-primary/50 bg-white">
                         <SelectValue placeholder="Pilih kode" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-white">
                         <SelectItem value="FAB">FAB</SelectItem>
                         <SelectItem value="IND">IND</SelectItem>
                         <SelectItem value="SC">SC</SelectItem>
@@ -648,6 +670,22 @@ export default function InputPOPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="skema"
+                    className="text-sm font-medium text-muted-foreground"
+                  >
+                    Skema
+                  </Label>
+                  <Input
+                    id="skema"
+                    value={poFormData.skema}
+                    readOnly
+                    disabled
+                    className="border-border focus:border-primary/50 bg-muted"
+                  />
                 </div>
               </div>
 
@@ -955,6 +993,9 @@ export default function InputPOPage() {
                               </PopoverContent>
                             </Popover>
                           </TableHead>
+                          <TableHead className="w-32">Dibuat Oleh</TableHead>
+                          <TableHead className="w-32">Skema</TableHead>{" "}
+                          {/* <-- add Skema column */}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1064,6 +1105,9 @@ export default function InputPOPage() {
                                 placeholder="Masukkan keterangan"
                               />
                             </TableCell>
+                            <TableCell>{item.dibuatOleh}</TableCell>
+                            <TableCell>{item.skema}</TableCell>{" "}
+                            {/* <-- show skema value */}
                           </TableRow>
                         ))}
                       </TableBody>

@@ -76,12 +76,16 @@ export default function MonitoringBKBPage() {
   const [filterDikeluarkanOleh, setFilterDikeluarkanOleh] = useState<string[]>(
     []
   );
+  const [userSchema, setUserSchema] = useState<string>("");
 
   useEffect(() => {
     const storedBKB = localStorage.getItem("bkbData");
     if (storedBKB) setBkbData(JSON.parse(storedBKB));
     const storedBTB = localStorage.getItem("btbData");
     if (storedBTB) setBtbData(JSON.parse(storedBTB));
+
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    setUserSchema(userData.schema || "");
   }, []);
 
   // Helper: get BTB reference (No BTB) for a given btbId
@@ -143,97 +147,100 @@ export default function MonitoringBKBPage() {
   ).sort();
 
   // Filtered data
-  const filteredBKB = bkbData.filter((bkb) => {
-    // Filter tanggal
-    const tanggal = bkb.tanggal || "";
-    const inTanggalRange =
-      (!filterTanggalMulai || tanggal >= filterTanggalMulai) &&
-      (!filterTanggalAkhir || tanggal <= filterTanggalAkhir);
+  const filteredBKB = bkbData
+    .filter((bkb) => !userSchema || bkb.skema === userSchema) // <-- filter by schema
+    .filter((bkb) => {
+      // Filter tanggal
+      const tanggal = bkb.tanggal || "";
+      const inTanggalRange =
+        (!filterTanggalMulai || tanggal >= filterTanggalMulai) &&
+        (!filterTanggalAkhir || tanggal <= filterTanggalAkhir);
 
-    // Filter No BKB
-    const matchNoBKB =
-      (filterNoBKB.length === 0 || filterNoBKB.includes(bkb.noBKB)) &&
-      (!searchNoBKB ||
-        bkb.noBKB?.toLowerCase().includes(searchNoBKB.toLowerCase()));
+      // Filter No BKB
+      const matchNoBKB =
+        (filterNoBKB.length === 0 || filterNoBKB.includes(bkb.noBKB)) &&
+        (!searchNoBKB ||
+          bkb.noBKB?.toLowerCase().includes(searchNoBKB.toLowerCase()));
 
-    // Filter Tanggal BKB
-    const tanggalBKBVal = bkb.tanggalBKB || bkb.tanggal || "";
-    const matchTanggalBKB =
-      filterTanggalBKB.length === 0 || filterTanggalBKB.includes(tanggalBKBVal);
+      // Filter Tanggal BKB
+      const tanggalBKBVal = bkb.tanggalBKB || bkb.tanggal || "";
+      const matchTanggalBKB =
+        filterTanggalBKB.length === 0 ||
+        filterTanggalBKB.includes(tanggalBKBVal);
 
-    // Filter Nama Barang
-    const items =
-      Array.isArray(bkb.items) && bkb.items.length > 0
-        ? bkb.items
-        : Array.isArray(bkb.barang)
-        ? bkb.barang
-        : bkb.barang
-        ? [
-            {
-              barang: bkb.barang,
-              jumlah: bkb.jumlah,
-              satuan: bkb.satuan,
-              keterangan: bkb.keterangan,
-              btbId: bkb.btbId,
-            },
-          ]
-        : [];
-    const matchNamaBarang =
-      filterNamaBarang.length === 0 ||
-      items.some((item: any) =>
-        filterNamaBarang.includes(String(item.barang || ""))
+      // Filter Nama Barang
+      const items =
+        Array.isArray(bkb.items) && bkb.items.length > 0
+          ? bkb.items
+          : Array.isArray(bkb.barang)
+          ? bkb.barang
+          : bkb.barang
+          ? [
+              {
+                barang: bkb.barang,
+                jumlah: bkb.jumlah,
+                satuan: bkb.satuan,
+                keterangan: bkb.keterangan,
+                btbId: bkb.btbId,
+              },
+            ]
+          : [];
+      const matchNamaBarang =
+        filterNamaBarang.length === 0 ||
+        items.some((item: any) =>
+          filterNamaBarang.includes(String(item.barang || ""))
+        );
+
+      // Filter Quantity
+      const matchQuantity =
+        filterQuantity.length === 0 ||
+        items.some((item: any) =>
+          filterQuantity.includes(String(item.jumlah || ""))
+        );
+
+      // Filter satuan
+      const matchSatuan =
+        !searchSatuan ||
+        items.some((item: any) =>
+          (item.satuan ?? "").toLowerCase().includes(searchSatuan.toLowerCase())
+        );
+
+      // Filter keterangan
+      const matchKeterangan =
+        !searchKeterangan ||
+        items.some((item: any) =>
+          (item.keterangan ?? "")
+            .toLowerCase()
+            .includes(searchKeterangan.toLowerCase())
+        );
+
+      // Filter No BTB (asal BTB)
+      const matchNoBTB =
+        !searchNoBTB ||
+        (bkb.btbId &&
+          bkb.btbId
+            .split(",")
+            .some((id) =>
+              getNoBTB(id).toLowerCase().includes(searchNoBTB.toLowerCase())
+            ));
+
+      // Filter Di Keluarkan Oleh
+      const matchDikeluarkanOleh =
+        filterDikeluarkanOleh.length === 0 ||
+        filterDikeluarkanOleh.includes(bkb.dikeluarkanOleh || "");
+
+      return (
+        inTanggalRange &&
+        matchNoBKB &&
+        matchTanggalBKB &&
+        matchNoBTB &&
+        matchNamaBarang &&
+        matchQuantity &&
+        matchSatuan &&
+        matchKeterangan &&
+        matchDikeluarkanOleh
       );
-
-    // Filter Quantity
-    const matchQuantity =
-      filterQuantity.length === 0 ||
-      items.some((item: any) =>
-        filterQuantity.includes(String(item.jumlah || ""))
-      );
-
-    // Filter satuan
-    const matchSatuan =
-      !searchSatuan ||
-      items.some((item: any) =>
-        (item.satuan ?? "").toLowerCase().includes(searchSatuan.toLowerCase())
-      );
-
-    // Filter keterangan
-    const matchKeterangan =
-      !searchKeterangan ||
-      items.some((item: any) =>
-        (item.keterangan ?? "")
-          .toLowerCase()
-          .includes(searchKeterangan.toLowerCase())
-      );
-
-    // Filter No BTB (asal BTB)
-    const matchNoBTB =
-      !searchNoBTB ||
-      (bkb.btbId &&
-        bkb.btbId
-          .split(",")
-          .some((id) =>
-            getNoBTB(id).toLowerCase().includes(searchNoBTB.toLowerCase())
-          ));
-
-    // Filter Di Keluarkan Oleh
-    const matchDikeluarkanOleh =
-      filterDikeluarkanOleh.length === 0 ||
-      filterDikeluarkanOleh.includes(bkb.dikeluarkanOleh || "");
-
-    return (
-      inTanggalRange &&
-      matchNoBKB &&
-      matchTanggalBKB &&
-      matchNoBTB &&
-      matchNamaBarang &&
-      matchQuantity &&
-      matchSatuan &&
-      matchKeterangan &&
-      matchDikeluarkanOleh
-    );
-  });
+    });
 
   // Pagination logic
   const totalPages = Math.ceil(filteredBKB.length / itemsPerPage);
@@ -274,6 +281,7 @@ export default function MonitoringBKBPage() {
       "Keterangan",
       "Asal BTB",
       "Di Keluarkan Oleh",
+      "Skema", // <-- kolom baru
     ];
     worksheet.addRow(headers).eachCell((cell) => {
       cell.font = { bold: true };
@@ -314,6 +322,7 @@ export default function MonitoringBKBPage() {
           item.keterangan ?? "",
           getNoBTB(item.btbId ?? bkb.btbId),
           idx === 0 ? bkb.dikeluarkanOleh : "",
+          idx === 0 ? bkb.skema : "", // <-- kolom baru
         ]);
       });
     });
@@ -824,6 +833,10 @@ export default function MonitoringBKBPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
+                    {/* Skema */}
+                    <TableHead className="min-w-[140px] align-middle">
+                      Skema
+                    </TableHead>
                     {/* Aksi */}
                     <TableHead className="min-w-[90px] align-middle">
                       Aksi
@@ -930,6 +943,9 @@ export default function MonitoringBKBPage() {
                           )}
                           <TableCell className="align-middle">
                             {idx === 0 && bkb.dikeluarkanOleh}
+                          </TableCell>
+                          <TableCell className="align-middle">
+                            {idx === 0 && bkb.skema} {/* <-- kolom baru */}
                           </TableCell>
                           <TableCell className="align-middle">
                             {idx === 0 && (

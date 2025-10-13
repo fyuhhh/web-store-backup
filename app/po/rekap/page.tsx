@@ -385,14 +385,14 @@ export default function RekapPOPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table className="border border-gray-300">
+            <div className="overflow-x-auto min-w-[1100px]">
+              <Table className="border border-gray-300 min-w-[1100px]">
                 <TableHeader>
                   <TableRow className="border-b border-gray-300">
-                    <TableHead className="px-4 py-2 text-left border-r border-gray-300 min-w-[120px]">
+                    <TableHead className="px-4 py-2 text-left border-r border-gray-300 min-w-[140px]">
                       No. PO
                     </TableHead>
-                    <TableHead className="px-4 py-2 text-left border-r border-gray-300 min-w-[120px]">
+                    <TableHead className="px-4 py-2 text-left border-r border-gray-300 min-w-[140px]">
                       Tanggal
                     </TableHead>
                     <TableHead className="px-4 py-2 text-left border-r border-gray-300 min-w-[140px]">

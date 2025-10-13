@@ -93,6 +93,7 @@ export default function BTBMonitoringPage() {
   );
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
+  const [userSchema, setUserSchema] = useState<string>("");
 
   useEffect(() => {
     loadData();
@@ -109,6 +110,11 @@ export default function BTBMonitoringPage() {
   useEffect(() => {
     const storedPO = localStorage.getItem("poData");
     if (storedPO) setPoData(JSON.parse(storedPO));
+  }, []);
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    setUserSchema(userData.schema || "");
   }, []);
 
   const loadData = () => {
@@ -162,89 +168,91 @@ export default function BTBMonitoringPage() {
   ).sort();
 
   // Filter data
-  const filteredBTBData = btbData.filter((btb) => {
-    // Cari barang di array items jika ada
-    const barangList =
-      btb.items && Array.isArray(btb.items)
-        ? btb.items.map((item: any) => item.barang?.toLowerCase() ?? "")
-        : [btb.barang?.toLowerCase() ?? ""];
+  const filteredBTBData = btbData
+    .filter((btb) => !userSchema || btb.skema === userSchema) // <-- filter by schema
+    .filter((btb) => {
+      // Cari barang di array items jika ada
+      const barangList =
+        btb.items && Array.isArray(btb.items)
+          ? btb.items.map((item: any) => item.barang?.toLowerCase() ?? "")
+          : [btb.barang?.toLowerCase() ?? ""];
 
-    const matchesSearch =
-      btb.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      btb.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      barangList.some((barang) => barang.includes(searchTerm.toLowerCase()));
+      const matchesSearch =
+        btb.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        btb.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        barangList.some((barang) => barang.includes(searchTerm.toLowerCase()));
 
-    const matchesStatus = !filterStatus || btb.status === filterStatus;
+      const matchesStatus = !filterStatus || btb.status === filterStatus;
 
-    // Filter barang (popover filter)
-    const matchesBarangSearch =
-      !barangSearchTerm ||
-      barangList.some((barang) =>
-        barang.includes(barangSearchTerm.toLowerCase())
+      // Filter barang (popover filter)
+      const matchesBarangSearch =
+        !barangSearchTerm ||
+        barangList.some((barang) =>
+          barang.includes(barangSearchTerm.toLowerCase())
+        );
+
+      // Filter supplier
+      const matchesSupplier =
+        filterSupplier.length === 0 || filterSupplier.includes(btb.supplier);
+
+      // Filter kode supplier
+      const matchesKodeSupplier =
+        filterKodeSupplier.length === 0 ||
+        filterKodeSupplier.includes(btb.kodeSupplier);
+
+      // Filter satuan
+      const satuanList =
+        btb.items && Array.isArray(btb.items)
+          ? btb.items.map((item: any) => item.satuan)
+          : [btb.satuan];
+      const matchesSatuan =
+        filterSatuan.length === 0 ||
+        satuanList.some((satuan) => filterSatuan.includes(satuan));
+
+      // Filter tanggal BTB
+      const matchesTanggalBTB =
+        filterTanggalBTB.length === 0 || filterTanggalBTB.includes(btb.tanggal);
+
+      // Filter periode
+      const matchesPeriode =
+        !filterPeriode ||
+        btb.periode === filterPeriode ||
+        btb.periode?.toLowerCase().includes(periodeSearchTerm.toLowerCase());
+
+      // Filter quantity
+      const qtyList =
+        btb.items && Array.isArray(btb.items)
+          ? btb.items.map((item: any) => item.jumlah)
+          : [btb.jumlah];
+      const matchesQtyMin =
+        filterQtyMin === "" ||
+        qtyList.some((qty) => Number(qty) >= Number(filterQtyMin));
+      const matchesQtyMax =
+        filterQtyMax === "" ||
+        qtyList.some((qty) => Number(qty) <= Number(filterQtyMax));
+
+      // Filter biaya
+      const biayaVal = Number(btb.biaya) || 0;
+      const matchesBiayaMin =
+        filterBiayaMin === "" || biayaVal >= Number(filterBiayaMin);
+      const matchesBiayaMax =
+        filterBiayaMax === "" || biayaVal <= Number(filterBiayaMax);
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesBarangSearch &&
+        matchesSupplier &&
+        matchesKodeSupplier &&
+        matchesSatuan &&
+        matchesPeriode &&
+        matchesTanggalBTB &&
+        matchesQtyMin &&
+        matchesQtyMax &&
+        matchesBiayaMin &&
+        matchesBiayaMax
       );
-
-    // Filter supplier
-    const matchesSupplier =
-      filterSupplier.length === 0 || filterSupplier.includes(btb.supplier);
-
-    // Filter kode supplier
-    const matchesKodeSupplier =
-      filterKodeSupplier.length === 0 ||
-      filterKodeSupplier.includes(btb.kodeSupplier);
-
-    // Filter satuan
-    const satuanList =
-      btb.items && Array.isArray(btb.items)
-        ? btb.items.map((item: any) => item.satuan)
-        : [btb.satuan];
-    const matchesSatuan =
-      filterSatuan.length === 0 ||
-      satuanList.some((satuan) => filterSatuan.includes(satuan));
-
-    // Filter tanggal BTB
-    const matchesTanggalBTB =
-      filterTanggalBTB.length === 0 || filterTanggalBTB.includes(btb.tanggal);
-
-    // Filter periode
-    const matchesPeriode =
-      !filterPeriode ||
-      btb.periode === filterPeriode ||
-      btb.periode?.toLowerCase().includes(periodeSearchTerm.toLowerCase());
-
-    // Filter quantity
-    const qtyList =
-      btb.items && Array.isArray(btb.items)
-        ? btb.items.map((item: any) => item.jumlah)
-        : [btb.jumlah];
-    const matchesQtyMin =
-      filterQtyMin === "" ||
-      qtyList.some((qty) => Number(qty) >= Number(filterQtyMin));
-    const matchesQtyMax =
-      filterQtyMax === "" ||
-      qtyList.some((qty) => Number(qty) <= Number(filterQtyMax));
-
-    // Filter biaya
-    const biayaVal = Number(btb.biaya) || 0;
-    const matchesBiayaMin =
-      filterBiayaMin === "" || biayaVal >= Number(filterBiayaMin);
-    const matchesBiayaMax =
-      filterBiayaMax === "" || biayaVal <= Number(filterBiayaMax);
-
-    return (
-      matchesSearch &&
-      matchesStatus &&
-      matchesBarangSearch &&
-      matchesSupplier &&
-      matchesKodeSupplier &&
-      matchesSatuan &&
-      matchesPeriode &&
-      matchesTanggalBTB &&
-      matchesQtyMin &&
-      matchesQtyMax &&
-      matchesBiayaMin &&
-      matchesBiayaMax
-    );
-  });
+    });
 
   // Filter data untuk export
   const getExportData = () => {
@@ -278,6 +286,7 @@ export default function BTBMonitoringPage() {
       "Satuan",
       "Biaya",
       "Diterima Oleh",
+      "Skema", // <-- Tambah header Skema
     ];
 
     // Add header row
@@ -310,6 +319,7 @@ export default function BTBMonitoringPage() {
             ? "Rp " + (btb.biaya?.toLocaleString?.("id-ID") ?? btb.biaya)
             : "",
           idx === 0 ? btb.diterimaOleh ?? "" : "",
+          idx === 0 ? btb.skema ?? "" : "", // <-- Tambah kolom Skema
         ]);
       });
     });
@@ -917,6 +927,10 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[120px]">
                       Diterima Oleh
                     </TableHead>
+                    {/* Skema */}
+                    <TableHead className="text-left min-w-[120px]">
+                      Skema
+                    </TableHead>
                     {/* Aksi */}
                     <TableHead className="text-left min-w-[90px]">
                       Aksi
@@ -1006,6 +1020,10 @@ export default function BTBMonitoringPage() {
                           </TableCell>
                           <TableCell className="px-4 py-2 text-left">
                             {idx === 0 ? btb.diterimaOleh ?? "" : ""}
+                          </TableCell>
+                          <TableCell className="px-4 py-2 text-left">
+                            {/* Kolom Skema tanpa Badge */}
+                            {btb.skema}
                           </TableCell>
                           <TableCell className="px-4 py-2 text-left">
                             {idx === 0 && (

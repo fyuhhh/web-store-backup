@@ -57,8 +57,10 @@ export default function BKBInputPage() {
     tanggalBKB: "",
     barang: [],
     keterangan: "",
+    skema: "", // <-- tambah field skema
   });
   const [userNick, setUserNick] = useState("");
+  const [userSchema, setUserSchema] = useState<string>("");
   const [notif, setNotif] = useState<{
     type: "success" | "error";
     message: string;
@@ -76,6 +78,11 @@ export default function BKBInputPage() {
       try {
         const user = JSON.parse(userRaw);
         setUserNick(user.nick ?? user.username ?? "");
+        setFormData((prev: any) => ({
+          ...prev,
+          skema: user.schema || "", // <-- set skema otomatis
+        }));
+        setUserSchema(user.schema || ""); // <-- set userSchema state
       } catch {}
     }
   }, []);
@@ -103,69 +110,71 @@ export default function BKBInputPage() {
     new Set(btbData.map((btb) => btb.tanggal).filter(Boolean))
   ).sort();
 
-  // Filtered data: hanya tampilkan BTB/items dengan stok > 0
-  const filteredBTBData = btbData.filter((btb) => {
-    const barangList =
-      btb.items && Array.isArray(btb.items)
-        ? btb.items.map((item: any) => item.barang?.toLowerCase() ?? "")
-        : [btb.barang?.toLowerCase() ?? ""];
-    const matchesSearch =
-      btb.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      btb.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      barangList.some((barang) => barang.includes(searchTerm.toLowerCase()));
-    const matchesBarangSearch =
-      !barangSearchTerm ||
-      barangList.some((barang) =>
-        barang.includes(barangSearchTerm.toLowerCase())
-      );
-    const matchesSupplier =
-      filterSupplier.length === 0 || filterSupplier.includes(btb.supplier);
-    const matchesKodeSupplier =
-      filterKodeSupplier.length === 0 ||
-      filterKodeSupplier.includes(btb.kodeSupplier);
-    const satuanList =
-      btb.items && Array.isArray(btb.items)
-        ? btb.items.map((item: any) => item.satuan)
-        : [btb.satuan];
-    const matchesSatuan =
-      filterSatuan.length === 0 ||
-      satuanList.some((satuan) => filterSatuan.includes(satuan));
-    const matchesTanggalBTB =
-      filterTanggalBTB.length === 0 || filterTanggalBTB.includes(btb.tanggal);
-    const matchesPeriode =
-      !filterPeriode ||
-      btb.periode === filterPeriode ||
-      btb.periode?.toLowerCase().includes(periodeSearchTerm.toLowerCase());
-    const qtyList =
-      btb.items && Array.isArray(btb.items)
-        ? btb.items.map((item: any) => item.jumlah)
-        : [btb.jumlah];
-    const matchesQtyMin =
-      filterQtyMin === "" ||
-      qtyList.some((qty) => Number(qty) >= Number(filterQtyMin));
-    const matchesQtyMax =
-      filterQtyMax === "" ||
-      qtyList.some((qty) => Number(qty) <= Number(filterQtyMax));
-    const biayaVal = Number(btb.biaya) || 0;
-    const matchesBiayaMin =
-      filterBiayaMin === "" || biayaVal >= Number(filterBiayaMin);
-    const matchesBiayaMax =
-      filterBiayaMax === "" || biayaVal <= Number(filterBiayaMax);
+  // Filtered data: hanya tampilkan BTB/items dengan stok > 0 dan skema sesuai user
+  const filteredBTBData = btbData
+    .filter((btb) => !userSchema || btb.skema === userSchema) // <-- filter by schema
+    .filter((btb) => {
+      const barangList =
+        btb.items && Array.isArray(btb.items)
+          ? btb.items.map((item: any) => item.barang?.toLowerCase() ?? "")
+          : [btb.barang?.toLowerCase() ?? ""];
+      const matchesSearch =
+        btb.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        btb.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        barangList.some((barang) => barang.includes(searchTerm.toLowerCase()));
+      const matchesBarangSearch =
+        !barangSearchTerm ||
+        barangList.some((barang) =>
+          barang.includes(barangSearchTerm.toLowerCase())
+        );
+      const matchesSupplier =
+        filterSupplier.length === 0 || filterSupplier.includes(btb.supplier);
+      const matchesKodeSupplier =
+        filterKodeSupplier.length === 0 ||
+        filterKodeSupplier.includes(btb.kodeSupplier);
+      const satuanList =
+        btb.items && Array.isArray(btb.items)
+          ? btb.items.map((item: any) => item.satuan)
+          : [btb.satuan];
+      const matchesSatuan =
+        filterSatuan.length === 0 ||
+        satuanList.some((satuan) => filterSatuan.includes(satuan));
+      const matchesTanggalBTB =
+        filterTanggalBTB.length === 0 || filterTanggalBTB.includes(btb.tanggal);
+      const matchesPeriode =
+        !filterPeriode ||
+        btb.periode === filterPeriode ||
+        btb.periode?.toLowerCase().includes(periodeSearchTerm.toLowerCase());
+      const qtyList =
+        btb.items && Array.isArray(btb.items)
+          ? btb.items.map((item: any) => item.jumlah)
+          : [btb.jumlah];
+      const matchesQtyMin =
+        filterQtyMin === "" ||
+        qtyList.some((qty) => Number(qty) >= Number(filterQtyMin));
+      const matchesQtyMax =
+        filterQtyMax === "" ||
+        qtyList.some((qty) => Number(qty) <= Number(filterQtyMax));
+      const biayaVal = Number(btb.biaya) || 0;
+      const matchesBiayaMin =
+        filterBiayaMin === "" || biayaVal >= Number(filterBiayaMin);
+      const matchesBiayaMax =
+        filterBiayaMax === "" || biayaVal <= Number(filterBiayaMax);
 
-    return (
-      matchesSearch &&
-      matchesBarangSearch &&
-      matchesSupplier &&
-      matchesKodeSupplier &&
-      matchesSatuan &&
-      matchesPeriode &&
-      matchesTanggalBTB &&
-      matchesQtyMin &&
-      matchesQtyMax &&
-      matchesBiayaMin &&
-      matchesBiayaMax
-    );
-  });
+      return (
+        matchesSearch &&
+        matchesBarangSearch &&
+        matchesSupplier &&
+        matchesKodeSupplier &&
+        matchesSatuan &&
+        matchesPeriode &&
+        matchesTanggalBTB &&
+        matchesQtyMin &&
+        matchesQtyMax &&
+        matchesBiayaMin &&
+        matchesBiayaMax
+      );
+    });
 
   // Ambil detail BTB terpilih
   const selectedBTB = btbData.filter((btb) => selectedBTBIds.includes(btb.id));
@@ -209,6 +218,7 @@ export default function BKBInputPage() {
     setFormData((prev: any) => ({
       ...prev,
       barang: selectedBarang,
+      // skema sudah otomatis dari useEffect
     }));
   };
 
@@ -256,6 +266,7 @@ export default function BKBInputPage() {
       createdAt: new Date().toISOString(),
       dibuatOleh: userNick,
       dikeluarkanOleh: userNick,
+      skema: formData.skema, // <-- simpan skema
     });
     localStorage.setItem("bkbData", JSON.stringify(bkbData));
 
@@ -367,6 +378,14 @@ export default function BKBInputPage() {
                   }
                   required
                   className="w-full"
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <Label>Skema</Label>
+                <Input
+                  value={formData.skema}
+                  readOnly
+                  className="w-full bg-muted/50 cursor-not-allowed"
                 />
               </div>
             </div>

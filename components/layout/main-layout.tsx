@@ -47,7 +47,13 @@ export function MainLayout({ children }: MainLayoutProps) {
                   Sistem Monitoring PR-PO-BTB-BKB
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Schema: {userData.schema} | Role: {userData.role}
+                  Schema:{" "}
+                  {userData.skema === "pentacity"
+                    ? "Pentacity"
+                    : userData.skema === "ewalk"
+                    ? "Ewalk"
+                    : userData.skema || "-"}{" "}
+                  | Role: {userData.role}
                 </p>
               </div>
               <div className="flex items-center space-x-4">

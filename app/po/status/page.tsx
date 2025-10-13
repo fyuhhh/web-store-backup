@@ -43,6 +43,7 @@ export default function StatusPOPage() {
   const [selectedPRsForProcess, setSelectedPRsForProcess] = useState<string[]>(
     []
   );
+  const [userSkema, setUserSkema] = useState<string>("");
 
   // Filter states for table columns
   const [filterNoPR, setFilterNoPR] = useState("");
@@ -65,6 +66,10 @@ export default function StatusPOPage() {
 
   useEffect(() => {
     loadData();
+    // Get schema from userData
+    const userDataString = localStorage.getItem("userData");
+    const userData = userDataString ? JSON.parse(userDataString) : null;
+    setUserSkema(userData?.skema || "");
   }, []);
 
   const loadData = () => {
@@ -254,9 +259,11 @@ export default function StatusPOPage() {
     );
   };
 
-  // Filter PRs that are ready to be processed (status "Menunggu" or "Gantung")
+  // Filter PRs that are ready to be processed (status "Menunggu" or "Gantung") AND match user schema
   const processedPRs = prData.filter(
-    (pr) => pr.status === "Menunggu" || pr.status === "Gantung"
+    (pr) =>
+      (pr.status === "Menunggu" || pr.status === "Gantung") &&
+      (!userSkema || pr.skema === userSkema)
   );
 
   // Filter processedPRs based on filters
@@ -399,11 +406,11 @@ export default function StatusPOPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
+            <div className="overflow-x-auto min-w-[1200px]">
+              <Table className="min-w-[1200px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">
+                    <TableHead className="w-16">
                       <Popover>
                         <PopoverTrigger asChild>
                           <span className="font-medium inline-block cursor-pointer">
@@ -470,334 +477,19 @@ export default function StatusPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="w-32">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>No. PR</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            <Input
-                              placeholder="Cari No. PR..."
-                              value={filterNoPR}
-                              onChange={(e) => setFilterNoPR(e.target.value)}
-                              className="w-full"
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="min-w-[140px]">No. PR</TableHead>
+                    <TableHead className="min-w-[140px]">Tanggal</TableHead>
+                    <TableHead className="min-w-[180px]">
+                      Daftar Barang
                     </TableHead>
-                    <TableHead className="w-32">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Tanggal</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            <Input
-                              placeholder="Cari Tanggal..."
-                              value={filterTanggal}
-                              onChange={(e) => setFilterTanggal(e.target.value)}
-                              className="w-full"
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-40">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Daftar Barang</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            <Input
-                              placeholder="Cari Daftar Barang..."
-                              value={filterDaftarBarang}
-                              onChange={(e) =>
-                                setFilterDaftarBarang(e.target.value)
-                              }
-                              className="w-full"
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-20">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Qty</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2 grid grid-cols-2 gap-2">
-                            <Input
-                              type="number"
-                              placeholder="Min"
-                              value={filterQtyMin}
-                              onChange={(e) =>
-                                setFilterQtyMin(
-                                  e.target.value === ""
-                                    ? ""
-                                    : Number(e.target.value)
-                                )
-                              }
-                            />
-                            <Input
-                              type="number"
-                              placeholder="Max"
-                              value={filterQtyMax}
-                              onChange={(e) =>
-                                setFilterQtyMax(
-                                  e.target.value === ""
-                                    ? ""
-                                    : Number(e.target.value)
-                                )
-                              }
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-24">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Satuan</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 max-h-48 overflow-y-auto bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            {Array.from(
-                              new Set(
-                                prData.flatMap((pr) =>
-                                  pr.items.map((item) => item.satuan)
-                                )
-                              )
-                            ).map((satuan) => (
-                              <div
-                                key={satuan}
-                                className="flex items-center space-x-2"
-                              >
-                                <Checkbox
-                                  id={`satuan-${satuan}`}
-                                  checked={filterSatuan.includes(satuan)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setFilterSatuan([
-                                        ...filterSatuan,
-                                        satuan,
-                                      ]);
-                                    } else {
-                                      setFilterSatuan(
-                                        filterSatuan.filter((s) => s !== satuan)
-                                      );
-                                    }
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`satuan-${satuan}`}
-                                  className="text-sm"
-                                >
-                                  {satuan}
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-40">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Keterangan</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            <Input
-                              placeholder="Cari Keterangan..."
-                              value={filterKeterangan}
-                              onChange={(e) =>
-                                setFilterKeterangan(e.target.value)
-                              }
-                              className="w-full"
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-24">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Urgensi</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 max-h-48 overflow-y-auto bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            {["Low", "Medium", "High"].map((urgensi) => (
-                              <div
-                                key={urgensi}
-                                className="flex items-center space-x-2"
-                              >
-                                <Checkbox
-                                  id={`urgensi-${urgensi}`}
-                                  checked={filterUrgensi.includes(urgensi)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setFilterUrgensi([
-                                        ...filterUrgensi,
-                                        urgensi,
-                                      ]);
-                                    } else {
-                                      setFilterUrgensi(
-                                        filterUrgensi.filter(
-                                          (u) => u !== urgensi
-                                        )
-                                      );
-                                    }
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`urgensi-${urgensi}`}
-                                  className="text-sm"
-                                >
-                                  {urgensi}
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-24">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Divisi</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 max-h-48 overflow-y-auto bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            {Array.from(
-                              new Set(prData.map((pr) => pr.divisi))
-                            ).map((divisi) => (
-                              <div
-                                key={divisi}
-                                className="flex items-center space-x-2"
-                              >
-                                <Checkbox
-                                  id={`divisi-${divisi}`}
-                                  checked={filterDivisi.includes(divisi)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setFilterDivisi([
-                                        ...filterDivisi,
-                                        divisi,
-                                      ]);
-                                    } else {
-                                      setFilterDivisi(
-                                        filterDivisi.filter((d) => d !== divisi)
-                                      );
-                                    }
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`divisi-${divisi}`}
-                                  className="text-sm"
-                                >
-                                  {divisi}
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-24">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Status</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 max-h-48 overflow-y-auto bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            {Array.from(
-                              new Set(prData.map((pr) => pr.status))
-                            ).map((status) => (
-                              <div
-                                key={status}
-                                className="flex items-center space-x-2"
-                              >
-                                <Checkbox
-                                  id={`status-${status}`}
-                                  checked={filterStatus.includes(status)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setFilterStatus([
-                                        ...filterStatus,
-                                        status,
-                                      ]);
-                                    } else {
-                                      setFilterStatus(
-                                        filterStatus.filter((s) => s !== status)
-                                      );
-                                    }
-                                  }}
-                                />
-                                <label
-                                  htmlFor={`status-${status}`}
-                                  className="text-sm"
-                                >
-                                  {status}
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    <TableHead className="w-32">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="font-medium flex items-center space-x-1">
-                            <span>Dibuat Oleh</span>
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            <Input
-                              placeholder="Cari Dibuat Oleh..."
-                              value={filterDibuatOleh}
-                              onChange={(e) =>
-                                setFilterDibuatOleh(e.target.value)
-                              }
-                              className="w-full"
-                            />
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
+                    <TableHead className="min-w-[90px]">Qty</TableHead>
+                    <TableHead className="min-w-[90px]">Satuan</TableHead>
+                    <TableHead className="min-w-[160px]">Keterangan</TableHead>
+                    <TableHead className="min-w-[100px]">Urgensi</TableHead>
+                    <TableHead className="min-w-[100px]">Divisi</TableHead>
+                    <TableHead className="min-w-[100px]">Status</TableHead>
+                    <TableHead className="min-w-[120px]">Dibuat Oleh</TableHead>
+                    <TableHead className="min-w-[120px]">Skema</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -856,6 +548,9 @@ export default function StatusPOPage() {
                           </TableCell>
                           <TableCell rowSpan={filteredItems.length}>
                             {pr.dibuatOleh}
+                          </TableCell>
+                          <TableCell rowSpan={filteredItems.length}>
+                            {pr.skema ?? ""} {/* <-- Show skema value */}
                           </TableCell>
                         </TableRow>
 
