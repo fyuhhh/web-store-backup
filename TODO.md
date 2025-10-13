@@ -1,0 +1,3 @@
+- [x] Fix skemaPR error in app/dashboard/rekap-full/page.tsx
+  - [x] Update no PO case in rekapRows.push to add skemaPO and skemaBTB fields
+  - [x] Update PO case in rekapRows.push to define skemaPR, add skemaPO, skemaBTB, and rename skema to skemaBKB
