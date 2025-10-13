@@ -157,7 +157,10 @@ export default function KelolaAkunPage() {
           Keluar
         </Button>
       </div>
-      <Card className="shadow-lg border border-border rounded-xl bg-white mx-auto" style={{ maxWidth: "1300px" }}>
+      <Card
+        className="shadow-lg border border-border rounded-xl bg-white mx-auto"
+        style={{ maxWidth: "1300px" }}
+      >
         <CardHeader>
           <CardTitle>Kelola Akun</CardTitle>
           <div className="mt-2">
