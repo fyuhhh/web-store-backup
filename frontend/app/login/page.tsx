@@ -41,15 +41,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Simpan userData ke localStorage
-      localStorage.setItem(
-        "userData",
-        JSON.stringify({
-          nama_pengguna: data.user.nama_pengguna,
-          password: data.user.password,
-          id_peran: data.user.id_peran,
-        })
-      );
+      // Simpan userData ke localStorage (simpan seluruh objek user)
+      localStorage.setItem("userData", JSON.stringify(data.user));
 
       // Redirect sesuai role/peran
       if (data.user.id_peran === 5) {

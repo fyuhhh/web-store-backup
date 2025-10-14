@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
-import userRoutes from "./routes/user.js";
+import userRoutes, { ensureSuperadmin } from "./routes/user.js";
 import divisiRoutes from "./routes/divisi.js";
 import peranRoutes from "./routes/peran.js";
 import skemaRoutes from "./routes/skema.js";
@@ -30,6 +30,11 @@ app.use((err, req, res, next) => {
   res
     .status(500)
     .json({ message: "Terjadi kesalahan server", error: err.message });
+});
+
+// Pastikan superadmin ada sebelum server listen
+ensureSuperadmin().catch((err) => {
+  console.error("Gagal membuat superadmin:", err);
 });
 
 // jalankan server

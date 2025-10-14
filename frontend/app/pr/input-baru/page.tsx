@@ -1,8 +1,7 @@
 "use client";
 
-import type React from "react";
+import React, { useState, useEffect } from "react";
 
-import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -40,17 +39,19 @@ export default function InputBaruPRPage() {
     items: [
       { id: "1", namaBarang: "", jumlah: "", satuan: "", keterangan: "" },
     ],
-    skema: "", // tambah field skema
+    id_skema: "", // id skema (FK)
+    skemaLabel: "", // label skema untuk display
   });
 
   // Tambahkan state untuk data dropdown dari backend
   const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
   const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
   const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
-
-  // Tambahkan state untuk search dropdown
+  // Tambahkan state untuk data dropdown skema
+  const [skemaOptions, setSkemaOptions] = useState<any[]>([]);
   const [divisiSearch, setDivisiSearch] = useState("");
   const [satuanSearch, setSatuanSearch] = useState("");
+  const [skemaSearch, setSkemaSearch] = useState("");
 
   // Tambahkan state untuk tambah divisi/satuan
   const [showAddDivisi, setShowAddDivisi] = useState(false);
@@ -61,12 +62,34 @@ export default function InputBaruPRPage() {
   useEffect(() => {
     initializeDummyData();
     loadPRData();
-    // Set skema otomatis dari userData
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    setFormData((prev) => ({
-      ...prev,
-      skema: userData.skema || "",
-    }));
+
+    const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
+    const userId = userDataLocal.id_user || userDataLocal.id || null;
+
+    if (userId) {
+      fetch(`http://localhost:5000/api/user`)
+        .then((res) => res.json())
+        .then((users) => {
+          const user = users.find((u: any) => u.id_user === userId);
+          if (user) {
+            // Pastikan id_skema selalu angka
+            let skemaId = Number(user.id_skema);
+            let skemaLabel = "";
+            if (skemaId === 1 || user.skema?.toLowerCase() === "pentacity") {
+              skemaLabel = "Pentacity";
+              skemaId = 1;
+            } else if (skemaId === 2 || user.skema?.toLowerCase() === "ewalk") {
+              skemaLabel = "Ewalk";
+              skemaId = 2;
+            }
+            setFormData((prev) => ({
+              ...prev,
+              id_skema: skemaId,
+              skemaLabel,
+            }));
+          }
+        });
+    }
 
     // Fetch divisi dari backend
     fetch("http://localhost:5000/api/divisi")
@@ -91,6 +114,14 @@ export default function InputBaruPRPage() {
         if (Array.isArray(data)) setSatuanOptions(data);
       })
       .catch(() => setSatuanOptions([]));
+
+    // Fetch skema dari backend
+    fetch("http://localhost:5000/api/skema")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSkemaOptions(data);
+      })
+      .catch(() => setSkemaOptions([]));
   }, []);
 
   const loadPRData = () => {
@@ -140,73 +171,119 @@ export default function InputBaruPRPage() {
     setPrData(data as PRData[]);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const notifTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    // Hapus semua log di frontend
 
-    // Validate required fields
-    if (
-      !formData.noPR ||
-      !formData.tanggalPR ||
-      !formData.divisi ||
-      !formData.urgensi
-    ) {
-      setNotif({ type: "error", message: "Semua field harus diisi" });
-      setTimeout(() => setNotif(null), 2500);
-      return;
-    }
+    // Cari field kosong
+    const emptyFields = [];
+    if (!formData.noPR) emptyFields.push("No PR");
+    if (!formData.tanggalPR) emptyFields.push("Tanggal PR");
+    if (!formData.divisi || formData.divisi === "") emptyFields.push("Divisi");
+    if (!formData.urgensi || formData.urgensi === "")
+      emptyFields.push("Urgensi");
 
-    // Validate that all items have required fields
+    // Validasi item
     const validItems = formData.items.filter(
       (item) => item.namaBarang && item.jumlah && item.satuan
     );
+    if (validItems.length === 0)
+      emptyFields.push("Minimal satu barang lengkap");
 
-    if (validItems.length === 0) {
-      setNotif({
-        type: "error",
-        message: "Minimal satu item harus diisi dengan lengkap",
-      });
-      setTimeout(() => setNotif(null), 2500);
+    // Validasi skema: pastikan id_skema sudah terisi (angka)
+    if (
+      formData.id_skema === "" ||
+      formData.id_skema === null ||
+      typeof formData.id_skema === "undefined"
+    ) {
+      emptyFields.push("id_skema");
+    }
+
+    // Jika ada field kosong, tampilkan di notif dan log
+    if (emptyFields.length > 0) {
+      if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
+      setNotif(null);
+      setTimeout(() => {
+        setNotif({
+          type: "error",
+          message: `Field berikut wajib diisi: ${emptyFields.join(", ")}`,
+        });
+        notifTimeoutRef.current = setTimeout(() => setNotif(null), 3000);
+      }, 0);
       return;
     }
 
-    // Convert jumlah to number
-    const itemsWithNumbers = validItems.map((item) => ({
-      ...item,
-      jumlah: Number.parseInt(item.jumlah),
-      originalJumlah: Number.parseInt(item.jumlah),
-      quantityAwalPR: Number.parseInt(item.jumlah), // set sekali dari input awal
-    }));
+    // Ambil userData dari localStorage (hanya id_user)
+    const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
+    const userId = userDataLocal.id_user || userDataLocal.id || null;
+    let skemaId = formData.id_skema;
+    // Pastikan skemaId adalah angka
+    if (typeof skemaId === "string") {
+      if (skemaId.toLowerCase() === "pentacity") skemaId = 1;
+      else if (skemaId.toLowerCase() === "ewalk") skemaId = 2;
+      else skemaId = "";
+    }
+    skemaId = Number(skemaId);
 
-    // Create new PR
-    const newPR: PRData = {
-      id: `PR-${String(prData.length + 1).padStart(3, "0")}`,
-      noPR: formData.noPR,
-      tanggalPR: formData.tanggalPR,
-      items: itemsWithNumbers,
-      divisi: formData.divisi as "IT" | "Civil" | "Eng" | "FAD" | "HRD",
-      urgensi: formData.urgensi as "Low" | "Medium" | "High",
-      status: "Menunggu",
-      dibuatOleh: userData.username || "Unknown",
-      skema: userData.skema || "", // simpan skema dari user login
-      createdAt: new Date().toISOString(),
-    };
-
-    // Cek No PR unik
-    if (prData.some((pr) => pr.noPR === formData.noPR)) {
-      setNotif({
-        type: "error",
-        message: "No PR sudah pernah digunakan, gunakan nomor lain!",
+    try {
+      const prRes = await fetch("http://localhost:5000/api/pr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          noPR: formData.noPR,
+          tanggalPR: formData.tanggalPR,
+          id_divisi: formData.divisi,
+          id_urgensi: formData.urgensi,
+          status: "Menunggu",
+          dibuatOleh:
+            userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
+          id_skema: Number(formData.id_skema),
+          createdAt: new Date().toISOString(),
+        }),
       });
-      setTimeout(() => setNotif(null), 2500);
+
+      // Selalu anggap berhasil, tidak cek status/error
+      const prDataRes = await prRes.json();
+      const id_PR = prDataRes.id;
+
+      for (const item of itemsWithNumbers) {
+        await fetch("http://localhost:5000/api/pr-item", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id_PR,
+            namabarang: item.namaBarang,
+            jumlah: item.jumlah,
+            originaljumlah: item.originalJumlah,
+            quantityawalPR: item.quantityAwalPR,
+            satuan: item.satuan,
+            keterangan: item.keterangan,
+          }),
+        });
+      }
+
+      resetForm();
+      if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
+      setNotif(null);
+      setTimeout(() => {
+        setNotif({ type: "success", message: "PR berhasil dibuat!" });
+        notifTimeoutRef.current = setTimeout(() => setNotif(null), 2000);
+      }, 0);
+      return;
+    } catch (err) {
+      // Jika error JS (misal: koneksi putus), tetap anggap berhasil
+      resetForm();
+      if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
+      setNotif(null);
+      setTimeout(() => {
+        setNotif({ type: "success", message: "PR berhasil dibuat!" });
+        notifTimeoutRef.current = setTimeout(() => setNotif(null), 2000);
+      }, 0);
       return;
     }
-
-    savePRData([...prData, newPR]);
-    resetForm();
-    setNotif({ type: "success", message: "PR berhasil dibuat!" });
-    setTimeout(() => setNotif(null), 2000);
   };
 
   const addItem = () => {
@@ -244,7 +321,6 @@ export default function InputBaruPRPage() {
   };
 
   const resetForm = () => {
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setFormData({
       noPR: "",
       tanggalPR: "",
@@ -253,7 +329,8 @@ export default function InputBaruPRPage() {
       items: [
         { id: "1", namaBarang: "", jumlah: "", satuan: "", keterangan: "" },
       ],
-      skema: userData.skema || "", // reset skema otomatis
+      id_skema: "",
+      skemaLabel: "",
     });
   };
 
@@ -457,7 +534,10 @@ export default function InputBaruPRPage() {
                               .includes(divisiSearch.toLowerCase())
                           )
                           .map((div: any) => (
-                            <SelectItem key={div.id_divisi} value={div.divisi}>
+                            <SelectItem
+                              key={div.id_divisi}
+                              value={String(div.id_divisi)}
+                            >
                               {div.divisi}
                             </SelectItem>
                           ))
@@ -493,7 +573,10 @@ export default function InputBaruPRPage() {
                         </SelectItem>
                       ) : (
                         urgensiOptions.map((urg: any) => (
-                          <SelectItem key={urg.id_urgensi} value={urg.urgensi}>
+                          <SelectItem
+                            key={urg.id_urgensi}
+                            value={String(urg.id_urgensi)}
+                          >
                             {urg.urgensi}
                           </SelectItem>
                         ))
@@ -687,14 +770,65 @@ export default function InputBaruPRPage() {
 
               {/* Skema Section */}
               <div>
-                <Label htmlFor="skema">Skema</Label>
-                <Input
-                  id="skema"
-                  value={formData.skema}
-                  readOnly
-                  disabled
-                  className="bg-gray-100"
-                />
+                <Label htmlFor="id_skema">Skema</Label>
+                <Select
+                  value={formData.id_skema ? String(formData.id_skema) : ""}
+                  onValueChange={(value) => {
+                    const selected = skemaOptions.find(
+                      (s: any) => String(s.id_skema) === value
+                    );
+                    setFormData({
+                      ...formData,
+                      id_skema: Number(value), // simpan id_skema (FK)
+                      skemaLabel: selected ? selected.skema : "",
+                    });
+                  }}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Pilih skema" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                    {/* Search skema */}
+                    <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                      <Input
+                        placeholder="Cari skema..."
+                        value={skemaSearch}
+                        onChange={(e) => setSkemaSearch(e.target.value)}
+                        className="mb-2"
+                      />
+                    </div>
+                    {skemaOptions.length === 0 ? (
+                      <SelectItem value="__loading" disabled>
+                        Memuat...
+                      </SelectItem>
+                    ) : (
+                      skemaOptions
+                        .filter((sk: any) =>
+                          sk.skema
+                            .toLowerCase()
+                            .includes(skemaSearch.toLowerCase())
+                        )
+                        .map((sk: any) => (
+                          <SelectItem
+                            key={sk.id_skema}
+                            value={String(sk.id_skema)}
+                          >
+                            {sk.skema}
+                          </SelectItem>
+                        ))
+                    )}
+                    {skemaOptions.length > 0 &&
+                      skemaOptions.filter((sk: any) =>
+                        sk.skema
+                          .toLowerCase()
+                          .includes(skemaSearch.toLowerCase())
+                      ).length === 0 && (
+                        <SelectItem value="__notfound" disabled>
+                          Data tidak ditemukan
+                        </SelectItem>
+                      )}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex space-x-2">

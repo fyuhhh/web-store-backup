@@ -149,9 +149,19 @@ export default function MonitoringPRPage() {
   const [userSchema, setUserSchema] = useState<string>("");
   const [userSkema, setUserSkema] = useState<string>("");
 
+  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
+  const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
+
   useEffect(() => {
     initializeDummyData();
     loadPRData();
+    // Ambil referensi divisi dan urgensi dari backend
+    fetch("http://localhost:5000/api/divisi")
+      .then((res) => res.json())
+      .then((data) => setDivisiOptions(data));
+    fetch("http://localhost:5000/api/urgensi")
+      .then((res) => res.json())
+      .then((data) => setUrgensiOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.schema || "");
     setUserSkema(userData.skema || "");
@@ -181,36 +191,37 @@ export default function MonitoringPRPage() {
     const stored = localStorage.getItem("prData");
     if (stored) {
       const parsedData = JSON.parse(stored);
-      // Ensure type safety by validating and casting each field properly
-      const validatedData = parsedData.map((pr: any) => ({
-        ...pr,
-        divisi: (["IT", "Civil", "Eng", "FAD", "HRD"].includes(pr.divisi)
-          ? pr.divisi
-          : "IT") as "IT" | "Civil" | "Eng" | "FAD" | "HRD",
-        urgensi: (["Low", "Medium", "High"].includes(pr.urgensi)
-          ? pr.urgensi
-          : "Medium") as "Low" | "Medium" | "High",
-        status: ([
-          "Draft",
-          "Submitted",
-          "Approved",
-          "Processed",
-          "Clear",
-          "Gantung",
-          "Menunggu",
-          "Telah Selesai",
-        ].includes(pr.status)
-          ? pr.status
-          : "Menunggu") as
-          | "Draft"
-          | "Submitted"
-          | "Approved"
-          | "Processed"
-          | "Clear"
-          | "Gantung"
-          | "Menunggu"
-          | "Telah Selesai",
-      })) as PRData[];
+      // Mapping id_divisi dan id_urgensi ke nama
+      const validatedData = parsedData.map((pr: any) => {
+        // Cari nama divisi dari id
+        let divisiNama = pr.divisi;
+        if (divisiOptions.length > 0) {
+          const foundDiv = divisiOptions.find(
+            (d: any) => String(d.id_divisi) === String(pr.divisi)
+          );
+          if (foundDiv) divisiNama = foundDiv.divisi;
+        }
+        // Cari nama urgensi dari id
+        let urgensiNama = pr.urgensi;
+        if (urgensiOptions.length > 0) {
+          const foundUrg = urgensiOptions.find(
+            (u: any) => String(u.id_urgensi) === String(pr.urgensi)
+          );
+          if (foundUrg) urgensiNama = foundUrg.urgensi;
+        }
+        // Pastikan field skema dan skemaLabel ada
+        let skemaValue = pr.skema ?? pr.id_skema ?? "";
+        let skemaLabel =
+          pr.skemaLabel ??
+          (skemaValue === 1 ? "Pentacity" : skemaValue === 2 ? "Ewalk" : "");
+        return {
+          ...pr,
+          divisi: divisiNama,
+          urgensi: urgensiNama,
+          skema: skemaValue,
+          skemaLabel,
+        };
+      }) as PRData[];
       setPrData(validatedData);
     }
   };
@@ -937,7 +948,7 @@ export default function MonitoringPRPage() {
                             {pr.dibuatOleh}
                           </TableCell>
                           <TableCell rowSpan={validItems.length}>
-                            {pr.skema ?? ""}
+                            {pr.skemaLabel ?? pr.skema ?? ""}
                           </TableCell>
                           <TableCell rowSpan={validItems.length}>
                             <div className="flex space-x-1">

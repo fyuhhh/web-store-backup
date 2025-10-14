@@ -6,7 +6,12 @@ const router = express.Router();
 // GET semua PR
 router.get("/", async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM pr");
+    // Join ke tabel skema untuk dapatkan label skema
+    const [rows] = await db.query(`
+      SELECT pr.*, skema.skema AS skemaLabel
+      FROM pr
+      LEFT JOIN skema ON pr.id_skema = skema.id_skema
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -17,7 +22,16 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await db.query("SELECT * FROM pr WHERE id_PR=?", [id]);
+    // Join ke tabel skema untuk dapatkan label skema
+    const [rows] = await db.query(
+      `
+      SELECT pr.*, skema.skema AS skemaLabel
+      FROM pr
+      LEFT JOIN skema ON pr.id_skema = skema.id_skema
+      WHERE pr.id_PR=?
+    `,
+      [id]
+    );
     if (rows.length === 0)
       return res.status(404).json({ message: "PR tidak ditemukan" });
     res.json(rows[0]);
@@ -28,35 +42,57 @@ router.get("/:id", async (req, res) => {
 
 // POST PR baru
 router.post("/", async (req, res) => {
-  const {
+  // Hapus semua log di backend
+
+  let {
     noPR,
     tanggalPR,
-    divisi,
-    urgensi,
+    id_divisi,
+    id_urgensi,
     status,
     dibuatOleh,
-    skema,
+    id_skema,
     createdAt,
   } = req.body;
-  if (
-    !noPR ||
-    !tanggalPR ||
-    !divisi ||
-    !urgensi ||
-    !status ||
-    !dibuatOleh ||
-    !skema
-  ) {
-    return res.status(400).json({ error: "Semua field wajib diisi" });
+
+  id_divisi = typeof id_divisi === "string" ? parseInt(id_divisi) : id_divisi;
+  id_urgensi =
+    typeof id_urgensi === "string" ? parseInt(id_urgensi) : id_urgensi;
+  id_skema = typeof id_skema === "string" ? parseInt(id_skema) : id_skema;
+
+  // Validasi lebih detail
+  const emptyFields = [];
+  if (!noPR) emptyFields.push("noPR");
+  if (!tanggalPR) emptyFields.push("tanggalPR");
+  if (!id_divisi) emptyFields.push("id_divisi");
+  if (!id_urgensi) emptyFields.push("id_urgensi");
+  if (!status) emptyFields.push("status");
+  if (!dibuatOleh) emptyFields.push("dibuatOleh");
+  if (!id_skema) emptyFields.push("id_skema");
+
+  if (emptyFields.length > 0) {
+    return res.status(400).json({
+      error: `Field berikut wajib diisi: ${emptyFields.join(", ")}`,
+    });
   }
   try {
     const [result] = await db.query(
-      "INSERT INTO pr (noPR, tanggalPR, divisi, urgensi, status, dibuatOleh, skema, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [noPR, tanggalPR, divisi, urgensi, status, dibuatOleh, skema, createdAt]
+      "INSERT INTO pr (noPR, tanggalPR, id_divisi, id_urgensi, status, dibuatOleh, id_skema, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [
+        noPR,
+        tanggalPR,
+        id_divisi,
+        id_urgensi,
+        status,
+        dibuatOleh,
+        id_skema,
+        createdAt,
+      ]
     );
     res
       .status(201)
       .json({ message: "PR berhasil dibuat", id: result.insertId });
+    return;
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -68,24 +104,24 @@ router.put("/:id", async (req, res) => {
   const {
     noPR,
     tanggalPR,
-    divisi,
-    urgensi,
+    id_divisi,
+    id_urgensi, // ganti dari urgensi ke id_urgensi
     status,
     dibuatOleh,
-    skema,
+    id_skema,
     createdAt,
   } = req.body;
   try {
     await db.query(
-      "UPDATE pr SET noPR=?, tanggalPR=?, divisi=?, urgensi=?, status=?, dibuatOleh=?, skema=?, createdAt=? WHERE id_PR=?",
+      "UPDATE pr SET noPR=?, tanggalPR=?, id_divisi=?, id_urgensi=?, status=?, dibuatOleh=?, id_skema=?, createdAt=? WHERE id_PR=?",
       [
         noPR,
         tanggalPR,
-        divisi,
-        urgensi,
+        id_divisi,
+        id_urgensi,
         status,
         dibuatOleh,
-        skema,
+        id_skema,
         createdAt,
         id,
       ]

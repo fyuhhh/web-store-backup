@@ -105,14 +105,7 @@ router.post("/login", async (req, res) => {
 
     const user = rows[0];
 
-    // Jika superadmin atau admin, bandingkan password secara langsung
-    if (user.id_peran === 5 || user.id_peran === 1) {
-      if (password !== user.password)
-        return res.status(401).json({ message: "Password salah" });
-      return res.json({ message: "Login berhasil", user });
-    }
-
-    // Untuk user lain, bandingkan hash
+    // Selalu bandingkan hash, tidak perlu pengecualian
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Password salah" });
 
@@ -122,4 +115,24 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// Tambahkan inisialisasi superadmin jika belum ada
+async function ensureSuperadmin() {
+  const [rows] = await db.query("SELECT * FROM user WHERE nama_pengguna = ?", [
+    "superadmin",
+  ]);
+  if (rows.length === 0) {
+    const hash = await bcrypt.hash("superadminpentaewalk", 10);
+    await db.query(
+      "INSERT INTO user (nama_pengguna, password, id_peran, id_divisi, id_skema) VALUES (?, ?, ?, ?, ?)",
+      ["superadmin", hash, 5, null, 1]
+    );
+    console.log("Superadmin default dibuat: superadmin/superadminpentaewalk");
+  }
+}
+
+// Panggil fungsi ini dari server.js setelah import userRoutes
+export { ensureSuperadmin };
+
 export default router;
+// Pada register/create user dan login sudah menerima id_skema sebagai number
+// Tidak perlu ubah
