@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,27 +20,7 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const router = useRouter();
 
-  // Tambahkan akun superadmin jika belum ada
-  useEffect(() => {
-    const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
-    const hasSuperadmin = accounts.some(
-      (acc: any) => acc.username === "superadmin"
-    );
-    if (!hasSuperadmin) {
-      const superadmin = {
-        username: "superadmin",
-        password: "superadminpentaewalk",
-        role: "superadmin",
-        division: undefined,
-        skema: undefined, // ganti schema -> skema
-        createdAt: new Date().toISOString(),
-      };
-      const updated = [superadmin, ...accounts];
-      localStorage.setItem("accounts", JSON.stringify(updated));
-    }
-  }, []);
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!username || !password) {
@@ -48,38 +28,43 @@ export default function LoginPage() {
       return;
     }
 
-    // Ambil daftar akun dari localStorage
-    const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
-    const user = accounts.find(
-      (acc: any) => acc.username === username && acc.password === password
-    );
+    try {
+      const res = await fetch("http://localhost:5000/api/user/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nama_pengguna: username, password }),
+      });
+      const data = await res.json();
 
-    if (!user) {
-      setErrorMsg(
-        "Nama pengguna atau kata sandi salah, atau akun belum terdaftar."
-      );
-      return;
-    }
+      if (!res.ok) {
+        setErrorMsg(data.message || "Login gagal");
+        return;
+      }
 
-    // Simpan userData ke localStorage
-    const userData = {
-      username: user.username,
-      role: user.role,
-      division: user.division,
-      skema: user.skema, // ganti schema -> skema
-      loginTime: new Date().toISOString(),
-    };
-    localStorage.setItem("userData", JSON.stringify(userData));
+      // Simpan userData ke localStorage
+      localStorage.setItem("userData", JSON.stringify(data.user));
 
-    // Redirect sesuai role
-    if (user.role === "superadmin") {
-      router.push("/kelola-akun");
-    } else if (user.role === "admin") {
-      router.push("/dashboard");
-    } else if (user.role === "divisi") {
-      router.push(`/dashboard/rekap-full?divisi=${user.division}`);
-    } else {
-      setErrorMsg("Role tidak dikenali.");
+      // Redirect sesuai role/peran
+      // Pastikan superadmin bisa login meskipun field role/peran berbeda
+      const role = data.user.role ?? data.user.peran ?? "";
+      if (
+        role.toLowerCase() === "superadmin" ||
+        data.user.id_peran === 1 ||
+        data.user.nama_pengguna?.toLowerCase() === "superadmin"
+      ) {
+        router.push("/kelola-akun");
+      } else if (role.toLowerCase() === "admin" || data.user.id_peran === 2) {
+        router.push("/dashboard");
+      } else if (role.toLowerCase() === "divisi" || data.user.id_peran === 3) {
+        router.push(`/dashboard/rekap-full?divisi=${data.user.divisi}`);
+      } else {
+        // Untuk user biasa atau role lain
+        router.push("/dashboard");
+        // Jika ingin tampilkan error, bisa gunakan:
+        // setErrorMsg("Role tidak dikenali, dialihkan ke dashboard.");
+      }
+    } catch (err) {
+      setErrorMsg("Terjadi kesalahan server.");
     }
   };
 

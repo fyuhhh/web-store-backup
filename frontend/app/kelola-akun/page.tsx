@@ -14,72 +14,228 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const DIVISI_OPTIONS = ["IT", "Eng", "Civil", "HRD", "FAD"];
-const ROLE_OPTIONS = ["admin", "divisi", "pengurus"];
-const SCHEMA_OPTIONS = ["pentacity", "ewalk"];
-
 export default function KelolaAkunPage() {
   const [tab, setTab] = useState<"buat" | "monitoring">("buat");
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [roleOptions, setRoleOptions] = useState<any[]>([]);
+  const [schemaOptions, setSchemaOptions] = useState<any[]>([]);
+  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
   const [form, setForm] = useState({
     username: "",
     password: "",
-    role: "",
-    division: "",
-    skema: "", // ganti schema -> skema
+    role: "", // id_peran
+    division: "", // id_divisi
+    skema: "", // id_skema
   });
-  const [accounts, setAccounts] = useState<any[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("accounts") || "[]");
-    } catch {
-      return [];
-    }
-  });
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const editingIndex = null; // Tambahkan ini di awal komponen agar tidak error
 
+  // Ambil id_peran dari roleOptions dan mapping peran dari backend
+  const [peranList, setPeranList] = useState<any[]>([]);
   useEffect(() => {
-    // Tambahkan akun superadmin jika belum ada
-    const accounts = JSON.parse(localStorage.getItem("accounts") || "[]");
-    const hasSuperadmin = accounts.some(
-      (acc: any) => acc.username === "superadmin"
-    );
-    if (!hasSuperadmin) {
-      const superadmin = {
-        username: "superadmin",
-        password: "superadminpentaewalk",
-        role: "superadmin",
-        division: undefined,
-        skema: undefined, // ganti schema -> skema
-        createdAt: new Date().toISOString(),
-      };
-      const updated = [superadmin, ...accounts];
-      localStorage.setItem("accounts", JSON.stringify(updated));
-      setAccounts(updated);
-    }
+    // Fetch peran dari backend
+    fetch("http://localhost:5000/api/peran")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setRoleOptions(data); // [{id_peran, peran}]
+      })
+      .catch(() => setRoleOptions([]));
+
+    // Fetch skema dari backend
+    fetch("http://localhost:5000/api/skema")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSchemaOptions(data); // [{id_skema, skema}]
+      })
+      .catch(() => setSchemaOptions([]));
+
+    // Fetch divisi dari backend
+    fetch("http://localhost:5000/api/divisi")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setDivisiOptions(data); // [{id_divisi, divisi}]
+      })
+      .catch(() => setDivisiOptions([]));
+
+    // Fetch akun dari backend
+    fetch("http://localhost:5000/api/user")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setAccounts(data);
+      })
+      .catch(() => setAccounts([]));
   }, []);
 
-  const handleEditAccount = (idx: number) => {
-    setEditingIndex(idx);
+  // Helper: cari nama divisi dari id_divisi
+  function getDivisiName(id_divisi: any) {
+    const found = divisiOptions.find((d: any) => d.id_divisi === id_divisi);
+    return found ? found.divisi : "-";
+  }
+  // Helper: cari nama skema dari id_skema
+  function getSkemaName(id_skema: any) {
+    const found = schemaOptions.find((s: any) => s.id_skema === id_skema);
+    return found ? found.skema : "-";
+  }
+  // Helper: cari nama peran dari id_peran
+  function getPeranName(id_peran: any) {
+    const found = roleOptions.find((r: any) => r.id_peran === id_peran);
+    return found ? found.peran : "-";
+  }
+
+  // Helper: konversi UTC ke waktu lokal (WIB)
+  function formatLocalTime(utcString: string) {
+    if (!utcString) return "-";
+    const date = new Date(utcString);
+    // WIB = UTC+7
+    const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+    return wibDate
+      .toLocaleString("id-ID", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+      .replace(",", "");
+  }
+
+  // Handler buat akun baru (POST ke backend)
+  const handleCreateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const peranStr = getPeranName(Number(form.role)).toLowerCase();
+    const isSuperadmin = Number(form.role) === 5 || peranStr === "superadmin";
+    const isDivisi = peranStr === "divisi";
+    // Validasi
+    if (
+      !form.username ||
+      !form.password ||
+      !form.role ||
+      (!isSuperadmin && !form.skema) ||
+      (isDivisi && !form.division)
+    ) {
+      alert("Mohon lengkapi semua field");
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await fetch("http://localhost:5000/api/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nama_pengguna: form.username,
+          password: form.password,
+          id_peran: Number(form.role),
+          id_divisi: isDivisi ? Number(form.division) : null,
+          id_skema: isSuperadmin ? null : Number(form.skema),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Gagal membuat akun");
+      } else {
+        alert("Akun berhasil dibuat!");
+        // Refresh daftar akun
+        fetch("http://localhost:5000/api/user")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setAccounts(data);
+          });
+        setForm({
+          username: "",
+          password: "",
+          role: "",
+          division: "",
+          skema: "",
+        });
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan server");
+    }
+    setLoading(false);
+  };
+
+  // Handler edit akun
+  const handleEditAccount = (acc: any) => {
     setForm({
-      username: accounts[idx].username,
-      password: accounts[idx].password,
-      role: accounts[idx].role,
-      division: accounts[idx].division || "",
-      skema: accounts[idx].skema || "",
+      username: acc.nama_pengguna ?? acc.username ?? "",
+      password: acc.password ?? "",
+      role: String(acc.id_peran ?? ""),
+      division: String(acc.id_divisi ?? ""),
+      skema: String(acc.id_skema ?? ""),
     });
+    setEditingIndex(acc.id_user ?? acc.id); // gunakan id_user dari backend
     setTab("buat");
   };
 
-  const handleDeleteAccount = (idx: number) => {
+  // Handler hapus akun
+  const handleDeleteAccount = async (id: number) => {
     if (
       window.confirm(
         "Yakin ingin menghapus akun ini? Data yang dihapus tidak dapat dikembalikan."
       )
     ) {
-      const updated = accounts.filter((_, i) => i !== idx);
-      setAccounts(updated);
-      localStorage.setItem("accounts", JSON.stringify(updated));
-      if (editingIndex === idx) {
+      try {
+        const res = await fetch(`http://localhost:5000/api/user/${id}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.message || "Gagal menghapus akun");
+        } else {
+          // Refresh daftar akun
+          fetch("http://localhost:5000/api/user")
+            .then((res) => res.json())
+            .then((data) => {
+              if (Array.isArray(data)) setAccounts(data);
+            });
+        }
+      } catch {
+        alert("Terjadi kesalahan server");
+      }
+    }
+  };
+
+  // Handler update akun (PUT)
+  const handleUpdateAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !form.username ||
+      !form.password ||
+      !form.role ||
+      !form.division ||
+      !form.skema
+    ) {
+      alert("Mohon lengkapi semua field");
+      return;
+    }
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/user/${editingIndex}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nama_pengguna: form.username,
+            password: form.password,
+            id_peran: Number(form.role),
+            id_divisi: Number(form.division),
+            id_skema: Number(form.skema),
+          }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.message || "Gagal update akun");
+      } else {
+        alert("Akun berhasil diupdate!");
+        fetch("http://localhost:5000/api/user")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setAccounts(data);
+          });
         setEditingIndex(null);
         setForm({
           username: "",
@@ -89,60 +245,9 @@ export default function KelolaAkunPage() {
           skema: "",
         });
       }
+    } catch {
+      alert("Terjadi kesalahan server");
     }
-  };
-
-  const handleCreateAccount = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      !form.username ||
-      !form.password ||
-      !form.role ||
-      (form.role === "divisi" && !form.division) ||
-      !form.skema // ganti schema -> skema
-    ) {
-      alert("Mohon lengkapi semua field");
-      return;
-    }
-    if (editingIndex !== null) {
-      // Edit mode
-      const updated = accounts.map((acc, idx) =>
-        idx === editingIndex
-          ? {
-              ...acc,
-              username: form.username,
-              password: form.password,
-              role: form.role,
-              division: form.role === "divisi" ? form.division : undefined,
-              skema: form.skema,
-            }
-          : acc
-      );
-      setAccounts(updated);
-      localStorage.setItem("accounts", JSON.stringify(updated));
-      setEditingIndex(null);
-      alert("Akun berhasil diupdate!");
-    } else {
-      const newAccount = {
-        username: form.username,
-        password: form.password,
-        role: form.role,
-        division: form.role === "divisi" ? form.division : undefined,
-        skema: form.skema, // ganti schema -> skema
-        createdAt: new Date().toISOString(),
-      };
-      const updated = [...accounts, newAccount];
-      setAccounts(updated);
-      localStorage.setItem("accounts", JSON.stringify(updated));
-      alert("Akun berhasil dibuat!");
-    }
-    setForm({
-      username: "",
-      password: "",
-      role: "",
-      division: "",
-      skema: "", // ganti schema -> skema
-    });
   };
 
   const handleLogout = () => {
@@ -177,7 +282,12 @@ export default function KelolaAkunPage() {
         </CardHeader>
         <CardContent>
           {tab === "buat" && (
-            <form onSubmit={handleCreateAccount} className="space-y-4">
+            <form
+              onSubmit={
+                editingIndex ? handleUpdateAccount : handleCreateAccount
+              }
+              className="space-y-4"
+            >
               <div>
                 <Label>Nama Pengguna</Label>
                 <Input
@@ -206,62 +316,95 @@ export default function KelolaAkunPage() {
                   onValueChange={(v) => setForm({ ...form, role: v })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border border-border">
                     <SelectValue placeholder="Pilih peran" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {ROLE_OPTIONS.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
+                  <SelectContent className="bg-white border border-border">
+                    {roleOptions.length === 0 ? (
+                      <SelectItem value="__loading" disabled>
+                        Memuat...
                       </SelectItem>
-                    ))}
+                    ) : (
+                      roleOptions.map((role: any) => (
+                        <SelectItem
+                          key={role.id_peran}
+                          value={String(role.id_peran)}
+                        >
+                          {role.peran}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
-              {form.role === "divisi" && (
-                <div>
-                  <Label>Divisi</Label>
-                  <Select
-                    value={form.division}
-                    onValueChange={(v) => setForm({ ...form, division: v })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih divisi" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DIVISI_OPTIONS.map((div) => (
-                        <SelectItem key={div} value={div}>
-                          {div}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {form.role &&
+                (getPeranName(Number(form.role)).toLowerCase() === "divisi" ||
+                  form.role === "2") && (
+                  <div>
+                    <Label>Divisi</Label>
+                    <Select
+                      value={form.division}
+                      onValueChange={(v) => setForm({ ...form, division: v })}
+                      required
+                    >
+                      <SelectTrigger className="bg-white border border-border">
+                        <SelectValue placeholder="Pilih divisi" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border border-border max-h-60 overflow-y-auto">
+                        {divisiOptions.length === 0 ? (
+                          <SelectItem value="__loading" disabled>
+                            Memuat...
+                          </SelectItem>
+                        ) : (
+                          divisiOptions.map((div: any) => (
+                            <SelectItem
+                              key={div.id_divisi}
+                              value={String(div.id_divisi)}
+                            >
+                              {div.divisi}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               <div>
                 <Label>Skema Database</Label>
                 <Select
-                  value={form.skema} // ganti schema -> skema
+                  value={form.skema}
                   onValueChange={(v) => setForm({ ...form, skema: v })}
                   required
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border border-border">
                     <SelectValue placeholder="Pilih skema database" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {SCHEMA_OPTIONS.map((schema) => (
-                      <SelectItem key={schema} value={schema}>
-                        {schema.charAt(0).toUpperCase() + schema.slice(1)}
+                  <SelectContent className="bg-white border border-border">
+                    {schemaOptions.length === 0 ? (
+                      <SelectItem value="__loading" disabled>
+                        Memuat...
                       </SelectItem>
-                    ))}
+                    ) : (
+                      schemaOptions.map((schema: any) => (
+                        <SelectItem
+                          key={schema.id_skema}
+                          value={String(schema.id_skema)}
+                        >
+                          {schema.skema}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="bg-primary hover:bg-primary/90">
-                {editingIndex !== null ? "Update Akun" : "Buat Akun"}
+              <Button
+                type="submit"
+                className="bg-primary hover:bg-primary/90"
+                disabled={loading}
+              >
+                {editingIndex ? "Update Akun" : "Buat Akun"}
               </Button>
-              {editingIndex !== null && (
+              {editingIndex && (
                 <Button
                   type="button"
                   variant="outline"
@@ -314,22 +457,33 @@ export default function KelolaAkunPage() {
                   </thead>
                   <tbody>
                     {accounts.map((acc, idx) => (
-                      <tr key={idx} className="hover:bg-muted/10 transition">
-                        <td className="border px-4 py-2">{acc.username}</td>
-                        <td className="border px-4 py-2">{acc.password}</td>
-                        <td className="border px-4 py-2">{acc.role}</td>
+                      <tr
+                        key={acc.id_user ?? acc.id ?? idx}
+                        className="hover:bg-muted/10 transition"
+                      >
                         <td className="border px-4 py-2">
-                          {acc.division || "-"}
+                          {acc.nama_pengguna ?? acc.username}
                         </td>
-                        <td className="border px-4 py-2">{acc.skema}</td>
                         <td className="border px-4 py-2">
-                          {acc.createdAt?.slice(0, 10)}
+                          {acc.password ?? "-"}
+                        </td>
+                        <td className="border px-4 py-2">
+                          {getPeranName(acc.id_peran)}
+                        </td>
+                        <td className="border px-4 py-2">
+                          {getDivisiName(acc.id_divisi)}
+                        </td>
+                        <td className="border px-4 py-2">
+                          {getSkemaName(acc.id_skema)}
+                        </td>
+                        <td className="border px-4 py-2">
+                          {formatLocalTime(acc.created_at)}
                         </td>
                         <td className="border px-4 py-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleEditAccount(idx)}
+                            onClick={() => handleEditAccount(acc)}
                             className="mr-2"
                           >
                             Edit
@@ -337,9 +491,14 @@ export default function KelolaAkunPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleDeleteAccount(idx)}
                             className="text-destructive"
-                            disabled={acc.username === "superadmin"}
+                            onClick={() =>
+                              handleDeleteAccount(acc.id_user ?? acc.id)
+                            }
+                            disabled={
+                              acc.nama_pengguna === "superadmin" ||
+                              acc.username === "superadmin"
+                            }
                           >
                             Hapus
                           </Button>
