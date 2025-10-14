@@ -43,6 +43,11 @@ export default function InputBaruPRPage() {
     skema: "", // tambah field skema
   });
 
+  // Tambahkan state untuk data dropdown dari backend
+  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
+  const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
+  const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
+
   useEffect(() => {
     initializeDummyData();
     loadPRData();
@@ -52,6 +57,30 @@ export default function InputBaruPRPage() {
       ...prev,
       skema: userData.skema || "",
     }));
+
+    // Fetch divisi dari backend
+    fetch("http://localhost:5000/api/divisi")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setDivisiOptions(data);
+      })
+      .catch(() => setDivisiOptions([]));
+
+    // Fetch urgensi dari backend
+    fetch("http://localhost:5000/api/urgensi")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setUrgensiOptions(data);
+      })
+      .catch(() => setUrgensiOptions([]));
+
+    // Fetch satuan dari backend
+    fetch("http://localhost:5000/api/satuan")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSatuanOptions(data);
+      })
+      .catch(() => setSatuanOptions([]));
   }, []);
 
   const loadPRData = () => {
@@ -304,12 +333,18 @@ export default function InputBaruPRPage() {
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Pilih divisi" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      <SelectItem value="IT">IT</SelectItem>
-                      <SelectItem value="Civil">Civil</SelectItem>
-                      <SelectItem value="Eng">Engineering</SelectItem>
-                      <SelectItem value="FAD">Finance & Admin</SelectItem>
-                      <SelectItem value="HRD">Human Resources</SelectItem>
+                    <SelectContent className="bg-white max-h-64 overflow-y-auto">
+                      {divisiOptions.length === 0 ? (
+                        <SelectItem value="__loading" disabled>
+                          Memuat...
+                        </SelectItem>
+                      ) : (
+                        divisiOptions.map((div: any) => (
+                          <SelectItem key={div.id_divisi} value={div.divisi}>
+                            {div.divisi}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -324,10 +359,18 @@ export default function InputBaruPRPage() {
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Pilih urgensi" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      <SelectItem value="Low">Low</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="High">High</SelectItem>
+                    <SelectContent className="bg-white max-h-64 overflow-y-auto">
+                      {urgensiOptions.length === 0 ? (
+                        <SelectItem value="__loading" disabled>
+                          Memuat...
+                        </SelectItem>
+                      ) : (
+                        urgensiOptions.map((urg: any) => (
+                          <SelectItem key={urg.id_urgensi} value={urg.urgensi}>
+                            {urg.urgensi}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -393,13 +436,18 @@ export default function InputBaruPRPage() {
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Pilih satuan" />
                         </SelectTrigger>
-                        <SelectContent className="bg-white">
-                          <SelectItem value="pcs">pcs</SelectItem>
-                          <SelectItem value="unit">unit</SelectItem>
-                          <SelectItem value="set">set</SelectItem>
-                          <SelectItem value="box">box</SelectItem>
-                          <SelectItem value="kg">kg</SelectItem>
-                          <SelectItem value="liter">liter</SelectItem>
+                        <SelectContent className="bg-white max-h-64 overflow-y-auto">
+                          {satuanOptions.length === 0 ? (
+                            <SelectItem value="__loading" disabled>
+                              Memuat...
+                            </SelectItem>
+                          ) : (
+                            satuanOptions.map((sat: any) => (
+                              <SelectItem key={sat.id_satuan} value={sat.satuan}>
+                                {sat.satuan}
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
