@@ -45,11 +45,35 @@ router.get("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { nama_pengguna, id_peran, id_divisi, id_skema } = req.body;
+    const { nama_pengguna, password, id_peran, id_divisi, id_skema } = req.body;
+
+    let updateFields = [];
+    let updateValues = [];
+
+    updateFields.push("nama_pengguna=?");
+    updateValues.push(nama_pengguna);
+
+    updateFields.push("id_peran=?");
+    updateValues.push(id_peran);
+
+    updateFields.push("id_divisi=?");
+    updateValues.push(id_divisi);
+
+    updateFields.push("id_skema=?");
+    updateValues.push(id_skema);
+
+    // Jika password dikirim, hash dulu
+    if (password) {
+      const hash = await bcrypt.hash(password, 10);
+      updateFields.push("password=?");
+      updateValues.push(hash);
+    }
+
+    updateValues.push(id);
 
     await db.query(
-      "UPDATE user SET nama_pengguna=?, id_peran=?, id_divisi=?, id_skema=? WHERE id_user=?",
-      [nama_pengguna, id_peran, id_divisi, id_skema, id]
+      `UPDATE user SET ${updateFields.join(", ")} WHERE id_user=?`,
+      updateValues
     );
 
     res.json({ message: "User berhasil diupdate" });
@@ -80,7 +104,16 @@ router.post("/login", async (req, res) => {
       return res.status(404).json({ message: "User tidak ditemukan" });
 
     const user = rows[0];
-    const valid = await bcrypt.compare(password, user.password); // bandingkan hash
+
+    // Jika superadmin atau admin, bandingkan password secara langsung
+    if (user.id_peran === 5 || user.id_peran === 1) {
+      if (password !== user.password)
+        return res.status(401).json({ message: "Password salah" });
+      return res.json({ message: "Login berhasil", user });
+    }
+
+    // Untuk user lain, bandingkan hash
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) return res.status(401).json({ message: "Password salah" });
 
     res.json({ message: "Login berhasil", user });

@@ -42,26 +42,38 @@ export default function LoginPage() {
       }
 
       // Simpan userData ke localStorage
-      localStorage.setItem("userData", JSON.stringify(data.user));
+      localStorage.setItem(
+        "userData",
+        JSON.stringify({
+          nama_pengguna: data.user.nama_pengguna,
+          password: data.user.password,
+          id_peran: data.user.id_peran,
+        })
+      );
 
       // Redirect sesuai role/peran
-      // Pastikan superadmin bisa login meskipun field role/peran berbeda
-      const role = data.user.role ?? data.user.peran ?? "";
-      if (
-        role.toLowerCase() === "superadmin" ||
-        data.user.id_peran === 1 ||
+      if (data.user.id_peran === 5) {
+        router.push("/kelola-akun");
+      } else if (data.user.id_peran === 1) {
+        router.push("/dashboard");
+      } else if (
+        (data.user.role ?? data.user.peran ?? "").toLowerCase() ===
+          "superadmin" ||
         data.user.nama_pengguna?.toLowerCase() === "superadmin"
       ) {
         router.push("/kelola-akun");
-      } else if (role.toLowerCase() === "admin" || data.user.id_peran === 2) {
+      } else if (
+        (data.user.role ?? data.user.peran ?? "").toLowerCase() === "admin" ||
+        data.user.id_peran === 2
+      ) {
         router.push("/dashboard");
-      } else if (role.toLowerCase() === "divisi" || data.user.id_peran === 3) {
+      } else if (
+        (data.user.role ?? data.user.peran ?? "").toLowerCase() === "divisi" ||
+        data.user.id_peran === 3
+      ) {
         router.push(`/dashboard/rekap-full?divisi=${data.user.divisi}`);
       } else {
-        // Untuk user biasa atau role lain
         router.push("/dashboard");
-        // Jika ingin tampilkan error, bisa gunakan:
-        // setErrorMsg("Role tidak dikenali, dialihkan ke dashboard.");
       }
     } catch (err) {
       setErrorMsg("Terjadi kesalahan server.");
