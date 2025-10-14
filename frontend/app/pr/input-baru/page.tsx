@@ -48,6 +48,16 @@ export default function InputBaruPRPage() {
   const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
   const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
 
+  // Tambahkan state untuk search dropdown
+  const [divisiSearch, setDivisiSearch] = useState("");
+  const [satuanSearch, setSatuanSearch] = useState("");
+
+  // Tambahkan state untuk tambah divisi/satuan
+  const [showAddDivisi, setShowAddDivisi] = useState(false);
+  const [newDivisi, setNewDivisi] = useState("");
+  const [showAddSatuan, setShowAddSatuan] = useState(false);
+  const [newSatuan, setNewSatuan] = useState("");
+
   useEffect(() => {
     initializeDummyData();
     loadPRData();
@@ -247,6 +257,50 @@ export default function InputBaruPRPage() {
     });
   };
 
+  // Handler tambah divisi
+  const handleAddDivisi = async () => {
+    if (!newDivisi.trim()) return;
+    try {
+      const res = await fetch("http://localhost:5000/api/divisi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ divisi: newDivisi }),
+      });
+      if (res.ok) {
+        // Refresh data
+        fetch("http://localhost:5000/api/divisi")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setDivisiOptions(data);
+          });
+        setNewDivisi("");
+        setShowAddDivisi(false);
+      }
+    } catch {}
+  };
+
+  // Handler tambah satuan
+  const handleAddSatuan = async () => {
+    if (!newSatuan.trim()) return;
+    try {
+      const res = await fetch("http://localhost:5000/api/satuan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ satuan: newSatuan }),
+      });
+      if (res.ok) {
+        // Refresh data
+        fetch("http://localhost:5000/api/satuan")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setSatuanOptions(data);
+          });
+        setNewSatuan("");
+        setShowAddSatuan(false);
+      }
+    } catch {}
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -333,18 +387,91 @@ export default function InputBaruPRPage() {
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Pilih divisi" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white max-h-64 overflow-y-auto">
+                    <SelectContent
+                      className="bg-white max-h-[384px] overflow-y-auto relative"
+                      style={{
+                        scrollbarWidth: "auto",
+                        scrollbarColor: "#bbb #fff",
+                        overscrollBehavior: "contain",
+                      }}
+                    >
+                      {/* Search dan Tambah Divisi di dalam dropdown, sticky */}
+                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                        {/* Input pencarian divisi */}
+                        <Input
+                          placeholder="Cari divisi..."
+                          value={divisiSearch}
+                          onChange={(e) => setDivisiSearch(e.target.value)}
+                          className="mb-2"
+                        />
+                        {/* Tombol tambah divisi */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mb-2 w-full"
+                          onClick={() => setShowAddDivisi((v) => !v)}
+                        >
+                          + Tambahkan Divisi
+                        </Button>
+                        {/* Input tambah divisi, tidak mempengaruhi pencarian */}
+                        {showAddDivisi && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Input
+                              placeholder="Ketikan divisi disini"
+                              value={newDivisi}
+                              onChange={(e) => setNewDivisi(e.target.value)}
+                              className="w-[140px]"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddDivisi}
+                              className="bg-primary text-white"
+                            >
+                              Simpan
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setShowAddDivisi(false);
+                                setNewDivisi("");
+                              }}
+                            >
+                              Batal
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                       {divisiOptions.length === 0 ? (
                         <SelectItem value="__loading" disabled>
                           Memuat...
                         </SelectItem>
                       ) : (
-                        divisiOptions.map((div: any) => (
-                          <SelectItem key={div.id_divisi} value={div.divisi}>
-                            {div.divisi}
-                          </SelectItem>
-                        ))
+                        divisiOptions
+                          .filter((div: any) =>
+                            div.divisi
+                              .toLowerCase()
+                              .includes(divisiSearch.toLowerCase())
+                          )
+                          .map((div: any) => (
+                            <SelectItem key={div.id_divisi} value={div.divisi}>
+                              {div.divisi}
+                            </SelectItem>
+                          ))
                       )}
+                      {divisiOptions.length > 0 &&
+                        divisiOptions.filter((div: any) =>
+                          div.divisi
+                            .toLowerCase()
+                            .includes(divisiSearch.toLowerCase())
+                        ).length === 0 && (
+                          <SelectItem value="__notfound" disabled>
+                            Data tidak ditemukan
+                          </SelectItem>
+                        )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -436,18 +563,94 @@ export default function InputBaruPRPage() {
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Pilih satuan" />
                         </SelectTrigger>
-                        <SelectContent className="bg-white max-h-64 overflow-y-auto">
+                        <SelectContent
+                          className="bg-white max-h-[384px] overflow-y-auto relative"
+                          style={{
+                            scrollbarWidth: "auto",
+                            scrollbarColor: "#bbb #fff",
+                            overscrollBehavior: "contain",
+                          }}
+                        >
+                          {/* Search dan Tambah Satuan di dalam dropdown, sticky */}
+                          <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                            {/* Input pencarian satuan */}
+                            <Input
+                              placeholder="Cari satuan..."
+                              value={satuanSearch}
+                              onChange={(e) => setSatuanSearch(e.target.value)}
+                              className="mb-2"
+                            />
+                            {/* Tombol tambah satuan */}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mb-2 w-full"
+                              onClick={() => setShowAddSatuan((v) => !v)}
+                            >
+                              + Tambahkan Satuan
+                            </Button>
+                            {/* Input tambah satuan, tidak mempengaruhi pencarian */}
+                            {showAddSatuan && (
+                              <div className="flex items-center gap-2 mb-2">
+                                <Input
+                                  placeholder="Ketikan satuan disini"
+                                  value={newSatuan}
+                                  onChange={(e) => setNewSatuan(e.target.value)}
+                                  className="w-[140px]"
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={handleAddSatuan}
+                                  className="bg-primary text-white"
+                                >
+                                  Simpan
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setShowAddSatuan(false);
+                                    setNewSatuan("");
+                                  }}
+                                >
+                                  Batal
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                           {satuanOptions.length === 0 ? (
                             <SelectItem value="__loading" disabled>
                               Memuat...
                             </SelectItem>
                           ) : (
-                            satuanOptions.map((sat: any) => (
-                              <SelectItem key={sat.id_satuan} value={sat.satuan}>
-                                {sat.satuan}
-                              </SelectItem>
-                            ))
+                            satuanOptions
+                              .filter((sat: any) =>
+                                sat.satuan
+                                  .toLowerCase()
+                                  .includes(satuanSearch.toLowerCase())
+                              )
+                              .map((sat: any) => (
+                                <SelectItem
+                                  key={sat.id_satuan}
+                                  value={sat.satuan}
+                                >
+                                  {sat.satuan}
+                                </SelectItem>
+                              ))
                           )}
+                          {satuanOptions.length > 0 &&
+                            satuanOptions.filter((sat: any) =>
+                              sat.satuan
+                                .toLowerCase()
+                                .includes(satuanSearch.toLowerCase())
+                            ).length === 0 && (
+                              <SelectItem value="__notfound" disabled>
+                                Data tidak ditemukan
+                              </SelectItem>
+                            )}
                         </SelectContent>
                       </Select>
                     </div>
