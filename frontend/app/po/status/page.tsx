@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, ChevronDown } from "lucide-react";
 import type { PRData, POData } from "@/lib/dummy-data";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Pagination,
   PaginationContent,
@@ -35,7 +35,8 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 export default function StatusPOPage() {
   const [prData, setPrData] = useState<any[]>([]);
@@ -49,23 +50,31 @@ export default function StatusPOPage() {
   const [userSkema, setUserSkema] = useState<string>("");
 
   // Filter states for table columns
-  const [filterNoPR, setFilterNoPR] = useState("");
-  const [filterTanggal, setFilterTanggal] = useState("");
-  const [filterDaftarBarang, setFilterDaftarBarang] = useState("");
-  const [filterQtyMin, setFilterQtyMin] = useState<number | "">("");
-  const [filterQtyMax, setFilterQtyMax] = useState<number | "">("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterNoPR, setFilterNoPR] = useState<string[]>([]);
+  const [noPRSearchTerm, setNoPRSearchTerm] = useState("");
+  const [filterTanggalPR, setFilterTanggalPR] = useState<string[]>([]);
+  const [tanggalPRSearchTerm, setTanggalPRSearchTerm] = useState("");
+  const [filterNamaBarang, setFilterNamaBarang] = useState("");
+  const [filterQty, setFilterQty] = useState<number[]>([]);
+  const [filterQtySearchTerm, setFilterQtySearchTerm] = useState("");
   const [filterSatuan, setFilterSatuan] = useState<string[]>([]);
+  const [satuanSearchTerm, setSatuanSearchTerm] = useState("");
   const [filterKeterangan, setFilterKeterangan] = useState("");
   const [filterUrgensi, setFilterUrgensi] = useState<string[]>([]);
+  const [urgensiSearchTerm, setUrgensiSearchTerm] = useState("");
   const [filterDivisi, setFilterDivisi] = useState<string[]>([]);
+  const [divisiSearchTerm, setDivisiSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string[]>([]);
-  const [filterDibuatOleh, setFilterDibuatOleh] = useState("");
-  // Added filter for select checkbox column (all selected or not)
-  const [filterSelected, setFilterSelected] = useState<boolean | null>(null);
+  const [statusSearchTerm, setStatusSearchTerm] = useState("");
+  const [filterDibuatOleh, setFilterDibuatOleh] = useState<string[]>([]);
+  const [dibuatOlehSearchTerm, setDibuatOlehSearchTerm] = useState("");
+  const [filterSkema, setFilterSkema] = useState<string[]>([]);
+  const [skemaSearchTerm, setSkemaSearchTerm] = useState("");
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(20);
 
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
@@ -238,11 +247,9 @@ export default function StatusPOPage() {
 
   // Badge urgensi seperti monitoring PR
   const getUrgensiBadge = (urgensi: string) => {
-    if (urgensi === "Low") {
+    if (urgensi === "High") {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300">
-          Low
-        </Badge>
+        <Badge className="bg-red-100 text-red-700 border-red-300">High</Badge>
       );
     }
     if (urgensi === "Medium") {
@@ -252,22 +259,17 @@ export default function StatusPOPage() {
         </Badge>
       );
     }
-    if (urgensi === "High") {
+    if (urgensi === "Low") {
       return (
-        <Badge className="bg-red-100 text-red-700 border-red-300">High</Badge>
+        <Badge className="bg-green-100 text-green-700 border-green-300">
+          Low
+        </Badge>
       );
     }
     return (
       <Badge className="bg-muted/50 text-muted-foreground">{urgensi}</Badge>
     );
   };
-
-  // Filter PRs that are ready to be processed (status "Menunggu" or "Gantung") AND match user schema
-  const processedPRs = prData.filter(
-    (pr) =>
-      (pr.status === "Menunggu" || pr.status === "Gantung") &&
-      (!userSkema || pr.skema === userSkema)
-  );
 
   // Helper mapping id_satuan ke nama satuan
   const satuanMap = Object.fromEntries(
@@ -282,35 +284,163 @@ export default function StatusPOPage() {
     urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
   );
 
-  // Helper: mapping PR items ke PR, satuan/divisi/urgensi tampil nama bukan id
-  const prWithItems = prData.map((pr) => ({
-    ...pr,
-    items: prItemData
-      .filter((item) => String(item.id_PR) === String(pr.id_PR))
-      .map((item) => ({
-        namaBarang: item.namaBarang,
-        jumlah: item.jumlah,
-        satuan:
-          satuanMap[String(item.id_satuan)] ||
-          item.satuanLabel ||
-          item.id_satuan,
-        keterangan: item.keterangan,
-        id: item.id_PRItem,
-        status: item.status || "",
-      })),
-    urgensi:
-      urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
-    divisi: divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
-  }));
+  // Mapping PR + items
+  const processedPRs = prData
+    .filter(
+      (pr) =>
+        (pr.status === "Menunggu" || pr.status === "Gantung") &&
+        (!userSkema || pr.skema === userSkema)
+    )
+    .map((pr) => ({
+      ...pr,
+      items: prItemData
+        .filter((item) => String(item.id_PR) === String(pr.id_PR))
+        .map((item) => ({
+          namaBarang: item.namaBarang,
+          jumlah: item.jumlah,
+          satuan:
+            satuanMap[String(item.id_satuan)] ||
+            item.satuanLabel ||
+            item.id_satuan,
+          keterangan: item.keterangan,
+          id: item.id_PRItem,
+          status: item.status || "",
+        })),
+      urgensi:
+        urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
+      divisi: divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
+      dibuatOleh: pr.dibuatOleh,
+      skema: pr.id_skema,
+      skemaLabel: pr.skemaLabel ?? "",
+      noPR: pr.noPR,
+      tanggalPR: pr.tanggalPR,
+      status: pr.status,
+    }));
 
-  // Filter PR yang status "Menunggu" atau "Gantung" saja
-  const filteredPRs = prWithItems.filter(
-    (pr) =>
-      (pr.status === "Menunggu" || pr.status === "Gantung") &&
-      (!userSkema || pr.skema === userSkema)
-  );
+  // --- FILTER & SEARCH ---
+  // Compute unique values for dropdowns
+  const uniqueNoPR = Array.from(
+    new Set(processedPRs.map((pr) => pr.noPR))
+  ).sort();
+  const uniqueTanggalPR = Array.from(
+    new Set(processedPRs.map((pr) => pr.tanggalPR))
+  ).sort();
+  const uniqueSatuan = Array.from(
+    new Set(
+      processedPRs.flatMap((pr) => pr.items?.map((item) => item.satuan) || [])
+    )
+  ).sort();
+  const uniqueQty = Array.from(
+    new Set(
+      processedPRs.flatMap((pr) => pr.items?.map((item) => item.jumlah) || [])
+    )
+  ).sort((a, b) => a - b);
+  const uniqueUrgensi = ["High", "Medium", "Low"];
+  const uniqueStatus = ["Menunggu", "Gantung"];
+  const uniqueDivisi = divisiOptions.map((d: any) => d.divisi);
+  const uniqueDibuatOleh = Array.from(
+    new Set(processedPRs.map((pr) => pr.dibuatOleh))
+  ).sort();
+  const uniqueSkema = Array.from(
+    new Set(processedPRs.map((pr) => pr.skema))
+  ).sort();
 
-  // Pagination logic
+  // Helper untuk format tanggal DD-MM-YYYY
+  function formatTanggal(tgl: string) {
+    if (!tgl) return "";
+    const [date] = tgl.split("T");
+    const [y, m, d] = date.split("-");
+    return `${d}-${m}-${y}`;
+  }
+
+  // Filter data
+  let filteredPRs = processedPRs
+    .filter((pr) => {
+      const matchesSearch =
+        (pr.items &&
+          pr.items.some(
+            (item) =>
+              typeof item.namaBarang === "string" &&
+              item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
+          )) ||
+        (typeof pr.noPR === "string" &&
+          pr.noPR.toLowerCase().includes(searchTerm.toLowerCase()));
+
+      const matchesNamaBarang =
+        !filterNamaBarang ||
+        pr.items?.some(
+          (item) =>
+            typeof item.namaBarang === "string" &&
+            item.namaBarang
+              .toLowerCase()
+              .includes(filterNamaBarang.toLowerCase())
+        );
+
+      const matchesQty =
+        filterQty.length === 0 ||
+        pr.items?.some((item) => filterQty.includes(item.jumlah));
+
+      const matchesSatuan =
+        filterSatuan.length === 0 ||
+        pr.items?.some((item) => filterSatuan.includes(item.satuan));
+
+      const matchesKeterangan =
+        !filterKeterangan ||
+        pr.items?.some(
+          (item) =>
+            item.keterangan &&
+            item.keterangan
+              .toLowerCase()
+              .includes(filterKeterangan.toLowerCase())
+        );
+
+      const matchesUrgensi =
+        filterUrgensi.length === 0 || filterUrgensi.includes(pr.urgensi);
+
+      const matchesDivisi =
+        filterDivisi.length === 0 || filterDivisi.includes(pr.divisi);
+
+      const matchesStatus =
+        filterStatus.length === 0 || filterStatus.includes(pr.status);
+
+      const matchesNoPR =
+        filterNoPR.length === 0 ||
+        filterNoPR.some((noPr) =>
+          pr.noPR.toLowerCase().includes(noPr.toLowerCase())
+        );
+
+      const matchesTanggalPR =
+        filterTanggalPR.length === 0 || filterTanggalPR.includes(pr.tanggalPR);
+
+      const matchesDibuatOleh =
+        filterDibuatOleh.length === 0 ||
+        filterDibuatOleh.includes(pr.dibuatOleh);
+
+      const matchesSkema =
+        filterSkema.length === 0 ||
+        (pr.skema !== undefined && filterSkema.includes(pr.skema));
+
+      return (
+        matchesSearch &&
+        matchesNamaBarang &&
+        matchesQty &&
+        matchesSatuan &&
+        matchesKeterangan &&
+        matchesUrgensi &&
+        matchesDivisi &&
+        matchesStatus &&
+        matchesNoPR &&
+        matchesTanggalPR &&
+        matchesDibuatOleh &&
+        matchesSkema
+      );
+    })
+    .sort((a, b) => {
+      const urgOrder = { High: 0, Medium: 1, Low: 2 };
+      return urgOrder[a.urgensi] - urgOrder[b.urgensi];
+    });
+
+  // --- PAGINATION ---
   const totalPages = Math.ceil(filteredPRs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedData = filteredPRs.slice(
@@ -328,7 +458,6 @@ export default function StatusPOPage() {
             <p className="text-muted-foreground">
               Pilih PR dan buat Purchase Order
             </p>
-            {/* Test Popover Button removed as per user feedback */}
           </div>
           <div className="flex space-x-2">
             {selectedPRsForProcess.length > 0 ? (
@@ -356,13 +485,23 @@ export default function StatusPOPage() {
           </div>
         </div>
 
+        {/* Search Bar */}
+        <div className="flex items-center gap-2 mb-2">
+          <Input
+            placeholder="Cari No PR atau Nama Barang..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-[320px]"
+          />
+        </div>
+
         {/* PR Siap Proses ke PO */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle>PR Siap Proses ke PO</CardTitle>
             <CardDescription>
-              Daftar PR dengan status "Menunggu" atau "Gantung" yang siap
-              diproses menjadi PO
+              Total: {filteredPRs.length} PR | Dipilih:{" "}
+              {selectedPRsForProcess.length}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -371,89 +510,625 @@ export default function StatusPOPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-16">
+                      <Checkbox
+                        checked={
+                          selectedPRsForProcess.length ===
+                            paginatedData.length && paginatedData.length > 0
+                        }
+                        onCheckedChange={handleSelectAll}
+                        style={{
+                          boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
+                          border: "1.5px solid #bbb",
+                          borderRadius: 4,
+                        }}
+                        className="focus:ring-2 focus:ring-primary"
+                      />
+                    </TableHead>
+                    {/* No. PR */}
+                    <TableHead className="min-w-[140px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <span className="font-medium inline-block cursor-pointer">
-                            <Checkbox
-                              checked={
-                                selectedPRsForProcess.length ===
-                                  filteredPRs.length && filteredPRs.length > 0
-                              }
-                              onCheckedChange={(checked) => {
-                                handleSelectAll(checked as boolean);
-                                setFilterSelected(checked ? true : false);
-                              }}
-                              style={{
-                                boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
-                                border: "1.5px solid #bbb",
-                                borderRadius: 4,
-                              }}
-                              className="focus:ring-2 focus:ring-primary"
-                            />
-                          </span>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            No. PR
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 bg-white shadow-lg border border-border backdrop-blur-none bg-opacity-100">
-                          <div className="space-y-2">
-                            <Checkbox
-                              id="filter-selected-true"
-                              checked={filterSelected === true}
-                              onCheckedChange={(checked) =>
-                                setFilterSelected(checked ? true : null)
-                              }
-                            />
-                            <label
-                              htmlFor="filter-selected-true"
-                              className="text-sm"
-                            >
-                              Selected
-                            </label>
-                            <Checkbox
-                              id="filter-selected-false"
-                              checked={filterSelected === false}
-                              onCheckedChange={(checked) =>
-                                setFilterSelected(checked ? false : null)
-                              }
-                            />
-                            <label
-                              htmlFor="filter-selected-false"
-                              className="text-sm"
-                            >
-                              Not Selected
-                            </label>
-                            <Checkbox
-                              id="filter-selected-none"
-                              checked={filterSelected === null}
-                              onCheckedChange={(checked) =>
-                                setFilterSelected(checked ? null : null)
-                              }
-                            />
-                            <label
-                              htmlFor="filter-selected-none"
-                              className="text-sm"
-                            >
-                              Clear Filter
-                            </label>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari No. PR..."
+                            value={noPRSearchTerm}
+                            onChange={(e) => setNoPRSearchTerm(e.target.value)}
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueNoPR
+                              .filter((noPR) =>
+                                noPR
+                                  .toLowerCase()
+                                  .includes(noPRSearchTerm.toLowerCase())
+                              )
+                              .map((noPR) => (
+                                <div
+                                  key={noPR}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`noPR-${noPR}`}
+                                    checked={filterNoPR.includes(noPR)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterNoPR([...filterNoPR, noPR]);
+                                      } else {
+                                        setFilterNoPR(
+                                          filterNoPR.filter((f) => f !== noPR)
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`noPR-${noPR}`}
+                                    className="text-sm"
+                                  >
+                                    {noPR}
+                                  </Label>
+                                </div>
+                              ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[140px]">No. PR</TableHead>
-                    <TableHead className="min-w-[140px]">Tanggal</TableHead>
-                    <TableHead className="min-w-[180px]">
-                      Daftar Barang
+                    {/* Tanggal PR */}
+                    <TableHead className="min-w-[140px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Tanggal PR
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            type="date"
+                            value={tanggalPRSearchTerm}
+                            onChange={(e) =>
+                              setTanggalPRSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueTanggalPR
+                              .filter((tgl) =>
+                                formatTanggal(tgl)
+                                  .toLowerCase()
+                                  .includes(tanggalPRSearchTerm.toLowerCase())
+                              )
+                              .map((tgl) => (
+                                <div
+                                  key={tgl}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`tglPR-${tgl}`}
+                                    checked={filterTanggalPR.includes(tgl)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterTanggalPR([
+                                          ...filterTanggalPR,
+                                          tgl,
+                                        ]);
+                                      } else {
+                                        setFilterTanggalPR(
+                                          filterTanggalPR.filter(
+                                            (f) => f !== tgl
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`tglPR-${tgl}`}
+                                    className="text-sm"
+                                  >
+                                    {formatTanggal(tgl)}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[90px]">Qty</TableHead>
-                    <TableHead className="min-w-[90px]">Satuan</TableHead>
-                    <TableHead className="min-w-[160px]">Keterangan</TableHead>
-                    <TableHead className="min-w-[100px]">Urgensi</TableHead>
-                    <TableHead className="min-w-[100px]">Divisi</TableHead>
-                    <TableHead className="min-w-[100px]">Status</TableHead>
-                    <TableHead className="min-w-[120px]">Dibuat Oleh</TableHead>
-                    <TableHead className="min-w-[120px]">Skema</TableHead>
+                    {/* Daftar Barang */}
+                    <TableHead className="min-w-[180px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Daftar Barang
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari nama barang..."
+                            value={filterNamaBarang}
+                            onChange={(e) =>
+                              setFilterNamaBarang(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Qty */}
+                    <TableHead className="min-w-[90px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Qty
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            type="number"
+                            placeholder="Cari Qty..."
+                            value={filterQtySearchTerm}
+                            onChange={(e) =>
+                              setFilterQtySearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueQty
+                              .filter((qty) =>
+                                String(
+                                  Number(qty) % 1 === 0 ? Number(qty) : qty
+                                )
+                                  .toLowerCase()
+                                  .includes(filterQtySearchTerm.toLowerCase())
+                              )
+                              .map((qty) => (
+                                <div
+                                  key={qty}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`qty-${qty}`}
+                                    checked={filterQty.includes(qty)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterQty([...filterQty, qty]);
+                                      } else {
+                                        setFilterQty(
+                                          filterQty.filter((f) => f !== qty)
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`qty-${qty}`}
+                                    className="text-sm"
+                                  >
+                                    {Number(qty) % 1 === 0 ? Number(qty) : qty}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Satuan */}
+                    <TableHead className="min-w-[90px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Satuan
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari satuan..."
+                            value={satuanSearchTerm}
+                            onChange={(e) =>
+                              setSatuanSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueSatuan
+                              .filter((satuan) =>
+                                satuan
+                                  .toLowerCase()
+                                  .includes(satuanSearchTerm.toLowerCase())
+                              )
+                              .map((satuan) => (
+                                <div
+                                  key={satuan}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`satuan-${satuan}`}
+                                    checked={filterSatuan.includes(satuan)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterSatuan([
+                                          ...filterSatuan,
+                                          satuan,
+                                        ]);
+                                      } else {
+                                        setFilterSatuan(
+                                          filterSatuan.filter(
+                                            (f) => f !== satuan
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`satuan-${satuan}`}
+                                    className="text-sm"
+                                  >
+                                    {satuan}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Keterangan */}
+                    <TableHead className="min-w-[160px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Keterangan
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari keterangan..."
+                            value={filterKeterangan}
+                            onChange={(e) =>
+                              setFilterKeterangan(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Urgensi */}
+                    <TableHead className="min-w-[100px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Urgensi
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari urgensi..."
+                            value={urgensiSearchTerm}
+                            onChange={(e) =>
+                              setUrgensiSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueUrgensi
+                              .filter((urgensi) =>
+                                urgensi
+                                  .toLowerCase()
+                                  .includes(urgensiSearchTerm.toLowerCase())
+                              )
+                              .map((urgensi) => (
+                                <div
+                                  key={urgensi}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`urgensi-${urgensi}`}
+                                    checked={filterUrgensi.includes(urgensi)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterUrgensi([
+                                          ...filterUrgensi,
+                                          urgensi,
+                                        ]);
+                                      } else {
+                                        setFilterUrgensi(
+                                          filterUrgensi.filter(
+                                            (f) => f !== urgensi
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`urgensi-${urgensi}`}
+                                    className="text-sm"
+                                  >
+                                    {urgensi}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Divisi */}
+                    <TableHead className="min-w-[100px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Divisi
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari divisi..."
+                            value={divisiSearchTerm}
+                            onChange={(e) =>
+                              setDivisiSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueDivisi
+                              .filter((divisi) =>
+                                divisi
+                                  .toLowerCase()
+                                  .includes(divisiSearchTerm.toLowerCase())
+                              )
+                              .map((divisi) => (
+                                <div
+                                  key={divisi}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`divisi-${divisi}`}
+                                    checked={filterDivisi.includes(divisi)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterDivisi([
+                                          ...filterDivisi,
+                                          divisi,
+                                        ]);
+                                      } else {
+                                        setFilterDivisi(
+                                          filterDivisi.filter(
+                                            (f) => f !== divisi
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`divisi-${divisi}`}
+                                    className="text-sm"
+                                  >
+                                    {divisi}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Status */}
+                    <TableHead className="min-w-[100px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Status
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari status..."
+                            value={statusSearchTerm}
+                            onChange={(e) =>
+                              setStatusSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueStatus
+                              .filter((status) =>
+                                status
+                                  .toLowerCase()
+                                  .includes(statusSearchTerm.toLowerCase())
+                              )
+                              .map((status) => (
+                                <div
+                                  key={status}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`status-${status}`}
+                                    checked={filterStatus.includes(status)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterStatus([
+                                          ...filterStatus,
+                                          status,
+                                        ]);
+                                      } else {
+                                        setFilterStatus(
+                                          filterStatus.filter(
+                                            (f) => f !== status
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`status-${status}`}
+                                    className="text-sm"
+                                  >
+                                    {status}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Dibuat Oleh */}
+                    <TableHead className="min-w-[120px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Dibuat Oleh
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari nama..."
+                            value={dibuatOlehSearchTerm}
+                            onChange={(e) =>
+                              setDibuatOlehSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueDibuatOleh
+                              .filter((nama) =>
+                                nama
+                                  .toLowerCase()
+                                  .includes(dibuatOlehSearchTerm.toLowerCase())
+                              )
+                              .map((nama) => (
+                                <div
+                                  key={nama}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`dibuatOleh-${nama}`}
+                                    checked={filterDibuatOleh.includes(nama)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterDibuatOleh([
+                                          ...filterDibuatOleh,
+                                          nama,
+                                        ]);
+                                      } else {
+                                        setFilterDibuatOleh(
+                                          filterDibuatOleh.filter(
+                                            (f) => f !== nama
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`dibuatOleh-${nama}`}
+                                    className="text-sm"
+                                  >
+                                    {nama}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    {/* Skema */}
+                    <TableHead className="min-w-[120px]">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Skema
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Input
+                            placeholder="Cari skema..."
+                            value={skemaSearchTerm}
+                            onChange={(e) => setSkemaSearchTerm(e.target.value)}
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueSkema
+                              .filter(
+                                (skema) =>
+                                  typeof skema === "string" &&
+                                  skema
+                                    .toLowerCase()
+                                    .includes(skemaSearchTerm.toLowerCase())
+                              )
+                              .map((skema) => (
+                                <div
+                                  key={skema}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`skema-${skema}`}
+                                    checked={filterSkema.includes(skema)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked) {
+                                        setFilterSkema([...filterSkema, skema]);
+                                      } else {
+                                        setFilterSkema(
+                                          filterSkema.filter((f) => f !== skema)
+                                        );
+                                      }
+                                    }}
+                                  />
+                                  <Label
+                                    htmlFor={`skema-${skema}`}
+                                    className="text-sm"
+                                  >
+                                    {skema}
+                                  </Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPRs.map((pr) => {
+                  {paginatedData.map((pr) => {
                     const filteredItems =
                       pr.items?.filter((item) => item.jumlah > 0) || [];
                     if (filteredItems.length === 0) return null;
@@ -481,7 +1156,7 @@ export default function StatusPOPage() {
                             {pr.noPR}
                           </TableCell>
                           <TableCell rowSpan={filteredItems.length}>
-                            {pr.tanggalPR?.split("T")[0]}
+                            {formatTanggal(pr.tanggalPR)}
                           </TableCell>
                           <TableCell>{filteredItems[0]?.namaBarang}</TableCell>
                           <TableCell>
@@ -539,7 +1214,7 @@ export default function StatusPOPage() {
                 </TableBody>
               </Table>
             </div>
-            {/* <Pagination className="mt-4">
+            <Pagination className="mt-4">
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
@@ -574,7 +1249,7 @@ export default function StatusPOPage() {
                   />
                 </PaginationItem>
               </PaginationContent>
-            </Pagination> */}
+            </Pagination>
           </CardContent>
         </Card>
       </div>
