@@ -356,7 +356,7 @@ export default function InputPOPage() {
       }
       return pr;
     });
-    localStorage.setItem("prData", JSON.stringify(updatedPRData));
+    // localStorage.setItem("prData", JSON.stringify(updatedPRData)); // Hapus baris ini
 
     // Reset form
     setPoFormData({
@@ -381,7 +381,76 @@ export default function InputPOPage() {
   };
 
   useEffect(() => {
-    loadData();
+    // Ganti loadData dengan fetch dari backend
+    const fetchPRData = async () => {
+      // Fetch referensi satuan/divisi/urgensi jika perlu (optional)
+      // Fetch PR utama
+      const prRes = await fetch("http://localhost:5000/api/pr");
+      const prList = await prRes.json();
+      // Fetch PR item
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
+      const prItemList = await prItemRes.json();
+
+      // Mapping satuan/divisi/urgensi jika perlu (optional)
+      // Sama seperti di monitoring PR
+      const prDataMapped = prList.map((pr: any) => {
+        const items = prItemList
+          .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
+          .map((item: any) => ({
+            namaBarang: item.namaBarang,
+            jumlah: item.jumlah,
+            quantityAwalPR: item.quantityAwalPR,
+            satuan: item.satuanLabel || item.satuan || item.id_satuan,
+            keterangan: item.keterangan,
+            id: item.id_PRItem,
+            status: item.status || "",
+          }));
+
+        return {
+          id: pr.id_PR,
+          noPR: pr.noPR,
+          tanggalPR: pr.tanggalPR,
+          items,
+          urgensi: pr.urgensiLabel || pr.urgensi || pr.id_urgensi,
+          divisi: pr.divisiLabel || pr.divisi || pr.id_divisi,
+          status: pr.status,
+          dibuatOleh: pr.dibuatOleh,
+          skema: pr.id_skema,
+          skemaLabel: pr.skemaLabel ?? "",
+        };
+      });
+
+      // Selalu gunakan data dari backend, jangan dari localStorage
+      setPrData(prDataMapped);
+
+      // Jangan set localStorage prData di sini
+      // Ambil selected PR dari localStorage untuk proses PO
+      // const selectedFromStatus = localStorage.getItem("selectedPRsForPO");
+      // if (selectedFromStatus) {
+      //   const selectedPRData = JSON.parse(selectedFromStatus);
+      //   setSelectedPRsForPO(selectedPRData);
+
+      //   setPoItems(
+      //     selectedPRData.map((pr: any) => ({
+      //       prId: pr.id,
+      //       noPR: pr.noPR,
+      //       skema: pr.skema || "",
+      //       items: pr.items.map((item: any) => ({
+      //         ...item,
+      //         hargaSatuan: 0,
+      //         jumlahPO: 0,
+      //         jumlahAsli: item.jumlah,
+      //         diskonItem: 0,
+      //         skema: pr.skema || "",
+      //         dibuatOleh: pr.dibuatOleh || "",
+      //       })),
+      //     }))
+      //   );
+      // }
+    };
+
+    fetchPRData();
+
     // Ambil skema dari userData
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     const userSkemaVal = userData.skema || "";
@@ -390,65 +459,7 @@ export default function InputPOPage() {
       ...prev,
       skema: userSkemaVal,
     }));
-    // Check if there are selected PRs from status page
-    const selectedFromStatus = localStorage.getItem("selectedPRsForPO");
-    if (selectedFromStatus) {
-      const selectedPRData = JSON.parse(selectedFromStatus);
-      setSelectedPRsForPO(selectedPRData);
-
-      // Auto-populate form with first PR data
-      if (selectedPRData.length > 0) {
-        setPoFormData((prev) => ({
-          ...prev,
-          noPO: `PO/2024/${String(poData.length + 1).padStart(3, "0")}`,
-          tanggalPO: new Date().toISOString().split("T")[0],
-          skema: userSkemaVal, // pastikan skema diambil dari userData.schema
-        }));
-
-        // Set PO items with individual pricing
-        setPoItems(
-          selectedPRData.map((pr: any) => ({
-            prId: pr.id,
-            noPR: pr.noPR,
-            skema: pr.skema || "",
-            items: pr.items.map((item: any) => ({
-              ...item,
-              hargaSatuan: 0, // Will be set by user
-              jumlahPO: 0, // Default to 0
-              jumlahAsli: item.jumlah, // Store original quantity for validation
-              diskonItem: 0,
-              skema: pr.skema || "",
-              dibuatOleh: pr.dibuatOleh || "",
-            })),
-          }))
-        );
-      }
-
-      // Don't remove the localStorage here, let status page handle it
-    }
   }, []);
-
-  const loadData = () => {
-    const storedPR = localStorage.getItem("prData");
-    const storedPO = localStorage.getItem("poData");
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const userSkema = userData.skema || "";
-
-    if (storedPR) {
-      const parsedPRData = JSON.parse(storedPR);
-      // Filter PR sesuai skema user
-      setPrData(
-        parsedPRData.filter((pr: any) => !userSkema || pr.skema === userSkema)
-      );
-    }
-    if (storedPO) {
-      const parsedPOData = JSON.parse(storedPO);
-      // Filter PO sesuai skema user
-      setPoData(
-        parsedPOData.filter((po: any) => !userSkema || po.skema === userSkema)
-      );
-    }
-  };
 
   const savePOData = (data: POData[]) => {
     localStorage.setItem("poData", JSON.stringify(data));
@@ -462,7 +473,138 @@ export default function InputPOPage() {
   }, [poFormData.diskon, poItems]);
 
   // Dummy state for selectedPRsForPO to satisfy TypeScript
-  const [selectedPRsForPO, setSelectedPRsForPO] = useState<any[]>([]);
+  // const [selectedPRsForPO, setSelectedPRsForPO] = useState<any[]>([]); // HAPUS BARIS INI
+
+  // Tambahkan state untuk referensi urgensi/divisi/satuan
+  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
+  const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
+  const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Fetch referensi dari backend
+    fetch("http://localhost:5000/api/divisi")
+      .then((res) => res.json())
+      .then((data) => setDivisiOptions(data));
+    fetch("http://localhost:5000/api/urgensi")
+      .then((res) => res.json())
+      .then((data) => setUrgensiOptions(data));
+    fetch("http://localhost:5000/api/satuan")
+      .then((res) => res.json())
+      .then((data) => setSatuanOptions(data));
+  }, []);
+
+  useEffect(() => {
+    const fetchPRData = async () => {
+      // Tunggu referensi sudah didapat
+      if (
+        divisiOptions.length === 0 ||
+        urgensiOptions.length === 0 ||
+        satuanOptions.length === 0
+      )
+        return;
+
+      // Fetch PR utama
+      const prRes = await fetch("http://localhost:5000/api/pr");
+      const prList = await prRes.json();
+      // Fetch PR item
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
+      const prItemList = await prItemRes.json();
+
+      // Helper mapping dari id ke label
+      const satuanMap = Object.fromEntries(
+        satuanOptions.map((s: any) => [String(s.id_satuan), s.satuan])
+      );
+      const divisiMap = Object.fromEntries(
+        divisiOptions.map((d: any) => [String(d.id_divisi), d.divisi])
+      );
+      const urgensiMap = Object.fromEntries(
+        urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
+      );
+
+      // Mapping PR dan item (sama seperti monitoring PR)
+      const prDataMapped = prList.map((pr: any) => {
+        const items = prItemList
+          .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
+          .map((item: any) => ({
+            namaBarang: item.namaBarang,
+            jumlah: item.jumlah,
+            quantityAwalPR: item.quantityAwalPR ?? item.originalJumlah ?? item.jumlah,
+            satuan: satuanMap[String(item.id_satuan)] || item.satuanLabel || item.id_satuan,
+            keterangan: item.keterangan,
+            id: item.id_PRItem,
+            status: item.status || "",
+          }));
+
+        return {
+          id: pr.id_PR,
+          noPR: pr.noPR,
+          tanggalPR: pr.tanggalPR,
+          items,
+          urgensi: urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
+          divisi: divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
+          status: pr.status,
+          dibuatOleh: pr.dibuatOleh,
+          skema: pr.id_skema,
+          skemaLabel: pr.skemaLabel ?? "",
+        };
+      });
+      setPrData(prDataMapped);
+    };
+
+    fetchPRData();
+  }, [divisiOptions, urgensiOptions, satuanOptions]);
+
+  // Badge untuk urgensi
+  const getUrgensiBadge = (urgensi: string) => {
+    if (urgensi === "Low") {
+      return (
+        <Badge className="bg-green-100 text-green-700 border-green-300">
+          Low
+        </Badge>
+      );
+    }
+    if (urgensi === "Medium") {
+      return (
+        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+          Medium
+        </Badge>
+      );
+    }
+    if (urgensi === "High") {
+      return (
+        <Badge className="bg-red-100 text-red-700 border-red-300">High</Badge>
+      );
+    }
+    return (
+      <Badge className="bg-muted/50 text-muted-foreground">{urgensi}</Badge>
+    );
+  };
+
+  // Badge untuk status
+  const getStatusBadge = (status: string) => {
+    if (status === "Menunggu") {
+      return (
+        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+          Menunggu
+        </Badge>
+      );
+    }
+    if (status === "Gantung") {
+      return (
+        <Badge className="bg-red-100 text-red-700 border-red-300">
+          Gantung
+        </Badge>
+      );
+    }
+    if (status === "Diproses") {
+      return (
+        <Badge className="bg-gray-200 text-gray-700 border-gray-300">
+          Diproses
+        </Badge>
+      );
+    }
+    return <Badge variant="secondary">{status}</Badge>;
+  };
 
   return (
     <MainLayout>
@@ -1030,117 +1172,138 @@ export default function InputPOPage() {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pagedItems.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="font-medium">
-                              {item.noPR}
-                            </TableCell>
-                            <TableCell>{item.namaBarang}</TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                min="0"
-                                max={item.jumlahAsli}
-                                value={item.jumlahPO}
-                                onChange={(e) => {
-                                  const newQty = Math.min(
-                                    Math.max(0, parseInt(e.target.value) || 0),
-                                    item.jumlahAsli
-                                  );
-                                  setPoItems(
-                                    poItems.map((pItem) =>
-                                      pItem.prId === item.prId
-                                        ? {
-                                            ...pItem,
-                                            items: pItem.items.map((i) =>
-                                              i.id === item.id
-                                                ? { ...i, jumlahPO: newQty }
-                                                : i
-                                            ),
-                                          }
-                                        : pItem
-                                    )
-                                  );
-                                }}
-                                className="w-16 border-border focus:border-primary/50"
-                              />
-                            </TableCell>
-                            <TableCell>{item.satuan}</TableCell>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                value={item.hargaSatuan.toLocaleString("id-ID")}
-                                onChange={(e) => {
-                                  // Remove dots and commas for parsing
-                                  const cleanValue = e.target.value.replace(
-                                    /[.,]/g,
-                                    ""
-                                  );
-                                  const newPrice = Math.max(
-                                    0,
-                                    parseInt(cleanValue) || 0
-                                  );
-                                  setPoItems(
-                                    poItems.map((pItem) =>
-                                      pItem.prId === item.prId
-                                        ? {
-                                            ...pItem,
-                                            items: pItem.items.map((i) =>
-                                              i.id === item.id
-                                                ? {
-                                                    ...i,
-                                                    hargaSatuan: newPrice,
-                                                  }
-                                                : i
-                                            ),
-                                          }
-                                        : pItem
-                                    )
-                                  );
-                                }}
-                                className="w-32 text-right border-border focus:border-primary/50"
-                                placeholder="0"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              Rp{" "}
-                              {(
-                                item.hargaSatuan * item.jumlahPO
-                              ).toLocaleString("id-ID")}
-                            </TableCell>
-                            <TableCell>
-                              <Textarea
-                                value={item.keterangan || ""}
-                                onChange={(e) => {
-                                  const newKeterangan = e.target.value;
-                                  setPoItems(
-                                    poItems.map((pItem) =>
-                                      pItem.prId === item.prId
-                                        ? {
-                                            ...pItem,
-                                            items: pItem.items.map((i) =>
-                                              i.id === item.id
-                                                ? {
-                                                    ...i,
-                                                    keterangan: newKeterangan,
-                                                  }
-                                                : i
-                                            ),
-                                          }
-                                        : pItem
-                                    )
-                                  );
-                                }}
-                                className="w-full border-border focus:border-primary/50 resize-none"
-                                rows={2}
-                                placeholder="Masukkan keterangan"
-                              />
-                            </TableCell>
-                            <TableCell>{item.dibuatOleh}</TableCell>
-                            <TableCell>{item.skema}</TableCell>{" "}
-                            {/* <-- show skema value */}
-                          </TableRow>
-                        ))}
+                        {pagedItems.map((item) => {
+                          // Cari PR terkait dari prData
+                          const pr = prData.find((pr) => pr.id === item.prId);
+                          // Format tanggal PR tanpa jam
+                          const tanggalPR = pr?.tanggalPR
+                            ? pr.tanggalPR.split("T")[0]
+                            : "";
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-medium">
+                                {item.noPR}
+                              </TableCell>
+                              <TableCell>{item.namaBarang}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max={item.jumlahAsli}
+                                  value={item.jumlahPO}
+                                  onChange={(e) => {
+                                    const newQty = Math.min(
+                                      Math.max(0, parseInt(e.target.value) || 0),
+                                      item.jumlahAsli
+                                    );
+                                    setPoItems(
+                                      poItems.map((pItem) =>
+                                        pItem.prId === item.prId
+                                          ? {
+                                              ...pItem,
+                                              items: pItem.items.map((i) =>
+                                                i.id === item.id
+                                                  ? { ...i, jumlahPO: newQty }
+                                                  : i
+                                              ),
+                                            }
+                                          : pItem
+                                      )
+                                    );
+                                  }}
+                                  className="w-16 border-border focus:border-primary/50"
+                                />
+                              </TableCell>
+                              <TableCell>{item.satuan}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  value={item.hargaSatuan.toLocaleString(
+                                    "id-ID"
+                                  )}
+                                  onChange={(e) => {
+                                    // Remove dots and commas for parsing
+                                    const cleanValue = e.target.value.replace(
+                                      /[.,]/g,
+                                      ""
+                                    );
+                                    const newPrice = Math.max(
+                                      0,
+                                      parseInt(cleanValue) || 0
+                                    );
+                                    setPoItems(
+                                      poItems.map((pItem) =>
+                                        pItem.prId === item.prId
+                                          ? {
+                                              ...pItem,
+                                              items: pItem.items.map((i) =>
+                                                i.id === item.id
+                                                  ? {
+                                                      ...i,
+                                                      hargaSatuan: newPrice,
+                                                    }
+                                                  : i
+                                              ),
+                                            }
+                                          : pItem
+                                      );
+                                  }}
+                                  className="w-32 text-right border-border focus:border-primary/50"
+                                  placeholder="0"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                Rp{" "}
+                                {(
+                                  item.hargaSatuan * item.jumlahPO
+                                ).toLocaleString("id-ID")}
+                              </TableCell>
+                              <TableCell>
+                                <Textarea
+                                  value={item.keterangan || ""}
+                                  onChange={(e) => {
+                                    const newKeterangan = e.target.value;
+                                    setPoItems(
+                                      poItems.map((pItem) =>
+                                        pItem.prId === item.prId
+                                          ? {
+                                              ...pItem,
+                                              items: pItem.items.map((i) =>
+                                                i.id === item.id
+                                                  ? {
+                                                      ...i,
+                                                      keterangan: newKeterangan,
+                                                    }
+                                                  : i
+                                              ),
+                                            }
+                                          : pItem
+                                      )
+                                    );
+                                  }}
+                                  className="w-full border-border focus:border-primary/50 resize-none"
+                                  rows={2}
+                                  placeholder="Masukkan keterangan"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {/* Tampilkan badge urgensi dari PR */}
+                                {pr ? getUrgensiBadge(pr.urgensi) : null}
+                              </TableCell>
+                              <TableCell>
+                                {/* Tampilkan badge status dari PR */}
+                                {pr ? getStatusBadge(pr.status) : null}
+                              </TableCell>
+                              <TableCell>
+                                {/* Tampilkan tanggal PR tanpa jam */}
+                                {tanggalPR}
+                              </TableCell>
+                              <TableCell>{item.dibuatOleh}</TableCell>
+                              <TableCell>{item.skema}</TableCell>{" "}
+                              {/* <-- show skema value */}
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
@@ -1285,6 +1448,70 @@ export default function InputPOPage() {
               >
                 Buat PO
               </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabel PR Siap Proses ke PO */}
+        <Card className="bg-card border-border mb-6">
+          <CardHeader>
+            <CardTitle>PR Siap Proses ke PO</CardTitle>
+            <CardDescription>
+              Daftar semua PR yang siap diproses menjadi PO (data sama seperti
+              Monitoring PR)
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No. PR</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Daftar Barang</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Satuan</TableHead>
+                    <TableHead>Keterangan</TableHead>
+                    <TableHead>Urgensi</TableHead>
+                    <TableHead>Divisi</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Dibuat Oleh</TableHead>
+                    <TableHead>Skema</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {prData.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={11}
+                        className="text-center text-muted-foreground"
+                      >
+                        Tidak ada PR.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    prData.flatMap((pr) =>
+                      pr.items.map((item, idx) => (
+                        <TableRow key={`${pr.id}-${item.id}-${idx}`}>
+                          <TableCell>{pr.noPR}</TableCell>
+                          <TableCell>{pr.tanggalPR?.split("T")[0]}</TableCell>
+                          <TableCell>{item.namaBarang}</TableCell>
+                          <TableCell>{item.jumlah}</TableCell>
+                          <TableCell>{item.satuan}</TableCell>
+                          <TableCell>{item.keterangan}</TableCell>
+                          <TableCell>{getUrgensiBadge(pr.urgensi)}</TableCell>
+                          <TableCell>{pr.divisi}</TableCell>
+                          <TableCell>{item.status}</TableCell>
+                          <TableCell>{pr.dibuatOleh}</TableCell>
+                          <TableCell>
+                            {pr.skemaLabel ?? pr.skema ?? ""}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </CardContent>
         </Card>

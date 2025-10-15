@@ -6,11 +6,17 @@ const router = express.Router();
 // GET semua PR
 router.get("/", async (req, res) => {
   try {
-    // Join ke tabel skema untuk dapatkan label skema
+    // Join ke tabel skema, divisi, urgensi untuk dapatkan label
     const [rows] = await db.query(`
-      SELECT pr.*, skema.skema AS skemaLabel
+      SELECT 
+        pr.*, 
+        skema.skema AS skemaLabel,
+        divisi.divisi AS divisiLabel,
+        urgensi.urgensi AS urgensiLabel
       FROM pr
       LEFT JOIN skema ON pr.id_skema = skema.id_skema
+      LEFT JOIN divisi ON pr.id_divisi = divisi.id_divisi
+      LEFT JOIN urgensi ON pr.id_urgensi = urgensi.id_urgensi
     `);
     res.json(rows);
   } catch (err) {

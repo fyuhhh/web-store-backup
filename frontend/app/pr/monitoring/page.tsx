@@ -57,7 +57,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { type PRData, initializeDummyData } from "@/lib/dummy-data";
+import { type PRData } from "@/lib/dummy-data";
 
 export default function MonitoringPRPage() {
   const [prData, setPrData] = useState<PRData[]>([]);
@@ -151,21 +151,34 @@ export default function MonitoringPRPage() {
 
   const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
   const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
-
+  const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
   useEffect(() => {
-    initializeDummyData();
-    loadPRData();
-    // Ambil referensi divisi dan urgensi dari backend
+    // initializeDummyData(); // HAPUS BARIS INI
     fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
     fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
+    fetch("http://localhost:5000/api/satuan")
+      .then((res) => res.json())
+      .then((data) => setSatuanOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.schema || "");
     setUserSkema(userData.skema || "");
   }, []);
+
+  useEffect(() => {
+    // loadPRData dipanggil setelah data referensi didapat
+    if (
+      divisiOptions.length > 0 &&
+      urgensiOptions.length > 0 &&
+      satuanOptions.length > 0
+    ) {
+      loadPRData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [divisiOptions, urgensiOptions, satuanOptions]);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -187,43 +200,49 @@ export default function MonitoringPRPage() {
     filterSkema,
   ]);
 
-  const loadPRData = () => {
-    const stored = localStorage.getItem("prData");
-    if (stored) {
-      const parsedData = JSON.parse(stored);
-      // Mapping id_divisi dan id_urgensi ke nama
-      const validatedData = parsedData.map((pr: any) => {
-        // Cari nama divisi dari id
-        let divisiNama = pr.divisi;
-        if (divisiOptions.length > 0) {
-          const foundDiv = divisiOptions.find(
-            (d: any) => String(d.id_divisi) === String(pr.divisi)
-          );
-          if (foundDiv) divisiNama = foundDiv.divisi;
-        }
-        // Cari nama urgensi dari id
-        let urgensiNama = pr.urgensi;
-        if (urgensiOptions.length > 0) {
-          const foundUrg = urgensiOptions.find(
-            (u: any) => String(u.id_urgensi) === String(pr.urgensi)
-          );
-          if (foundUrg) urgensiNama = foundUrg.urgensi;
-        }
-        // Pastikan field skema dan skemaLabel ada
-        let skemaValue = pr.skema ?? pr.id_skema ?? "";
-        let skemaLabel =
-          pr.skemaLabel ??
-          (skemaValue === 1 ? "Pentacity" : skemaValue === 2 ? "Ewalk" : "");
-        return {
-          ...pr,
-          divisi: divisiNama,
-          urgensi: urgensiNama,
-          skema: skemaValue,
-          skemaLabel,
-        };
-      }) as PRData[];
-      setPrData(validatedData);
-    }
+  const loadPRData = async () => {
+    const prRes = await fetch("http://localhost:5000/api/pr");
+    const prList = await prRes.json();
+    const prItemRes = await fetch("http://localhost:5000/api/pr-item");
+    const prItemList = await prItemRes.json();
+
+    // Helper mapping dari id ke nama
+    const satuanMap = Object.fromEntries(
+      satuanOptions.map((s: any) => [String(s.id_satuan), s.satuan])
+    );
+    const divisiMap = Object.fromEntries(
+      divisiOptions.map((d: any) => [String(d.id_divisi), d.divisi])
+    );
+    const urgensiMap = Object.fromEntries(
+      urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
+    );
+
+    const validatedData = prList.map((pr: any) => {
+      const items = prItemList
+        .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
+        .map((item: any) => ({
+          // Ganti namabarang -> namaBarang agar konsisten dengan backend
+          namaBarang: item.namaBarang, // <-- perbaikan di sini
+          jumlah: item.jumlah,
+          quantityAwalPR: item.quantityAwalPR,
+          satuan: satuanMap[String(item.id_satuan)] || item.id_satuan,
+          keterangan: item.keterangan,
+        }));
+
+      return {
+        id: pr.id_PR,
+        noPR: pr.noPR,
+        tanggalPR: pr.tanggalPR,
+        items,
+        urgensi: urgensiMap[String(pr.id_urgensi)] || pr.id_urgensi, // tampilkan nama urgensi
+        divisi: divisiMap[String(pr.id_divisi)] || pr.id_divisi, // tampilkan nama divisi
+        status: pr.status,
+        dibuatOleh: pr.dibuatOleh,
+        skema: pr.id_skema,
+        skemaLabel: pr.skemaLabel ?? "",
+      };
+    });
+    setPrData(validatedData);
   };
 
   const savePRData = (data: PRData[]) => {
@@ -313,15 +332,22 @@ export default function MonitoringPRPage() {
     .filter((pr) => {
       const matchesSearch =
         (pr.items &&
-          pr.items.some((item) =>
-            item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
+          pr.items.some(
+            (item) =>
+              typeof item.namaBarang === "string" &&
+              item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
           )) ||
-        pr.noPR.toLowerCase().includes(searchTerm.toLowerCase());
+        (typeof pr.noPR === "string" &&
+          pr.noPR.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesNamaBarang =
         !filterNamaBarang ||
-        pr.items?.some((item) =>
-          item.namaBarang.toLowerCase().includes(filterNamaBarang.toLowerCase())
+        pr.items?.some(
+          (item) =>
+            typeof item.namaBarang === "string" &&
+            item.namaBarang
+              .toLowerCase()
+              .includes(filterNamaBarang.toLowerCase())
         );
 
       // Updated matchesQty to check if item's jumlah is in filterQty array if filterQty is not empty
@@ -405,51 +431,54 @@ export default function MonitoringPRPage() {
     startIndex + itemsPerPage
   );
 
-  // Badge status: "Telah Selesai" warna hijau untuk Processed/Clear/Telah Selesai, "Menunggu" warna kuning, "Gantung" warna orange
-  const getStatusBadge = (status: string) => {
-    if (
-      status === "Processed" ||
-      status === "Clear" ||
-      status === "Telah Selesai"
-    ) {
+  const getUrgensiBadge = (urgensi: string) => {
+    if (urgensi === "Low") {
       return (
-        <Badge className="bg-success/10 text-success border-success/20">
-          Telah Selesai
+        <Badge className="bg-green-100 text-green-700 border-green-300">
+          Low
         </Badge>
       );
     }
+    if (urgensi === "Medium") {
+      return (
+        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+          Medium
+        </Badge>
+      );
+    }
+    if (urgensi === "High") {
+      return (
+        <Badge className="bg-red-100 text-red-700 border-red-300">High</Badge>
+      );
+    }
+    return (
+      <Badge className="bg-muted/50 text-muted-foreground">{urgensi}</Badge>
+    );
+  };
+
+  const getStatusBadge = (status: string) => {
     if (status === "Menunggu") {
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20">
-          {status}
+        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+          Menunggu
         </Badge>
       );
     }
     if (status === "Gantung") {
       return (
-        <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-          {status}
+        <Badge className="bg-red-100 text-red-700 border-red-300">
+          Gantung
+        </Badge>
+      );
+    }
+    if (status === "Diproses") {
+      return (
+        <Badge className="bg-gray-200 text-gray-700 border-gray-300">
+          Diproses
         </Badge>
       );
     }
     return <Badge variant="secondary">{status}</Badge>;
-  };
-
-  const getUrgensiBadge = (urgensi: string) => {
-    const colors: Record<string, string> = {
-      Low: "bg-success/10 text-success",
-      Medium: "bg-warning/10 text-warning",
-      High: "bg-destructive/10 text-destructive",
-    };
-    return (
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${
-          colors[urgensi] || "bg-muted/50 text-muted-foreground"
-        }`}
-      >
-        {urgensi}
-      </span>
-    );
   };
 
   const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
@@ -886,13 +915,15 @@ export default function MonitoringPRPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((pr) => {
-                    // Include all items without filtering by jumlah
                     const validItems = pr.items || [];
-                    if (validItems.length === 0) return null; // Skip PR if no items
+                    if (validItems.length === 0) return null;
+
+                    const tanggalPR = pr.tanggalPR
+                      ? pr.tanggalPR.split("T")[0]
+                      : "";
 
                     return (
                       <React.Fragment key={pr.id}>
-                        {/* Main row with first item */}
                         <TableRow>
                           <TableCell rowSpan={validItems.length}>
                             {/* Checkbox per baris */}
@@ -916,15 +947,18 @@ export default function MonitoringPRPage() {
                             {pr.noPR}
                           </TableCell>
                           <TableCell rowSpan={validItems.length}>
-                            {pr.tanggalPR}
+                            {tanggalPR}
                           </TableCell>
                           <TableCell>{validItems[0]?.namaBarang}</TableCell>
                           <TableCell>
-                            {getQtyPR(pr, validItems[0], poData)}
+                            {parseFloat(validItems[0]?.jumlah) % 1 === 0
+                              ? parseInt(validItems[0]?.jumlah)
+                              : validItems[0]?.jumlah}
                           </TableCell>
                           <TableCell>
-                            {validItems[0]?.quantityAwalPR ??
-                              validItems[0]?.jumlah}
+                            {parseFloat(validItems[0]?.quantityAwalPR) % 1 === 0
+                              ? parseInt(validItems[0]?.quantityAwalPR)
+                              : validItems[0]?.quantityAwalPR}
                           </TableCell>
                           <TableCell>{validItems[0]?.satuan}</TableCell>
                           <TableCell>
@@ -969,14 +1003,18 @@ export default function MonitoringPRPage() {
                             </div>
                           </TableCell>
                         </TableRow>
-
-                        {/* Additional rows for remaining items */}
                         {validItems.slice(1).map((item, index) => (
                           <TableRow key={`${pr.id}-item-${index + 1}`}>
                             <TableCell>{item.namaBarang}</TableCell>
-                            <TableCell>{getQtyPR(pr, item, poData)}</TableCell>
                             <TableCell>
-                              {item.quantityAwalPR ?? item.jumlah}
+                              {parseFloat(item.jumlah) % 1 === 0
+                                ? parseInt(item.jumlah)
+                                : item.jumlah}
+                            </TableCell>
+                            <TableCell>
+                              {parseFloat(item.quantityAwalPR) % 1 === 0
+                                ? parseInt(item.quantityAwalPR)
+                                : item.quantityAwalPR}
                             </TableCell>
                             <TableCell>{item.satuan}</TableCell>
                             <TableCell>

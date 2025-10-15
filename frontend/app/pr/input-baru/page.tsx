@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
-import { type PRData, initializeDummyData } from "@/lib/dummy-data";
+import { type PRData } from "@/lib/dummy-data";
 
 export default function InputBaruPRPage() {
   const [prData, setPrData] = useState<PRData[]>([]);
@@ -60,7 +60,6 @@ export default function InputBaruPRPage() {
   const [newSatuan, setNewSatuan] = useState("");
 
   useEffect(() => {
-    initializeDummyData();
     loadPRData();
 
     const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -238,7 +237,7 @@ export default function InputBaruPRPage() {
           tanggalPR: formData.tanggalPR,
           id_divisi: formData.divisi,
           id_urgensi: formData.urgensi,
-          status: "Menunggu",
+          status: "Menunggu", // <-- ubah ke enum DB
           dibuatOleh:
             userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
           id_skema: Number(formData.id_skema),
