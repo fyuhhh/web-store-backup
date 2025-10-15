@@ -884,7 +884,7 @@ export default function InputPOPage() {
                                   <ChevronDown className="ml-1 h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80">
+                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">
                                     Filter No. PR
@@ -912,7 +912,7 @@ export default function InputPOPage() {
                                   <ChevronDown className="ml-1 h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80">
+                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">
                                     Filter Nama Barang
@@ -940,7 +940,7 @@ export default function InputPOPage() {
                                   <ChevronDown className="ml-1 h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80">
+                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">
                                     Filter Qty
@@ -986,7 +986,7 @@ export default function InputPOPage() {
                                   <ChevronDown className="ml-1 h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80">
+                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">
                                     Filter Satuan
@@ -1057,7 +1057,7 @@ export default function InputPOPage() {
                                   <ChevronDown className="ml-1 h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80">
+                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">
                                     Filter Harga Satuan
@@ -1103,7 +1103,7 @@ export default function InputPOPage() {
                                   <ChevronDown className="ml-1 h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80">
+                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">
                                     Filter Total
@@ -1149,7 +1149,7 @@ export default function InputPOPage() {
                                   <ChevronDown className="ml-1 h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent className="w-80">
+                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                                 <div className="space-y-2">
                                   <Label className="text-sm font-medium">
                                     Filter Keterangan

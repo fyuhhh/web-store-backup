@@ -106,6 +106,10 @@ export default function MonitoringPRPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
+  // Pindahkan deklarasi state referensi ke atas sebelum digunakan
+  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
+  const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
+  const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
   // Compute unique values
   const uniqueSatuan = Array.from(
     new Set(prData.flatMap((pr) => pr.items?.map((item) => item.satuan) || []))
@@ -117,17 +121,12 @@ export default function MonitoringPRPage() {
   ).sort((a, b) => a - b);
 
   const uniqueUrgensi = ["Low", "Medium", "High"];
-  const uniqueDivisi = ["IT", "Civil", "Eng", "FAD", "HRD"];
-  const uniqueStatus = [
-    "Draft",
-    "Submitted",
-    "Approved",
-    "Processed",
-    "Clear",
-    "Gantung",
-    "Menunggu",
-    "Telah Selesai",
-  ];
+  const uniqueStatus = ["Menunggu", "Gantung", "Diproses"];
+  // uniqueDivisi harus setelah divisiOptions dideklarasikan
+  const uniqueDivisi = React.useMemo(
+    () => divisiOptions.map((d: any) => d.divisi),
+    [divisiOptions]
+  );
   const uniqueTanggalPR = Array.from(
     new Set(
       prData
@@ -149,9 +148,6 @@ export default function MonitoringPRPage() {
   const [userSchema, setUserSchema] = useState<string>("");
   const [userSkema, setUserSkema] = useState<string>("");
 
-  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
-  const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
-  const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
     fetch("http://localhost:5000/api/divisi")
@@ -704,169 +700,6 @@ export default function MonitoringPRPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <Card className="bg-card border-border">
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-[200px]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Cari berdasarkan nama barang atau no PR..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[150px] justify-between"
-                  >
-                    Divisi ({filterDivisi.length || "Semua"})
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
-                  <Input
-                    placeholder="Cari divisi..."
-                    value={divisiSearchTerm}
-                    onChange={(e) => setDivisiSearchTerm(e.target.value)}
-                    className="mb-2"
-                  />
-                  <div className="max-h-48 overflow-y-auto space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="select-all-divisi"
-                        checked={
-                          filterDivisi.length === uniqueDivisi.length &&
-                          uniqueDivisi.length > 0
-                        }
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFilterDivisi([...uniqueDivisi]);
-                          } else {
-                            setFilterDivisi([]);
-                          }
-                        }}
-                      />
-                      <Label htmlFor="select-all-divisi" className="text-sm">
-                        Pilih Semua
-                      </Label>
-                    </div>
-                    {uniqueDivisi
-                      .filter((divisi) =>
-                        divisi
-                          .toLowerCase()
-                          .includes(divisiSearchTerm.toLowerCase())
-                      )
-                      .map((divisi) => (
-                        <div
-                          key={divisi}
-                          className="flex items-center space-x-2"
-                        >
-                          <Checkbox
-                            id={`divisi-${divisi}`}
-                            checked={filterDivisi.includes(divisi)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setFilterDivisi([...filterDivisi, divisi]);
-                              } else {
-                                setFilterDivisi(
-                                  filterDivisi.filter((f) => f !== divisi)
-                                );
-                              }
-                            }}
-                          />
-                          <Label
-                            htmlFor={`divisi-${divisi}`}
-                            className="text-sm"
-                          >
-                            {divisi}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-[150px] justify-between"
-                  >
-                    Status ({filterStatus.length || "Semua"})
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
-                  <Input
-                    placeholder="Cari status..."
-                    value={statusSearchTerm}
-                    onChange={(e) => setStatusSearchTerm(e.target.value)}
-                    className="mb-2"
-                  />
-                  <div className="max-h-48 overflow-y-auto space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="select-all-status"
-                        checked={
-                          filterStatus.length === uniqueStatus.length &&
-                          uniqueStatus.length > 0
-                        }
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFilterStatus([...uniqueStatus]);
-                          } else {
-                            setFilterStatus([]);
-                          }
-                        }}
-                      />
-                      <Label htmlFor="select-all-status" className="text-sm">
-                        Pilih Semua
-                      </Label>
-                    </div>
-                    {uniqueStatus
-                      .filter((status) =>
-                        status
-                          .toLowerCase()
-                          .includes(statusSearchTerm.toLowerCase())
-                      )
-                      .map((status) => (
-                        <div
-                          key={status}
-                          className="flex items-center space-x-2"
-                        >
-                          <Checkbox
-                            id={`status-${status}`}
-                            checked={filterStatus.includes(status)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setFilterStatus([...filterStatus, status]);
-                              } else {
-                                setFilterStatus(
-                                  filterStatus.filter((f) => f !== status)
-                                );
-                              }
-                            }}
-                          />
-                          <Label
-                            htmlFor={`status-${status}`}
-                            className="text-sm"
-                          >
-                            {status}
-                          </Label>
-                        </div>
-                      ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Table */}
         <Card className="bg-card border-border">
           <CardHeader>
@@ -908,7 +741,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari No. PR
                           </Label>
@@ -967,7 +800,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Tanggal PR
                           </Label>
@@ -983,6 +816,7 @@ export default function MonitoringPRPage() {
                             {uniqueTanggalPR
                               .filter((tgl) =>
                                 tgl
+                                  .split("T")[0] // hanya ambil tanggal
                                   .toLowerCase()
                                   .includes(tanggalPRSearchTerm.toLowerCase())
                               )
@@ -1013,7 +847,7 @@ export default function MonitoringPRPage() {
                                     htmlFor={`tglPR-${tgl}`}
                                     className="text-sm"
                                   >
-                                    {tgl}
+                                    {tgl.split("T")[0]}
                                   </Label>
                                 </div>
                               ))}
@@ -1033,7 +867,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Nama Barang
                           </Label>
@@ -1060,7 +894,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Qty
                           </Label>
@@ -1076,7 +910,9 @@ export default function MonitoringPRPage() {
                           <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueQty
                               .filter((qty) =>
-                                String(qty)
+                                String(
+                                  Number(qty) % 1 === 0 ? Number(qty) : qty
+                                )
                                   .toLowerCase()
                                   .includes(filterQtySearchTerm.toLowerCase())
                               )
@@ -1102,7 +938,7 @@ export default function MonitoringPRPage() {
                                     htmlFor={`qty-${qty}`}
                                     className="text-sm"
                                   >
-                                    {qty}
+                                    {Number(qty) % 1 === 0 ? Number(qty) : qty}
                                   </Label>
                                 </div>
                               ))}
@@ -1122,7 +958,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Qty PR Awal Min
                           </Label>
@@ -1169,7 +1005,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Satuan
                           </Label>
@@ -1235,7 +1071,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Keterangan
                           </Label>
@@ -1262,7 +1098,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Urgensi
                           </Label>
@@ -1328,7 +1164,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Divisi
                           </Label>
@@ -1394,7 +1230,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Status
                           </Label>
@@ -1460,7 +1296,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Dibuat Oleh
                           </Label>
@@ -1526,7 +1362,7 @@ export default function MonitoringPRPage() {
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
                           <Label className="text-sm font-medium">
                             Cari Skema
                           </Label>
