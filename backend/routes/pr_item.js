@@ -43,13 +43,16 @@ router.get("/pr/:id_PR", async (req, res) => {
 
 // POST PR_Item baru
 router.post("/", async (req, res) => {
+  // Log data yang diterima dari frontend
+  console.log("[PR_ITEM] POST /api/pr-item req.body:", req.body);
+
   const {
     id_PR,
     namabarang,
     jumlah,
     originaljumlah,
     quantityawalPR,
-    satuan,
+    id_satuan,
     keterangan,
   } = req.body;
   if (
@@ -58,27 +61,42 @@ router.post("/", async (req, res) => {
     !jumlah ||
     !originaljumlah ||
     !quantityawalPR ||
-    !satuan
+    !id_satuan
   ) {
+    console.log("[PR_ITEM] POST /api/pr-item missing fields:", {
+      id_PR,
+      namabarang,
+      jumlah,
+      originaljumlah,
+      quantityawalPR,
+      id_satuan,
+    });
     return res.status(400).json({ error: "Semua field wajib diisi" });
   }
   try {
+    console.log("[PR_ITEM] POST /api/pr-item executing INSERT...");
     const [result] = await db.query(
-      "INSERT INTO pr_item (id_PR, namabarang, jumlah, originaljumlah, quantityawalPR, satuan, keterangan) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO pr_item (id_PR, namabarang, jumlah, originaljumlah, quantityawalPR, id_satuan, keterangan) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         id_PR,
         namabarang,
         jumlah,
         originaljumlah,
         quantityawalPR,
-        satuan,
+        id_satuan,
         keterangan,
       ]
     );
+    console.log("[PR_ITEM] POST /api/pr-item INSERT result:", result);
     res
       .status(201)
       .json({ message: "PR Item berhasil dibuat", id: result.insertId });
+    console.log("[PR_ITEM] POST /api/pr-item response sent:", {
+      message: "PR Item berhasil dibuat",
+      id: result.insertId,
+    });
   } catch (err) {
+    console.error("[PR_ITEM] POST /api/pr-item error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -92,19 +110,19 @@ router.put("/:id", async (req, res) => {
     jumlah,
     originaljumlah,
     quantityawalPR,
-    satuan,
+    id_satuan, // <-- ganti dari satuan ke id_satuan
     keterangan,
   } = req.body;
   try {
     await db.query(
-      "UPDATE pr_item SET id_PR=?, namabarang=?, jumlah=?, originaljumlah=?, quantityawalPR=?, satuan=?, keterangan=? WHERE id_PRItem=?",
+      "UPDATE pr_item SET id_PR=?, namabarang=?, jumlah=?, originaljumlah=?, quantityawalPR=?, id_satuan=?, keterangan=? WHERE id_PRItem=?",
       [
         id_PR,
         namabarang,
         jumlah,
         originaljumlah,
         quantityawalPR,
-        satuan,
+        id_satuan, // <-- gunakan id_satuan
         keterangan,
         id,
       ]

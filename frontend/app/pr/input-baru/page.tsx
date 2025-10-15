@@ -37,7 +37,7 @@ export default function InputBaruPRPage() {
     divisi: "",
     urgensi: "",
     items: [
-      { id: "1", namaBarang: "", jumlah: "", satuan: "", keterangan: "" },
+      { id: "1", namaBarang: "", jumlah: "", id_satuan: "", keterangan: "" },
     ],
     id_skema: "", // id skema (FK)
     skemaLabel: "", // label skema untuk display
@@ -188,7 +188,7 @@ export default function InputBaruPRPage() {
 
     // Validasi item
     const validItems = formData.items.filter(
-      (item) => item.namaBarang && item.jumlah && item.satuan
+      (item) => item.namaBarang && item.jumlah && item.id_satuan
     );
     if (validItems.length === 0)
       emptyFields.push("Minimal satu barang lengkap");
@@ -229,6 +229,7 @@ export default function InputBaruPRPage() {
     skemaId = Number(skemaId);
 
     try {
+      // 1. POST PR utama ke backend
       const prRes = await fetch("http://localhost:5000/api/pr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -245,21 +246,21 @@ export default function InputBaruPRPage() {
         }),
       });
 
-      // Selalu anggap berhasil, tidak cek status/error
       const prDataRes = await prRes.json();
       const id_PR = prDataRes.id;
 
-      for (const item of itemsWithNumbers) {
+      // 2. POST setiap item ke pr_item
+      for (const item of formData.items) {
         await fetch("http://localhost:5000/api/pr-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id_PR,
-            namabarang: item.namaBarang,
+            namabarang: item.namaBarang, // <-- harus 'namabarang'
             jumlah: item.jumlah,
-            originaljumlah: item.originalJumlah,
-            quantityawalPR: item.quantityAwalPR,
-            satuan: item.satuan,
+            originaljumlah: item.jumlah, // <-- harus 'originaljumlah'
+            quantityawalPR: item.jumlah, // <-- harus 'quantityawalPR'
+            id_satuan: item.id_satuan,
             keterangan: item.keterangan,
           }),
         });
@@ -274,7 +275,6 @@ export default function InputBaruPRPage() {
       }, 0);
       return;
     } catch (err) {
-      // Jika error JS (misal: koneksi putus), tetap anggap berhasil
       resetForm();
       if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
       setNotif(null);
@@ -295,7 +295,7 @@ export default function InputBaruPRPage() {
           id: String(formData.items.length + 1),
           namaBarang: "",
           jumlah: "",
-          satuan: "",
+          id_satuan: "",
           keterangan: "",
         },
       ],
@@ -327,7 +327,7 @@ export default function InputBaruPRPage() {
       divisi: "",
       urgensi: "",
       items: [
-        { id: "1", namaBarang: "", jumlah: "", satuan: "", keterangan: "" },
+        { id: "1", namaBarang: "", jumlah: "", id_satuan: "", keterangan: "" },
       ],
       id_skema: "",
       skemaLabel: "",
@@ -638,9 +638,9 @@ export default function InputBaruPRPage() {
                     <div className="md:col-span-2">
                       <Label htmlFor={`satuan-${item.id}`}>Satuan</Label>
                       <Select
-                        value={item.satuan}
+                        value={item.id_satuan}
                         onValueChange={(value) =>
-                          updateItem(item.id, "satuan", value)
+                          updateItem(item.id, "id_satuan", value)
                         }
                       >
                         <SelectTrigger className="bg-white">
@@ -718,7 +718,7 @@ export default function InputBaruPRPage() {
                               .map((sat: any) => (
                                 <SelectItem
                                   key={sat.id_satuan}
-                                  value={sat.satuan}
+                                  value={String(sat.id_satuan)}
                                 >
                                   {sat.satuan}
                                 </SelectItem>
