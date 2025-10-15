@@ -253,23 +253,27 @@ export default function MonitoringPRPage() {
     window.location.href = "/pr/input";
   };
 
-  const handleDelete = (id: string) => {
+  // Ganti handleDelete agar bisa menerima array id
+  const handleDelete = async (ids: string[] | string) => {
+    const idList = Array.isArray(ids) ? ids : [ids];
     if (
       confirm(
-        "Apakah Anda yakin ingin menghapus PR ini? Data yang dihapus tidak dapat dikembalikan."
+        `Apakah Anda yakin ingin menghapus ${idList.length} PR? Data yang dihapus tidak dapat dikembalikan.`
       )
     ) {
       try {
-        const updatedData = prData.filter((pr) => pr.id !== id);
-        savePRData(updatedData);
-
-        // Remove from selected PRs if it was selected
-        setSelectedPRs(selectedPRs.filter((prId) => prId !== id));
-
-        // Show success message
-        alert("PR berhasil dihapus!");
-
-        // Reload data to ensure consistency
+        for (const id of idList) {
+          await fetch(`http://localhost:5000/api/pr/${id}`, {
+            method: "DELETE",
+          });
+          await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
+            method: "DELETE",
+          });
+        }
+        const updatedData = prData.filter((pr) => !idList.includes(pr.id));
+        setPrData(updatedData);
+        setSelectedPRs(selectedPRs.filter((prId) => !idList.includes(prId)));
+        alert("PR dan item berhasil dihapus!");
         loadPRData();
       } catch (error) {
         console.error("Error deleting PR:", error);
@@ -316,6 +320,14 @@ export default function MonitoringPRPage() {
       return [];
     }
   };
+
+  // Helper untuk format tanggal DD-MM-YYYY
+  function formatTanggal(tgl: string) {
+    if (!tgl) return "";
+    const [date] = tgl.split("T");
+    const [y, m, d] = date.split("-");
+    return `${d}-${m}-${y}`;
+  }
 
   // Filter data
   const filteredPRData = prData
@@ -527,12 +539,21 @@ export default function MonitoringPRPage() {
       const validItems = pr.items?.filter((item) => item.jumlah > 0) || [];
       if (validItems.length > 0) {
         validItems.forEach((item, index) => {
+          // Format qty dan qty awal agar tidak ada .00 jika bulat
+          const qty =
+            Number(item.jumlah) % 1 === 0
+              ? parseInt(item.jumlah)
+              : item.jumlah;
+          const qtyAwal =
+            Number(item.quantityAwalPR) % 1 === 0
+              ? parseInt(item.quantityAwalPR)
+              : item.quantityAwalPR;
           const rowData = [
             index === 0 ? pr.noPR : "",
-            index === 0 ? pr.tanggalPR : "",
+            index === 0 ? formatTanggal(pr.tanggalPR) : "",
             item.namaBarang,
-            String(item.jumlah),
-            String(item.quantityAwalPR),
+            String(qty),
+            String(qtyAwal),
             item.satuan,
             item.keterangan || "",
             index === 0 ? pr.urgensi : "",
@@ -550,7 +571,7 @@ export default function MonitoringPRPage() {
         // Handle PR without items
         const rowData = [
           pr.noPR,
-          pr.tanggalPR,
+          formatTanggal(pr.tanggalPR),
           "",
           "",
           "",
@@ -707,6 +728,16 @@ export default function MonitoringPRPage() {
             <CardDescription>
               Total: {filteredPRData.length} PR | Dipilih: {selectedPRs.length}
             </CardDescription>
+            {selectedPRs.length > 0 && (
+              <Button
+                variant="destructive"
+                className="mt-2"
+                onClick={() => handleDelete(selectedPRs)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Hapus PR Terpilih ({selectedPRs.length})
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto min-w-[1200px]">
@@ -815,8 +846,7 @@ export default function MonitoringPRPage() {
                           <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueTanggalPR
                               .filter((tgl) =>
-                                tgl
-                                  .split("T")[0] // hanya ambil tanggal
+                                formatTanggal(tgl)
                                   .toLowerCase()
                                   .includes(tanggalPRSearchTerm.toLowerCase())
                               )
@@ -847,7 +877,7 @@ export default function MonitoringPRPage() {
                                     htmlFor={`tglPR-${tgl}`}
                                     className="text-sm"
                                   >
-                                    {tgl.split("T")[0]}
+                                    {formatTanggal(tgl)}
                                   </Label>
                                 </div>
                               ))}
@@ -1448,7 +1478,7 @@ export default function MonitoringPRPage() {
                             {pr.noPR}
                           </TableCell>
                           <TableCell rowSpan={validItems.length}>
-                            {tanggalPR}
+                            {formatTanggal(pr.tanggalPR)}
                           </TableCell>
                           <TableCell>{validItems[0]?.namaBarang}</TableCell>
                           <TableCell>
@@ -1487,13 +1517,7 @@ export default function MonitoringPRPage() {
                           </TableCell>
                           <TableCell rowSpan={validItems.length}>
                             <div className="flex space-x-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEdit(pr)}
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
+                              {/* Hapus tombol edit */}
                               <Button
                                 size="sm"
                                 variant="outline"

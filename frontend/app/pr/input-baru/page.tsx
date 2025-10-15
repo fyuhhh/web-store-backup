@@ -172,6 +172,15 @@ export default function InputBaruPRPage() {
 
   const notifTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
+  // Helper untuk tambah 1 hari pada tanggal (format YYYY-MM-DD)
+  function addOneDay(dateStr: string) {
+    if (!dateStr) return dateStr;
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
+    // Format kembali ke YYYY-MM-DD
+    return date.toISOString().split("T")[0];
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -234,7 +243,8 @@ export default function InputBaruPRPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           noPR: formData.noPR,
-          tanggalPR: formData.tanggalPR,
+          // Perbaikan: tambah 1 hari pada tanggal sebelum dikirim
+          tanggalPR: addOneDay(formData.tanggalPR),
           id_divisi: formData.divisi,
           id_urgensi: formData.urgensi,
           status: "Menunggu", // <-- ubah ke enum DB
