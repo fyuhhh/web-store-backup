@@ -258,19 +258,20 @@ export default function InputBaruPRPage() {
       const prDataRes = await prRes.json();
       const id_PR = prDataRes.id;
 
-      // 2. POST setiap item ke pr_item
+      // 2. POST setiap item ke pr_item dengan handling decimal
       for (const item of formData.items) {
+        const jumlah = parseFloat(item.jumlah);
         await fetch("http://localhost:5000/api/pr-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             id_PR,
-            namabarang: item.namaBarang, // <-- harus 'namabarang'
-            jumlah: item.jumlah,
-            originaljumlah: item.jumlah, // <-- harus 'originaljumlah'
-            quantityawalPR: item.jumlah, // <-- harus 'quantityawalPR'
-            id_satuan: item.id_satuan,
-            keterangan: item.keterangan,
+            namaBarang: item.namaBarang,
+            jumlah: jumlah,
+            originalJumlah: jumlah,    // Ensure this is sent as decimal
+            quantityAwalPR: jumlah,    // Ensure this is sent as decimal
+            id_satuan: Number(item.id_satuan),
+            keterangan: item.keterangan || "",
           }),
         });
       }
@@ -284,6 +285,7 @@ export default function InputBaruPRPage() {
       }, 0);
       return;
     } catch (err) {
+      console.error("Error submitting PR:", err);
       resetForm();
       if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
       setNotif(null);

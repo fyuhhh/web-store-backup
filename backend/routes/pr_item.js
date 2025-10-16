@@ -47,52 +47,75 @@ router.get("/pr/:id_PR", async (req, res) => {
   }
 });
 
-// ✅ POST PR_Item baru (backend fleksibel baca field dari frontend)
+// ✅ POST PR_Item baru (frontend field names are flexible)
 router.post("/", async (req, res) => {
   try {
     const {
       id_PR,
-      namabarang, // dari frontend
+      namabarang,
+      namaBarang, // accept both versions
       jumlah,
-      originaljumlah, // dari frontend
-      quantityawalPR, // dari frontend
+      originaljumlah,
+      originalJumlah, // accept both versions
+      quantityawalPR,
+      quantityAwalPR, // accept both versions
       id_satuan,
       keterangan,
     } = req.body;
 
-    // Validasi
-    if (
-      !id_PR ||
-      !namabarang ||
-      !jumlah ||
-      !originaljumlah ||
-      !quantityawalPR ||
-      !id_satuan
-    ) {
-      return res.status(400).json({ error: "Semua field wajib diisi" });
+    // Normalize field names and convert to decimal
+    const finalNamaBarang = namaBarang || namabarang;
+    const finalJumlah = parseFloat(jumlah) || 0;
+    const finalOriginalJumlah = parseFloat(originalJumlah || originaljumlah || jumlah) || 0;
+    const finalQuantityAwalPR = parseFloat(quantityAwalPR || quantityawalPR || jumlah) || 0;
+
+    // More flexible validation
+    if (!id_PR) {
+      return res.status(400).json({ error: "id_PR is required" });
+    }
+    if (!finalNamaBarang) {
+      return res.status(400).json({ error: "Nama barang is required" });
+    }
+    if (!finalJumlah) {
+      return res.status(400).json({ error: "Jumlah is required" });
+    }
+    if (!id_satuan) {
+      return res.status(400).json({ error: "id_satuan is required" });
     }
 
-    // Query sesuai kolom di database (pakai camelCase)
+    // Query with normalized field names and DECIMAL handling
     const [result] = await db.query(
       `INSERT INTO pr_item 
       (id_PR, namaBarang, jumlah, originalJumlah, quantityAwalPR, id_satuan, keterangan)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         id_PR,
-        namabarang,
-        jumlah,
-        originaljumlah,
-        quantityawalPR,
+        finalNamaBarang,
+        finalJumlah,
+        finalOriginalJumlah,
+        finalQuantityAwalPR,
         id_satuan,
-        keterangan,
+        keterangan || "",
       ]
     );
+
+    // Add debug logging
+    console.log("Inserted PR Item values:", {
+      id_PR,
+      namaBarang: finalNamaBarang,
+      jumlah: finalJumlah,
+      originalJumlah: finalOriginalJumlah,
+      quantityAwalPR: finalQuantityAwalPR,
+      id_satuan,
+      keterangan,
+    });
 
     res.status(201).json({
       message: "PR Item berhasil dibuat",
       id: result.insertId,
     });
   } catch (err) {
+    console.error("Error creating PR item:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -100,35 +123,59 @@ router.post("/", async (req, res) => {
 // ✅ PUT PR_Item (update data)
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const {
-    id_PR,
-    namabarang,
-    jumlah,
-    originaljumlah,
-    quantityawalPR,
-    id_satuan,
-    keterangan,
-  } = req.body;
+  const payload = req.body;
 
   try {
-    await db.query(
+    // Validate and normalize payload fields
+    const normalizedPayload = {
+      id_PR: payload.id_PR,
+      namaBarang: payload.namaBarang,
+      jumlah: parseFloat(payload.jumlah) || 0,
+      originalJumlah: parseFloat(payload.originalJumlah) || 0,
+      quantityAwalPR: parseFloat(payload.quantityAwalPR) || 0,
+      id_satuan: payload.id_satuan,
+      keterangan: payload.keterangan || "",
+    };
+
+    // Debug logging
+    console.log("Updating PR Item:", {
+      id,
+      ...normalizedPayload,
+    });
+
+    // Update with all fields to ensure consistency
+    const [result] = await db.query(
       `UPDATE pr_item 
-       SET id_PR = ?, namaBarang = ?, jumlah = ?, originalJumlah = ?, 
-           quantityAwalPR = ?, id_satuan = ?, keterangan = ?
+       SET id_PR = ?, 
+           namaBarang = ?, 
+           jumlah = ?, 
+           originalJumlah = ?, 
+           quantityAwalPR = ?, 
+           id_satuan = ?, 
+           keterangan = ?
        WHERE id_PRItem = ?`,
       [
-        id_PR,
-        namabarang,
-        jumlah,
-        originaljumlah,
-        quantityawalPR,
-        id_satuan,
-        keterangan,
+        normalizedPayload.id_PR,
+        normalizedPayload.namaBarang,
+        normalizedPayload.jumlah,
+        normalizedPayload.originalJumlah,
+        normalizedPayload.quantityAwalPR,
+        normalizedPayload.id_satuan,
+        normalizedPayload.keterangan,
         id,
       ]
     );
-    res.json({ message: "PR Item berhasil diupdate" });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "PR Item not found" });
+    }
+
+    res.json({ 
+      message: "PR Item berhasil diupdate",
+      data: normalizedPayload 
+    });
   } catch (err) {
+    console.error("Error updating PR item:", err);
     res.status(500).json({ error: err.message });
   }
 });

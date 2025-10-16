@@ -279,7 +279,98 @@ export default function InputPOPage() {
     message: string;
   } | null>(null);
 
-  const handleCreatePO = () => {
+  // Tambahkan state untuk dropdown supplier, status pengiriman, kode
+  const [supplierOptions, setSupplierOptions] = useState<any[]>([]);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [newSupplier, setNewSupplier] = useState("");
+
+  const [statusPengirimanOptions, setStatusPengirimanOptions] = useState<any[]>(
+    []
+  );
+  const [statusPengirimanSearch, setStatusPengirimanSearch] = useState("");
+  const [showAddStatusPengiriman, setShowAddStatusPengiriman] = useState(false);
+  const [newStatusPengiriman, setNewStatusPengiriman] = useState("");
+
+  const [statusPermintaanOptions, setStatusPermintaanOptions] = useState<any[]>(
+    []
+  );
+  const [statusPermintaanSearch, setStatusPermintaanSearch] = useState("");
+  const [showAddStatusPermintaan, setShowAddStatusPermintaan] = useState(false);
+  const [newStatusPermintaan, setNewStatusPermintaan] = useState("");
+
+  // Fetch supplier, status_pengiriman, status_permintaan dari backend
+  useEffect(() => {
+    fetch("http://localhost:5000/api/supplier")
+      .then((res) => res.json())
+      .then((data) => setSupplierOptions(data));
+    fetch("http://localhost:5000/api/status-pengiriman")
+      .then((res) => res.json())
+      .then((data) => setStatusPengirimanOptions(data));
+    fetch("http://localhost:5000/api/status-permintaan")
+      .then((res) => res.json())
+      .then((data) => setStatusPermintaanOptions(data));
+  }, []);
+
+  // Handler tambah supplier
+  const handleAddSupplier = async () => {
+    if (!newSupplier.trim()) return;
+    const res = await fetch("http://localhost:5000/api/supplier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ namaSupplier: newSupplier }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setSupplierOptions((prev) => [...prev, data]);
+      setPoFormData((prev) => ({ ...prev, supplier: data.id_supplier }));
+      setShowAddSupplier(false);
+      setNewSupplier("");
+    }
+  };
+
+  // Handler tambah status pengiriman
+  const handleAddStatusPengiriman = async () => {
+    if (!newStatusPengiriman.trim()) return;
+    const res = await fetch("http://localhost:5000/api/status-pengiriman", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status_pengiriman: newStatusPengiriman }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setStatusPengirimanOptions((prev) => [...prev, data]);
+      setPoFormData((prev) => ({
+        ...prev,
+        statusPengiriman: data.id_statusPengiriman,
+      }));
+      setShowAddStatusPengiriman(false);
+      setNewStatusPengiriman("");
+    }
+  };
+
+  // Handler tambah status permintaan
+  const handleAddStatusPermintaan = async () => {
+    if (!newStatusPermintaan.trim()) return;
+    const res = await fetch("http://localhost:5000/api/status-permintaan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status_permintaan: newStatusPermintaan }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setStatusPermintaanOptions((prev) => [...prev, data]);
+      setPoFormData((prev) => ({
+        ...prev,
+        statusPermintaan: data.id_statusPermintaan,
+      }));
+      setShowAddStatusPermintaan(false);
+      setNewStatusPermintaan("");
+    }
+  };
+
+  // Handler submit PO
+  const handleCreatePO = async () => {
     if (!poFormData.supplier.trim()) {
       setNotif({ type: "error", message: "Supplier harus diisi!" });
       setTimeout(() => setNotif(null), 2500);
@@ -294,87 +385,133 @@ export default function InputPOPage() {
 
     const calculations = calculateTotal();
 
-    // Create new PO
+    // Cari id_supplier dari supplierOptions
+    let id_supplier = poFormData.supplier;
+    if (!id_supplier) {
+      // Jika supplier baru, tambahkan dulu
+      await handleAddSupplier();
+      id_supplier = poFormData.supplier;
+    }
+
+    // Cari id_statusPengiriman dari statusPengirimanOptions
+    let id_statusPengiriman = poFormData.statusPengiriman;
+    if (!id_statusPengiriman) {
+      await handleAddStatusPengiriman();
+      id_statusPengiriman = poFormData.statusPengiriman;
+    }
+
+    // Cari id_statusPermintaan dari statusPermintaanOptions
+    let id_statusPermintaan = poFormData.statusPermintaan;
+    if (!id_statusPermintaan) {
+      await handleAddStatusPermintaan();
+      id_statusPermintaan = poFormData.statusPermintaan;
+    }
+
+    // Ambil skema dari user
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     const orderedByUser = userData.username || "Admin";
     const userSkema = userData.skema || "";
 
-    const newPO: POData = {
-      id: `PO-${Date.now()}`,
-      noPO: poFormData.noPO,
-      tanggalPO: poFormData.tanggalPO,
-      supplier: poFormData.supplier,
-      diskon: calculations.totalDiscount.toString(),
-      originalDiskon: poFormData.diskon,
-      ppn: parseFloat(poFormData.ppn),
-      ppnAmount: calculations.ppnAmount,
-      totalPembayaran: calculations.totalPayment,
-      orderedBy: orderedByUser,
-      estimasiTanggalDiterima: poFormData.estimasiTanggalDiterima,
-      statusPengiriman: poFormData.statusPengiriman,
-      statusPermintaan: poFormData.statusPermintaan,
-      prIds: poItems.map((poItem) => poItem.prId),
-      poItems: poItems,
-      status: "Menunggu",
-      createdAt: new Date().toISOString(),
-      skema: userSkema, // simpan skema dari user login
-    };
+    try {
+      // 1. POST PO ke backend
+      const poRes = await fetch("http://localhost:5000/api/po", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          noPO: poFormData.noPO,
+          tanggalPO: poFormData.tanggalPO,
+          id_supplier,
+          diskon: poFormData.diskon,
+          originalDiskon: calculations.totalDiscount, // hasil total diskon
+          ppn: parseFloat(poFormData.ppn),
+          ppnAmount: calculations.ppnAmount,
+          totalPembayaran: calculations.totalPayment,
+          orderedBy: orderedByUser,
+          estimasiTanggalTerima: poFormData.estimasiTanggalDiterima,
+          id_statusPengiriman,
+          id_statusPermintaan,
+          status: "Menunggu",
+          createdAt: new Date().toISOString(),
+          id_skema: userSkema,
+        }),
+      });
+      const poDataRes = await poRes.json();
+      const id_PO = poDataRes.id_PO || poDataRes.id || null;
 
-    // Save new PO
-    const updatedPOData = [...poData, newPO];
-    savePOData(updatedPOData);
+      // 2. POST setiap PO Item ke backend dan PUT PR Item untuk update jumlah
+      for (const poItem of poItems) {
+        for (const item of poItem.items) {
+          // A. Create PO Item
+          await fetch("http://localhost:5000/api/po-item", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id_PO,
+              id_PRItem: item.id,
+              hargaSatuan: item.hargaSatuan,
+              jumlahPO: item.jumlahPO,
+              jumlahAsli: item.jumlahAsli,
+              diskonItem: poFormData.diskon,
+              keterangan: item.keterangan,
+            }),
+          });
 
-    // Update PR status and remaining quantities
-    const updatedPRData = prData.map((pr) => {
-      const poItem = poItems.find((poItem) => poItem.prId === pr.id);
-      if (poItem) {
-        // Update remaining quantities in PR items
-        const updatedItems = pr.items.map((prItem) => {
-          const poItemDetail = poItem.items.find(
-            (item) => item.id === prItem.id
+          // B. Get current PR Item data
+          const prItemRes = await fetch(
+            `http://localhost:5000/api/pr-item/${item.id}`
           );
-          if (poItemDetail) {
-            const remainingQty = prItem.jumlah - poItemDetail.jumlahPO;
-            return { ...prItem, jumlah: Math.max(0, remainingQty) };
-          }
-          return prItem;
-        });
+          const prItemData = await prItemRes.json();
 
-        // Check if all items in this PR have been fully processed (remaining quantity = 0)
-        const allItemsProcessed = updatedItems.every(
-          (item) => item.jumlah === 0
-        );
+          // Calculate new quantity
+          const newJumlah = Math.max(0, item.jumlahAsli - item.jumlahPO);
 
-        if (allItemsProcessed) {
-          return { ...pr, items: updatedItems, status: "Telah Selesai" as any };
-        } else {
-          return { ...pr, items: updatedItems, status: "Gantung" as any };
+          // C. Update PR Item with complete payload
+          await fetch(`http://localhost:5000/api/pr-item/${item.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id_PR: poItem.prId,
+              namaBarang: item.namaBarang,
+              jumlah: newJumlah,
+              originalJumlah: prItemData.originalJumlah || item.jumlahAsli,
+              quantityAwalPR: prItemData.quantityAwalPR || item.jumlahAsli,
+              id_satuan: item.id_satuan,
+              keterangan: item.keterangan || "",
+            }),
+          });
         }
       }
-      return pr;
-    });
-    // localStorage.setItem("prData", JSON.stringify(updatedPRData)); // Hapus baris ini
 
-    // Reset form
-    setPoFormData({
-      noPO: `PO/2024/${String(updatedPOData.length + 1).padStart(3, "0")}`,
-      tanggalPO: new Date().toISOString().split("T")[0],
-      supplier: "",
-      estimasiTanggalDiterima: "",
-      diskon: "",
-      ppn: "11",
-      statusPengiriman: "",
-      statusPermintaan: "",
-      skema: userSkema, // reset skema dari user login
-    });
-    setPoItems([]);
-    setDiscountBreakdown([]);
+      // Reset form
+      setPoFormData({
+        noPO: `PO/2024/${String(poData.length + 1).padStart(3, "0")}`,
+        tanggalPO: new Date().toISOString().split("T")[0],
+        supplier: "",
+        estimasiTanggalDiterima: "",
+        diskon: "",
+        ppn: "11",
+        statusPengiriman: "",
+        statusPermintaan: "",
+        skema: userSkema, // reset skema dari user login
+      });
 
-    setNotif({ type: "success", message: `PO ${newPO.noPO} berhasil dibuat!` });
-    setTimeout(() => {
-      setNotif(null);
-      window.location.href = "/po/status";
-    }, 1800);
+      setPoItems([]);
+      setDiscountBreakdown([]);
+
+      setNotif({
+        type: "success",
+        message: `PO ${poFormData.noPO} berhasil dibuat!`,
+      });
+
+      setTimeout(() => {
+        setNotif(null);
+        window.location.href = "/po/status";
+      }, 1800);
+    } catch (err) {
+      console.error("Error creating PO:", err);
+      setNotif({ type: "error", message: "Gagal membuat PO. Silakan coba lagi." });
+      setTimeout(() => setNotif(null), 2500);
+    }
   };
 
   useEffect(() => {
@@ -419,31 +556,6 @@ export default function InputPOPage() {
 
       // Selalu gunakan data dari backend, jangan dari localStorage
       setPrData(prDataMapped);
-
-      // Jangan set localStorage prData di sini
-      // Ambil selected PR dari localStorage untuk proses PO
-      // const selectedFromStatus = localStorage.getItem("selectedPRsForPO");
-      // if (selectedFromStatus) {
-      //   const selectedPRData = JSON.parse(selectedFromStatus);
-      //   setSelectedPRsForPO(selectedPRData);
-
-      //   setPoItems(
-      //     selectedPRData.map((pr: any) => ({
-      //       prId: pr.id,
-      //       noPR: pr.noPR,
-      //       skema: pr.skema || "",
-      //       items: pr.items.map((item: any) => ({
-      //         ...item,
-      //         hargaSatuan: 0,
-      //         jumlahPO: 0,
-      //         jumlahAsli: item.jumlah,
-      //         diskonItem: 0,
-      //         skema: pr.skema || "",
-      //         dibuatOleh: pr.dibuatOleh || "",
-      //       })),
-      //     }))
-      //   );
-      // }
     };
 
     fetchPRData();
@@ -804,18 +916,94 @@ export default function InputPOPage() {
                   >
                     Supplier
                   </Label>
-                  <Input
-                    id="supplier"
-                    value={poFormData.supplier}
-                    onChange={(e) =>
-                      setPoFormData({
-                        ...poFormData,
-                        supplier: e.target.value,
-                      })
+                  <Select
+                    value={String(poFormData.supplier)}
+                    onValueChange={(value) =>
+                      setPoFormData({ ...poFormData, supplier: value })
                     }
-                    placeholder="Nama supplier"
-                    className="border-border focus:border-primary/50"
-                  />
+                  >
+                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
+                      <SelectValue placeholder="Pilih supplier" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                        <Input
+                          placeholder="Cari supplier..."
+                          value={supplierSearch}
+                          onChange={(e) => setSupplierSearch(e.target.value)}
+                          className="mb-2"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mb-2 w-full"
+                          onClick={() => setShowAddSupplier((v) => !v)}
+                        >
+                          + Tambahkan Supplier
+                        </Button>
+                        {showAddSupplier && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Input
+                              placeholder="Nama supplier baru"
+                              value={newSupplier}
+                              onChange={(e) => setNewSupplier(e.target.value)}
+                              className="w-[140px]"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddSupplier}
+                              className="bg-primary text-white"
+                            >
+                              Simpan
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setShowAddSupplier(false);
+                                setNewSupplier("");
+                              }}
+                            >
+                              Batal
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {supplierOptions.length === 0 ? (
+                        <SelectItem value="__loading" disabled>
+                          Memuat...
+                        </SelectItem>
+                      ) : (
+                        supplierOptions
+                          .filter((sup: any) =>
+                            sup.namaSupplier
+                              .toLowerCase()
+                              .includes(supplierSearch.toLowerCase())
+                          )
+                          .map((sup: any) => (
+                            <SelectItem
+                              key={sup.id_supplier}
+                              value={String(sup.id_supplier)}
+                            >
+                              {sup.namaSupplier}
+                            </SelectItem>
+                          ))
+                      )}
+                      {supplierOptions.length > 0 &&
+                        supplierOptions.filter((sup: any) =>
+                          sup.namaSupplier
+                            .toLowerCase()
+                            .includes(supplierSearch.toLowerCase())
+                        ).length === 0 && (
+                          <SelectItem value="__notfound" disabled>
+                            Data tidak ditemukan
+                          </SelectItem>
+                        )}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -889,7 +1077,7 @@ export default function InputPOPage() {
                       Status Pengiriman
                     </Label>
                     <Select
-                      value={poFormData.statusPengiriman}
+                      value={String(poFormData.statusPengiriman)}
                       onValueChange={(value) =>
                         setPoFormData({
                           ...poFormData,
@@ -900,12 +1088,89 @@ export default function InputPOPage() {
                       <SelectTrigger className="border-border focus:border-primary/50 bg-white">
                         <SelectValue placeholder="Pilih status pengiriman" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white">
-                        <SelectItem value="Fabrikasi">Fabrikasi</SelectItem>
-                        <SelectItem value="Indent Part">Indent Part</SelectItem>
-                        <SelectItem value="Schedule">Schedule</SelectItem>
-                        <SelectItem value="W/Payment">W/Payment</SelectItem>
-                        <SelectItem value="W/Delivery">W/Delivery</SelectItem>
+                      <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                        <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                          <Input
+                            placeholder="Cari status pengiriman..."
+                            value={statusPengirimanSearch}
+                            onChange={(e) =>
+                              setStatusPengirimanSearch(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mb-2 w-full"
+                            onClick={() =>
+                              setShowAddStatusPengiriman((v) => !v)
+                            }
+                          >
+                            + Tambahkan Status Pengiriman
+                          </Button>
+                          {showAddStatusPengiriman && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <Input
+                                placeholder="Status pengiriman baru"
+                                value={newStatusPengiriman}
+                                onChange={(e) =>
+                                  setNewStatusPengiriman(e.target.value)
+                                }
+                                className="w-[140px]"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleAddStatusPengiriman}
+                                className="bg-primary text-white"
+                              >
+                                Simpan
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowAddStatusPengiriman(false);
+                                  setNewStatusPengiriman("");
+                                }}
+                              >
+                                Batal
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        {statusPengirimanOptions.length === 0 ? (
+                          <SelectItem value="__loading" disabled>
+                            Memuat...
+                          </SelectItem>
+                        ) : (
+                          statusPengirimanOptions
+                            .filter((opt: any) =>
+                              opt.status_pengiriman
+                                .toLowerCase()
+                                .includes(statusPengirimanSearch.toLowerCase())
+                            )
+                            .map((opt: any) => (
+                              <SelectItem
+                                key={opt.id_statusPengiriman}
+                                value={String(opt.id_statusPengiriman)}
+                              >
+                                {opt.status_pengiriman}
+                              </SelectItem>
+                            ))
+                        )}
+                        {statusPengirimanOptions.length > 0 &&
+                          statusPengirimanOptions.filter((opt: any) =>
+                            opt.status_pengiriman
+                              .toLowerCase()
+                              .includes(statusPengirimanSearch.toLowerCase())
+                          ).length === 0 && (
+                            <SelectItem value="__notfound" disabled>
+                              Data tidak ditemukan
+                            </SelectItem>
+                          )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -917,7 +1182,7 @@ export default function InputPOPage() {
                       Kode
                     </Label>
                     <Select
-                      value={poFormData.statusPermintaan}
+                      value={String(poFormData.statusPermintaan)}
                       onValueChange={(value) =>
                         setPoFormData({
                           ...poFormData,
@@ -928,12 +1193,89 @@ export default function InputPOPage() {
                       <SelectTrigger className="border-border focus:border-primary/50 bg-white">
                         <SelectValue placeholder="Pilih kode" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white">
-                        <SelectItem value="FAB">FAB</SelectItem>
-                        <SelectItem value="IND">IND</SelectItem>
-                        <SelectItem value="SC">SC</SelectItem>
-                        <SelectItem value="WDL">WDL</SelectItem>
-                        <SelectItem value="WPY">WPY</SelectItem>
+                      <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                        <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                          <Input
+                            placeholder="Cari kode..."
+                            value={statusPermintaanSearch}
+                            onChange={(e) =>
+                              setStatusPermintaanSearch(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="mb-2 w-full"
+                            onClick={() =>
+                              setShowAddStatusPermintaan((v) => !v)
+                            }
+                          >
+                            + Tambahkan Kode
+                          </Button>
+                          {showAddStatusPermintaan && (
+                            <div className="flex items-center gap-2 mb-2">
+                              <Input
+                                placeholder="Kode baru"
+                                value={newStatusPermintaan}
+                                onChange={(e) =>
+                                  setNewStatusPermintaan(e.target.value)
+                                }
+                                className="w-[140px]"
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={handleAddStatusPermintaan}
+                                className="bg-primary text-white"
+                              >
+                                Simpan
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowAddStatusPermintaan(false);
+                                  setNewStatusPermintaan("");
+                                }}
+                              >
+                                Batal
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        {statusPermintaanOptions.length === 0 ? (
+                          <SelectItem value="__loading" disabled>
+                            Memuat...
+                          </SelectItem>
+                        ) : (
+                          statusPermintaanOptions
+                            .filter((opt: any) =>
+                              opt.status_permintaan
+                                .toLowerCase()
+                                .includes(statusPermintaanSearch.toLowerCase())
+                            )
+                            .map((opt: any) => (
+                              <SelectItem
+                                key={opt.id_statusPermintaan}
+                                value={String(opt.id_statusPermintaan)}
+                              >
+                                {opt.status_permintaan}
+                              </SelectItem>
+                            ))
+                        )}
+                        {statusPermintaanOptions.length > 0 &&
+                          statusPermintaanOptions.filter((opt: any) =>
+                            opt.status_permintaan
+                              .toLowerCase()
+                              .includes(statusPermintaanSearch.toLowerCase())
+                          ).length === 0 && (
+                            <SelectItem value="__notfound" disabled>
+                              Data tidak ditemukan
+                            </SelectItem>
+                          )}
                       </SelectContent>
                     </Select>
                   </div>
