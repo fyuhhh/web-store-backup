@@ -39,18 +39,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronDown } from "lucide-react";
-import type { PRData, POData, PRItem } from "@/lib/dummy-data";
-
-// Tambahkan import Pagination di sini
 import {
   Pagination,
   PaginationContent,
   PaginationItem,
-  PaginationLink,
-  PaginationPrevious,
   PaginationNext,
+  PaginationPrevious,
+  PaginationLink,
 } from "@/components/ui/pagination";
+import { Badge } from "@/components/ui/badge";
 
 export default function InputPOPage() {
   const [prData, setPrData] = useState<PRData[]>([]);
@@ -528,8 +525,12 @@ export default function InputPOPage() {
           .map((item: any) => ({
             namaBarang: item.namaBarang,
             jumlah: item.jumlah,
-            quantityAwalPR: item.quantityAwalPR ?? item.originalJumlah ?? item.jumlah,
-            satuan: satuanMap[String(item.id_satuan)] || item.satuanLabel || item.id_satuan,
+            quantityAwalPR:
+              item.quantityAwalPR ?? item.originalJumlah ?? item.jumlah,
+            satuan:
+              satuanMap[String(item.id_satuan)] ||
+              item.satuanLabel ||
+              item.id_satuan,
             keterangan: item.keterangan,
             id: item.id_PRItem,
             status: item.status || "",
@@ -540,8 +541,12 @@ export default function InputPOPage() {
           noPR: pr.noPR,
           tanggalPR: pr.tanggalPR,
           items,
-          urgensi: urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
-          divisi: divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
+          urgensi:
+            urgensiMap[String(pr.id_urgensi)] ||
+            pr.urgensiLabel ||
+            pr.id_urgensi,
+          divisi:
+            divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
           status: pr.status,
           dibuatOleh: pr.dibuatOleh,
           skema: pr.id_skema,
@@ -605,6 +610,95 @@ export default function InputPOPage() {
     }
     return <Badge variant="secondary">{status}</Badge>;
   };
+
+  useEffect(() => {
+    // Ambil PR yang dipilih dari localStorage dan mapping ke poItems
+    const selectedFromStatus = localStorage.getItem("selectedPRsForPO");
+    if (selectedFromStatus) {
+      try {
+        const selectedPRData = JSON.parse(selectedFromStatus);
+        // Mapping langsung dari data yang sudah diambil dari backend
+        setPoItems(
+          selectedPRData.map((pr: any) => ({
+            prId: pr.id_PR ?? pr.id,
+            noPR: pr.noPR,
+            skema: pr.id_skema ?? "",
+            items: (pr.items || []).map((item: any) => ({
+              id: item.id_PRItem ?? item.id,
+              namaBarang: item.namaBarang ?? item.namabarang,
+              jumlahPO: item.jumlah,
+              jumlahAsli: item.jumlah,
+              satuan: item.satuanLabel || item.satuan || item.id_satuan,
+              hargaSatuan: 0,
+              diskonItem: 0,
+              keterangan: item.keterangan ?? "",
+              skema: pr.id_skema ?? "",
+              dibuatOleh: pr.dibuatOleh ?? "",
+            })),
+          }))
+        );
+      } catch (err) {
+        setPoItems([]);
+      }
+    }
+  }, []);
+
+  // Tambahkan handler terpisah agar lebih rapi
+  function handleHargaSatuanChange(
+    prId: string,
+    itemId: string,
+    value: string
+  ) {
+    const cleanValue = value.replace(/[.,]/g, "");
+    const newPrice = Math.max(0, parseInt(cleanValue) || 0);
+    setPoItems((prevPoItems) =>
+      prevPoItems.map((pItem) =>
+        pItem.prId === prId
+          ? {
+              ...pItem,
+              items: pItem.items.map((i) =>
+                i.id === itemId
+                  ? {
+                      ...i,
+                      hargaSatuan: newPrice,
+                    }
+                  : i
+              ),
+            }
+          : pItem
+      )
+    );
+  }
+
+  // Handler untuk perubahan Qty
+  function handleQtyChange(prId: string, itemId: string, value: string) {
+    setPoItems((prevPoItems) =>
+      prevPoItems.map((pItem) =>
+        pItem.prId === prId
+          ? {
+              ...pItem,
+              items: pItem.items.map((i) => {
+                if (i.id === itemId) {
+                  const maxQty = Number(i.jumlahAsli);
+                  let newQty = Math.max(0, parseInt(value) || 0);
+                  if (newQty > maxQty) newQty = maxQty;
+                  return { ...i, jumlahPO: newQty };
+                }
+                return i;
+              }),
+            }
+          : pItem
+      )
+    );
+  }
+
+  // Helper untuk label satuan dari satuanOptions
+  function getSatuanLabel(satuanValue: string) {
+    const found = satuanOptions.find(
+      (s: any) => String(s.id_satuan) === String(satuanValue)
+    );
+    return found ? found.satuan : satuanValue;
+  }
 
   return (
     <MainLayout>
@@ -873,383 +967,72 @@ export default function InputPOPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead className="w-20">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-medium"
-                                >
-                                  No. PR
-                                  <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">
-                                    Filter No. PR
-                                  </Label>
-                                  <Input
-                                    placeholder="Cari No. PR..."
-                                    value={filterNoPR}
-                                    onChange={(e) =>
-                                      setFilterNoPR(e.target.value)
-                                    }
-                                    className="w-full"
-                                  />
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TableHead>
-                          <TableHead className="w-32">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-medium"
-                                >
-                                  Nama Barang
-                                  <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">
-                                    Filter Nama Barang
-                                  </Label>
-                                  <Input
-                                    placeholder="Cari nama barang..."
-                                    value={filterNamaBarang}
-                                    onChange={(e) =>
-                                      setFilterNamaBarang(e.target.value)
-                                    }
-                                    className="w-full"
-                                  />
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TableHead>
-                          <TableHead className="w-20">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-medium"
-                                >
-                                  Qty
-                                  <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">
-                                    Filter Qty
-                                  </Label>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Input
-                                      type="number"
-                                      placeholder="Min"
-                                      value={filterQtyMin}
-                                      onChange={(e) =>
-                                        setFilterQtyMin(
-                                          e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                        )
-                                      }
-                                    />
-                                    <Input
-                                      type="number"
-                                      placeholder="Max"
-                                      value={filterQtyMax}
-                                      onChange={(e) =>
-                                        setFilterQtyMax(
-                                          e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TableHead>
-                          <TableHead className="w-24">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-medium"
-                                >
-                                  Satuan
-                                  <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">
-                                    Filter Satuan
-                                  </Label>
-                                  <Input
-                                    placeholder="Cari satuan..."
-                                    value={satuanSearchTerm}
-                                    onChange={(e) =>
-                                      setSatuanSearchTerm(e.target.value)
-                                    }
-                                    className="w-full"
-                                  />
-                                  <div className="max-h-32 overflow-y-auto space-y-1">
-                                    {uniqueSatuan
-                                      .filter((satuan) =>
-                                        satuan
-                                          .toLowerCase()
-                                          .includes(
-                                            satuanSearchTerm.toLowerCase()
-                                          )
-                                      )
-                                      .map((satuan) => (
-                                        <div
-                                          key={satuan}
-                                          className="flex items-center space-x-2"
-                                        >
-                                          <Checkbox
-                                            id={`satuan-${satuan}`}
-                                            checked={filterSatuan.includes(
-                                              satuan
-                                            )}
-                                            onCheckedChange={(checked) => {
-                                              if (checked) {
-                                                setFilterSatuan([
-                                                  ...filterSatuan,
-                                                  satuan,
-                                                ]);
-                                              } else {
-                                                setFilterSatuan(
-                                                  filterSatuan.filter(
-                                                    (s) => s !== satuan
-                                                  )
-                                                );
-                                              }
-                                            }}
-                                          />
-                                          <Label
-                                            htmlFor={`satuan-${satuan}`}
-                                            className="text-sm"
-                                          >
-                                            {satuan}
-                                          </Label>
-                                        </div>
-                                      ))}
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TableHead>
-                          <TableHead className="w-28">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-medium"
-                                >
-                                  Harga Satuan
-                                  <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">
-                                    Filter Harga Satuan
-                                  </Label>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Input
-                                      type="number"
-                                      placeholder="Min"
-                                      value={filterHargaSatuanMin}
-                                      onChange={(e) =>
-                                        setFilterHargaSatuanMin(
-                                          e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                        )
-                                      }
-                                    />
-                                    <Input
-                                      type="number"
-                                      placeholder="Max"
-                                      value={filterHargaSatuanMax}
-                                      onChange={(e) =>
-                                        setFilterHargaSatuanMax(
-                                          e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TableHead>
-                          <TableHead className="w-28">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-medium"
-                                >
-                                  Total
-                                  <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">
-                                    Filter Total
-                                  </Label>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <Input
-                                      type="number"
-                                      placeholder="Min"
-                                      value={filterTotalMin}
-                                      onChange={(e) =>
-                                        setFilterTotalMin(
-                                          e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                        )
-                                      }
-                                    />
-                                    <Input
-                                      type="number"
-                                      placeholder="Max"
-                                      value={filterTotalMax}
-                                      onChange={(e) =>
-                                        setFilterTotalMax(
-                                          e.target.value === ""
-                                            ? ""
-                                            : Number(e.target.value)
-                                        )
-                                      }
-                                    />
-                                  </div>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TableHead>
-                          <TableHead className="w-40">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  className="h-auto p-0 font-medium"
-                                >
-                                  Keterangan
-                                  <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                                <div className="space-y-2">
-                                  <Label className="text-sm font-medium">
-                                    Filter Keterangan
-                                  </Label>
-                                  <Input
-                                    placeholder="Cari keterangan..."
-                                    value={filterKeterangan}
-                                    onChange={(e) =>
-                                      setFilterKeterangan(e.target.value)
-                                    }
-                                    className="w-full"
-                                  />
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </TableHead>
-                          <TableHead className="w-32">Dibuat Oleh</TableHead>
-                          <TableHead className="w-32">Skema</TableHead>{" "}
-                          {/* <-- add Skema column */}
+                          <TableHead>No. PR</TableHead>
+                          <TableHead>Nama Barang</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Satuan</TableHead>
+                          <TableHead>Harga Satuan</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Keterangan</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pagedItems.map((item) => {
-                          // Cari PR terkait dari prData
-                          const pr = prData.find((pr) => pr.id === item.prId);
-                          // Format tanggal PR tanpa jam
-                          const tanggalPR = pr?.tanggalPR
-                            ? pr.tanggalPR.split("T")[0]
-                            : "";
-                          return (
-                            <TableRow key={item.id}>
-                              <TableCell className="font-medium">
-                                {item.noPR}
-                              </TableCell>
+                        {pagedItems.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={7}
+                              className="text-center text-muted-foreground"
+                            >
+                              Tidak ada barang dipilih.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          pagedItems.map((item, idx) => (
+                            <TableRow key={item.id || idx}>
+                              <TableCell>{item.noPR}</TableCell>
                               <TableCell>{item.namaBarang}</TableCell>
                               <TableCell>
                                 <Input
                                   type="number"
-                                  min="0"
+                                  value={
+                                    Number(item.jumlahPO) % 1 === 0
+                                      ? parseInt(item.jumlahPO)
+                                      : item.jumlahPO
+                                  }
+                                  min={0}
                                   max={item.jumlahAsli}
-                                  value={item.jumlahPO}
-                                  onChange={(e) => {
-                                    const newQty = Math.min(
-                                      Math.max(0, parseInt(e.target.value) || 0),
-                                      item.jumlahAsli
-                                    );
-                                    setPoItems(
-                                      poItems.map((pItem) =>
-                                        pItem.prId === item.prId
-                                          ? {
-                                              ...pItem,
-                                              items: pItem.items.map((i) =>
-                                                i.id === item.id
-                                                  ? { ...i, jumlahPO: newQty }
-                                                  : i
-                                              ),
-                                            }
-                                          : pItem
-                                      )
-                                    );
-                                  }}
-                                  className="w-16 border-border focus:border-primary/50"
+                                  onChange={(e) =>
+                                    handleQtyChange(
+                                      item.prId,
+                                      item.id,
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-20"
                                 />
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  /{" "}
+                                  {Number(item.jumlahAsli) % 1 === 0
+                                    ? parseInt(item.jumlahAsli)
+                                    : item.jumlahAsli}
+                                </span>
                               </TableCell>
-                              <TableCell>{item.satuan}</TableCell>
+                              <TableCell>
+                                {getSatuanLabel(item.satuan)}
+                              </TableCell>
                               <TableCell>
                                 <Input
-                                  type="text"
-                                  value={item.hargaSatuan.toLocaleString(
-                                    "id-ID"
-                                  )}
-                                  onChange={(e) => {
-                                    // Remove dots and commas for parsing
-                                    const cleanValue = e.target.value.replace(
-                                      /[.,]/g,
-                                      ""
-                                    );
-                                    const newPrice = Math.max(
-                                      0,
-                                      parseInt(cleanValue) || 0
-                                    );
-                                    setPoItems(
-                                      poItems.map((pItem) =>
-                                        pItem.prId === item.prId
-                                          ? {
-                                              ...pItem,
-                                              items: pItem.items.map((i) =>
-                                                i.id === item.id
-                                                  ? {
-                                                      ...i,
-                                                      hargaSatuan: newPrice,
-                                                    }
-                                                  : i
-                                              ),
-                                            }
-                                          : pItem
-                                      );
-                                  }}
-                                  className="w-32 text-right border-border focus:border-primary/50"
-                                  placeholder="0"
+                                  type="number"
+                                  value={item.hargaSatuan}
+                                  min={0}
+                                  onChange={(e) =>
+                                    handleHargaSatuanChange(
+                                      item.prId,
+                                      item.id,
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-24"
                                 />
                               </TableCell>
                               <TableCell>
@@ -1259,51 +1042,16 @@ export default function InputPOPage() {
                                 ).toLocaleString("id-ID")}
                               </TableCell>
                               <TableCell>
-                                <Textarea
-                                  value={item.keterangan || ""}
-                                  onChange={(e) => {
-                                    const newKeterangan = e.target.value;
-                                    setPoItems(
-                                      poItems.map((pItem) =>
-                                        pItem.prId === item.prId
-                                          ? {
-                                              ...pItem,
-                                              items: pItem.items.map((i) =>
-                                                i.id === item.id
-                                                  ? {
-                                                      ...i,
-                                                      keterangan: newKeterangan,
-                                                    }
-                                                  : i
-                                              ),
-                                            }
-                                          : pItem
-                                      )
-                                    );
-                                  }}
-                                  className="w-full border-border focus:border-primary/50 resize-none"
-                                  rows={2}
-                                  placeholder="Masukkan keterangan"
-                                />
+                                <div
+                                  className="text-sm text-muted-foreground max-w-xs truncate"
+                                  title={item.keterangan}
+                                >
+                                  {item.keterangan}
+                                </div>
                               </TableCell>
-                              <TableCell>
-                                {/* Tampilkan badge urgensi dari PR */}
-                                {pr ? getUrgensiBadge(pr.urgensi) : null}
-                              </TableCell>
-                              <TableCell>
-                                {/* Tampilkan badge status dari PR */}
-                                {pr ? getStatusBadge(pr.status) : null}
-                              </TableCell>
-                              <TableCell>
-                                {/* Tampilkan tanggal PR tanpa jam */}
-                                {tanggalPR}
-                              </TableCell>
-                              <TableCell>{item.dibuatOleh}</TableCell>
-                              <TableCell>{item.skema}</TableCell>{" "}
-                              {/* <-- show skema value */}
                             </TableRow>
-                          );
-                        })}
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </div>
@@ -1490,25 +1238,27 @@ export default function InputPOPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    prData.flatMap((pr) =>
-                      pr.items.map((item, idx) => (
-                        <TableRow key={`${pr.id}-${item.id}-${idx}`}>
-                          <TableCell>{pr.noPR}</TableCell>
-                          <TableCell>{pr.tanggalPR?.split("T")[0]}</TableCell>
-                          <TableCell>{item.namaBarang}</TableCell>
-                          <TableCell>{item.jumlah}</TableCell>
-                          <TableCell>{item.satuan}</TableCell>
-                          <TableCell>{item.keterangan}</TableCell>
-                          <TableCell>{getUrgensiBadge(pr.urgensi)}</TableCell>
-                          <TableCell>{pr.divisi}</TableCell>
-                          <TableCell>{item.status}</TableCell>
-                          <TableCell>{pr.dibuatOleh}</TableCell>
-                          <TableCell>
-                            {pr.skemaLabel ?? pr.skema ?? ""}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )
+                    <>
+                      {prData.flatMap((pr) =>
+                        pr.items.map((item, idx) => (
+                          <TableRow key={`${pr.id}-${item.id}-${idx}`}>
+                            <TableCell>{pr.noPR}</TableCell>
+                            <TableCell>{pr.tanggalPR?.split("T")[0]}</TableCell>
+                            <TableCell>{item.namaBarang}</TableCell>
+                            <TableCell>{item.jumlah}</TableCell>
+                            <TableCell>{item.satuan}</TableCell>
+                            <TableCell>{item.keterangan}</TableCell>
+                            <TableCell>{getUrgensiBadge(pr.urgensi)}</TableCell>
+                            <TableCell>{pr.divisi}</TableCell>
+                            <TableCell>{item.status}</TableCell>
+                            <TableCell>{pr.dibuatOleh}</TableCell>
+                            <TableCell>
+                              {pr.skemaLabel ?? pr.skema ?? ""}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </>
                   )}
                 </TableBody>
               </Table>

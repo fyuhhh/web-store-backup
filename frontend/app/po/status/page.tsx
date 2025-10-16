@@ -462,10 +462,26 @@ export default function StatusPOPage() {
           <div className="flex space-x-2">
             {selectedPRsForProcess.length > 0 ? (
               <Button
-                onClick={() => {
-                  const selectedPRData = prData.filter((pr) =>
-                    selectedPRsForProcess.includes(pr.id)
-                  );
+                onClick={async () => {
+                  // Ambil detail PR dan item dari backend sesuai yang dipilih
+                  const selectedPRData = [];
+                  for (const prId of selectedPRsForProcess) {
+                    // Fetch PR utama
+                    const prRes = await fetch(
+                      `http://localhost:5000/api/pr/${prId}`
+                    );
+                    const pr = await prRes.json();
+                    // Fetch PR item
+                    const prItemRes = await fetch(
+                      `http://localhost:5000/api/pr-item/pr/${prId}`
+                    );
+                    const prItems = await prItemRes.json();
+                    selectedPRData.push({
+                      ...pr,
+                      items: prItems,
+                    });
+                  }
+                  // Simpan ke localStorage
                   localStorage.setItem(
                     "selectedPRsForPO",
                     JSON.stringify(selectedPRData)

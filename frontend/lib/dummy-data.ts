@@ -7,6 +7,7 @@ export interface PRItem {
   quantityAwalPR: number; // Initial PR quantity
   satuan: string;
   keterangan?: string; // Item-specific description
+  status?: string; // Status from backend
 }
 
 export interface PRData {
@@ -29,6 +30,7 @@ export interface PRData {
   createdAt: string;
   keterangan?: string;
   skema?: string;
+  skemaLabel?: string;
 }
 
 export interface POData {
