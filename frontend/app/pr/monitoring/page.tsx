@@ -539,21 +539,12 @@ export default function MonitoringPRPage() {
       const validItems = pr.items?.filter((item) => item.jumlah > 0) || [];
       if (validItems.length > 0) {
         validItems.forEach((item, index) => {
-          // Format qty dan qty awal agar tidak ada .00 jika bulat
-          const qty =
-            Number(item.jumlah) % 1 === 0
-              ? parseInt(item.jumlah)
-              : item.jumlah;
-          const qtyAwal =
-            Number(item.quantityAwalPR) % 1 === 0
-              ? parseInt(item.quantityAwalPR)
-              : item.quantityAwalPR;
           const rowData = [
             index === 0 ? pr.noPR : "",
-            index === 0 ? formatTanggal(pr.tanggalPR) : "",
+            index === 0 ? pr.tanggalPR : "",
             item.namaBarang,
-            String(qty),
-            String(qtyAwal),
+            String(item.jumlah),
+            String(item.quantityAwalPR),
             item.satuan,
             item.keterangan || "",
             index === 0 ? pr.urgensi : "",
@@ -571,7 +562,7 @@ export default function MonitoringPRPage() {
         // Handle PR without items
         const rowData = [
           pr.noPR,
-          formatTanggal(pr.tanggalPR),
+          pr.tanggalPR,
           "",
           "",
           "",

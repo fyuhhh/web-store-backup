@@ -105,22 +105,22 @@ export default function KelolaAkunPage() {
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const peranStr = getPeranName(Number(form.role)).toLowerCase();
-    const isSuperadmin = Number(form.role) === 5 || peranStr === "superadmin";
-    const isDivisi = peranStr === "divisi";
     // Validasi
     if (
       !form.username ||
       !form.password ||
       !form.role ||
-      (!isSuperadmin && !form.skema) ||
-      (isDivisi && !form.division)
+      !form.skema ||
+      (getPeranName(Number(form.role)).toLowerCase() === "divisi" &&
+        !form.division)
     ) {
       alert("Mohon lengkapi semua field");
       setLoading(false);
       return;
     }
     try {
+      const isDivisi =
+        getPeranName(Number(form.role)).toLowerCase() === "divisi";
       const res = await fetch("http://localhost:5000/api/user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,8 +128,8 @@ export default function KelolaAkunPage() {
           nama_pengguna: form.username,
           password: form.password,
           id_peran: Number(form.role),
-          id_divisi: isDivisi ? Number(form.division) : null,
-          id_skema: isSuperadmin ? null : Number(form.skema),
+          id_divisi: isDivisi ? Number(form.division) : null, // <-- kirim null jika bukan divisi
+          id_skema: Number(form.skema),
         }),
       });
       const data = await res.json();
