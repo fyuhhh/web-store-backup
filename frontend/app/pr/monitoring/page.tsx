@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 // Import exceljs for Excel export with style support
 import * as ExcelJS from "exceljs";
@@ -264,30 +265,30 @@ export default function MonitoringPRPage() {
   // Ganti handleDelete agar bisa menerima array id
   const handleDelete = async (ids: string[] | string) => {
     const idList = Array.isArray(ids) ? ids : [ids];
-    if (
-      confirm(
-        `Apakah Anda yakin ingin menghapus ${idList.length} PR? Data yang dihapus tidak dapat dikembalikan.`
-      )
-    ) {
-      try {
-        for (const id of idList) {
-          await fetch(`http://localhost:5000/api/pr/${id}`, {
-            method: "DELETE",
-          });
-          await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
-            method: "DELETE",
-          });
-        }
-        const updatedData = prData.filter((pr) => !idList.includes(pr.id));
-        setPrData(updatedData);
-        setSelectedPRs(selectedPRs.filter((prId) => !idList.includes(prId)));
-        alert("PR dan item berhasil dihapus!");
-        loadPRData();
-      } catch (error) {
-        console.error("Error deleting PR:", error);
-        alert("Terjadi kesalahan saat menghapus PR. Silakan coba lagi.");
+    setDeleteIds(idList);
+    setConfirmDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setConfirmDeleteOpen(false);
+    try {
+      for (const id of deleteIds) {
+        await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
+        await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
+          method: "DELETE",
+        });
       }
+      const updatedData = prData.filter((pr) => !deleteIds.includes(pr.id));
+      setPrData(updatedData);
+      setSelectedPRs(selectedPRs.filter((prId) => !deleteIds.includes(prId)));
+      setToastMsg("PR dan item berhasil dihapus.");
+      setToastOpen(true);
+      loadPRData();
+    } catch (error) {
+      setToastMsg("Terjadi kesalahan saat menghapus PR.");
+      setToastOpen(true);
     }
+    setDeleteIds([]);
   };
 
   const handleSelectPR = (prId: string, checked: boolean) => {
@@ -650,6 +651,63 @@ export default function MonitoringPRPage() {
     }
     setPOData(poArr);
   }, []);
+
+  // --- Add minimalist modal and toast components ---
+  function ConfirmModal({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
+          <h2 className="text-lg font-semibold mb-2">{title}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{description}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={onConfirm}>
+              Hapus
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  function Toast({ open, message, onClose }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in">
+          <span className="text-green-600 font-medium">{message}</span>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // --- Add state for modal and toast ---
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+
+  // --- Add auto-close for toast ---
+  useEffect(() => {
+    if (toastOpen) {
+      const timer = setTimeout(() => setToastOpen(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastOpen]);
 
   return (
     <MainLayout>
@@ -1595,6 +1653,19 @@ export default function MonitoringPRPage() {
             </PaginationContent>
           </Pagination>
         </Card>
+        {/* --- Add modal and toast to the layout --- */}
+        <ConfirmModal
+          open={confirmDeleteOpen}
+          title="Konfirmasi Hapus PR"
+          description={`Apakah Anda yakin ingin menghapus ${deleteIds.length} PR? Data yang dihapus tidak dapat dikembalikan.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+        <Toast
+          open={toastOpen}
+          message={toastMsg}
+          onClose={() => setToastOpen(false)}
+        />
       </div>
     </MainLayout>
   );
