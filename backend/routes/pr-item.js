@@ -56,15 +56,7 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// DELETE PR Item by PR ID
-router.delete("/by-pr/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    await db.query("DELETE FROM pr_item WHERE id_PR=?", [id]);
-    res.json({ message: "PR Item berhasil dihapus" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// NOTE: file ini ter-named "pr-item.js" tetapi isinya adalah route untuk "divisi".
+// Disarankan untuk mengganti nama file menjadi "divisi.js" agar konsisten.
 
 export default router;

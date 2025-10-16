@@ -144,6 +144,17 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+// ✅ DELETE ALL PR_Item by PR ID (moved here from pr-item.js)
+router.delete("/by-pr/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query("DELETE FROM pr_item WHERE id_PR = ?", [id]);
+    res.json({ message: "PR Item berhasil dihapus (by PR id)" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ✅ Catatan
 // Akses endpoint ini dengan prefix /api/pr-item
 // Contoh:

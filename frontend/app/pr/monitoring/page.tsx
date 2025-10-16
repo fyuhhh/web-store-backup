@@ -238,6 +238,14 @@ export default function MonitoringPRPage() {
         skemaLabel: pr.skemaLabel ?? "",
       };
     });
+
+    // Urutkan sehingga PR terbaru (tanggalPR terbaru) muncul paling atas
+    validatedData.sort((a: any, b: any) => {
+      const ta = a.tanggalPR ? new Date(a.tanggalPR).getTime() : 0;
+      const tb = b.tanggalPR ? new Date(b.tanggalPR).getTime() : 0;
+      return tb - ta;
+    });
+
     setPrData(validatedData);
   };
 
