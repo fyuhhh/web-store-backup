@@ -68,6 +68,16 @@ import { type POData, type PRData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
 
 export default function MonitoringPOPage() {
+  // Update the formatTanggal function
+  function formatTanggal(tgl: string | null) {
+    if (!tgl) return "-";
+    // Asumsi tgl format "YYYY-MM-DD"
+    const [date] = tgl.split("T");
+    const [y, m, d] = date.split("-");
+    if (!y || !m || !d) return tgl;
+    return `${d}-${m}-${y}`;
+  }
+
   const [poData, setPoData] = useState<POData[]>([]);
   const [prData, setPrData] = useState<PRData[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
@@ -123,77 +133,230 @@ export default function MonitoringPOPage() {
   const [userSkema, setUserSkema] = useState<string>("");
 
   useEffect(() => {
-    loadPOData();
-    loadPRData();
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    setUserSkema(userData.skema || "");
+    // Fetch PO / related data from backend dan mapping seperti biasa
+    const fetchAll = async () => {
+      try {
+        const [
+          poRes,
+          poItemRes,
+          prItemRes,
+          prRes,
+          supRes,
+          statusPermintaanRes,
+          statusPengirimanRes,
+          skemaRes,
+        ] = await Promise.all([
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+        ]);
+
+        const [
+          poList,
+          poItemList,
+          prItemList,
+          prList,
+          supplierList,
+          statusPermintaanList,
+          statusPengirimanList,
+          skemaList,
+        ] = await Promise.all([
+          poRes.json(),
+          poItemRes.json(),
+          prItemRes.json(),
+          prRes.json(),
+          supRes.json(),
+          statusPermintaanRes.json(),
+          statusPengirimanRes.json(),
+          skemaRes.json(),
+        ]);
+
+        // LOG: Data PO raw dari backend
+        console.log("PO RAW dari backend:", poList);
+
+        // Build helper maps
+        const prMap = Object.fromEntries(
+          prList.map((p: any) => [String(p.id_PR), p.noPR])
+        );
+        const prItemMap = Object.fromEntries(
+          prItemList.map((pi: any) => [String(pi.id_PRItem), pi])
+        );
+        const supplierMap = Object.fromEntries(
+          supplierList.map((s: any) => [String(s.id_supplier), s.namaSupplier])
+        );
+        const statusPermintaanMap = Object.fromEntries(
+          statusPermintaanList.map((s: any) => [
+            String(s.id_statusPermintaan),
+            s.status_permintaan,
+          ])
+        );
+        const statusPengirimanMap = Object.fromEntries(
+          statusPengirimanList.map((s: any) => [
+            String(s.id_statusPengiriman),
+            s.status_pengiriman,
+          ])
+        );
+        const skemaMap = Object.fromEntries(
+          skemaList.map((s: any) => [String(s.id_skema), s.skema])
+        );
+
+        const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+        const userSkemaVal = userData.skema || "";
+        setUserSkema(userSkemaVal);
+
+        // Helper to normalize dates:
+        const toISOFromPossibleDDMMYYYY = (val: any) => {
+          if (!val) return "";
+          if (typeof val !== "string") return String(val);
+          const parts = val.split("-");
+          if (parts.length === 3 && parts[0].length === 2) {
+            // dd-mm-yyyy -> yyyy-mm-dd
+            return `${parts[2]}-${parts[1].padStart(
+              2,
+              "0"
+            )}-${parts[0].padStart(2, "0")}`;
+          }
+          return val;
+        };
+
+        // Map each PO
+        const mappedPOs = (poList || []).map((po: any) => {
+          // ISO for range filtering
+          const prMap = Object.fromEntries(
+            prList.map((p: any) => [String(p.id_PR), p.noPR])
+          );
+          const prItemMap = Object.fromEntries(
+            prItemList.map((pi: any) => [String(pi.id_PRItem), pi])
+          );
+          const supplierMap = Object.fromEntries(
+            supplierList.map((s: any) => [
+              String(s.id_supplier),
+              s.namaSupplier,
+            ])
+          );
+          const statusPermintaanMap = Object.fromEntries(
+            statusPermintaanList.map((s: any) => [
+              String(s.id_statusPermintaan),
+              s.status_permintaan,
+            ])
+          );
+          const statusPengirimanMap = Object.fromEntries(
+            statusPengirimanList.map((s: any) => [
+              String(s.id_statusPengiriman),
+              s.status_pengiriman,
+            ])
+          );
+          const skemaMap = Object.fromEntries(
+            skemaList.map((s: any) => [String(s.id_skema), s.skema])
+          );
+
+          // Group items by PR (noPR)
+          const itemsForPO = (poItemList || []).filter(
+            (pi: any) => String(pi.id_PO) === String(po.id_PO || po.id)
+          );
+          const poItemsGrouped: any[] = [];
+          const groupMap: Record<string, number> = {};
+
+          itemsForPO.forEach((pi: any) => {
+            const prItem = prItemMap[String(pi.id_PRItem)] || {};
+            const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
+            const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
+            const item = {
+              id: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
+              namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
+              jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
+              jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
+              satuan:
+                prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
+              hargaSatuan: Number(pi.hargaSatuan) || 0,
+              keterangan: pi.keterangan || prItem.keterangan || "",
+            };
+            const key = String(noPR || prId || "__noPR__");
+            if (groupMap[key] === undefined) {
+              groupMap[key] = poItemsGrouped.length;
+              poItemsGrouped.push({
+                prId: prId || "",
+                noPR: key,
+                items: [item],
+              });
+            } else {
+              poItemsGrouped[groupMap[key]].items.push(item);
+            }
+          });
+
+          // Build labels using maps (prefer label maps, fallback to existing fields)
+          const statusPermintaanLabel =
+            statusPermintaanMap[String(po.id_statusPermintaan)] ||
+            po.statusPermintaan ||
+            String(po.id_statusPermintaan || "");
+          const statusPengirimanLabel =
+            statusPengirimanMap[String(po.id_statusPengiriman)] ||
+            po.statusPengiriman ||
+            String(po.id_statusPengiriman || "");
+
+          return {
+            id: po.id_PO ?? po.id,
+            noPO: po.noPO ?? "",
+            tanggalPO: formatTanggal(po.tanggalPO),
+            estimasiTanggalTerima: formatTanggal(po.estimasiTanggalTerima),
+            supplier:
+              supplierMap[String(po.id_supplier)] ||
+              po.supplier ||
+              String(po.id_supplier || ""),
+            poItems: poItemsGrouped,
+            totalPembayaran: Number(po.totalPembayaran) || 0,
+            statusPermintaan: statusPermintaanLabel,
+            statusPengiriman: statusPengirimanLabel,
+            status: po.status ?? "Menunggu",
+            orderedBy: po.orderedBy ?? po.dipesanOleh ?? "",
+            skema: skemaMap[String(po.id_skema)] || "", // Use label from skemaMap
+            rawSkemaId: po.id_skema ?? null,
+          };
+        });
+
+        // Filter by user skema (same logic as before)
+        const validated = mappedPOs.filter(
+          (p: any) =>
+            !userSkemaVal || String(p.rawSkemaId) === String(userSkemaVal)
+        );
+        // LOG: Data PO hasil mapping sebelum ditampilkan
+        console.log("PO hasil mapping (frontend):", validated);
+
+        setPoData(validated);
+      } catch (err) {
+        console.error("Gagal memuat data PO:", err);
+        setPoData([]); // fallback
+      }
+    };
+
+    fetchAll();
   }, []);
-
-  const loadPOData = () => {
-    const stored = localStorage.getItem("poData");
-    if (stored) {
-      const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-      const userSkema = userData.skema || "";
-      const parsedData = JSON.parse(stored);
-      // Filter PO sesuai skema user
-      const validatedData = parsedData
-        .filter((po: any) => !userSkema || po.skema === userSkema)
-        .map((po: any) => ({
-          ...po,
-          status: ([
-            "Draft",
-            "Submitted",
-            "Approved",
-            "Delivered",
-            "Completed",
-            "Menunggu",
-            "Gantung",
-            "Telah dibuat BTB",
-          ].includes(po.status)
-            ? po.status
-            : "Menunggu") as POData["status"],
-        })) as POData[];
-      setPoData(validatedData);
-    }
-  };
-
-  const loadPRData = () => {
-    const stored = localStorage.getItem("prData");
-    if (stored) {
-      const parsedData = JSON.parse(stored);
-      setPrData(parsedData);
-    }
-  };
-
-  const savePOData = (data: POData[]) => {
-    localStorage.setItem("poData", JSON.stringify(data));
-    setPoData(data);
-  };
 
   const handleEdit = (po: POData) => {
     // Redirect to input page for editing
-    localStorage.setItem("editingPO", JSON.stringify(po));
     window.location.href = "/po/input";
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (
       confirm(
         "Apakah Anda yakin ingin menghapus PO ini? Data yang dihapus tidak dapat dikembalikan."
       )
     ) {
       try {
-        const updatedData = poData.filter((po) => po.id !== id);
-        savePOData(updatedData);
-
-        // Remove from selected POs if it was selected
+        // Hapus PO langsung ke backend
+        await fetch(`http://localhost:5000/api/po/${id}`, { method: "DELETE" });
+        // Setelah hapus, fetch ulang data dari backend
+        const poRes = await fetch("http://localhost:5000/api/po");
+        const poList = await poRes.json();
+        setPoData(poList);
         setSelectedPOs(selectedPOs.filter((poId) => poId !== id));
-
-        // Show success message
         alert("PO berhasil dihapus!");
-
-        // Reload data to ensure consistency
-        loadPOData();
       } catch (error) {
         console.error("Error deleting PO:", error);
         alert("Terjadi kesalahan saat menghapus PO. Silakan coba lagi.");
@@ -377,13 +540,20 @@ export default function MonitoringPOPage() {
   const uniqueSatuan = Array.from(
     new Set(
       poData.flatMap((po) =>
-        po.poItems.flatMap((poItem) => poItem.items.map((item) => item.satuan))
+        po.poItems.flatMap((poItem) =>
+          poItem.items.map((item) => String(item.satuan ?? ""))
+        )
       )
     )
-  ).sort();
+  )
+    .filter((s) => s.trim() !== "")
+    .sort();
+
   const uniqueSuppliers = Array.from(
-    new Set(poData.map((po) => po.supplier).filter((s) => s && s.trim() !== ""))
-  ).sort();
+    new Set(poData.map((po) => String(po.supplier ?? "")))
+  )
+    .filter((s) => s.trim() !== "")
+    .sort();
   const uniqueStatus = [
     "Draft",
     "Submitted",
@@ -395,40 +565,30 @@ export default function MonitoringPOPage() {
     "Telah dibuat BTB",
   ];
   const uniqueTanggalPO = Array.from(
-    new Set(
-      poData
-        .map((po) => po.tanggalPO)
-        .filter((t): t is string => t !== undefined && t.trim() !== "")
-    )
-  ).sort();
+    new Set(poData.map((po) => String(po.tanggalPO ?? "")))
+  )
+    .filter((t) => t.trim() !== "")
+    .sort();
   const uniqueEstimasiDiterima = Array.from(
-    new Set(
-      poData
-        .map((po) => po.estimasiTanggalDiterima)
-        .filter((t): t is string => t !== undefined && t.trim() !== "")
-    )
-  ).sort();
+    new Set(poData.map((po) => String(po.estimasiTanggalDiterima ?? "")))
+  )
+    .filter((t) => t.trim() !== "")
+    .sort();
   const uniqueKode = Array.from(
-    new Set(
-      poData
-        .map((po) => po.statusPermintaan)
-        .filter((k): k is string => k !== undefined && k.trim() !== "")
-    )
-  ).sort() as string[];
+    new Set(poData.map((po) => String(po.statusPermintaan ?? "")))
+  )
+    .filter((k) => k.trim() !== "")
+    .sort() as string[];
   const uniqueStatusPengiriman = Array.from(
-    new Set(
-      poData
-        .map((po) => po.statusPengiriman)
-        .filter((s): s is string => s !== undefined && s.trim() !== "")
-    )
-  ).sort() as string[];
+    new Set(poData.map((po) => String(po.statusPengiriman ?? "")))
+  )
+    .filter((s) => s.trim() !== "")
+    .sort() as string[];
   const uniqueDiorderOleh = Array.from(
-    new Set(
-      poData
-        .map((po) => po.orderedBy)
-        .filter((o): o is string => o !== undefined && o.trim() !== "")
-    )
-  ).sort();
+    new Set(poData.map((po) => String(po.orderedBy ?? "")))
+  )
+    .filter((o) => o.trim() !== "")
+    .sort();
 
   // Data untuk export sesuai mode
   const getExportPOData = () => {
@@ -436,9 +596,11 @@ export default function MonitoringPOPage() {
       return filteredPOData.filter((po) => selectedPOs.includes(po.id));
     }
     if (exportMode === "range" && exportStartDate && exportEndDate) {
-      return filteredPOData.filter(
-        (po) => po.tanggalPO >= exportStartDate && po.tanggalPO <= exportEndDate
-      );
+      // Use normalized ISO date for comparisons if available
+      return filteredPOData.filter((po) => {
+        const d = po.tanggalPOISO || po.tanggalPO || "";
+        return d >= exportStartDate && d <= exportEndDate;
+      });
     }
     return filteredPOData;
   };
@@ -502,7 +664,7 @@ export default function MonitoringPOPage() {
                 "id-ID"
               )}`,
           index === 0 ? po.tanggalPO : "",
-          index === 0 ? po.estimasiTanggalDiterima : "",
+          index === 0 ? po.estimasiTanggalTerima : "",
           index === 0 ? po.supplier : "",
           index === 0 ? `Rp ${po.totalPembayaran.toLocaleString("id-ID")}` : "",
           index === 0 ? po.statusPermintaan ?? "" : "",
@@ -800,14 +962,15 @@ export default function MonitoringPOPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[120px]"
                                 >
-                                  {po.tanggalPO}
+                                  {po.tanggalPO}{" "}
                                 </TableCell>
                                 <TableCell
                                   key="estimasiTanggalDiterima"
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[140px]"
                                 >
-                                  {po.estimasiTanggalDiterima}
+                                  {po.estimasiTanggalTerima}{" "}
+                                  {/* Use exact field name from backend */}
                                 </TableCell>
                                 <TableCell
                                   key="supplier"

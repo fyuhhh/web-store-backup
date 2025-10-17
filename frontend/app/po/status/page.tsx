@@ -327,9 +327,13 @@ export default function StatusPOPage() {
   ).sort();
   const uniqueSatuan = Array.from(
     new Set(
-      processedPRs.flatMap((pr) => pr.items?.map((item) => item.satuan) || [])
+      processedPRs
+        .flatMap((pr) => pr.items?.map((item) => item.satuan) || [])
+        .map((s) => String(s ?? ""))
     )
-  ).sort();
+  )
+    .filter((s) => s.trim() !== "")
+    .sort();
   const uniqueQty = Array.from(
     new Set(
       processedPRs.flatMap((pr) => pr.items?.map((item) => item.jumlah) || [])
@@ -767,10 +771,12 @@ export default function StatusPOPage() {
                           />
                           <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueSatuan
-                              .filter((satuan) =>
-                                satuan
-                                  .toLowerCase()
-                                  .includes(satuanSearchTerm.toLowerCase())
+                              .filter(
+                                (satuan) =>
+                                  typeof satuan === "string" &&
+                                  satuan
+                                    .toLowerCase()
+                                    .includes(satuanSearchTerm.toLowerCase())
                               )
                               .map((satuan) => (
                                 <div

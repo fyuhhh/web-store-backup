@@ -385,51 +385,29 @@ export default function InputPOPage() {
 
     const calculations = calculateTotal();
 
-    // Cari id_supplier dari supplierOptions
-    let id_supplier = poFormData.supplier;
-    if (!id_supplier) {
-      // Jika supplier baru, tambahkan dulu
-      await handleAddSupplier();
-      id_supplier = poFormData.supplier;
-    }
-
-    // Cari id_statusPengiriman dari statusPengirimanOptions
-    let id_statusPengiriman = poFormData.statusPengiriman;
-    if (!id_statusPengiriman) {
-      await handleAddStatusPengiriman();
-      id_statusPengiriman = poFormData.statusPengiriman;
-    }
-
-    // Cari id_statusPermintaan dari statusPermintaanOptions
-    let id_statusPermintaan = poFormData.statusPermintaan;
-    if (!id_statusPermintaan) {
-      await handleAddStatusPermintaan();
-      id_statusPermintaan = poFormData.statusPermintaan;
-    }
-
-    // Ambil skema dari user
+    // Get logged in user data
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const orderedByUser = userData.username || "Admin";
-    const userSkema = userData.skema || "";
+    const orderedByUser = userData.nama_pengguna || "";
+    const userSkema = userData.id_skema || null;
 
     try {
-      // 1. POST PO ke backend
+      // 1. POST PO ke backend with correct field references
       const poRes = await fetch("http://localhost:5000/api/po", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           noPO: poFormData.noPO,
           tanggalPO: poFormData.tanggalPO,
-          id_supplier,
+          id_supplier: poFormData.supplier, // Use supplier ID from form data
           diskon: poFormData.diskon,
-          originalDiskon: calculations.totalDiscount, // hasil total diskon
+          originalDiskon: calculations.totalDiscount,
           ppn: parseFloat(poFormData.ppn),
           ppnAmount: calculations.ppnAmount,
           totalPembayaran: calculations.totalPayment,
           orderedBy: orderedByUser,
           estimasiTanggalTerima: poFormData.estimasiTanggalDiterima,
-          id_statusPengiriman,
-          id_statusPermintaan,
+          id_statusPengiriman: poFormData.statusPengiriman, // Use status IDs from form
+          id_statusPermintaan: poFormData.statusPermintaan,
           status: "Menunggu",
           createdAt: new Date().toISOString(),
           id_skema: userSkema,
@@ -453,6 +431,7 @@ export default function InputPOPage() {
               jumlahAsli: item.jumlahAsli,
               diskonItem: poFormData.diskon,
               keterangan: item.keterangan,
+              id_satuan: item.id_satuan ?? null, // send unit id to backend
             }),
           });
 
@@ -509,7 +488,10 @@ export default function InputPOPage() {
       }, 1800);
     } catch (err) {
       console.error("Error creating PO:", err);
-      setNotif({ type: "error", message: "Gagal membuat PO. Silakan coba lagi." });
+      setNotif({
+        type: "error",
+        message: "Gagal membuat PO. Silakan coba lagi.",
+      });
       setTimeout(() => setNotif(null), 2500);
     }
   };
@@ -730,6 +712,7 @@ export default function InputPOPage() {
       try {
         const selectedPRData = JSON.parse(selectedFromStatus);
         // Mapping langsung dari data yang sudah diambil dari backend
+        // Ensure we keep id_satuan and satuanLabel so we can send id_satuan to backend
         setPoItems(
           selectedPRData.map((pr: any) => ({
             prId: pr.id_PR ?? pr.id,
@@ -740,7 +723,9 @@ export default function InputPOPage() {
               namaBarang: item.namaBarang ?? item.namabarang,
               jumlahPO: item.jumlah,
               jumlahAsli: item.jumlah,
-              satuan: item.satuanLabel || item.satuan || item.id_satuan,
+              // keep both label and id
+              satuanLabel: item.satuanLabel || item.satuan || "",
+              id_satuan: item.id_satuan ?? item.idSatuan ?? null,
               hargaSatuan: 0,
               diskonItem: 0,
               keterangan: item.keterangan ?? "",
@@ -1360,7 +1345,9 @@ export default function InputPOPage() {
                                 </span>
                               </TableCell>
                               <TableCell>
-                                {getSatuanLabel(item.satuan)}
+                                {getSatuanLabel(item.id_satuan) ||
+                                  item.satuanLabel ||
+                                  item.satuan}
                               </TableCell>
                               <TableCell>
                                 <Input

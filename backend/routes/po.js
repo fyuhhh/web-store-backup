@@ -3,41 +3,44 @@ import db from "../config/database.js";
 
 const router = express.Router();
 
-// ADDED: log to confirm route file is loaded
 console.log("Loaded routes: /api/po");
-// END ADDED
 
-function formatTanggal(tgl) {
-  if (!tgl) return "";
-  const date = String(tgl).split("T")[0];
-  const [y, m, d] = date.split("-");
-  return `${d}-${m}-${y}`;
+// Fungsi konversi tanggal ke YYYY-MM-DD
+function formatDate(tgl) {
+  if (!tgl) return null;
+  return new Date(tgl).toISOString().split("T")[0];
 }
 
-// GET all PO
+// GET semua PO
 router.get("/", async (req, res, next) => {
   try {
     const [rows] = await db.query("SELECT * FROM po ORDER BY createdAt DESC");
-    const result = rows.map((r) => ({
+
+    const formatted = rows.map((r) => ({
       ...r,
-      tanggalPO: formatTanggal(r.tanggalPO),
-      estimasiTanggalTerima: formatTanggal(r.estimasiTanggalTerima),
-      createdAt: r.createdAt ? String(r.createdAt) : r.createdAt,
+      tanggalPO: formatDate(r.tanggalPO),
+      estimasiTanggalTerima: formatDate(r.estimasiTanggalTerima),
+      createdAt: r.createdAt ? formatDate(r.createdAt) : null,
     }));
-    res.json(result);
+
+    res.json(formatted);
   } catch (err) {
     next(err);
   }
 });
 
-// GET one PO by id_PO
+// GET PO by id
 router.get("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
     const [[row]] = await db.query("SELECT * FROM po WHERE id_PO = ?", [id]);
+
     if (!row) return res.status(404).json({ message: "PO tidak ditemukan" });
-    row.tanggalPO = formatTanggal(row.tanggalPO);
-    row.estimasiTanggalTerima = formatTanggal(row.estimasiTanggalTerima);
+
+    row.tanggalPO = formatDate(row.tanggalPO);
+    row.estimasiTanggalTerima = formatDate(row.estimasiTanggalTerima);
+    row.createdAt = row.createdAt ? formatDate(row.createdAt) : null;
+
     res.json(row);
   } catch (err) {
     next(err);
@@ -73,7 +76,7 @@ router.post("/", async (req, res, next) => {
         noPO || "",
         tanggalPO || null,
         id_supplier || null,
-        diskon || "0",
+        diskon || 0,
         originalDiskon || "",
         ppn || 0,
         ppnAmount || 0,
@@ -92,60 +95,65 @@ router.post("/", async (req, res, next) => {
     const [[newRow]] = await db.query("SELECT * FROM po WHERE id_PO = ?", [
       insertId,
     ]);
+
     if (newRow) {
-      newRow.tanggalPO = formatTanggal(newRow.tanggalPO);
-      newRow.estimasiTanggalTerima = formatTanggal(
-        newRow.estimasiTanggalTerima
-      );
+      newRow.tanggalPO = formatDate(newRow.tanggalPO);
+      newRow.estimasiTanggalTerima = formatDate(newRow.estimasiTanggalTerima);
+      newRow.createdAt = newRow.createdAt ? formatDate(newRow.createdAt) : null;
     }
+
     res.status(201).json(newRow || { id_PO: insertId });
   } catch (err) {
     next(err);
   }
 });
 
-// UPDATE PO by id_PO
+// UPDATE PO by id
 router.put("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
     const payload = req.body;
-    // Build dynamic set clause
+
     const fields = Object.keys(payload);
     if (fields.length === 0)
-      return res.status(400).json({ message: "No data" });
-    const setClause = fields.map(() => "?? = ?").join(", ");
-    const params = fields.flatMap((k) => [k, payload[k]]);
-    // Using simple query with placeholders for safety
+      return res.status(400).json({ message: "No data to update" });
+
     const sql =
       `UPDATE po SET ` +
       fields.map((f) => `${f} = ?`).join(", ") +
       ` WHERE id_PO = ?`;
+
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
+
     const [[updated]] = await db.query("SELECT * FROM po WHERE id_PO = ?", [
       id,
     ]);
+
     if (updated) {
-      updated.tanggalPO = formatTanggal(updated.tanggalPO);
-      updated.estimasiTanggalTerima = formatTanggal(
-        updated.estimasiTanggalTerima
-      );
+      updated.tanggalPO = formatDate(updated.tanggalPO);
+      updated.estimasiTanggalTerima = formatDate(updated.estimasiTanggalTerima);
+      updated.createdAt = updated.createdAt
+        ? formatDate(updated.createdAt)
+        : null;
     }
-    res.json(updated || { message: "Diperbarui" });
+
+    res.json(updated || { message: "PO berhasil diperbarui" });
   } catch (err) {
     next(err);
   }
 });
 
-// DELETE PO (and its items)
+// DELETE PO (beserta item)
 router.delete("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    // delete po items first
     await db.query("DELETE FROM po_item WHERE id_PO = ?", [id]);
     const [result] = await db.query("DELETE FROM po WHERE id_PO = ?", [id]);
+
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "PO tidak ditemukan" });
-    res.json({ message: "PO dihapus" });
+
+    res.json({ message: "PO berhasil dihapus" });
   } catch (err) {
     next(err);
   }
