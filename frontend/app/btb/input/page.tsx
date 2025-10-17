@@ -198,6 +198,182 @@ export default function BTBInputPage() {
     filterDiorderOleh,
   ]);
 
+  // Tambahkan state untuk data PO dari backend
+  const [backendPOData, setBackendPOData] = useState<any[]>([]);
+
+  // Ambil data PO dari backend dan mapping seperti monitoring PO
+  useEffect(() => {
+    async function fetchPOBackend() {
+      try {
+        const [
+          poRes,
+          poItemRes,
+          prItemRes,
+          prRes,
+          supRes,
+          statusPermintaanRes,
+          statusPengirimanRes,
+          skemaRes,
+          userRes,
+        ] = await Promise.all([
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"),
+        ]);
+        const [
+          poList,
+          poItemList,
+          prItemList,
+          prList,
+          supplierList,
+          statusPermintaanList,
+          statusPengirimanList,
+          skemaList,
+          userList,
+        ] = await Promise.all([
+          poRes.json(),
+          poItemRes.json(),
+          prItemRes.json(),
+          prRes.json(),
+          supRes.json(),
+          statusPermintaanRes.json(),
+          statusPengirimanRes.json(),
+          skemaRes.json(),
+          userRes.json(),
+        ]);
+
+        // Helper maps
+        const prMap = Object.fromEntries(
+          prList.map((p: any) => [String(p.id_PR), p.noPR])
+        );
+        const prItemMap = Object.fromEntries(
+          prItemList.map((pi: any) => [String(pi.id_PRItem), pi])
+        );
+        const supplierMap = Object.fromEntries(
+          supplierList.map((s: any) => [String(s.id_supplier), s.namaSupplier])
+        );
+        const statusPermintaanMap = Object.fromEntries(
+          statusPermintaanList.map((s: any) => [
+            String(s.id_statusPermintaan),
+            s.status_permintaan,
+          ])
+        );
+        const statusPengirimanMap = Object.fromEntries(
+          statusPengirimanList.map((s: any) => [
+            String(s.id_statusPengiriman),
+            s.status_pengiriman,
+          ])
+        );
+        const userMap = Object.fromEntries(
+          userList.map((u: any) => [String(u.id_user), u.nama_pengguna])
+        );
+
+        // Mapping PO persis seperti monitoring PO
+        const mappedPOs = (poList || []).map((po: any) => {
+          // Group items by PR (noPR)
+          const itemsForPO = (poItemList || []).filter(
+            (pi: any) => String(pi.id_PO) === String(po.id_PO || po.id)
+          );
+          const poItemsGrouped: any[] = [];
+          const groupMap: Record<string, number> = {};
+          itemsForPO.forEach((pi: any) => {
+            const prItem = prItemMap[String(pi.id_PRItem)] || {};
+            const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
+            const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
+            const item = {
+              id: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
+              namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
+              jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
+              jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
+              satuan:
+                prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
+              hargaSatuan: Number(pi.hargaSatuan) || 0,
+              keterangan: pi.keterangan || prItem.keterangan || "",
+            };
+            const key = String(noPR || prId || "__noPR__");
+            if (groupMap[key] === undefined) {
+              groupMap[key] = poItemsGrouped.length;
+              poItemsGrouped.push({
+                prId: prId || "",
+                noPR: key,
+                items: [item],
+              });
+            } else {
+              poItemsGrouped[groupMap[key]].items.push(item);
+            }
+          });
+
+          // Build labels using maps
+          const statusPermintaanLabel =
+            statusPermintaanMap[String(po.id_statusPermintaan)] ||
+            po.statusPermintaan ||
+            String(po.id_statusPermintaan || "");
+          const statusPengirimanLabel =
+            statusPengirimanMap[String(po.id_statusPengiriman)] ||
+            po.statusPengiriman ||
+            String(po.id_statusPengiriman || "");
+          const orderedByName =
+            userMap[String(po.orderedBy)] ||
+            po.orderedBy ||
+            po.dipesanOleh ||
+            "";
+
+          return {
+            id: po.id_PO ?? po.id,
+            noPO: po.noPO ?? "",
+            tanggalPO: po.tanggalPO,
+            estimasiTanggalTerima: po.estimasiTanggalTerima,
+            supplier:
+              supplierMap[String(po.id_supplier)] ||
+              po.supplier ||
+              String(po.id_supplier || ""),
+            poItems: poItemsGrouped,
+            totalPembayaran: Number(po.totalPembayaran) || 0,
+            statusPermintaan: statusPermintaanLabel,
+            statusPengiriman: statusPengirimanLabel,
+            status: po.status ?? "Menunggu",
+            orderedBy: orderedByName,
+            skema: po.id_skema ?? "",
+          };
+        });
+
+        setBackendPOData(mappedPOs);
+      } catch (err) {
+        setBackendPOData([]);
+      }
+    }
+    fetchPOBackend();
+    // ...existing code...
+  }, []);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm,
+    filterNamaBarang,
+    filterQtyMin,
+    filterQtyMax,
+    filterSatuan,
+    filterKeterangan,
+    filterHargaSatuanMin,
+    filterHargaSatuanMax,
+    filterTotalMin,
+    filterTotalMax,
+    filterTanggalPO,
+    filterEstimasiDiterima,
+    filterSupplier,
+    filterStatusPengiriman,
+    filterStatus,
+    filterDiorderOleh,
+  ]);
+
   const loadData = () => {
     const storedPO = localStorage.getItem("poData");
     const storedBTB = localStorage.getItem("btbData");
@@ -515,119 +691,15 @@ export default function BTBInputPage() {
   ).sort();
 
   // Filter data untuk tabel PO (copy dari monitoring\page.tsx)
-  const filteredPOData = poData
-    .filter((po) => !userSchema || po.skema === userSchema) // <-- filter by schema
+  const filteredPOData = backendPOData
+    .filter((po) => !userSchema || String(po.skema) === String(userSchema))
     .map((po) => {
       let status = po.status || "Menunggu";
       return { ...po, status };
     })
-    .filter((po) => {
-      const matchesSearch =
-        po.noPO.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        po.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        po.poItems.some((poItem) =>
-          poItem.items
-            .filter((item) => item.jumlahPO > 0)
-            .some((item) =>
-              item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-        );
-
-      const matchesNamaBarang =
-        !filterNamaBarang ||
-        po.poItems.some((poItem) =>
-          poItem.items.some((item) =>
-            item.namaBarang
-              .toLowerCase()
-              .includes(filterNamaBarang.toLowerCase())
-          )
-        );
-
-      const matchesQty =
-        (filterQtyMin === "" ||
-          po.poItems.some((poItem) =>
-            poItem.items.some((item) => item.jumlahPO >= Number(filterQtyMin))
-          )) &&
-        (filterQtyMax === "" ||
-          po.poItems.some((poItem) =>
-            poItem.items.some((item) => item.jumlahPO <= Number(filterQtyMax))
-          ));
-
-      const matchesSatuan =
-        filterSatuan.length === 0 ||
-        po.poItems.some((poItem) =>
-          poItem.items.some((item) => filterSatuan.includes(item.satuan))
-        );
-
-      const matchesKeterangan =
-        !filterKeterangan ||
-        po.poItems.some((poItem) =>
-          poItem.items.some((item) =>
-            item.keterangan
-              ?.toLowerCase()
-              .includes(filterKeterangan.toLowerCase())
-          )
-        );
-
-      const matchesHargaSatuan =
-        (filterHargaSatuanMin === "" ||
-          po.poItems.some((poItem) =>
-            poItem.items.some(
-              (item) => item.hargaSatuan >= Number(filterHargaSatuanMin)
-            )
-          )) &&
-        (filterHargaSatuanMax === "" ||
-          po.poItems.some((poItem) =>
-            poItem.items.some(
-              (item) => item.hargaSatuan <= Number(filterHargaSatuanMax)
-            )
-          ));
-
-      const matchesTotal =
-        (filterTotalMin === "" ||
-          po.totalPembayaran >= Number(filterTotalMin)) &&
-        (filterTotalMax === "" || po.totalPembayaran <= Number(filterTotalMax));
-
-      const matchesTanggalPO =
-        filterTanggalPO.length === 0 || filterTanggalPO.includes(po.tanggalPO);
-
-      const matchesEstimasiDiterima =
-        filterEstimasiDiterima.length === 0 ||
-        filterEstimasiDiterima.includes(po.estimasiTanggalDiterima);
-
-      const matchesSupplier =
-        filterSupplier.length === 0 || filterSupplier.includes(po.supplier);
-
-      const matchesStatusPengiriman =
-        filterStatusPengiriman.length === 0 ||
-        filterStatusPengiriman.includes(po.statusPengiriman || "");
-
-      const matchesStatus =
-        filterStatus.length === 0 || filterStatus.includes(po.status);
-
-      const matchesDiorderOleh =
-        filterDiorderOleh.length === 0 ||
-        filterDiorderOleh.includes(po.orderedBy || "");
-
-      return (
-        matchesSearch &&
-        matchesNamaBarang &&
-        matchesQty &&
-        matchesSatuan &&
-        matchesKeterangan &&
-        matchesHargaSatuan &&
-        matchesTotal &&
-        matchesTanggalPO &&
-        matchesEstimasiDiterima &&
-        matchesSupplier &&
-        matchesStatusPengiriman &&
-        matchesStatus &&
-        matchesDiorderOleh
-      );
-    })
     .filter((po) =>
-      po.poItems.some((poItem) =>
-        poItem.items.some((item) => item.jumlahPO > 0)
+      po.poItems.some((poItem: any) =>
+        poItem.items.some((item: any) => item.jumlahPO > 0)
       )
     );
 
@@ -742,575 +814,35 @@ export default function BTBInputPage() {
                           className="focus:ring-2 focus:ring-primary"
                         />
                       </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter No. PO"
-                            >
-                              No. PO <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari No. PO..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Daftar Barang"
-                            >
-                              Daftar Barang <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari nama barang..."
-                              value={filterNamaBarang}
-                              onChange={(e) =>
-                                setFilterNamaBarang(e.target.value)
-                              }
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Qty"
-                            >
-                              Qty <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <div className="space-y-2">
-                              <Input
-                                placeholder="Min Qty"
-                                value={filterQtyMin}
-                                onChange={(e) =>
-                                  setFilterQtyMin(
-                                    e.target.value === ""
-                                      ? ""
-                                      : Number(e.target.value)
-                                  )
-                                }
-                                type="number"
-                              />
-                              <Input
-                                placeholder="Max Qty"
-                                value={filterQtyMax}
-                                onChange={(e) =>
-                                  setFilterQtyMax(
-                                    e.target.value === ""
-                                      ? ""
-                                      : Number(e.target.value)
-                                  )
-                                }
-                                type="number"
-                              />
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Satuan"
-                            >
-                              Satuan <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari satuan..."
-                              value={satuanSearchTerm}
-                              onChange={(e) =>
-                                setSatuanSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {uniqueSatuan
-                                .filter((satuan) =>
-                                  satuan
-                                    .toLowerCase()
-                                    .includes(satuanSearchTerm.toLowerCase())
-                                )
-                                .map((satuan) => (
-                                  <div
-                                    key={satuan}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      id={`satuan-${satuan}`}
-                                      checked={filterSatuan.includes(satuan)}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterSatuan([
-                                            ...filterSatuan,
-                                            satuan,
-                                          ]);
-                                        } else {
-                                          setFilterSatuan(
-                                            filterSatuan.filter(
-                                              (s) => s !== satuan
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor={`satuan-${satuan}`}
-                                      className="text-sm"
-                                    >
-                                      {satuan}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Keterangan"
-                            >
-                              Keterangan <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari keterangan..."
-                              value={filterKeterangan}
-                              onChange={(e) =>
-                                setFilterKeterangan(e.target.value)
-                              }
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
+                      <TableHead>No. PO</TableHead>
+                      <TableHead>Daftar Barang</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Satuan</TableHead>
+                      <TableHead>Keterangan</TableHead>
                       <TableHead>Harga Satuan</TableHead>
                       <TableHead>Total</TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Tanggal PO"
-                            >
-                              Tanggal PO <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari tanggal PO..."
-                              value={tanggalPOSearchTerm}
-                              onChange={(e) =>
-                                setTanggalPOSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {uniqueTanggalPO
-                                .filter((tanggal) =>
-                                  tanggal
-                                    .toLowerCase()
-                                    .includes(tanggalPOSearchTerm.toLowerCase())
-                                )
-                                .map((tanggal) => (
-                                  <div
-                                    key={tanggal}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      id={`tanggal-${tanggal}`}
-                                      checked={filterTanggalPO.includes(
-                                        tanggal
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterTanggalPO([
-                                            ...filterTanggalPO,
-                                            tanggal,
-                                          ]);
-                                        } else {
-                                          setFilterTanggalPO(
-                                            filterTanggalPO.filter(
-                                              (t) => t !== tanggal
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor={`tanggal-${tanggal}`}
-                                      className="text-sm"
-                                    >
-                                      {tanggal}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Estimasi Diterima"
-                            >
-                              Estimasi Diterima{" "}
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari estimasi diterima..."
-                              value={estimasiDiterimaSearchTerm}
-                              onChange={(e) =>
-                                setEstimasiDiterimaSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {uniqueEstimasiDiterima
-                                .filter((estimasi) =>
-                                  estimasi
-                                    .toLowerCase()
-                                    .includes(
-                                      estimasiDiterimaSearchTerm.toLowerCase()
-                                    )
-                                )
-                                .map((estimasi) => (
-                                  <div
-                                    key={estimasi}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      id={`estimasi-${estimasi}`}
-                                      checked={filterEstimasiDiterima.includes(
-                                        estimasi
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterEstimasiDiterima([
-                                            ...filterEstimasiDiterima,
-                                            estimasi,
-                                          ]);
-                                        } else {
-                                          setFilterEstimasiDiterima(
-                                            filterEstimasiDiterima.filter(
-                                              (e) => e !== estimasi
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor={`estimasi-${estimasi}`}
-                                      className="text-sm"
-                                    >
-                                      {estimasi}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Supplier"
-                            >
-                              Supplier <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari supplier..."
-                              value={supplierSearchTerm}
-                              onChange={(e) =>
-                                setSupplierSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {uniqueSuppliers
-                                .filter((supplier) =>
-                                  supplier
-                                    .toLowerCase()
-                                    .includes(supplierSearchTerm.toLowerCase())
-                                )
-                                .map((supplier) => (
-                                  <div
-                                    key={supplier}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      id={`supplier-${supplier}`}
-                                      checked={filterSupplier.includes(
-                                        supplier
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterSupplier([
-                                            ...filterSupplier,
-                                            supplier,
-                                          ]);
-                                        } else {
-                                          setFilterSupplier(
-                                            filterSupplier.filter(
-                                              (s) => s !== supplier
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor={`supplier-${supplier}`}
-                                      className="text-sm"
-                                    >
-                                      {supplier}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Status Pengiriman"
-                            >
-                              Status Pengiriman{" "}
-                              <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari status pengiriman..."
-                              value={statusPengirimanSearchTerm}
-                              onChange={(e) =>
-                                setStatusPengirimanSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {uniqueStatusPengiriman
-                                .filter((status) =>
-                                  status
-                                    .toLowerCase()
-                                    .includes(
-                                      statusPengirimanSearchTerm.toLowerCase()
-                                    )
-                                )
-                                .map((status) => (
-                                  <div
-                                    key={status}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      id={`status-pengiriman-${status}`}
-                                      checked={filterStatusPengiriman.includes(
-                                        status
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterStatusPengiriman([
-                                            ...filterStatusPengiriman,
-                                            status,
-                                          ]);
-                                        } else {
-                                          setFilterStatusPengiriman(
-                                            filterStatusPengiriman.filter(
-                                              (s) => s !== status
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor={`status-pengiriman-${status}`}
-                                      className="text-sm"
-                                    >
-                                      {status}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Status"
-                            >
-                              Status <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari status..."
-                              value={statusSearchTerm}
-                              onChange={(e) =>
-                                setStatusSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {uniqueStatus
-                                .filter((status) =>
-                                  status
-                                    .toLowerCase()
-                                    .includes(statusSearchTerm.toLowerCase())
-                                )
-                                .map((status) => (
-                                  <div
-                                    key={status}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      id={`status-${status}`}
-                                      checked={filterStatus.includes(status)}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterStatus([
-                                            ...filterStatus,
-                                            status,
-                                          ]);
-                                        } else {
-                                          setFilterStatus(
-                                            filterStatus.filter(
-                                              (s) => s !== status
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor={`status-${status}`}
-                                      className="text-sm"
-                                    >
-                                      {status}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1"
-                              aria-label="Filter Diorder Oleh"
-                            >
-                              Diorder oleh <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2 !bg-white border border-gray-200 shadow-lg">
-                            <Input
-                              placeholder="Cari diorder oleh..."
-                              value={diorderOlehSearchTerm}
-                              onChange={(e) =>
-                                setDiorderOlehSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-48 overflow-y-auto space-y-1">
-                              {uniqueDiorderOleh
-                                .filter((diorderOleh) =>
-                                  diorderOleh
-                                    .toLowerCase()
-                                    .includes(
-                                      diorderOlehSearchTerm.toLowerCase()
-                                    )
-                                )
-                                .map((diorderOleh) => (
-                                  <div
-                                    key={diorderOleh}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      id={`diorder-oleh-${diorderOleh}`}
-                                      checked={filterDiorderOleh.includes(
-                                        diorderOleh
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterDiorderOleh([
-                                            ...filterDiorderOleh,
-                                            diorderOleh,
-                                          ]);
-                                        } else {
-                                          setFilterDiorderOleh(
-                                            filterDiorderOleh.filter(
-                                              (d) => d !== diorderOleh
-                                            )
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label
-                                      htmlFor={`diorder-oleh-${diorderOleh}`}
-                                      className="text-sm"
-                                    >
-                                      {diorderOleh}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
+                      <TableHead>Tanggal PO</TableHead>
+                      <TableHead>Estimasi Diterima</TableHead>
+                      <TableHead>Supplier</TableHead>
+                      <TableHead>Kode</TableHead>
+                      <TableHead>Status Pengiriman</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Diorder oleh</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedData.map((po) => {
-                      // Flatten all items from all poItems and filter jumlahPO > 0
-                      const allItems = po.poItems.flatMap((poItem) =>
+                      const allItems = po.poItems.flatMap((poItem: any) =>
                         poItem.items
-                          .filter((item) => item.jumlahPO > 0)
-                          .map((item) => ({
+                          .filter((item: any) => item.jumlahPO > 0)
+                          .map((item: any) => ({
                             ...item,
                             noPR: poItem.noPR,
                           }))
                       );
-
                       return (
                         <React.Fragment key={po.id}>
-                          {allItems.map((item, itemIndex) => (
+                          {allItems.map((item: any, itemIndex: number) => (
                             <TableRow
                               key={`${po.id}-item-${itemIndex}`}
                               className="border-b border-gray-300 align-middle"
@@ -1352,6 +884,7 @@ export default function BTBInputPage() {
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
                                 {item.satuan}
                               </TableCell>
+                              {/* Keterangan: pakai HoverCard */}
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words">
                                 <HoverCard>
                                   <HoverCardTrigger asChild>
@@ -1369,55 +902,82 @@ export default function BTBInputPage() {
                                   </HoverCardContent>
                                 </HoverCard>
                               </TableCell>
+                              {/* Harga Satuan */}
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px]">
                                 Rp {item.hargaSatuan.toLocaleString("id-ID")}
                               </TableCell>
+                              {/* Total: hanya di baris pertama, ambil dari po.totalPembayaran */}
+                              {itemIndex === 0 ? (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px] font-semibold"
+                                >
+                                  Rp{" "}
+                                  {po.totalPembayaran.toLocaleString("id-ID")}
+                                </TableCell>
+                              ) : null}
+                              {/* Tanggal PO */}
                               {itemIndex === 0 && (
-                                <>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="text-left border-r border-gray-300 align-middle min-w-[120px]"
-                                  >
-                                    Rp{" "}
-                                    {po.totalPembayaran.toLocaleString("id-ID")}
-                                  </TableCell>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="text-left border-r border-gray-300 align-middle min-w-[120px]"
-                                  >
-                                    {po.tanggalPO}
-                                  </TableCell>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="text-left border-r border-gray-300 align-middle min-w-[140px]"
-                                  >
-                                    {po.estimasiTanggalDiterima}
-                                  </TableCell>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="text-left border-r border-gray-300 align-middle min-w-[140px]"
-                                  >
-                                    {po.supplier}
-                                  </TableCell>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="text-left border-r border-gray-300 align-middle min-w-[140px]"
-                                  >
-                                    {po.statusPengiriman ?? ""}
-                                  </TableCell>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="text-left border-r border-gray-300 align-middle min-w-[100px]"
-                                  >
-                                    {getStatusBadge(po.status || "")}
-                                  </TableCell>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="text-left border-r border-gray-300 align-middle min-w-[100px]"
-                                  >
-                                    {po.orderedBy ?? ""}
-                                  </TableCell>
-                                </>
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-r border-gray-300 align-middle min-w-[120px]"
+                                >
+                                  {po.tanggalPO}
+                                </TableCell>
+                              )}
+                              {/* Estimasi Diterima */}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                >
+                                  {po.estimasiTanggalTerima}
+                                </TableCell>
+                              )}
+                              {/* Supplier */}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                >
+                                  {po.supplier}
+                                </TableCell>
+                              )}
+                              {/* Kode */}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                >
+                                  {po.statusPermintaan ?? ""}
+                                </TableCell>
+                              )}
+                              {/* Status Pengiriman */}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                >
+                                  {po.statusPengiriman ?? ""}
+                                </TableCell>
+                              )}
+                              {/* Status: badge warna sama seperti monitoring PO */}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-gray-300 align-middle min-w-[100px]"
+                                >
+                                  {getStatusBadge(po.status)}
+                                </TableCell>
+                              )}
+                              {/* Diorder oleh */}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-gray-300 align-middle min-w-[100px]"
+                                >
+                                  {po.orderedBy ?? ""}
+                                </TableCell>
                               )}
                             </TableRow>
                           ))}
