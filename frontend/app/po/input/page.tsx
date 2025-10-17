@@ -387,7 +387,7 @@ export default function InputPOPage() {
 
     // Get logged in user data
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const orderedByUser = userData.nama_pengguna || "";
+    const orderedByUserId = userData.id_user || userData.id || null; // <-- ambil id_user
     const userSkema = userData.id_skema || null;
 
     try {
@@ -404,7 +404,7 @@ export default function InputPOPage() {
           ppn: parseFloat(poFormData.ppn),
           ppnAmount: calculations.ppnAmount,
           totalPembayaran: calculations.totalPayment,
-          orderedBy: orderedByUser,
+          orderedBy: orderedByUserId, // <-- kirim id_user, bukan nama
           estimasiTanggalTerima: poFormData.estimasiTanggalDiterima,
           id_statusPengiriman: poFormData.statusPengiriman, // Use status IDs from form
           id_statusPermintaan: poFormData.statusPermintaan,

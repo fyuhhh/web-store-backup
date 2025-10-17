@@ -145,6 +145,7 @@ export default function MonitoringPOPage() {
           statusPermintaanRes,
           statusPengirimanRes,
           skemaRes,
+          userRes, // <-- tambahkan fetch user
         ] = await Promise.all([
           fetch("http://localhost:5000/api/po"),
           fetch("http://localhost:5000/api/po-item"),
@@ -154,6 +155,7 @@ export default function MonitoringPOPage() {
           fetch("http://localhost:5000/api/status-permintaan"),
           fetch("http://localhost:5000/api/status-pengiriman"),
           fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"), // <-- fetch user
         ]);
 
         const [
@@ -165,6 +167,7 @@ export default function MonitoringPOPage() {
           statusPermintaanList,
           statusPengirimanList,
           skemaList,
+          userList, // <-- userList
         ] = await Promise.all([
           poRes.json(),
           poItemRes.json(),
@@ -174,6 +177,7 @@ export default function MonitoringPOPage() {
           statusPermintaanRes.json(),
           statusPengirimanRes.json(),
           skemaRes.json(),
+          userRes.json(), // <-- userList
         ]);
 
         // LOG: Data PO raw dari backend
@@ -203,6 +207,9 @@ export default function MonitoringPOPage() {
         );
         const skemaMap = Object.fromEntries(
           skemaList.map((s: any) => [String(s.id_skema), s.skema])
+        );
+        const userMap = Object.fromEntries(
+          userList.map((u: any) => [String(u.id_user), u.nama_pengguna])
         );
 
         const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -299,6 +306,13 @@ export default function MonitoringPOPage() {
             po.statusPengiriman ||
             String(po.id_statusPengiriman || "");
 
+          // Ambil nama user dari userMap berdasarkan orderedBy (id_user)
+          const orderedByName =
+            userMap[String(po.orderedBy)] ||
+            po.orderedBy ||
+            po.dipesanOleh ||
+            "";
+
           return {
             id: po.id_PO ?? po.id,
             noPO: po.noPO ?? "",
@@ -313,8 +327,8 @@ export default function MonitoringPOPage() {
             statusPermintaan: statusPermintaanLabel,
             statusPengiriman: statusPengirimanLabel,
             status: po.status ?? "Menunggu",
-            orderedBy: po.orderedBy ?? po.dipesanOleh ?? "",
-            skema: skemaMap[String(po.id_skema)] || "", // Use label from skemaMap
+            orderedBy: orderedByName, // <-- tampilkan nama user
+            skema: skemaMap[String(po.id_skema)] || "",
             rawSkemaId: po.id_skema ?? null,
           };
         });
