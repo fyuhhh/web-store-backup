@@ -14,6 +14,8 @@ import poItemRoutes from "./routes/po_item.js";
 import supplierRoutes from "./routes/supplier.js";
 import statusPengirimanRoutes from "./routes/status_pengiriman.js";
 import statusPermintaanRoutes from "./routes/status_permintaan.js";
+import btbRoutes from "./routes/btb.js";
+import btbItemRoutes from "./routes/btb_item.js";
 
 const app = express();
 app.use(cors());
@@ -40,6 +42,8 @@ app.use("/api/po-item", poItemRoutes);
 app.use("/api/supplier", supplierRoutes);
 app.use("/api/status-pengiriman", statusPengirimanRoutes);
 app.use("/api/status-permintaan", statusPermintaanRoutes);
+app.use("/api/btb", btbRoutes);
+app.use("/api/btb-item", btbItemRoutes);
 
 // === ADDED: debug endpoint to list registered routes ===
 app.get("/api/debug/routes", (req, res) => {

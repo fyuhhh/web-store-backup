@@ -54,7 +54,6 @@ const columns = [
   { key: "tanggal", label: "Tanggal BTB" },
   { key: "periode", label: "Periode" },
   { key: "supplier", label: "Nama Supplier" },
-  { key: "kodeSupplier", label: "Kode Supplier" },
   { key: "barang", label: "Nama Barang" },
   { key: "jumlah", label: "Quantity" },
   { key: "satuan", label: "Satuan" },
@@ -78,8 +77,6 @@ export default function BTBMonitoringPage() {
   // Filter states
   const [filterSupplier, setFilterSupplier] = useState<string[]>([]);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
-  const [filterKodeSupplier, setFilterKodeSupplier] = useState<string[]>([]);
-  const [kodeSupplierSearchTerm, setKodeSupplierSearchTerm] = useState("");
   const [barangSearchTerm, setBarangSearchTerm] = useState("");
   const [filterSatuan, setFilterSatuan] = useState<string[]>([]);
   const [satuanSearchTerm, setSatuanSearchTerm] = useState("");
@@ -166,11 +163,6 @@ export default function BTBMonitoringPage() {
       btbData.map((btb) => btb.supplier).filter((s) => s && s.trim() !== "")
     )
   ).sort();
-  const uniqueKodeSupplier = Array.from(
-    new Set(
-      btbData.map((btb) => btb.kodeSupplier).filter((k) => k && k.trim() !== "")
-    )
-  ).sort();
   const uniqueSatuan = Array.from(
     new Set(
       btbData.map((btb) => btb.satuan).filter((s) => s && s.trim() !== "")
@@ -207,11 +199,6 @@ export default function BTBMonitoringPage() {
       // Filter supplier
       const matchesSupplier =
         filterSupplier.length === 0 || filterSupplier.includes(btb.supplier);
-
-      // Filter kode supplier
-      const matchesKodeSupplier =
-        filterKodeSupplier.length === 0 ||
-        filterKodeSupplier.includes(btb.kodeSupplier);
 
       // Filter satuan
       const satuanList =
@@ -256,7 +243,6 @@ export default function BTBMonitoringPage() {
         matchesStatus &&
         matchesBarangSearch &&
         matchesSupplier &&
-        matchesKodeSupplier &&
         matchesSatuan &&
         matchesPeriode &&
         matchesTanggalBTB &&
@@ -293,7 +279,6 @@ export default function BTBMonitoringPage() {
       "Tanggal BTB",
       "Periode",
       "Nama Supplier",
-      "Kode Supplier",
       "Nama Barang",
       "Quantity",
       "Satuan",
@@ -324,7 +309,6 @@ export default function BTBMonitoringPage() {
           idx === 0 ? btb.tanggal : "",
           idx === 0 ? btb.periode : "",
           idx === 0 ? btb.supplier : "",
-          idx === 0 ? btb.kodeSupplier : "",
           item.barang ?? "",
           item.jumlah ?? "",
           item.satuan ?? "",
@@ -694,68 +678,6 @@ export default function BTBMonitoringPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Kode Supplier */}
-                    <TableHead className="text-left min-w-[120px]">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
-                            Kode Supplier <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari kode supplier..."
-                            value={kodeSupplierSearchTerm}
-                            onChange={(e) =>
-                              setKodeSupplierSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueKodeSupplier
-                              .filter((k) =>
-                                k
-                                  .toLowerCase()
-                                  .includes(
-                                    kodeSupplierSearchTerm.toLowerCase()
-                                  )
-                              )
-                              .map((k) => (
-                                <div
-                                  key={k}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    id={`kode-supplier-${k}`}
-                                    checked={filterKodeSupplier.includes(k)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterKodeSupplier([
-                                          ...filterKodeSupplier,
-                                          k,
-                                        ]);
-                                      else
-                                        setFilterKodeSupplier(
-                                          filterKodeSupplier.filter(
-                                            (x) => x !== k
-                                          )
-                                        );
-                                    }}
-                                  />
-                                  <Label
-                                    htmlFor={`kode-supplier-${k}`}
-                                    className="text-sm"
-                                  >
-                                    {k}
-                                  </Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
                     {/* Nama Barang */}
                     <TableHead className="text-left min-w-[160px]">
                       <Popover>
@@ -964,9 +886,6 @@ export default function BTBMonitoringPage() {
                             {idx === 0 ? btb.supplier : ""}
                           </TableCell>
                           <TableCell className="px-4 py-2 text-left">
-                            {idx === 0 ? btb.kodeSupplier : ""}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-left">
                             {item.barang}
                           </TableCell>
                           <TableCell className="px-4 py-2 text-left">
@@ -1012,7 +931,7 @@ export default function BTBMonitoringPage() {
                                 </Button>
                                 <Button
                                   size="icon"
-                                  variant="outline" // <-- ubah dari "destructive" ke "outline"
+                                  variant="outline"
                                   onClick={() => handleDelete(btb.id)}
                                   title="Hapus"
                                 >

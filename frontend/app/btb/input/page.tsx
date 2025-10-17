@@ -127,7 +127,6 @@ export default function BTBInputPage() {
     tanggal: "",
     periode: "",
     supplier: "",
-    kodeSupplier: "",
     barang: "",
     jumlah: "",
     satuan: "",
@@ -406,7 +405,6 @@ export default function BTBInputPage() {
           tanggal: "2024-06-20",
           periode: "Juni 2024",
           supplier: "PT. Supplier A",
-          kodeSupplier: "SUP-001",
           barang: "Laptop Dell Latitude",
           jumlah: 5,
           satuan: "unit",
@@ -522,7 +520,6 @@ export default function BTBInputPage() {
           tanggal: formData.tanggal,
           periode: formData.periode,
           supplier: po.supplier,
-          kodeSupplier: formData.kodeSupplier, // <-- gunakan input user, bukan auto-generate
           items: itemsWithQty,
           biaya: itemsWithQty.reduce((sum, i) => sum + i.biaya, 0),
           diterimaOleh: userData.username || formData.diterimaOleh,
@@ -555,7 +552,6 @@ export default function BTBInputPage() {
       tanggal: "",
       periode: "",
       supplier: "",
-      kodeSupplier: "",
       barang: "",
       jumlah: "",
       satuan: "",
@@ -592,8 +588,7 @@ export default function BTBInputPage() {
 
   const handleBuatBTB = () => {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    // Find selected PO objects
-    const selectedPOObjects = poData.filter((po) =>
+    const selectedPOObjects = filteredPOData.filter((po) =>
       selectedPOs.includes(po.id)
     );
     if (selectedPOObjects.length === 0) {
@@ -603,7 +598,6 @@ export default function BTBInputPage() {
     setSelectedPOsForBTB(selectedPOObjects);
     setShowForm(true);
 
-    // Prepare summary of selected PO items for detail
     setSelectedPOItems(
       selectedPOObjects.map((po) => ({
         poId: po.id,
@@ -612,31 +606,39 @@ export default function BTBInputPage() {
         items: getPOItemsWithSisa(po),
       }))
     );
-    // Set initial BTB input qty to 0 for each item
+    // Set initial BTB input qty to qtySisa for each item (bisa diubah user)
     const qtyObj: Record<string, number> = {};
     selectedPOObjects.forEach((po) => {
       getPOItemsWithSisa(po).forEach((item) => {
-        qtyObj[item.poItemId] = 0;
+        qtyObj[item.poItemId] = item.qtySisa;
       });
     });
     setBtbInputQty(qtyObj);
 
-    // Pre-fill form with first selected PO data
+    // Perbaiki error split: pastikan id string
     const firstPO = selectedPOObjects[0];
+    let kodeSupplier = "";
+    if (typeof firstPO.kodeSupplier === "string" && firstPO.kodeSupplier) {
+      kodeSupplier = firstPO.kodeSupplier;
+    } else if (firstPO.id !== undefined && firstPO.id !== null) {
+      const idStr = String(firstPO.id);
+      const idParts = idStr.split("-");
+      kodeSupplier = idParts.length > 1 ? `SUP-${idParts[1]}` : "";
+    }
+
     setFormData({
       noBTB: "",
       tanggal: new Date().toISOString().split("T")[0],
       periode: "",
       supplier: firstPO.supplier,
-      kodeSupplier: firstPO.kodeSupplier || `SUP-${firstPO.id.split("-")[1]}`, // <-- gunakan kodeSupplier dari PO jika ada
       barang: "",
       jumlah: "",
       satuan: "",
-      biaya: firstPO.totalPembayaran.toString(),
+      biaya: firstPO.totalPembayaran?.toString() ?? "",
       diterimaOleh: "",
       poId: firstPO.id,
       tanggalDiterima: "",
-      skema: userData.skema || "pentacity", // <-- otomatis isi skema
+      skema: userData.skema || "pentacity",
     });
   };
 
@@ -1053,7 +1055,7 @@ export default function BTBInputPage() {
                       </div>
                       <ul className="list-disc ml-6 text-sm">
                         {po.items
-                          .filter((item) => item.qtySisa > 0) // Only show items with qty > 0
+                          .filter((item) => item.qtySisa > 0)
                           .map((item, idx) => (
                             <li key={item.poItemId}>
                               {item.namaBarang} - Sisa: {item.qtySisa}{" "}
@@ -1064,23 +1066,21 @@ export default function BTBInputPage() {
                                   type="number"
                                   min={0}
                                   max={item.qtySisa}
-                                  value={btbInputQty[item.poItemId] ?? ""}
+                                  value={
+                                    btbInputQty[`${po.poId}-${item.poItemId}`] !==
+                                    undefined
+                                      ? btbInputQty[`${po.poId}-${item.poItemId}`]
+                                      : ""
+                                  }
                                   onChange={(e) => {
-                                    // Remove leading zeros and ensure integer
-                                    let val = e.target.value.replace(
-                                      /^0+(\d)/,
-                                      "$1"
-                                    );
-                                    val =
+                                    let val = e.target.value.replace(/^0+(\d)/, "$1");
+                                    let parsedVal =
                                       val === ""
                                         ? ""
-                                        : Math.max(
-                                            0,
-                                            Math.min(Number(val), item.qtySisa)
-                                          );
+                                        : Math.max(0, Math.min(Number(val), item.qtySisa));
                                     setBtbInputQty((prev) => ({
                                       ...prev,
-                                      [item.poItemId]: val,
+                                      [`${po.poId}-${item.poItemId}`]: parsedVal,
                                     }));
                                   }}
                                   className="w-20"
@@ -1143,20 +1143,6 @@ export default function BTBInputPage() {
                       value={formData.supplier}
                       onChange={(e) =>
                         setFormData({ ...formData, supplier: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="kodeSupplier">Kode Supplier</Label>
-                    <Input
-                      id="kodeSupplier"
-                      value={formData.kodeSupplier}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          kodeSupplier: e.target.value,
-                        })
                       }
                       required
                     />
