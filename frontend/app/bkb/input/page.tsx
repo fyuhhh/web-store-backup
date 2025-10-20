@@ -174,7 +174,7 @@ export default function BKBInputPage() {
     fetchBTBData();
   }, []);
 
-  // Helper format tanggal
+  // Helper format tanggal DD-MM-YYYY (sama seperti monitoring PO)
   function formatTanggal(tgl: string | null | undefined) {
     if (!tgl) return "-";
     const [date] = tgl.split("T");
@@ -264,34 +264,25 @@ export default function BKBInputPage() {
       alert("Pilih minimal satu BTB untuk dibuatkan BKB.");
       return;
     }
-    // Gabungkan daftar barang dari semua BTB terpilih, hanya yang sisa > 0
-    // dan pastikan setiap barang ada btbId-nya
-    const selectedBarangWithBTBId = selectedBTB.flatMap((btb) =>
-      btb.items && Array.isArray(btb.items) && btb.items.length > 0
-        ? btb.items
-            .filter((item: any) => (item.sisa ?? item.jumlah) > 0)
-            .map((item: any) => ({
-              barang: item.barang,
-              jumlah: item.sisa ?? item.jumlah,
-              satuan: item.satuan,
-              btbId: btb.id, // <-- pastikan btbId selalu diisi
-            }))
-        : btb.barang && (btb.sisa ?? btb.jumlah) > 0
-        ? [
-            {
-              barang: btb.barang,
-              jumlah: btb.sisa ?? btb.jumlah,
-              satuan: btb.satuan,
-              btbId: btb.id, // <-- pastikan btbId selalu diisi
-            },
-          ]
-        : []
+    // Ambil BTB yang dipilih dari backendBTBRows
+    const selectedBTB = backendBTBRows.filter((row) =>
+      selectedBTBIds.includes(row.id)
     );
+    // Gabungkan daftar barang dari semua BTB terpilih, hanya yang sisa > 0
+    const selectedBarangWithBTBId = selectedBTB.map((row) => ({
+      barang: row.nama_barang,
+      jumlah: row.sisa ?? row.jumlah,
+      satuan: row.satuan,
+      btbId: row.id,
+      asalBTB: row.noBTB,
+      tanggalBTB: row.tanggal,
+      supplier: row.nama_supplier,
+    }));
     setShowForm(true);
     setFormData((prev: any) => ({
       ...prev,
       barang: selectedBarangWithBTBId,
-      // skema sudah otomatis dari useEffect
+      sumberBTB: selectedBTB.map((row) => row.noBTB),
     }));
   };
 
@@ -436,33 +427,25 @@ export default function BKBInputPage() {
     }
   };
 
-  // Helper: get BTB info for a barang row
+  // Helper: get BTB info for a barang row (ambil dari backendBTBRows)
   function getBTBInfo(btbId: string) {
-    const btb = btbData.find((b) => b.id === btbId);
+    const btb = backendBTBRows.find((b) => b.id === btbId);
     return btb
       ? {
           noBTB: btb.noBTB,
           tanggal: btb.tanggal,
-          supplier: btb.supplier,
+          supplier: btb.nama_supplier,
         }
       : { noBTB: btbId, tanggal: "", supplier: "" };
   }
 
   // Helper: get sisa BTB for a barang row
   function getSisaBTB(b: any) {
-    // Cari BTB dan item terkait
-    const btb = btbData.find((btb) => btb.id === b.btbId);
-    if (btb?.items && Array.isArray(btb.items) && btb.items.length > 0) {
-      const item = btb.items.find((it: any) => it.barang === b.barang);
-      return item ? item.sisa ?? item.jumlah : 0;
-    }
-    if (btb && btb.barang === b.barang) {
-      return btb.sisa ?? btb.jumlah;
-    }
-    return 0;
+    const btb = backendBTBRows.find((row) => row.id === b.btbId);
+    return btb ? btb.sisa ?? btb.jumlah : 0;
   }
 
-  // Jika showForm true, tampilkan form input BKB
+  // Pada form input BKB, Asal BTB dan Daftar Barang ambil dari formData.barang (hasil checkbox)
   if (showForm) {
     return (
       <MainLayout>
@@ -492,11 +475,7 @@ export default function BKBInputPage() {
                     <span className="text-primary font-semibold">
                       {btbInfo.noBTB}
                     </span>
-                    {btbInfo.tanggal && (
-                      <span className="ml-2 text-muted-foreground">
-                        ({btbInfo.tanggal})
-                      </span>
-                    )}
+                    {/* Tanggal dihapus dari tampilan asal BTB */}
                     {btbInfo.supplier && (
                       <span className="ml-2 text-muted-foreground">
                         - {btbInfo.supplier}
@@ -573,7 +552,11 @@ export default function BKBInputPage() {
                                 type="number"
                                 min={1}
                                 max={sisa}
-                                value={b.jumlah}
+                                value={
+                                  Number(b.jumlah) % 1 === 0
+                                    ? parseInt(b.jumlah)
+                                    : b.jumlah
+                                }
                                 onChange={(e) =>
                                   handleBarangChange(
                                     idx,
@@ -585,7 +568,8 @@ export default function BKBInputPage() {
                                 className="w-20"
                               />
                               <span className="text-xs text-muted-foreground">
-                                / {sisa}
+                                /{" "}
+                                {Number(sisa) % 1 === 0 ? parseInt(sisa) : sisa}
                               </span>
                             </div>
                           </TableCell>
@@ -593,17 +577,13 @@ export default function BKBInputPage() {
                             <Badge
                               variant={sisa > 0 ? "default" : "destructive"}
                             >
-                              {sisa}
+                              {Number(sisa) % 1 === 0 ? parseInt(sisa) : sisa}
                             </Badge>
                           </TableCell>
                           <TableCell>{b.satuan}</TableCell>
                           <TableCell>
                             <span className="font-medium">{btbInfo.noBTB}</span>
-                            {btbInfo.tanggal && (
-                              <span className="ml-1 text-xs text-muted-foreground">
-                                ({btbInfo.tanggal})
-                              </span>
-                            )}
+                            {/* Tanggal dihapus dari tampilan asal BTB */}
                           </TableCell>
                         </TableRow>
                       );
