@@ -127,6 +127,7 @@ export default function BTBInputPage() {
     tanggal: "",
     periode: "",
     supplier: "",
+    kodeSupplier: "",
     barang: "",
     jumlah: "",
     satuan: "",
@@ -149,9 +150,10 @@ export default function BTBInputPage() {
         .filter((item) => item.jumlahPO > 0)
         .map((item) => ({
           ...item,
-          qtySisa: item.qtySisa ?? item.jumlahPO, // default to jumlahPO if not set
+          qtySisa: item.qtySisa ?? item.jumlahPO,
           poItemId: poItem.noPR + "-" + item.id,
           satuan: item.satuan,
+          id_satuan: item.id_satuan ?? null, // <-- pastikan id_satuan ikut
         }))
     );
   }
@@ -292,6 +294,7 @@ export default function BTBInputPage() {
               jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
               satuan:
                 prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
+              id_satuan: prItem.id_satuan ?? pi.id_satuan ?? null, // <-- pastikan id_satuan ikut mapping
               hargaSatuan: Number(pi.hargaSatuan) || 0,
               keterangan: pi.keterangan || prItem.keterangan || "",
             };
@@ -405,6 +408,7 @@ export default function BTBInputPage() {
           tanggal: "2024-06-20",
           periode: "Juni 2024",
           supplier: "PT. Supplier A",
+          kodeSupplier: "SUP-001",
           barang: "Laptop Dell Latitude",
           jumlah: 5,
           satuan: "unit",
@@ -426,7 +430,7 @@ export default function BTBInputPage() {
     setBtbData(data);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
 
@@ -442,108 +446,170 @@ export default function BTBInputPage() {
       setTimeout(() => setNotif(null), 3000);
       return;
     }
-    // Validasi: tanggal wajib diisi
     if (!formData.tanggal) {
       setNotif({ type: "error", message: "Tanggal BTB wajib diisi." });
       setTimeout(() => setNotif(null), 3000);
       return;
     }
-    // Validasi: No BTB dan Tanggal wajib diisi
     if (!formData.noBTB || !formData.tanggal) {
       setNotif({ type: "error", message: "No BTB dan Tanggal wajib diisi." });
       setTimeout(() => setNotif(null), 2500);
       return;
     }
 
-    // For each selected PO, create BTB for items with qty > 0
-    const newBTBs: BTBData[] = [];
-    const updatedPOs: POData[] = poData.map((po) => {
-      if (!selectedPOsForBTB.some((selectedPO) => selectedPO.id === po.id))
-        return po;
-      // Update qtySisa for each item
-      const updatedPoItems = po.poItems.map((poItem) => ({
-        ...poItem,
-        items: poItem.items.map((item) => {
-          const poItemId = poItem.noPR + "-" + item.id;
-          const qtyReceived = btbInputQty[poItemId] ?? 0;
-          const qtySisa = (item.qtySisa ?? item.jumlahPO) - qtyReceived;
-          return {
-            ...item,
-            qtySisa: qtySisa,
-          };
-        }),
-      }));
+    try {
+      // 1. POST header BTB
+      // Ambil id_po, id_supplier, id_skema dari PO pertama
+      const id_po = selectedPOsForBTB[0]?.id ?? null;
+      const id_supplier = selectedPOsForBTB[0]?.id_supplier ?? null;
+      const id_skema = selectedPOsForBTB[0]?.skema ?? null;
 
-      // Determine PO status
-      const allSisaZero = updatedPoItems.every((poItem) =>
-        poItem.items.every((item) => item.qtySisa === 0)
-      );
-      const allSisaFull = updatedPoItems.every((poItem) =>
-        poItem.items.every(
-          (item) => (item.qtySisa ?? item.jumlahPO) === item.jumlahPO
-        )
-      );
-      let status: POData["status"] = "Menunggu";
-      if (allSisaZero) status = "Delivered";
-      else if (!allSisaFull) status = "Diterima Sebagian";
-
-      // --- Group items with qty > 0 into one BTB entry per PO ---
-      const itemsWithQty = [];
-      updatedPoItems.forEach((poItem) => {
-        poItem.items.forEach((item) => {
-          const poItemId = poItem.noPR + "-" + item.id;
-          const qtyReceived = btbInputQty[poItemId] ?? 0;
-          if (qtyReceived > 0) {
-            itemsWithQty.push({
-              barang: item.namaBarang,
-              jumlah: qtyReceived,
-              satuan: item.satuan,
-              biaya: item.hargaSatuan * qtyReceived,
-            });
-          }
-        });
-      });
-
-      if (itemsWithQty.length > 0) {
-        // Simpan array items ke BTB
-        newBTBs.push({
-          id: `BTB-${String(btbData.length + newBTBs.length + 1).padStart(
-            3,
-            "0"
-          )}`,
-          noBTB:
-            formData.noBTB ||
-            `BTB/2024/${String(btbData.length + newBTBs.length + 1).padStart(
-              3,
-              "0"
-            )}`,
-          tanggal: formData.tanggal,
+      // Pastikan yang dikirim ke backend adalah nama_supplier: formData.supplier
+      const btbHeaderRes = await fetch("http://localhost:5000/api/btb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          no_btb: formData.noBTB,
+          tanggal_btb: formData.tanggal,
           periode: formData.periode,
-          supplier: po.supplier,
-          items: itemsWithQty,
-          biaya: itemsWithQty.reduce((sum, i) => sum + i.biaya, 0),
-          diterimaOleh: userData.username || formData.diterimaOleh,
-          poId: po.id,
-          status: "Draft",
-          createdAt: new Date().toISOString(),
-          skema: userData.skema || formData.skema || "pentacity", // <-- simpan skema
+          id_po,
+          id_supplier,
+          nama_supplier: formData.supplier, // <-- ini yang dikirim ke backend
+          id_user: userData.id_user || userData.id,
+          id_skema,
+          biaya: formData.biaya,
+          diterima_oleh: userData.id_user || userData.id,
+          tanggal_diterima: formData.tanggal,
+          // status dan created_at otomatis di backend
+        }),
+      });
+      if (!btbHeaderRes.ok) throw new Error("Gagal menyimpan header BTB");
+      const btbHeaderData = await btbHeaderRes.json();
+      const id_btb = btbHeaderData.id;
+
+      // 2. POST setiap item ke /api/btb-item
+      // Setelah insert header BTB dan dapat id_btb
+      // Ambil data PO Item dari backend (pastikan sudah ada di database)
+      const poItemsRes = await fetch(
+        "http://localhost:5000/api/po-item?po=" + id_po
+      );
+      const poItems = await poItemsRes.json();
+
+      // Mapping item BTB dengan id_POItem dan id_satuan yang benar
+      const items = selectedPOItems.flatMap((po) =>
+        po.items
+          .filter((item) => (btbInputQty[item.poItemId] ?? 0) > 0)
+          .map((item) => {
+            // Cari poItem dari poItems (ambil id_POItem dan id_satuan)
+            const poItem = poItems.find(
+              (p) =>
+                String(p.id_PRItem) === String(item.id) ||
+                p.namaBarang === item.namaBarang
+            );
+            return {
+              id_POItem: poItem?.id_POItem,
+              nama_barang: item.namaBarang,
+              jumlah_diterima: btbInputQty[item.poItemId] ?? 0,
+              id_satuan: item.id_satuan ?? poItem?.id_satuan ?? null, // <-- ambil dari item PO
+              keterangan: item.keterangan ?? "",
+            };
+          })
+          .filter((item) => !!item.id_POItem)
+      );
+
+      // LOG: dikirim frontend ke btb (header dan items)
+      console.log("DIKIRIM FRONTEND KE BTB HEADER:", {
+        no_btb: formData.noBTB,
+        tanggal_btb: formData.tanggal,
+        periode: formData.periode,
+        id_po,
+        id_supplier,
+        nama_supplier: formData.supplier,
+        id_user: userData.id_user || userData.id,
+        id_skema,
+        biaya: formData.biaya,
+        diterima_oleh: userData.id_user || userData.id,
+        tanggal_diterima: formData.tanggal,
+      });
+      console.log("DIKIRIM FRONTEND KE BTB ITEMS:", items);
+
+      for (const item of items) {
+        // Validasi field
+        if (!id_btb || !item.id_POItem || !item.nama_barang) {
+          console.error("Field wajib kosong saat POST btb-item:", {
+            id_btb,
+            item,
+          });
+          continue; // skip jika field penting kosong
+        }
+
+        // POST ke btb_item (ubah endpoint)
+        const res = await fetch("http://localhost:5000/api/btb-item", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id_btb,
+            id_POItem: item.id_POItem,
+            nama_barang: item.nama_barang,
+            jumlah_diterima: item.jumlah_diterima,
+            id_satuan: item.id_satuan, // <-- pastikan dikirim ke backend
+            keterangan: item.keterangan,
+            qty_sisa: item.jumlah_diterima,
+          }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("Gagal insert btb_item:", errText);
+        }
+        // 3. Update jumlahPO di po_item (PUT)
+        // Ambil data po_item lama
+        const poItemRes = await fetch(
+          `http://localhost:5000/api/po-item/${item.id_POItem}`
+        );
+        const poItemData = await poItemRes.json();
+        const sisa =
+          Math.max(
+            0,
+            Number(poItemData.jumlahPO || 0) - Number(item.jumlah_diterima)
+          ) || 0;
+
+        // Hanya kirim field yang valid untuk update po_item
+        const {
+          id_PO,
+          id_PRItem,
+          hargaSatuan,
+          jumlahAsli,
+          diskonItem,
+          keterangan,
+          // jumlahPO: diupdate
+        } = poItemData;
+
+        await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id_PO,
+            id_PRItem,
+            hargaSatuan,
+            jumlahPO: sisa,
+            jumlahAsli,
+            diskonItem,
+            keterangan,
+          }),
         });
       }
 
-      return { ...po, poItems: updatedPoItems, status };
-    });
-
-    saveBTBData([...btbData, ...newBTBs]);
-    localStorage.setItem("poData", JSON.stringify(updatedPOs));
-    setPoData(updatedPOs);
-
-    setNotif({ type: "success", message: "BTB berhasil disimpan!" });
-    setTimeout(() => {
-      setNotif(null);
-      // Redirect jika perlu
-    }, 1800);
-
-    resetForm();
+      setNotif({ type: "success", message: "BTB berhasil disimpan!" });
+      setTimeout(() => {
+        setNotif(null);
+        // Redirect jika perlu
+      }, 1800);
+      resetForm();
+    } catch (err) {
+      setNotif({ type: "error", message: "Gagal menyimpan BTB ke backend." });
+      setTimeout(() => setNotif(null), 3000);
+    }
   };
 
   const resetForm = () => {
@@ -552,6 +618,7 @@ export default function BTBInputPage() {
       tanggal: "",
       periode: "",
       supplier: "",
+      kodeSupplier: "",
       barang: "",
       jumlah: "",
       satuan: "",
@@ -606,6 +673,19 @@ export default function BTBInputPage() {
         items: getPOItemsWithSisa(po),
       }))
     );
+    // LOG: diterima frontend dari PO
+    console.log(
+      "DITERIMA FRONTEND DARI PO:",
+      selectedPOObjects.map((po) =>
+        getPOItemsWithSisa(po).map((item) => ({
+          namaBarang: item.namaBarang,
+          id_satuan: item.id_satuan,
+          satuan: item.satuan,
+          qtySisa: item.qtySisa,
+          poItemId: item.poItemId,
+        }))
+      )
+    );
     // Set initial BTB input qty to qtySisa for each item (bisa diubah user)
     const qtyObj: Record<string, number> = {};
     selectedPOObjects.forEach((po) => {
@@ -631,6 +711,7 @@ export default function BTBInputPage() {
       tanggal: new Date().toISOString().split("T")[0],
       periode: "",
       supplier: firstPO.supplier,
+      kodeSupplier: kodeSupplier,
       barang: "",
       jumlah: "",
       satuan: "",
@@ -673,7 +754,7 @@ export default function BTBInputPage() {
   const uniqueEstimasiDiterima = Array.from(
     new Set(
       poData
-        .map((po) => po.estimasiTanggalDiterima)
+        .map((po) => po.estimasiTanggalTerima)
         .filter((t): t is string => t !== undefined && t.trim() !== "")
     )
   ).sort();
@@ -743,6 +824,16 @@ export default function BTBInputPage() {
   function formatRupiah(val: any) {
     if (val === undefined || val === "" || isNaN(val)) return "";
     return "Rp " + Number(val).toLocaleString("id-ID");
+  }
+
+  // Helper: format tanggal ke dd-mm-yyyy
+  function formatTanggal(tgl: string | null | undefined) {
+    if (!tgl) return "-";
+    // Asumsi tgl format "YYYY-MM-DD"
+    const [date] = tgl.split("T");
+    const [y, m, d] = date.split("-");
+    if (!y || !m || !d) return tgl;
+    return `${d}-${m}-${y}`;
   }
 
   return (
@@ -924,7 +1015,7 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[120px]"
                                 >
-                                  {po.tanggalPO}
+                                  {formatTanggal(po.tanggalPO)}
                                 </TableCell>
                               )}
                               {/* Estimasi Diterima */}
@@ -933,7 +1024,7 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[140px]"
                                 >
-                                  {po.estimasiTanggalTerima}
+                                  {formatTanggal(po.estimasiTanggalTerima)}
                                 </TableCell>
                               )}
                               {/* Supplier */}
@@ -1067,20 +1158,25 @@ export default function BTBInputPage() {
                                   min={0}
                                   max={item.qtySisa}
                                   value={
-                                    btbInputQty[`${po.poId}-${item.poItemId}`] !==
-                                    undefined
-                                      ? btbInputQty[`${po.poId}-${item.poItemId}`]
+                                    btbInputQty[item.poItemId] !== undefined
+                                      ? btbInputQty[item.poItemId]
                                       : ""
                                   }
                                   onChange={(e) => {
-                                    let val = e.target.value.replace(/^0+(\d)/, "$1");
+                                    let val = e.target.value.replace(
+                                      /^0+(\d)/,
+                                      "$1"
+                                    );
                                     let parsedVal =
                                       val === ""
                                         ? ""
-                                        : Math.max(0, Math.min(Number(val), item.qtySisa));
+                                        : Math.max(
+                                            0,
+                                            Math.min(Number(val), item.qtySisa)
+                                          );
                                     setBtbInputQty((prev) => ({
                                       ...prev,
-                                      [`${po.poId}-${item.poItemId}`]: parsedVal,
+                                      [item.poItemId]: parsedVal,
                                     }));
                                   }}
                                   className="w-20"
@@ -1143,6 +1239,20 @@ export default function BTBInputPage() {
                       value={formData.supplier}
                       onChange={(e) =>
                         setFormData({ ...formData, supplier: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="kodeSupplier">Kode Supplier</Label>
+                    <Input
+                      id="kodeSupplier"
+                      value={formData.kodeSupplier}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          kodeSupplier: e.target.value,
+                        })
                       }
                       required
                     />

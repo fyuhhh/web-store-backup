@@ -59,13 +59,20 @@ router.post("/", async (req, res) => {
       qty_sisa,
     } = req.body;
 
+    // Validasi wajib
+    if (!id_btb || !id_POItem || !nama_barang) {
+      return res
+        .status(400)
+        .json({ error: "id_btb, id_POItem, nama_barang wajib diisi" });
+    }
+
     const [result] = await db.query(
       `INSERT INTO btb_item 
       (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         id_btb,
-        id_POItem || null,
+        id_POItem,
         nama_barang,
         jumlah_diterima || 0,
         id_satuan || null,

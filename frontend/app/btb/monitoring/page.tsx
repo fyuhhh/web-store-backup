@@ -3,7 +3,6 @@
 import type React from "react";
 import * as ExcelJS from "exceljs";
 import { ChevronDown } from "lucide-react";
-import { Edit, Trash2 } from "lucide-react";
 
 import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
@@ -47,19 +46,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { BTBData } from "@/lib/dummy-data";
-
-const columns = [
-  { key: "noBTB", label: "No. BTB" },
-  { key: "tanggal", label: "Tanggal BTB" },
-  { key: "periode", label: "Periode" },
-  { key: "supplier", label: "Nama Supplier" },
-  { key: "barang", label: "Nama Barang" },
-  { key: "jumlah", label: "Quantity" },
-  { key: "satuan", label: "Satuan" },
-  { key: "biaya", label: "Biaya" },
-  { key: "diterimaOleh", label: "Diterima Oleh" }, // Ganti label
-];
 
 // Helper untuk format rupiah
 function formatRupiah(val: any) {
@@ -67,8 +53,17 @@ function formatRupiah(val: any) {
   return "Rp " + Number(val).toLocaleString("id-ID");
 }
 
+// Helper untuk format tanggal DD-MM-YYYY
+function formatTanggal(tgl: string | null | undefined) {
+  if (!tgl) return "-";
+  const [date] = tgl.split("T");
+  const [y, m, d] = date.split("-");
+  if (!y || !m || !d) return tgl;
+  return `${d}-${m}-${y}`;
+}
+
 export default function BTBMonitoringPage() {
-  const [btbData, setBtbData] = useState<BTBData[]>([]);
+  const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,150 +84,151 @@ export default function BTBMonitoringPage() {
   const [filterBiayaMax, setFilterBiayaMax] = useState<number | "">("");
   const [periodeSearchTerm, setPeriodeSearchTerm] = useState("");
   const [uniquePeriode, setUniquePeriode] = useState<string[]>([]);
-  const [poData, setPoData] = useState<any[]>([]);
-  const [selectedBTBIds, setSelectedBTBIds] = useState<string[]>([]);
   const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
     "all"
   );
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
   const [userSchema, setUserSchema] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
 
+  // Ambil data dari backend
   useEffect(() => {
-    loadData();
+    async function fetchBTBData() {
+      setLoading(true);
+      try {
+        // Ambil semua BTB, BTB Item, User, Skema, Satuan
+        const [btbRes, btbItemRes, userRes, skemaRes, satuanRes] =
+          await Promise.all([
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
+          ]);
+        const btbList = await btbRes.json();
+        const btbItemList = await btbItemRes.json();
+        const userList = await userRes.json();
+        const skemaList = await skemaRes.json();
+        const satuanList = await satuanRes.json();
+
+        // Buat mapping id_user -> nama_pengguna
+        const userMapObj: Record<string, string> = {};
+        userList.forEach((u: any) => {
+          userMapObj[String(u.id_user)] = u.nama_pengguna;
+        });
+        setUserMap(userMapObj);
+
+        // Buat mapping id_skema -> skema
+        const skemaMapObj: Record<string, string> = {};
+        skemaList.forEach((s: any) => {
+          skemaMapObj[String(s.id_skema)] = s.skema;
+        });
+        setSkemaMap(skemaMapObj);
+
+        // Buat mapping id_satuan -> satuanLabel
+        const satuanMap: Record<string, string> = {};
+        satuanList.forEach((s: any) => {
+          satuanMap[String(s.id_satuan)] = s.satuan;
+        });
+
+        // Gabungkan: untuk setiap btb_item, cari parent btb
+        const rows = btbItemList.map((item: any) => {
+          const btb = btbList.find((b: any) => b.id_btb === item.id_btb);
+          return {
+            id: item.id_btb_item,
+            noBTB: btb?.no_btb ?? "",
+            tanggal: btb?.tanggal_diterima ?? "",
+            periode: btb?.periode ?? "",
+            id_supplier: btb?.id_supplier ?? "", // simpan id_supplier
+            nama_supplier: btb?.nama_supplier ?? "", // simpan nama_supplier
+            supplier: btb?.id_supplier ?? "", // legacy, bisa dihapus jika tidak dipakai
+            nama_barang: item.nama_barang ?? "",
+            jumlah: item.jumlah_diterima ?? "",
+            satuan: satuanMap[String(item.id_satuan)] ?? item.satuanLabel ?? "",
+            sisa: item.qty_sisa ?? "",
+            biaya: btb?.biaya ?? "",
+            diterimaOleh: btb?.id_user ?? "",
+            skema: btb?.id_skema ?? "",
+          };
+        });
+        setBtbRows(rows);
+      } catch (err) {
+        setBtbRows([]);
+      }
+      setLoading(false);
+    }
+    fetchBTBData();
   }, []);
 
   useEffect(() => {
     setUniquePeriode(
       Array.from(
-        new Set(btbData.map((btb) => btb.periode).filter(Boolean))
+        new Set(btbRows.map((row) => row.periode).filter(Boolean))
       ).sort()
     );
-  }, [btbData]);
-
-  useEffect(() => {
-    const storedPO = localStorage.getItem("poData");
-    if (storedPO) setPoData(JSON.parse(storedPO));
-  }, []);
+  }, [btbRows]);
 
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.skema || "");
   }, []);
 
-  const loadData = () => {
-    const storedBTB = localStorage.getItem("btbData");
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const userSkema = userData.skema || "";
-
-    if (storedBTB) {
-      // Filter BTB sesuai skema user, TIDAK mengubah field skema!
-      setBtbData(
-        JSON.parse(storedBTB).filter(
-          (btb: any) => !userSkema || btb.skema === userSkema
-        )
-      );
-    } else {
-      // Initialize with dummy BTB data
-      const dummyBTB: BTBData[] = [
-        {
-          id: "BTB-001",
-          noBTB: "BTB/2024/001",
-          tanggal: "2024-06-20",
-          periode: "Juni 2024",
-          supplier: "PT. Supplier A",
-          kodeSupplier: "SUP-001",
-          barang: "Laptop Dell Latitude",
-          jumlah: 5,
-          satuan: "unit",
-          biaya: 75000000,
-          diterimaOleh: "Admin",
-          poId: "PO-001",
-          status: "Received",
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      localStorage.setItem("btbData", JSON.stringify(dummyBTB));
-      setBtbData(dummyBTB);
-    }
-  };
-
-  // Compute unique values for filters
+  // Compute unique values for filters dari btbRows
   const uniqueSuppliers = Array.from(
-    new Set(
-      btbData.map((btb) => btb.supplier).filter((s) => s && s.trim() !== "")
-    )
+    new Set(btbRows.map((row) => row.supplier).filter((s) => s && s !== ""))
   ).sort();
   const uniqueSatuan = Array.from(
-    new Set(
-      btbData.map((btb) => btb.satuan).filter((s) => s && s.trim() !== "")
-    )
+    new Set(btbRows.map((row) => row.satuan).filter((s) => s && s !== ""))
   ).sort();
   const uniqueTanggalBTB = Array.from(
-    new Set(btbData.map((btb) => btb.tanggal).filter(Boolean))
+    new Set(btbRows.map((row) => row.tanggal).filter(Boolean))
   ).sort();
 
   // Filter data
-  const filteredBTBData = btbData
-    .filter((btb) => !userSchema || btb.skema === userSchema)
-    .filter((btb) => {
-      // Cari barang di array items jika ada
-      const barangList =
-        btb.items && Array.isArray(btb.items)
-          ? btb.items.map((item: any) => item.barang?.toLowerCase() ?? "")
-          : [btb.barang?.toLowerCase() ?? ""];
-
+  const filteredBTBData = btbRows
+    .filter((row) => !userSchema || row.skema === userSchema)
+    .filter((row) => {
       const matchesSearch =
-        btb.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        btb.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        barangList.some((barang) => barang.includes(searchTerm.toLowerCase()));
+        row.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        String(row.supplier).toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.barang.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesStatus = !filterStatus || btb.status === filterStatus;
+      const matchesStatus = !filterStatus || row.status === filterStatus;
 
       // Filter barang (popover filter)
       const matchesBarangSearch =
         !barangSearchTerm ||
-        barangList.some((barang) =>
-          barang.includes(barangSearchTerm.toLowerCase())
-        );
+        row.barang.toLowerCase().includes(barangSearchTerm.toLowerCase());
 
       // Filter supplier
       const matchesSupplier =
-        filterSupplier.length === 0 || filterSupplier.includes(btb.supplier);
+        filterSupplier.length === 0 || filterSupplier.includes(row.supplier);
 
       // Filter satuan
-      const satuanList =
-        btb.items && Array.isArray(btb.items)
-          ? btb.items.map((item: any) => item.satuan)
-          : [btb.satuan];
       const matchesSatuan =
-        filterSatuan.length === 0 ||
-        satuanList.some((satuan) => filterSatuan.includes(satuan));
+        filterSatuan.length === 0 || filterSatuan.includes(row.satuan);
 
       // Filter tanggal BTB
       const matchesTanggalBTB =
-        filterTanggalBTB.length === 0 || filterTanggalBTB.includes(btb.tanggal);
+        filterTanggalBTB.length === 0 || filterTanggalBTB.includes(row.tanggal);
 
       // Filter periode
       const matchesPeriode =
         !filterPeriode ||
-        btb.periode === filterPeriode ||
-        btb.periode?.toLowerCase().includes(periodeSearchTerm.toLowerCase());
+        row.periode === filterPeriode ||
+        row.periode?.toLowerCase().includes(periodeSearchTerm.toLowerCase());
 
       // Filter quantity
-      const qtyList =
-        btb.items && Array.isArray(btb.items)
-          ? btb.items.map((item: any) => item.jumlah)
-          : [btb.jumlah];
       const matchesQtyMin =
-        filterQtyMin === "" ||
-        qtyList.some((qty) => Number(qty) >= Number(filterQtyMin));
+        filterQtyMin === "" || Number(row.jumlah) >= Number(filterQtyMin);
       const matchesQtyMax =
-        filterQtyMax === "" ||
-        qtyList.some((qty) => Number(qty) <= Number(filterQtyMax));
+        filterQtyMax === "" || Number(row.jumlah) <= Number(filterQtyMax);
 
       // Filter biaya
-      const biayaVal = Number(btb.biaya) || 0;
+      const biayaVal = Number(row.biaya) || 0;
       const matchesBiayaMin =
         filterBiayaMin === "" || biayaVal >= Number(filterBiayaMin);
       const matchesBiayaMax =
@@ -353,20 +349,6 @@ export default function BTBMonitoringPage() {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleEdit = (btb: BTBData) => {
-    // Redirect to input page for editing
-    localStorage.setItem("editingBTB", JSON.stringify(btb));
-    window.location.href = "/btb/input";
-  };
-
-  const handleDelete = (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus BTB ini?")) {
-      const updatedData = btbData.filter((btb) => btb.id !== id);
-      localStorage.setItem("btbData", JSON.stringify(updatedData));
-      setBtbData(updatedData);
-    }
-  };
-
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -441,14 +423,14 @@ export default function BTBMonitoringPage() {
           <CardHeader>
             <CardTitle>Daftar Bukti Terima Barang</CardTitle>
             <CardDescription>
-              Total: {filteredBTBData.length} BTB
+              Total: {filteredBTBData.length} BTB Item
               {filteredBTBData.length > 0 && (
                 <>
                   {" | "}
                   Menampilkan {(currentPage - 1) * itemsPerPage + 1}-
                   {Math.min(currentPage * itemsPerPage, filteredBTBData.length)}
                   {" dari "}
-                  {filteredBTBData.length} BTB
+                  {filteredBTBData.length} BTB Item
                 </>
               )}
             </CardDescription>
@@ -827,122 +809,94 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[120px]">
                       Skema
                     </TableHead>
-                    {/* Aksi */}
-                    <TableHead className="text-left min-w-[90px]">
-                      Aksi
-                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredBTBData
-                    .slice(
-                      (currentPage - 1) * itemsPerPage,
-                      currentPage * itemsPerPage
-                    )
-                    .map((btb: any) => {
-                      const items =
-                        btb.items &&
-                        Array.isArray(btb.items) &&
-                        btb.items.length > 0
-                          ? btb.items
-                          : btb.barang
-                          ? [
-                              {
-                                barang: btb.barang,
-                                jumlah: btb.jumlah,
-                                satuan: btb.satuan,
-                                sisa: btb.sisa ?? btb.jumlah,
-                              },
-                            ]
-                          : [];
-                      if (items.length === 0) return null;
-                      return items.map((item: any, idx: number) => (
-                        <TableRow key={btb.id + "-" + idx}>
-                          {/* Checkbox per baris untuk export terpilih */}
-                          <TableCell>
-                            {exportMode === "selected" && idx === 0 && (
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={11}>Loading...</TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBTBData
+                      .slice(
+                        (currentPage - 1) * itemsPerPage,
+                        currentPage * itemsPerPage
+                      )
+                      .map((row, idx) => (
+                        <TableRow key={row.id}>
+                          {/* Checkbox cell agar jumlah kolom selalu sama */}
+                          {exportMode === "selected" ? (
+                            <TableCell>
                               <Checkbox
-                                checked={selectedBTBIds.includes(btb.id)}
+                                checked={selectedBTBIds.includes(row.id)}
                                 onCheckedChange={(checked) => {
                                   setSelectedBTBIds((prev) =>
                                     checked
-                                      ? [...prev, btb.id]
-                                      : prev.filter((id) => id !== btb.id)
+                                      ? [...prev, row.id]
+                                      : prev.filter((id) => id !== row.id)
                                   );
                                 }}
                               />
-                            )}
-                          </TableCell>
+                            </TableCell>
+                          ) : (
+                            <TableCell />
+                          )}
+                          {/* No. BTB */}
                           <TableCell className="font-medium px-4 py-2 text-left">
-                            {idx === 0 ? btb.noBTB : ""}
+                            {row.noBTB}
                           </TableCell>
+                          {/* Tanggal BTB */}
                           <TableCell className="px-4 py-2 text-left">
-                            {idx === 0 ? btb.tanggal : ""}
+                            {formatTanggal(row.tanggal)}
                           </TableCell>
+                          {/* Periode */}
                           <TableCell className="px-4 py-2 text-left">
-                            {idx === 0 ? btb.periode : ""}
+                            {row.periode}
                           </TableCell>
+                          {/* Nama Supplier */}
                           <TableCell className="px-4 py-2 text-left">
-                            {idx === 0 ? btb.supplier : ""}
+                            {row.nama_supplier || "-"}
                           </TableCell>
+                          {/* Nama Barang */}
                           <TableCell className="px-4 py-2 text-left">
-                            {item.barang}
+                            {row.nama_barang && row.nama_barang !== ""
+                              ? row.nama_barang
+                              : row.nama_supplier || "-"}
                           </TableCell>
+                          {/* Quantity */}
                           <TableCell className="px-4 py-2 text-left">
-                            {item.jumlah}
+                            {row.jumlah}
                           </TableCell>
+                          {/* Satuan */}
                           <TableCell className="px-4 py-2 text-left">
-                            {item.satuan}
+                            {row.satuan}
                           </TableCell>
-                          {/* Sisa stok */}
+                          {/* Sisa Stok */}
                           <TableCell className="px-4 py-2 text-left">
                             <Badge
                               variant={
-                                item.sisa > 0 ? "default" : "destructive"
+                                Number(row.sisa) > 0 ? "default" : "destructive"
                               }
                             >
-                              {item.sisa ?? item.jumlah}
+                              {row.sisa}
                             </Badge>
                           </TableCell>
+                          {/* Biaya */}
                           <TableCell className="px-4 py-2 text-left">
-                            {idx === 0
-                              ? "Rp " +
-                                (btb.biaya?.toLocaleString?.("id-ID") ??
-                                  btb.biaya)
-                              : ""}
+                            {formatRupiah(row.biaya)}
                           </TableCell>
+                          {/* Diterima Oleh */}
                           <TableCell className="px-4 py-2 text-left">
-                            {idx === 0 ? btb.diterimaOleh ?? "" : ""}
+                            {userMap[String(row.diterimaOleh)] ??
+                              row.diterimaOleh}
                           </TableCell>
+                          {/* Skema */}
                           <TableCell className="px-4 py-2 text-left">
-                            {/* Kolom Skema tanpa Badge */}
-                            {btb.skema}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-left">
-                            {idx === 0 && (
-                              <div className="flex gap-2">
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  onClick={() => handleEdit(btb)}
-                                  title="Edit"
-                                >
-                                  <Edit className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="outline"
-                                  onClick={() => handleDelete(btb.id)}
-                                  title="Hapus"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            )}
+                            {skemaMap[String(row.skema)] ?? row.skema}
                           </TableCell>
                         </TableRow>
-                      ));
-                    })}
+                      ))
+                  )}
                 </TableBody>
               </Table>
             </div>
