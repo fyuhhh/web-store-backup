@@ -473,30 +473,29 @@ export default function MonitoringPRPage() {
     );
   };
 
-  const getStatusBadge = (status: string) => {
+  // Fungsi badge status PR (samakan dengan PO/Status)
+  function getStatusBadge(status: string) {
     if (status === "Menunggu") {
       return (
-        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
+        <span className="inline-block px-2 py-1 rounded bg-orange-100 text-orange-700 border border-orange-300 text-xs font-semibold">
           Menunggu
-        </Badge>
+        </span>
       );
     }
     if (status === "Gantung") {
       return (
-        <Badge className="bg-red-100 text-red-700 border-red-300">
+        <span className="inline-block px-2 py-1 rounded bg-red-100 text-red-700 border border-red-300 text-xs font-semibold">
           Gantung
-        </Badge>
+        </span>
       );
     }
-    if (status === "Diproses") {
-      return (
-        <Badge className="bg-gray-200 text-gray-700 border-gray-300">
-          Diproses
-        </Badge>
-      );
-    }
-    return <Badge variant="secondary">{status}</Badge>;
-  };
+    // Default: anggap Telah Selesai
+    return (
+      <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 text-xs font-semibold">
+        Telah Selesai
+      </span>
+    );
+  }
 
   const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
     "all"

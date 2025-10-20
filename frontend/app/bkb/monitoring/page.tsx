@@ -49,13 +49,26 @@ export default function BKBMonitoringPage() {
   const [satuanMap, setSatuanMap] = useState<Record<string, string>>({});
   const [btbMap, setBtbMap] = useState<Record<string, string>>({});
 
+  // Fetch satuan list from backend and build mapping
+  useEffect(() => {
+    fetch("http://localhost:5000/api/satuan")
+      .then((res) => res.json())
+      .then((data) => {
+        const map: Record<string, string> = {};
+        data.forEach((s: any) => {
+          map[String(s.id_satuan)] = s.satuan;
+        });
+        setSatuanMap(map);
+      });
+  }, []);
+
   // Ambil data dari backend
   useEffect(() => {
     async function fetchBKBData() {
       setLoading(true);
       try {
         // Ambil semua BKB, BKB Item, User, Skema, Satuan, BTB
-        const [bkbRes, bkbItemRes, userRes, skemaRes, satuanRes, btbRes] =
+        const [bkbRes, bkbItemRes, userRes, skemaRes, , btbRes] =
           await Promise.all([
             fetch("http://localhost:5000/api/bkb"),
             fetch("http://localhost:5000/api/bkb-item"),
@@ -68,7 +81,7 @@ export default function BKBMonitoringPage() {
         const bkbItemList = await bkbItemRes.json();
         const userList = await userRes.json();
         const skemaList = await skemaRes.json();
-        const satuanList = await satuanRes.json();
+        // satuanList tidak perlu, sudah di-fetch di atas
         const btbList = await btbRes.json();
 
         // Buat mapping id_user -> nama_pengguna
@@ -85,13 +98,6 @@ export default function BKBMonitoringPage() {
         });
         setSkemaMap(skemaMapObj);
 
-        // Buat mapping id_satuan -> satuanLabel
-        const satuanMapObj: Record<string, string> = {};
-        satuanList.forEach((s: any) => {
-          satuanMapObj[String(s.id_satuan)] = s.satuan;
-        });
-        setSatuanMap(satuanMapObj);
-
         // Buat mapping id_btb_item -> no_btb (asal BTB)
         const btbMapObj: Record<string, string> = {};
         btbList.forEach((btb: any) => {
@@ -99,32 +105,19 @@ export default function BKBMonitoringPage() {
         });
         setBtbMap(btbMapObj);
 
-        // Gabungkan: untuk setiap bkb_item, cari parent bkb dan asal btb
+        // Gabungkan: untuk setiap bkb_item, cari parent bkb dan label satuan
         const rows = bkbItemList.map((item: any) => {
           const bkb = bkbList.find((b: any) => b.id_bkb === item.id_bkb);
-          // Cari asal BTB dari id_btb_item (harus join ke btb_item dan btb)
-          let asalBTB = "";
-          if (item.id_btb_item) {
-            // Cari btb_item, lalu ambil id_btb, lalu cari btb
-            const btbItem = null; // Anda bisa fetch btb_item jika ingin lebih detail
-            // Jika ada btbItem, bisa ambil id_btb lalu cari btbMapObj[id_btb]
-          }
-          // Atau, jika backend bkb_item sudah simpan id_btb, bisa langsung ambil
-          // Untuk sekarang, tampilkan kosong jika tidak ada
           return {
             id: item.id_bkb_item,
             noBKB: bkb?.no_bkb ?? "",
             tanggalBKB: bkb?.tanggal_bkb ?? "",
             namaBarang: item.nama_barang ?? "",
             quantity: item.jumlah_keluar ?? "",
-            satuan: satuanMapObj[String(item.satuan)] ?? item.satuan ?? "",
+            satuan: satuanMap[String(item.id_satuan)] ?? "", // tampilkan label satuan
             keterangan: item.keterangan ?? "",
-            asalBTB:
-              item.id_btb_item && btbMapObj[String(item.id_btb_item)]
-                ? btbMapObj[String(item.id_btb_item)]
-                : "",
             dikeluarkanOleh: bkb?.dikeluarkan_oleh ?? "",
-            skema: bkb?.skema ?? "",
+            skema: bkb?.id_skema ?? "",
           };
         });
         setBkbRows(rows);
@@ -134,7 +127,8 @@ export default function BKBMonitoringPage() {
       setLoading(false);
     }
     fetchBKBData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [satuanMap]); // refetch rows when satuanMap ready
 
   // Filter data
   const filteredBKBData = bkbRows.filter((row) => {
@@ -200,7 +194,6 @@ export default function BKBMonitoringPage() {
                     <TableHead>Quantity</TableHead>
                     <TableHead>Satuan</TableHead>
                     <TableHead>Keterangan</TableHead>
-                    <TableHead>Asal BTB</TableHead>
                     <TableHead>Dikeluarkan Oleh</TableHead>
                     <TableHead>Skema</TableHead>
                   </TableRow>
@@ -208,7 +201,7 @@ export default function BKBMonitoringPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9}>Loading...</TableCell>
+                      <TableCell colSpan={8}>Loading...</TableCell>
                     </TableRow>
                   ) : (
                     paginatedData.map((row, idx) => (
@@ -229,7 +222,6 @@ export default function BKBMonitoringPage() {
                         </TableCell>
                         <TableCell>{row.satuan}</TableCell>
                         <TableCell>{row.keterangan}</TableCell>
-                        <TableCell>{row.asalBTB}</TableCell>
                         <TableCell>
                           {userMap[String(row.dikeluarkanOleh)] ??
                             row.dikeluarkanOleh}

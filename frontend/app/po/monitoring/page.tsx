@@ -401,119 +401,127 @@ export default function MonitoringPOPage() {
       let status = po.status || "Menunggu";
       return { ...po, status };
     })
-    .filter((po) => {
-      const matchesSearch =
-        po.noPO.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        po.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        po.poItems.some((poItem) =>
-          poItem.items
-            .filter((item) => item.jumlahPO > 0)
-            .some((item) =>
-              item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
+    .filter(
+      (po) => {
+        const matchesSearch =
+          po.noPO.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          po.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          po.poItems.some((poItem) =>
+            poItem.items
+              .filter((item) => item.jumlahPO > 0)
+              .some((item) =>
+                item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
+              )
+          );
+
+        const matchesNamaBarang =
+          !filterNamaBarang ||
+          po.poItems.some((poItem) =>
+            poItem.items.some((item) =>
+              item.namaBarang
+                .toLowerCase()
+                .includes(filterNamaBarang.toLowerCase())
             )
-        );
+          );
 
-      const matchesNamaBarang =
-        !filterNamaBarang ||
-        po.poItems.some((poItem) =>
-          poItem.items.some((item) =>
-            item.namaBarang
-              .toLowerCase()
-              .includes(filterNamaBarang.toLowerCase())
-          )
-        );
+        const matchesQty =
+          (filterQtyMin === "" ||
+            po.poItems.some((poItem) =>
+              poItem.items.some((item) => item.jumlahPO >= Number(filterQtyMin))
+            )) &&
+          (filterQtyMax === "" ||
+            po.poItems.some((poItem) =>
+              poItem.items.some((item) => item.jumlahPO <= Number(filterQtyMax))
+            ));
 
-      const matchesQty =
-        (filterQtyMin === "" ||
+        const matchesSatuan =
+          filterSatuan.length === 0 ||
           po.poItems.some((poItem) =>
-            poItem.items.some((item) => item.jumlahPO >= Number(filterQtyMin))
-          )) &&
-        (filterQtyMax === "" ||
+            poItem.items.some((item) => filterSatuan.includes(item.satuan))
+          );
+
+        const matchesKeterangan =
+          !filterKeterangan ||
           po.poItems.some((poItem) =>
-            poItem.items.some((item) => item.jumlahPO <= Number(filterQtyMax))
-          ));
-
-      const matchesSatuan =
-        filterSatuan.length === 0 ||
-        po.poItems.some((poItem) =>
-          poItem.items.some((item) => filterSatuan.includes(item.satuan))
-        );
-
-      const matchesKeterangan =
-        !filterKeterangan ||
-        po.poItems.some((poItem) =>
-          poItem.items.some((item) =>
-            item.keterangan
-              ?.toLowerCase()
-              .includes(filterKeterangan.toLowerCase())
-          )
-        );
-
-      const matchesHargaSatuan =
-        (filterHargaSatuanMin === "" ||
-          po.poItems.some((poItem) =>
-            poItem.items.some(
-              (item) => item.hargaSatuan >= Number(filterHargaSatuanMin)
+            poItem.items.some((item) =>
+              item.keterangan
+                ?.toLowerCase()
+                .includes(filterKeterangan.toLowerCase())
             )
-          )) &&
-        (filterHargaSatuanMax === "" ||
-          po.poItems.some((poItem) =>
-            poItem.items.some(
-              (item) => item.hargaSatuan <= Number(filterHargaSatuanMax)
-            )
-          ));
+          );
 
-      const matchesTotal =
-        (filterTotalMin === "" ||
-          po.totalPembayaran >= Number(filterTotalMin)) &&
-        (filterTotalMax === "" || po.totalPembayaran <= Number(filterTotalMax));
+        const matchesHargaSatuan =
+          (filterHargaSatuanMin === "" ||
+            po.poItems.some((poItem) =>
+              poItem.items.some(
+                (item) => item.hargaSatuan >= Number(filterHargaSatuanMin)
+              )
+            )) &&
+          (filterHargaSatuanMax === "" ||
+            po.poItems.some((poItem) =>
+              poItem.items.some(
+                (item) => item.hargaSatuan <= Number(filterHargaSatuanMax)
+              )
+            ));
 
-      const matchesTanggalPO =
-        filterTanggalPO.length === 0 || filterTanggalPO.includes(po.tanggalPO);
+        const matchesTotal =
+          (filterTotalMin === "" ||
+            po.totalPembayaran >= Number(filterTotalMin)) &&
+          (filterTotalMax === "" ||
+            po.totalPembayaran <= Number(filterTotalMax));
 
-      const matchesEstimasiDiterima =
-        filterEstimasiDiterima.length === 0 ||
-        filterEstimasiDiterima.includes(po.estimasiTanggalDiterima);
+        const matchesTanggalPO =
+          filterTanggalPO.length === 0 ||
+          filterTanggalPO.includes(po.tanggalPO);
 
-      const matchesSupplier =
-        filterSupplier.length === 0 || filterSupplier.includes(po.supplier);
+        const matchesEstimasiDiterima =
+          filterEstimasiDiterima.length === 0 ||
+          filterEstimasiDiterima.includes(po.estimasiTanggalDiterima);
 
-      const matchesKode =
-        filterKode.length === 0 ||
-        filterKode.includes(po.statusPermintaan || "");
+        const matchesSupplier =
+          filterSupplier.length === 0 || filterSupplier.includes(po.supplier);
 
-      const matchesStatusPengiriman =
-        filterStatusPengiriman.length === 0 ||
-        filterStatusPengiriman.includes(po.statusPengiriman || "");
+        const matchesKode =
+          filterKode.length === 0 ||
+          filterKode.includes(po.statusPermintaan || "");
 
-      const matchesStatus =
-        filterStatus.length === 0 || filterStatus.includes(po.status);
+        const matchesStatusPengiriman =
+          filterStatusPengiriman.length === 0 ||
+          filterStatusPengiriman.includes(po.statusPengiriman || "");
 
-      const matchesDiorderOleh =
-        filterDiorderOleh.length === 0 ||
-        filterDiorderOleh.includes(po.orderedBy || "");
+        const matchesStatus =
+          filterStatus.length === 0 || filterStatus.includes(po.status);
 
-      return (
-        matchesSearch &&
-        matchesNamaBarang &&
-        matchesQty &&
-        matchesSatuan &&
-        matchesKeterangan &&
-        matchesHargaSatuan &&
-        matchesTotal &&
-        matchesTanggalPO &&
-        matchesEstimasiDiterima &&
-        matchesSupplier &&
-        matchesKode &&
-        matchesStatusPengiriman &&
-        matchesStatus &&
-        matchesDiorderOleh
-      );
-    })
-    .filter((po) =>
-      po.poItems.some((poItem) =>
-        poItem.items.some((item) => item.jumlahPO > 0)
-      )
+        const matchesDiorderOleh =
+          filterDiorderOleh.length === 0 ||
+          filterDiorderOleh.includes(po.orderedBy || "");
+
+        return (
+          matchesSearch &&
+          matchesNamaBarang &&
+          matchesQty &&
+          matchesSatuan &&
+          matchesKeterangan &&
+          matchesHargaSatuan &&
+          matchesTotal &&
+          matchesTanggalPO &&
+          matchesEstimasiDiterima &&
+          matchesSupplier &&
+          matchesKode &&
+          matchesStatusPengiriman &&
+          matchesStatus &&
+          matchesDiorderOleh
+        );
+      }
+      // Pada filter data PO, hapus filter yang menghilangkan item dengan jumlahPO = 0
+      // Ganti bagian ini:
+      // .filter((po) =>
+      //   po.poItems.some((poItem) =>
+      //     poItem.items.some((item) => item.jumlahPO > 0)
+      //   )
+      // );
+      // Menjadi:
+      // ...jangan filter berdasarkan jumlahPO...
     );
 
   // Pagination logic
@@ -814,13 +822,6 @@ export default function MonitoringPOPage() {
                 <Download className="h-4 w-4 mr-2" />
                 Export Excel
               </Button>
-              <Button
-                onClick={() => (window.location.href = "/po/status")}
-                className="bg-primary hover:bg-primary/90 h-9"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Input PO Baru
-              </Button>
             </div>
           </div>
         </div>
@@ -885,14 +886,12 @@ export default function MonitoringPOPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((po) => {
-                    // Flatten all items from all poItems and filter jumlahPO > 0
+                    // Flatten all items from all poItems ~ REMOVE jumlahPO > 0 filter
                     const allItems = po.poItems.flatMap((poItem) =>
-                      poItem.items
-                        .filter((item) => item.jumlahPO > 0)
-                        .map((item) => ({
-                          ...item,
-                          noPR: poItem.noPR,
-                        }))
+                      poItem.items.map((item) => ({
+                        ...item,
+                        noPR: poItem.noPR,
+                      }))
                     );
 
                     return (

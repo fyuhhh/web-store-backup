@@ -42,11 +42,12 @@ router.post("/", async (req, res, next) => {
       jumlahAsli,
       diskonItem,
       keterangan,
+      id_satuan, // <-- tambahkan id_satuan dari frontend
     } = req.body;
 
     const [result] = await db.query(
-      `INSERT INTO po_item (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonItem, keterangan)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO po_item (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonItem, keterangan, id_satuan)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_PO || null,
         id_PRItem || null,
@@ -55,6 +56,7 @@ router.post("/", async (req, res, next) => {
         jumlahAsli || 0,
         diskonItem || 0,
         keterangan || "",
+        id_satuan || null, // <-- simpan ke kolom id_satuan
       ]
     );
 
@@ -78,6 +80,7 @@ router.put("/:id", async (req, res, next) => {
     if (fields.length === 0)
       return res.status(400).json({ message: "No data" });
 
+    // Pastikan id_satuan bisa diupdate
     const sql =
       `UPDATE po_item SET ` +
       fields.map((f) => `${f} = ?`).join(", ") +

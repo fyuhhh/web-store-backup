@@ -623,10 +623,12 @@ export default function BTBMonitoringPage() {
                           />
                           <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueSuppliers
-                              .filter((s) =>
-                                s
-                                  .toLowerCase()
-                                  .includes(supplierSearchTerm.toLowerCase())
+                              .filter(
+                                (s) =>
+                                  typeof s === "string" &&
+                                  s
+                                    .toLowerCase()
+                                    .includes(supplierSearchTerm.toLowerCase())
                               )
                               .map((s) => (
                                 <div

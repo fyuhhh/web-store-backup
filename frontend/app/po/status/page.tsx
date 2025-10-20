@@ -228,22 +228,28 @@ export default function StatusPOPage() {
   };
 
   // Badge status
-  const getStatusBadge = (status: string) => {
+  function getStatusBadge(status: string) {
     if (status === "Menunggu") {
       return (
-        <Badge className="bg-red-100 text-red-700 border-red-300">
+        <span className="inline-block px-2 py-1 rounded bg-orange-100 text-orange-700 border border-orange-300 text-xs font-semibold">
           Menunggu
-        </Badge>
+        </span>
       );
     }
     if (status === "Gantung") {
       return (
-        <Badge className="bg-red-600 text-white border-red-700">Gantung</Badge>
+        <span className="inline-block px-2 py-1 rounded bg-red-100 text-red-700 border border-red-300 text-xs font-semibold">
+          Gantung
+        </span>
       );
     }
-    // Untuk status lain, tidak tampil di tabel ini
-    return null;
-  };
+    // Default: anggap Telah Selesai
+    return (
+      <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 text-xs font-semibold">
+        Telah Selesai
+      </span>
+    );
+  }
 
   // Badge urgensi seperti monitoring PR
   const getUrgensiBadge = (urgensi: string) => {
