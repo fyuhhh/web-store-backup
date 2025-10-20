@@ -34,11 +34,11 @@ router.post("/", async (req, res) => {
       keterangan,
       dibuat_oleh,
       dikeluarkan_oleh,
-      skema,
+      skema, // frontend kirim skema, backend simpan ke id_skema
     } = req.body;
     const [result] = await db.query(
       `INSERT INTO bkb 
-      (no_bkb, tanggal_bkb, keterangan, dibuat_oleh, dikeluarkan_oleh, skema) 
+      (no_bkb, tanggal_bkb, keterangan, dibuat_oleh, dikeluarkan_oleh, id_skema) 
       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         no_bkb,
@@ -46,7 +46,7 @@ router.post("/", async (req, res) => {
         keterangan || "",
         dibuat_oleh || null,
         dikeluarkan_oleh || null,
-        skema || null,
+        skema || null, // simpan ke id_skema
       ]
     );
     res
@@ -54,6 +54,80 @@ router.post("/", async (req, res) => {
       .json({ message: "BKB berhasil dibuat", id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST BKB + items sekaligus (input BKB dari frontend)
+router.post("/full", async (req, res) => {
+  const {
+    no_bkb,
+    tanggal_bkb,
+    keterangan,
+    dibuat_oleh,
+    dikeluarkan_oleh,
+    skema, // frontend kirim skema, backend simpan ke id_skema
+    barang, // array of { id_btb_item, nama_barang, jumlah_keluar, satuan, keterangan }
+  } = req.body;
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // 1. Insert ke bkb (gunakan id_skema)
+    const [bkbResult] = await conn.query(
+      `INSERT INTO bkb (no_bkb, tanggal_bkb, keterangan, dibuat_oleh, dikeluarkan_oleh, id_skema)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        no_bkb,
+        tanggal_bkb,
+        keterangan || "",
+        dibuat_oleh || null,
+        dikeluarkan_oleh || null,
+        skema || null, // simpan ke id_skema
+      ]
+    );
+    const id_bkb = bkbResult.insertId;
+
+    // 2. Insert ke bkb_item dan update sisa btb_item
+    for (const item of barang) {
+      // Ambil sisa stok BTB sebelum update
+      const [[btbItem]] = await conn.query(
+        "SELECT qty_sisa, jumlah_diterima FROM btb_item WHERE id_btb_item = ?",
+        [item.id_btb_item]
+      );
+      const sisaSebelum = btbItem?.qty_sisa ?? btbItem?.jumlah_diterima ?? 0;
+      const jumlahKeluar = Number(item.jumlah_keluar);
+
+      // Insert ke bkb_item (gunakan id_satuan)
+      await conn.query(
+        `INSERT INTO bkb_item
+          (id_bkb, id_btb_item, nama_barang, jumlah_keluar, id_satuan, sisa_btb, keterangan)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id_bkb,
+          item.id_btb_item,
+          item.nama_barang,
+          jumlahKeluar,
+          item.satuan || null, // simpan ke id_satuan
+          Math.max(0, sisaSebelum - jumlahKeluar),
+          item.keterangan || "",
+        ]
+      );
+
+      // Update qty_sisa di btb_item
+      await conn.query(
+        "UPDATE btb_item SET qty_sisa = ? WHERE id_btb_item = ?",
+        [Math.max(0, sisaSebelum - jumlahKeluar), item.id_btb_item]
+      );
+    }
+
+    await conn.commit();
+    res.status(201).json({ message: "BKB & item berhasil disimpan", id_bkb });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
   }
 });
 

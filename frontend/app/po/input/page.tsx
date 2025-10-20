@@ -461,6 +461,38 @@ export default function InputPOPage() {
         }
       }
 
+      // === Tambahan: Update status PR (Gantung/Telah Selesai) ===
+      // Ambil semua prId unik dari poItems
+      const prIds = Array.from(new Set(poItems.map((poItem) => poItem.prId)));
+      for (const prId of prIds) {
+        // Ambil semua item PR dari backend
+        const prItemRes = await fetch(
+          `http://localhost:5000/api/pr-item/pr/${prId}`
+        );
+        const prItems = await prItemRes.json();
+        // Jika semua jumlah === 0 -> Telah Selesai, jika ada yang > 0 -> Gantung
+        const allZero = prItems.every((item: any) => Number(item.jumlah) === 0);
+        const newStatus = allZero ? "Telah Selesai" : "Gantung";
+        // Ambil data PR lama
+        const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
+        const prData = await prRes.json();
+        // Kirim semua field PR lama + status baru
+        await fetch(`http://localhost:5000/api/pr/${prId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            noPR: prData.noPR,
+            tanggalPR: prData.tanggalPR,
+            id_divisi: prData.id_divisi,
+            id_urgensi: prData.id_urgensi,
+            status: newStatus,
+            dibuatOleh: prData.dibuatOleh,
+            id_skema: prData.id_skema,
+            createdAt: prData.createdAt,
+          }),
+        });
+      }
+
       // Reset form
       setPoFormData({
         noPO: `PO/2024/${String(poData.length + 1).padStart(3, "0")}`,

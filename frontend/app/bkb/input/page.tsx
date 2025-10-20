@@ -70,6 +70,7 @@ export default function BKBInputPage() {
   // Tambahkan state untuk data BTB dari backend
   const [backendBTBRows, setBackendBTBRows] = useState<any[]>([]);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [satuanMap, setSatuanMap] = useState<Record<string, string>>({});
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
@@ -133,18 +134,19 @@ export default function BKBInputPage() {
         });
         setUserMap(userMapObj);
 
-        // Mapping id_skema -> skema
+        // Mapping id_skema -> skema label
         const skemaMapObj: Record<string, string> = {};
         skemaList.forEach((s: any) => {
           skemaMapObj[String(s.id_skema)] = s.skema;
         });
         setSkemaMap(skemaMapObj);
 
-        // Mapping id_satuan -> satuanLabel
-        const satuanMap: Record<string, string> = {};
+        // Mapping id_satuan -> satuan label
+        const satuanMapObj: Record<string, string> = {};
         satuanList.forEach((s: any) => {
-          satuanMap[String(s.id_satuan)] = s.satuan;
+          satuanMapObj[String(s.id_satuan)] = s.satuan;
         });
+        setSatuanMap(satuanMapObj);
 
         // Gabungkan: untuk setiap btb_item, cari parent btb
         const rows = btbItemList.map((item: any) => {
@@ -158,7 +160,9 @@ export default function BKBInputPage() {
             nama_supplier: btb?.nama_supplier ?? "",
             nama_barang: item.nama_barang ?? "",
             jumlah: item.jumlah_diterima ?? "",
-            satuan: satuanMap[String(item.id_satuan)] ?? item.satuanLabel ?? "",
+            satuan:
+              satuanMapObj[String(item.id_satuan)] ?? item.satuanLabel ?? "",
+            id_satuan: item.id_satuan ?? null,
             sisa: item.qty_sisa ?? "",
             biaya: btb?.biaya ?? "",
             diterimaOleh: btb?.id_user ?? "",
@@ -272,22 +276,30 @@ export default function BKBInputPage() {
     const selectedBarangWithBTBId = selectedBTB.map((row) => ({
       barang: row.nama_barang,
       jumlah: row.sisa ?? row.jumlah,
-      satuan: row.satuan,
+      satuan: row.id_satuan ?? null, // id_satuan untuk backend
+      satuanLabel: row.satuan ?? "", // label untuk tampilan
       btbId: row.id,
       asalBTB: row.noBTB,
       tanggalBTB: row.tanggal,
       supplier: row.nama_supplier,
+      skema: row.skema ?? "", // id_skema dari BTB
     }));
+    // Ambil skema dari BTB pertama yang dipilih (atau dari user login jika tidak ada)
+    const skemaOtomatis =
+      selectedBarangWithBTBId[0]?.skema ||
+      JSON.parse(localStorage.getItem("userData") || "{}").skema ||
+      "";
     setShowForm(true);
     setFormData((prev: any) => ({
       ...prev,
       barang: selectedBarangWithBTBId,
       sumberBTB: selectedBTB.map((row) => row.noBTB),
+      skema: skemaOtomatis,
     }));
   };
 
   // Handler submit form BKB
-  const handleSubmitBKB = (e: React.FormEvent) => {
+  const handleSubmitBKB = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.noBKB || !formData.tanggalBKB) {
       setNotif({
@@ -297,16 +309,11 @@ export default function BKBInputPage() {
       setTimeout(() => setNotif(null), 2500);
       return;
     }
-    // Validasi stok cukup
+    // Validasi stok cukup (pakai backendBTBRows, bukan btbData/localStorage)
     for (const [idx, b] of formData.barang.entries()) {
-      const btb = btbData.find((btb) => btb.id === b.btbId);
+      const btb = backendBTBRows.find((row) => row.id === b.btbId);
       let sisa = 0;
-      if (btb?.items && Array.isArray(btb.items) && btb.items.length > 0) {
-        const item = btb.items.find(
-          (it: any) => it.barang === b.barang && (it.sisa ?? it.jumlah) > 0
-        );
-        sisa = item ? item.sisa ?? item.jumlah : 0;
-      } else if (btb && btb.barang === b.barang) {
+      if (btb) {
         sisa = btb.sisa ?? btb.jumlah;
       }
       if (b.jumlah > sisa) {
@@ -318,94 +325,61 @@ export default function BKBInputPage() {
         return;
       }
     }
-    // Simpan ke localStorage
-    const bkbData = JSON.parse(localStorage.getItem("bkbData") || "[]");
-    const barangWithBTBId = formData.barang.map((b: any) => ({
-      ...b,
-      btbId: b.btbId,
-    }));
-    // Ambil skema user login dari localStorage
-    let userSkema = "";
+
+    // Ambil user info dari localStorage
     const userRaw = localStorage.getItem("userData");
+    let userId = null;
+    let userSkema = "";
     if (userRaw) {
       try {
         const user = JSON.parse(userRaw);
+        userId = user.id_user || user.id;
         userSkema = user.skema || "";
       } catch {}
     }
-    const uniqueId =
-      "BKB-" + Date.now() + "-" + Math.floor(Math.random() * 100000);
-    bkbData.push({
-      id: uniqueId,
-      noBKB: formData.noBKB,
-      tanggalBKB: formData.tanggalBKB,
-      barang: barangWithBTBId,
-      items: Array.isArray(barangWithBTBId)
-        ? barangWithBTBId
-        : [barangWithBTBId],
+
+    // Siapkan payload untuk backend
+    const payload = {
+      no_bkb: formData.noBKB,
+      tanggal_bkb: formData.tanggalBKB,
       keterangan: formData.keterangan,
-      sumberBTB: selectedBTB.map((b) => b.noBTB),
-      createdAt: new Date().toISOString(),
-      dibuatOleh: userNick,
-      dikeluarkanOleh: userNick,
-      skema: userSkema, // <-- sudah pasti terdefinisi
-    });
-    localStorage.setItem("bkbData", JSON.stringify(bkbData));
+      dibuat_oleh: userId,
+      dikeluarkan_oleh: userId,
+      skema: formData.skema, // <-- id_skema
+      barang: formData.barang.map((b: any) => ({
+        id_btb_item: b.btbId,
+        nama_barang: b.barang,
+        jumlah_keluar: b.jumlah,
+        satuan: b.satuan, // <-- id_satuan
+        keterangan: formData.keterangan,
+      })),
+    };
 
-    // Kurangi stok di BTB sesuai barang yang diambil
-    const newBTBData = btbData.map((btb) => {
-      // Jika BTB tidak terlibat, return apa adanya
-      if (!selectedBTBIds.includes(btb.id)) return btb;
-      // BTB dengan items array
-      if (btb.items && Array.isArray(btb.items) && btb.items.length > 0) {
-        return {
-          ...btb,
-          items: btb.items.map((item: any) => {
-            const bkbItem = formData.barang.find(
-              (b: any) => b.barang === item.barang && b.btbId === btb.id
-            );
-            if (bkbItem) {
-              const sisaLama = item.sisa ?? item.jumlah;
-              return {
-                ...item,
-                sisa: Math.max(0, sisaLama - bkbItem.jumlah),
-              };
-            }
-            return item;
-          }),
-        };
+    try {
+      const res = await fetch("http://localhost:5000/api/bkb/full", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setNotif({ type: "error", message: err.error || "Gagal simpan BKB" });
+        setTimeout(() => setNotif(null), 2500);
+        return;
       }
-      // BTB single barang
-      if (btb.barang) {
-        const bkbItem = formData.barang.find(
-          (b: any) => b.barang === btb.barang && b.btbId === btb.id
-        );
-        if (bkbItem) {
-          const sisaLama = btb.sisa ?? btb.jumlah;
-          return {
-            ...btb,
-            sisa: Math.max(0, sisaLama - bkbItem.jumlah),
-          };
-        }
-      }
-      return btb;
-    });
-    localStorage.setItem("btbData", JSON.stringify(newBTBData));
-
-    // Bersihkan state
-    setSelectedBTBIds([]);
-    setShowForm(false);
-
-    setNotif({ type: "success", message: "BKB berhasil disimpan!" });
-    setTimeout(() => {
-      setNotif(null);
-      router.push("/bkb/monitoring");
-    }, 1800);
+      setNotif({ type: "success", message: "BKB berhasil disimpan!" });
+      setTimeout(() => {
+        setNotif(null);
+        router.push("/bkb/monitoring");
+      }, 1800);
+    } catch (err: any) {
+      setNotif({ type: "error", message: "Gagal simpan BKB ke backend." });
+      setTimeout(() => setNotif(null), 2500);
+    }
   };
 
-  // Handler barang di form
+  // Handler barang di form (tidak perlu dropdown satuan)
   const handleBarangChange = (idx: number, field: string, value: any) => {
-    // Batasi value tidak boleh lebih dari sisa
     if (field === "jumlah") {
       const sisa = getSisaBTB(formData.barang[idx]);
       let val = Number(value);
@@ -447,6 +421,9 @@ export default function BKBInputPage() {
 
   // Pada form input BKB, Asal BTB dan Daftar Barang ambil dari formData.barang (hasil checkbox)
   if (showForm) {
+    // Ambil label skema dari mapping
+    const skemaLabel =
+      skemaMap[String(formData.skema)] || formData.skema || "-";
     return (
       <MainLayout>
         <div className="max-w-3xl mx-auto py-8">
@@ -520,7 +497,7 @@ export default function BKBInputPage() {
               <div className="flex-1 min-w-0">
                 <Label>Skema</Label>
                 <Input
-                  value={formData.skema}
+                  value={skemaLabel}
                   readOnly
                   className="w-full bg-muted/50 cursor-not-allowed"
                 />
@@ -543,6 +520,12 @@ export default function BKBInputPage() {
                     {formData.barang.map((b: any, idx: number) => {
                       const sisa = getSisaBTB(b);
                       const btbInfo = getBTBInfo(b.btbId);
+                      // Ambil label satuan dari mapping jika ada
+                      const satuanLabel =
+                        satuanMap[String(b.satuan)] ||
+                        b.satuanLabel ||
+                        b.satuan ||
+                        "-";
                       return (
                         <TableRow key={idx}>
                           <TableCell>{b.barang}</TableCell>
@@ -580,10 +563,9 @@ export default function BKBInputPage() {
                               {Number(sisa) % 1 === 0 ? parseInt(sisa) : sisa}
                             </Badge>
                           </TableCell>
-                          <TableCell>{b.satuan}</TableCell>
+                          <TableCell>{satuanLabel}</TableCell>
                           <TableCell>
                             <span className="font-medium">{btbInfo.noBTB}</span>
-                            {/* Tanggal dihapus dari tampilan asal BTB */}
                           </TableCell>
                         </TableRow>
                       );

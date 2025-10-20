@@ -168,6 +168,7 @@ export default function BTBInputPage() {
   } | null>(null);
 
   const [userSchema, setUserSchema] = useState<string>("");
+  const [supplierList, setSupplierList] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
@@ -175,6 +176,10 @@ export default function BTBInputPage() {
     // Ambil skema user dari localStorage
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.skema || "");
+    // Ambil supplier dari backend
+    fetch("http://localhost:5000/api/supplier")
+      .then((r) => r.json())
+      .then((data) => setSupplierList(data));
   }, []);
 
   // Reset to page 1 when filters change
@@ -335,6 +340,7 @@ export default function BTBInputPage() {
               supplierMap[String(po.id_supplier)] ||
               po.supplier ||
               String(po.id_supplier || ""),
+            id_supplier: po.id_supplier ?? null, // <-- tambahkan id_supplier di objek PO
             poItems: poItemsGrouped,
             totalPembayaran: Number(po.totalPembayaran) || 0,
             statusPermintaan: statusPermintaanLabel,
@@ -461,7 +467,7 @@ export default function BTBInputPage() {
       // 1. POST header BTB
       // Ambil id_po, id_supplier, id_skema dari PO pertama
       const id_po = selectedPOsForBTB[0]?.id ?? null;
-      const id_supplier = selectedPOsForBTB[0]?.id_supplier ?? null;
+      const id_supplier = formData.supplier; // <-- ini id_supplier (number/integer)
       const id_skema = selectedPOsForBTB[0]?.skema ?? null;
 
       // Pastikan yang dikirim ke backend adalah nama_supplier: formData.supplier
@@ -473,8 +479,8 @@ export default function BTBInputPage() {
           tanggal_btb: formData.tanggal,
           periode: formData.periode,
           id_po,
-          id_supplier,
-          nama_supplier: formData.supplier, // <-- ini yang dikirim ke backend
+          id_supplier, // <-- kirim id_supplier (number/integer)
+          nama_supplier: getSupplierLabel(id_supplier), // label supplier (opsional)
           id_user: userData.id_user || userData.id,
           id_skema,
           biaya: formData.biaya,
@@ -523,8 +529,8 @@ export default function BTBInputPage() {
         tanggal_btb: formData.tanggal,
         periode: formData.periode,
         id_po,
-        id_supplier,
-        nama_supplier: formData.supplier,
+        id_supplier: formData.supplier,
+        nama_supplier: getSupplierLabel(formData.supplier),
         id_user: userData.id_user || userData.id,
         id_skema,
         biaya: formData.biaya,
@@ -673,18 +679,22 @@ export default function BTBInputPage() {
         items: getPOItemsWithSisa(po),
       }))
     );
-    // LOG: diterima frontend dari PO
+    // LOG: diterima frontend dari PO (pastikan id_supplier adalah id PO, bukan label)
     console.log(
       "DITERIMA FRONTEND DARI PO:",
-      selectedPOObjects.map((po) =>
-        getPOItemsWithSisa(po).map((item) => ({
+      selectedPOObjects.map((po) => ({
+        id_PO: po.id,
+        id_supplier: po.id_supplier ?? po.id_supplier, // pastikan ini id_supplier (number/integer)
+        supplier: po.supplier,
+        noPO: po.noPO,
+        items: getPOItemsWithSisa(po).map((item) => ({
           namaBarang: item.namaBarang,
           id_satuan: item.id_satuan,
           satuan: item.satuan,
           qtySisa: item.qtySisa,
           poItemId: item.poItemId,
-        }))
-      )
+        })),
+      }))
     );
     // Set initial BTB input qty to qtySisa for each item (bisa diubah user)
     const qtyObj: Record<string, number> = {};
@@ -710,8 +720,8 @@ export default function BTBInputPage() {
       noBTB: "",
       tanggal: new Date().toISOString().split("T")[0],
       periode: "",
-      supplier: firstPO.supplier,
-      kodeSupplier: kodeSupplier,
+      supplier: firstPO.id_supplier ?? "", // <-- gunakan id_supplier (number/integer)
+      supplierLabel: firstPO.supplier ?? "", // label supplier
       barang: "",
       jumlah: "",
       satuan: "",
@@ -720,6 +730,21 @@ export default function BTBInputPage() {
       poId: firstPO.id,
       tanggalDiterima: "",
       skema: userData.skema || "pentacity",
+    });
+
+    // LOG: Daftar PO yang diterima oleh frontend (beserta id_supplier dan id_satuan tiap item)
+    console.log("DAFTAR PO YANG DITERIMA OLEH FRONTEND:");
+    selectedPOObjects.forEach((po, idx) => {
+      console.log(
+        `[${idx}] id_PO: ${po.id}, id_supplier: ${po.id_supplier}, supplier: ${po.supplier}, noPO: ${po.noPO}`
+      );
+      po.poItems.forEach((poItem, i) => {
+        poItem.items.forEach((item, j) => {
+          console.log(
+            `  [item ${i}-${j}] namaBarang: ${item.namaBarang}, id_satuan: ${item.id_satuan}, satuan: ${item.satuan}, qtySisa: ${item.qtySisa}, poItemId: ${item.poItemId}`
+          );
+        });
+      });
     });
   };
 
@@ -834,6 +859,14 @@ export default function BTBInputPage() {
     const [y, m, d] = date.split("-");
     if (!y || !m || !d) return tgl;
     return `${d}-${m}-${y}`;
+  }
+
+  // Helper untuk dapatkan label supplier dari id_supplier
+  function getSupplierLabel(id: string) {
+    const found = supplierList.find(
+      (s) => String(s.id_supplier) === String(id)
+    );
+    return found ? found.namaSupplier : id;
   }
 
   return (
@@ -1233,28 +1266,16 @@ export default function BTBInputPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="supplier">Nama Supplier</Label>
-                    <Input
-                      id="supplier"
+                    <Label htmlFor="supplier">Supplier</Label>
+                    <div className="border rounded px-2 py-1 bg-muted/50 min-h-[40px] flex items-center">
+                      {/* Tampilkan label supplier */}
+                      {getSupplierLabel(formData.supplier)}
+                    </div>
+                    {/* Simpan id_supplier sebagai hidden input */}
+                    <input
+                      type="hidden"
+                      name="supplier"
                       value={formData.supplier}
-                      onChange={(e) =>
-                        setFormData({ ...formData, supplier: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="kodeSupplier">Kode Supplier</Label>
-                    <Input
-                      id="kodeSupplier"
-                      value={formData.kodeSupplier}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          kodeSupplier: e.target.value,
-                        })
-                      }
-                      required
                     />
                   </div>
                   <div>

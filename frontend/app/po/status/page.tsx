@@ -1050,9 +1050,11 @@ export default function StatusPOPage() {
                           <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueDibuatOleh
                               .filter((nama) =>
-                                nama
+                                (nama ?? "")
                                   .toLowerCase()
-                                  .includes(dibuatOlehSearchTerm.toLowerCase())
+                                  .includes(
+                                    (dibuatOlehSearchTerm ?? "").toLowerCase()
+                                  )
                               )
                               .map((nama) => (
                                 <div

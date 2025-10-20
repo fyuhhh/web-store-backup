@@ -72,7 +72,6 @@ const columns = [
   { key: "keteranganPO", label: "Keterangan PO" },
   { key: "diskonPersen", label: "Diskon (%)" },
   { key: "diskonRp", label: "Diskon (RP)" },
-  { key: "subHargaDiskonRp", label: "Sub Harga-Diskon (Rp)" },
   { key: "ppnPersen", label: "PPN (%)" },
   { key: "ppnRp", label: "PPN (Rp)" },
   { key: "totalHarga", label: "Total Harga" },
@@ -86,7 +85,6 @@ const columns = [
   { key: "tanggalBTB", label: "Tanggal BTB" },
   { key: "periodeBTB", label: "Periode" },
   { key: "namaSupplierBTB", label: "Nama Supplier BTB" },
-  { key: "kodeSupplierBTB", label: "Kode Supplier BTB" },
   { key: "namaBarangBTB", label: "Nama Barang BTB" },
   { key: "quantityBTB", label: "Quantity BTB" },
   { key: "satuanBTB", label: "Satuan BTB" },
@@ -117,10 +115,64 @@ function getDayName(dateStr: string) {
   return new Date(dateStr).toLocaleString("id-ID", { weekday: "long" });
 }
 
-// Tambahkan helper formatRupiah
-function formatRupiah(val: any) {
+// Helper untuk angka bulat tanpa desimal
+function formatInt(val: any) {
+  if (val === undefined || val === null || val === "") return "";
+  const num = Number(val);
+  return Number.isNaN(num)
+    ? ""
+    : num % 1 === 0
+    ? num.toString()
+    : num.toFixed(2);
+}
+
+// Helper format rupiah dengan prefix
+function formatRupiahFull(val: any) {
   if (val === undefined || val === "" || isNaN(val)) return "";
-  return Number(val).toLocaleString("id-ID");
+  return "Rp. " + Number(val).toLocaleString("id-ID");
+}
+
+// Hari libur nasional (contoh, bisa ditambah sesuai kebutuhan)
+const HOLIDAYS = [
+  "2025-01-01",
+  "2025-02-01",
+  "2025-03-29",
+  "2025-04-18",
+  "2025-05-01",
+  "2025-05-15",
+  "2025-06-01",
+  "2025-12-25",
+];
+
+// Fungsi menambah hari kerja (tidak termasuk Sabtu/Minggu/tanggal merah)
+function addWorkingDays(startDateStr: string, days: number) {
+  let date = new Date(startDateStr);
+  let added = 0;
+  while (added < days) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+    const dateStr = date.toISOString().slice(0, 10);
+    if (day !== 0 && day !== 6 && !HOLIDAYS.includes(dateStr)) {
+      added++;
+    }
+  }
+  return date.toISOString().slice(0, 10);
+}
+
+// Fungsi menghitung selisih hari kerja antara dua tanggal
+function countWorkingDaysBetween(startDateStr: string, endDateStr: string) {
+  let start = new Date(startDateStr);
+  let end = new Date(endDateStr);
+  let count = 0;
+  while (start < end) {
+    start.setDate(start.getDate() + 1);
+    const day = start.getDay();
+    const dateStr = start.toISOString().slice(0, 10);
+    if (day !== 0 && day !== 6 && !HOLIDAYS.includes(dateStr)) {
+      count++;
+    }
+  }
+  return count;
 }
 
 export default function RekapFullPage() {
@@ -135,346 +187,309 @@ export default function RekapFullPage() {
   );
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
-  const [userRole, setUserRole] = useState<string>("");
-  const [userDivision, setUserDivision] = useState<string>("");
 
-  // Ambil data PR dan PO dari localStorage, lalu gabungkan
+  // Tambahkan state untuk label referensi
+  const [supplierMap, setSupplierMap] = useState<{ [key: string]: string }>({});
+  const [userMap, setUserMap] = useState<{ [key: string]: string }>({});
+  const [skemaMap, setSkemaMap] = useState<{ [key: string]: string }>({});
+  const [statusPengirimanMap, setStatusPengirimanMap] = useState<{
+    [key: string]: string;
+  }>({});
+  const [statusPermintaanMap, setStatusPermintaanMap] = useState<{
+    [key: string]: string;
+  }>({});
+  const [satuanMap, setSatuanMap] = useState<{ [key: string]: string }>({});
+  // Tambah: divisiMap
+  const [divisiMap, setDivisiMap] = useState<{ [key: string]: string }>({});
+
+  // Ambil data referensi untuk label
   useEffect(() => {
-    const prRaw = localStorage.getItem("prData");
-    const poRaw = localStorage.getItem("poData");
-    const btbRaw = localStorage.getItem("btbData");
-    const bkbRaw = localStorage.getItem("bkbData");
-    let prData: any[] = [];
-    let poData: any[] = [];
-    let btbData: any[] = [];
-    let bkbData: any[] = [];
-    // Ambil skema user
-    const userRaw = localStorage.getItem("userData");
-    let userSkema = "";
-    try {
-      userSkema = userRaw ? JSON.parse(userRaw).skema ?? "" : "";
-    } catch {}
-    try {
-      prData = prRaw ? JSON.parse(prRaw) : [];
-      poData = poRaw ? JSON.parse(poRaw) : [];
-      btbData = btbRaw ? JSON.parse(btbRaw) : [];
-      bkbData = bkbRaw ? JSON.parse(bkbRaw) : [];
-    } catch {
-      prData = [];
-      poData = [];
-      btbData = [];
-      bkbData = [];
+    async function fetchRefs() {
+      const [
+        supplierRes,
+        userRes,
+        skemaRes,
+        statusPengirimanRes,
+        statusPermintaanRes,
+        satuanRes,
+        divisiRes,
+      ] = await Promise.all([
+        fetch("http://localhost:5000/api/supplier").then((r) => r.json()),
+        fetch("http://localhost:5000/api/user").then((r) => r.json()),
+        fetch("http://localhost:5000/api/skema").then((r) => r.json()),
+        fetch("http://localhost:5000/api/status-pengiriman").then((r) =>
+          r.json()
+        ),
+        fetch("http://localhost:5000/api/status-permintaan").then((r) =>
+          r.json()
+        ),
+        fetch("http://localhost:5000/api/satuan").then((r) => r.json()),
+        fetch("http://localhost:5000/api/divisi").then((r) => r.json()),
+      ]);
+      setSupplierMap(
+        Object.fromEntries(
+          supplierRes.map((s: any) => [String(s.id_supplier), s.namaSupplier])
+        )
+      );
+      setUserMap(
+        Object.fromEntries(
+          userRes.map((u: any) => [String(u.id_user), u.nama_pengguna])
+        )
+      );
+      setSkemaMap(
+        Object.fromEntries(
+          skemaRes.map((s: any) => [String(s.id_skema), s.skema])
+        )
+      );
+      setStatusPengirimanMap(
+        Object.fromEntries(
+          statusPengirimanRes.map((sp: any) => [
+            String(sp.id_statusPengiriman),
+            sp.status_pengiriman,
+          ])
+        )
+      );
+      setStatusPermintaanMap(
+        Object.fromEntries(
+          statusPermintaanRes.map((sp: any) => [
+            String(sp.id_statusPermintaan),
+            sp.status_permintaan,
+          ])
+        )
+      );
+      setSatuanMap(
+        Object.fromEntries(
+          satuanRes.map((s: any) => [String(s.id_satuan), s.satuan])
+        )
+      );
+      setDivisiMap(
+        Object.fromEntries(
+          divisiRes.map((d: any) => [String(d.id_divisi), d.divisi])
+        )
+      );
     }
-    // Filter semua data sesuai skema user
-    if (userSkema) {
-      prData = prData.filter((pr) => pr.skema === userSkema);
-      poData = poData.filter((po) => po.skema === userSkema);
-      btbData = btbData.filter((btb) => btb.skema === userSkema);
-      bkbData = bkbData.filter((bkb) => bkb.skema === userSkema);
-    }
+    fetchRefs();
+  }, []);
 
-    // Gabungkan PR dan PO berdasarkan noPR (relasi)
-    const rekapRows: any[] = [];
-    prData.forEach((pr) => {
-      (pr.items || []).forEach((item: any, idx: number) => {
-        const quantityAwalPR = item.quantityAwalPR ?? item.jumlah;
-        // Cari semua PO yang mengambil barang ini dari PR ini, urutkan berdasarkan tanggalPO
-        const relatedPOs = poData
-          .filter((po) =>
-            po.poItems.some(
-              (poItem: any) =>
-                poItem.noPR === pr.noPR &&
-                poItem.items.some(
-                  (itm: any) => itm.namaBarang === item.namaBarang
-                )
-            )
-          )
-          .sort(
-            (a, b) =>
-              new Date(a.tanggalPO).getTime() - new Date(b.tanggalPO).getTime()
+  // Ambil data PR dan PR Item dari backend API, bukan localStorage
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // Ambil data PR, PR Item, PO, PO Item, BTB, BTB Item, BKB, BKB Item
+        const [
+          prRes,
+          prItemRes,
+          poRes,
+          poItemRes,
+          btbRes,
+          btbItemRes,
+          bkbRes,
+          bkbItemRes,
+        ] = await Promise.all([
+          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
+        ]);
+        const prData = Array.isArray(prRes) ? prRes : [];
+        const prItemData = Array.isArray(prItemRes) ? prItemRes : [];
+        const poData = Array.isArray(poRes) ? poRes : [];
+        const poItemData = Array.isArray(poItemRes) ? poItemRes : [];
+        const btbData = Array.isArray(btbRes) ? btbRes : [];
+        const btbItemData = Array.isArray(btbItemRes) ? btbItemRes : [];
+        const bkbData = Array.isArray(bkbRes) ? bkbRes : [];
+        const bkbItemData = Array.isArray(bkbItemRes) ? bkbItemRes : [];
+
+        const rekapRows: any[] = [];
+        prData.forEach((pr) => {
+          const items = prItemData.filter(
+            (item: any) => item.id_PR === pr.id_PR
           );
-
-        let totalQtyPO = 0;
-        // Jika tidak ada PO, tetap tampilkan baris PR (qty PR = qty awal)
-        if (relatedPOs.length === 0) {
-          rekapRows.push({
-            id: pr.id + "-" + idx,
-            tahunPR: getYear(pr.tanggalPR),
-            bulanPR: getMonthName(pr.tanggalPR),
-            noPR: pr.noPR,
-            tanggalPR: pr.tanggalPR,
-            hariPR: getDayName(pr.tanggalPR),
-            daftarBarangPR: item.namaBarang,
-            quantityAwalPR: quantityAwalPR,
-            quantityPR: quantityAwalPR,
-            satuanPR: item.satuan,
-            keteranganPR: item.keterangan || "",
-            divisi: pr.divisi,
-            targetTanggalPO: "",
-            delay: "",
-            noPO: "",
-            tanggalPO: "",
-            daftarBarangPO: "",
-            quantityPO: "",
-            satuanPO: "",
-            keteranganPO: "",
-            diskonPersen: "",
-            diskonRp: "",
-            subHargaDiskonRp: "",
-            ppnPersen: "",
-            ppnRp: "",
-            totalHarga: "",
-            dibuatOleh: pr.dibuatOleh,
-            skemaPR: pr.skema ?? "", // 1. Skema PR
-            tanggalEstimasiDiterima: "",
-            kode: "",
-            statusPengiriman: "",
-            supplier: "",
-            // Tambahkan data BTB kosong
-            noBTB: "",
-            tanggalBTB: "",
-            periodeBTB: "",
-            namaSupplierBTB: "",
-            kodeSupplierBTB: "",
-            namaBarangBTB: "",
-            quantityBTB: "",
-            satuanBTB: "",
-            biayaBTB: "",
-            // Kolom BKB
-            noBKB: "",
-            tanggalBKB: "",
-            namaBarangBKB: "",
-            quantityBKB: "",
-            satuanBKB: "",
-            keteranganBKB: "",
-            diorderOleh: "", // tetap kosong jika tidak ada PO
-            diterimaOleh: "", // <-- kosong jika tidak ada BTB
-            dikeluarkanOleh: "", // <-- kosong jika tidak ada BKB
-            skemaBKB: "", // 4. Skema BKB (modif kolom skema lama)
-          });
-        }
-        // Untuk setiap PO terkait barang PR ini, buat baris rekap
-        relatedPOs.forEach((po) => {
-          // Cari item PO yang match dengan barang PR
-          let poItemMatch: any = null;
-          let poItemParent: any = null;
-          for (const poItem of po.poItems) {
-            poItemMatch = poItem.items.find(
-              (itm: any) =>
-                itm.namaBarang === item.namaBarang && poItem.noPR === pr.noPR
+          items.forEach((item: any, idx: number) => {
+            // Cari PO Item yang terkait dengan PR Item ini
+            const poItem = poItemData.find(
+              (poi: any) => poi.id_PRItem === item.id_PRItem
             );
-            if (poItemMatch) {
-              poItemParent = poItem;
-              break;
-            }
-          }
-          // Akumulasi qty PO sampai PO ini
-          const qtyPO = poItemMatch?.jumlahPO ?? 0;
-          totalQtyPO += qtyPO;
+            // Cari PO yang terkait dengan PO Item ini
+            const po = poItem
+              ? poData.find((p: any) => p.id_PO === poItem.id_PO)
+              : null;
 
-          // --- FIX: Define btbMatch before using it below ---
-          // Cari BTB yang terkait dengan PO dan barang
-          const btbMatch = btbData.find(
-            (btb: any) =>
-              btb.poId === po.id &&
-              (Array.isArray(btb.items) && btb.items.length > 0
-                ? btb.items.some((itm: any) => itm.barang === item.namaBarang)
-                : btb.barang === item.namaBarang)
-          );
-          // Ambil item BTB yang match
-          const btbItemMatch = Array.isArray(btbMatch?.items)
-            ? btbMatch.items.find((itm: any) => itm.barang === item.namaBarang)
-            : btbMatch?.barang === item.namaBarang
-            ? {
-                barang: btbMatch.barang,
-                jumlah: btbMatch.jumlah,
-                satuan: btbMatch.satuan,
-                biaya: btbMatch.biaya,
-              }
-            : null;
+            // Format tanggal PR dan PO
+            const formatTanggal = (tgl: string) => {
+              if (!tgl) return "";
+              const d = new Date(tgl);
+              return `${d.getDate().toString().padStart(2, "0")}-${(
+                d.getMonth() + 1
+              )
+                .toString()
+                .padStart(2, "0")}-${d.getFullYear()}`;
+            };
 
-          // --- Tambahkan pencarian BKB terkait ---
-          // Cari BKB yang terkait dengan BTB dan barang
-          let bkbRow = null;
-          if (btbMatch && bkbData.length > 0) {
-            // Cek di semua BKB, pada field barang (array)
-            for (const bkb of bkbData) {
-              // Cek apakah ada barang yang match BTB dan nama barang
-              const items = Array.isArray(bkb.barang)
-                ? bkb.barang
-                : bkb.items && Array.isArray(bkb.items)
-                ? bkb.items
-                : bkb.barang
-                ? [{ ...bkb, ...bkb.barang }]
-                : [];
-              for (const bkbItem of items) {
-                // Cek btbId dan nama barang
-                if (
-                  (bkbItem.btbId === btbMatch.id ||
-                    (Array.isArray(bkb.sumberBTB) &&
-                      bkb.sumberBTB.includes(btbMatch.noBTB))) &&
-                  (bkbItem.barang === item.namaBarang ||
-                    bkbItem.namaBarang === item.namaBarang)
-                ) {
-                  bkbRow = {
-                    noBKB: bkb.noBKB,
-                    tanggalBKB: bkb.tanggalBKB || bkb.tanggal,
-                    namaBarangBKB: bkbItem.barang || bkbItem.namaBarang,
-                    quantityBKB: bkbItem.jumlah,
-                    satuanBKB: bkbItem.satuan,
-                    keteranganBKB: bkbItem.keterangan || bkb.keterangan || "",
-                    dibuatOleh: bkb.dibuatOleh ?? "",
-                    dikeluarkanOleh: bkb.dikeluarkanOleh ?? "", // <-- ambil dari monitoring BKB
-                    skemaBKB: bkb.skema ?? "",
-                  };
-                  break;
-                }
-              }
-              if (bkbRow) break;
-            }
-          }
-
-          // Format rupiah helper
-          const formatRp = (val: any) =>
-            val !== undefined && val !== "" && !isNaN(val)
-              ? "Rp " + Number(val).toLocaleString("id-ID")
+            const targetTanggalPO = pr.tanggalPR
+              ? formatTanggal(addWorkingDays(pr.tanggalPR, 3))
               : "";
+            let delay = "";
+            if (pr.tanggalPR && pr.tanggalPO) {
+              delay =
+                countWorkingDaysBetween(pr.tanggalPR, pr.tanggalPO) + " Hari";
+            }
 
-          // Diskon (%) dari input PO
-          const diskonPersen = po.originalDiskon ?? po.diskonPersen ?? "";
-          // Diskon (RP) dari hasil perhitungan PO (ambil dari po.diskon)
-          const diskonRp = formatRp(po.diskon);
+            // === BTB Mapping ===
+            // Cari BTB yang terkait dengan PO
+            let btbRow = null;
+            if (po) {
+              btbRow = btbData.find((b: any) => b.id_po === po.id_PO);
+            }
+            // Cari BTB Item yang terkait dengan BTB dan PR Item (via PO Item)
+            let btbItemRow = null;
+            if (btbRow) {
+              btbItemRow = btbItemData.find(
+                (bi: any) =>
+                  bi.id_btb === btbRow.id_btb &&
+                  poItem &&
+                  bi.id_POItem === poItem.id_POItem
+              );
+            }
 
-          // Sub Harga-Diskon (Rp): subtotal barang - total diskon
-          const subHargaDiskonRp =
-            poItemMatch && poItemMatch.hargaSatuan && qtyPO
-              ? formatRp(poItemMatch.hargaSatuan * qtyPO - (po.diskon ?? 0))
-              : "";
+            // === BKB Mapping ===
+            // Cari BKB Item yang terkait dengan BTB Item (via id_btb_item)
+            let bkbItemRows: any[] = [];
+            if (btbItemRow) {
+              bkbItemRows = bkbItemData.filter(
+                (bki: any) => bki.id_btb_item === btbItemRow.id_btb_item
+              );
+            }
+            // Jika tidak ada BKB, tetap push satu baris kosong
+            if (bkbItemRows.length === 0) {
+              bkbItemRows = [null];
+            }
 
-          // PPN (%) dari input PO
-          const ppnPersen = po.ppnPersen ?? po.ppn ?? "";
-
-          // --- Ambil PPN (Rp) dari ppnAmount PO, jika tidak ada hitung manual ---
-          let ppnRp = "";
-          if (po.ppnAmount !== undefined) {
-            ppnRp = formatRp(po.ppnAmount);
-          } else if (
-            poItemMatch &&
-            poItemMatch.hargaSatuan &&
-            qtyPO &&
-            po.ppn !== undefined
-          ) {
-            // Hitung manual jika data lama
-            const subtotal = poItemMatch.hargaSatuan * qtyPO;
-            const diskon = Number(po.diskon ?? 0);
-            const ppnVal = Number(po.ppn ?? 0);
-            const ppnAmountManual = (subtotal - diskon) * (ppnVal / 100);
-            ppnRp = formatRp(ppnAmountManual);
-          }
-
-          // Total Harga dari PO
-          const totalHarga = formatRp(po.totalPembayaran);
-
-          rekapRows.push({
-            id: pr.id + "-" + idx + "-" + po.noPO,
-            tahunPR: getYear(pr.tanggalPR),
-            bulanPR: getMonthName(pr.tanggalPR),
-            noPR: pr.noPR,
-            tanggalPR: pr.tanggalPR,
-            hariPR: getDayName(pr.tanggalPR),
-            daftarBarangPR: item.namaBarang,
-            quantityAwalPR: quantityAwalPR,
-            quantityPR: Math.max(0, quantityAwalPR - totalQtyPO),
-            satuanPR: item.satuan,
-            keteranganPR: item.keterangan || "",
-            divisi: pr.divisi,
-            targetTanggalPO: po.estimasiTanggalDiterima ?? "",
-            delay:
-              pr.tanggalPR && po.tanggalPO
-                ? Math.max(
-                    0,
-                    Math.ceil(
-                      (new Date(po.tanggalPO).getTime() -
-                        new Date(pr.tanggalPR).getTime()) /
-                        (1000 * 60 * 60 * 24)
-                    )
-                  )
-                : "",
-            noPO: po.noPO ?? "",
-            tanggalPO: po.tanggalPO ?? "",
-            daftarBarangPO: poItemMatch?.namaBarang ?? "",
-            quantityPO: qtyPO,
-            satuanPO: poItemMatch?.satuan ?? "",
-            keteranganPO: poItemMatch?.keterangan ?? "",
-            diskonPersen: diskonPersen,
-            diskonRp: diskonRp,
-            subHargaDiskonRp: subHargaDiskonRp,
-            ppnPersen: ppnPersen,
-            ppnRp: ppnRp, // <-- pastikan ambil dari ppnAmount atau hitung manual
-            totalHarga: totalHarga,
-            dibuatOleh: pr.dibuatOleh,
-            skemaPR: pr.skema ?? "",
-            tanggalEstimasiDiterima: po.estimasiTanggalDiterima ?? "",
-            kode: po.statusPermintaan ?? "",
-            statusPengiriman: po.statusPengiriman ?? "",
-            supplier: po.supplier ?? "",
-            skemaPO: po.skema ?? "",
-            // Data BTB dari struktur monitoring BTB
-            noBTB: btbMatch?.noBTB ?? "",
-            tanggalBTB: btbMatch?.tanggal ?? "",
-            periodeBTB: btbMatch?.periode ?? "",
-            namaSupplierBTB: btbMatch?.supplier ?? "",
-            kodeSupplierBTB: btbMatch?.kodeSupplier ?? "",
-            namaBarangBTB: btbItemMatch?.barang ?? "",
-            quantityBTB: btbItemMatch?.jumlah ?? "",
-            satuanBTB: btbItemMatch?.satuan ?? "",
-            biayaBTB:
-              btbItemMatch?.biaya !== undefined && btbItemMatch?.biaya !== ""
-                ? formatRupiah(btbItemMatch.biaya)
-                : btbMatch?.biaya !== undefined && btbMatch?.biaya !== ""
-                ? formatRupiah(btbMatch.biaya)
-                : "",
-            skemaBTB: btbMatch?.skema ?? "",
-            // Kolom BKB
-            noBKB: bkbRow?.noBKB ?? "",
-            tanggalBKB: bkbRow?.tanggalBKB ?? "",
-            namaBarangBKB: bkbRow?.namaBarangBKB ?? "",
-            quantityBKB: bkbRow?.quantityBKB ?? "",
-            satuanBKB: bkbRow?.satuanBKB ?? "",
-            keteranganBKB: bkbRow?.keteranganBKB ?? "",
-            diorderOleh: po.orderedBy ?? "", // <-- ambil dari monitoring PO, kolom kanan status
-            diterimaOleh: btbMatch?.diterimaOleh ?? "", // <-- ambil dari monitoring BTB
-            dikeluarkanOleh: bkbRow?.dikeluarkanOleh ?? "", // <-- ambil dari BKB, field dikeluarkanOleh
-            skemaBKB: bkbRow?.skemaBKB ?? "", // <-- hanya isi dari BKB, JANGAN dari pr/po/btb
+            bkbItemRows.forEach((bkbItemRow) => {
+              // Cari BKB header
+              let bkbRow = null;
+              if (bkbItemRow && bkbItemRow.id_bkb) {
+                bkbRow = bkbData.find(
+                  (b: any) => b.id_bkb === bkbItemRow.id_bkb
+                );
+              }
+              rekapRows.push({
+                id:
+                  pr.id_PR +
+                  "-" +
+                  idx +
+                  (bkbItemRow ? "-bkb-" + bkbItemRow.id_bkb_item : ""),
+                tahunPR: getYear(pr.tanggalPR),
+                bulanPR: getMonthName(pr.tanggalPR),
+                noPR: pr.noPR,
+                tanggalPR: formatTanggal(pr.tanggalPR),
+                hariPR: getDayName(pr.tanggalPR),
+                daftarBarangPR: item.namaBarang,
+                quantityAwalPR: item.quantityAwalPR,
+                quantityPR: item.jumlah,
+                // Ubah ke label satuan PR
+                satuanPR: item.id_satuan
+                  ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                  : "",
+                keteranganPR: item.keterangan || "",
+                // Ubah ke label divisi
+                divisi: pr.id_divisi
+                  ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                  : "",
+                dibuatOleh: pr.dibuatOleh,
+                // Ubah ke label skema PR
+                skemaPR: pr.id_skema
+                  ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                  : "",
+                targetTanggalPO: targetTanggalPO,
+                delay: delay,
+                // Kolom PO
+                noPO: po?.noPO || "",
+                tanggalPO: formatTanggal(po?.tanggalPO || ""),
+                daftarBarangPO: poItem ? item.namaBarang : "",
+                quantityPO: poItem?.jumlahPO ?? "",
+                satuanPO: poItem?.id_satuan ?? "",
+                keteranganPO: poItem?.keterangan ?? "",
+                diskonPersen: po?.diskon ?? "",
+                diskonRp: po?.originalDiskon ?? "",
+                ppnPersen: po?.ppn ?? "",
+                ppnRp: po?.ppnAmount ?? "",
+                totalHarga: po?.totalPembayaran ?? "",
+                tanggalEstimasiDiterima: formatTanggal(
+                  po?.estimasiTanggalTerima || ""
+                ),
+                kode: po?.id_statusPermintaan
+                  ? statusPermintaanMap[String(po.id_statusPermintaan)] || ""
+                  : "",
+                statusPengiriman: po?.id_statusPengiriman
+                  ? statusPengirimanMap[String(po.id_statusPengiriman)] || ""
+                  : "",
+                supplier: po?.id_supplier
+                  ? supplierMap[String(po.id_supplier)] || ""
+                  : "",
+                diorderOleh: po?.orderedBy
+                  ? userMap[String(po.orderedBy)] || ""
+                  : "",
+                skemaPO: po?.id_skema
+                  ? skemaMap[String(po.id_skema)] || ""
+                  : "",
+                // === Kolom BTB ===
+                noBTB: btbRow?.no_btb || "",
+                tanggalBTB: formatTanggal(btbRow?.tanggal_btb || ""),
+                periodeBTB: btbRow?.periode || "",
+                namaSupplierBTB: btbRow?.id_supplier
+                  ? supplierMap[String(btbRow.id_supplier)] || ""
+                  : "",
+                namaBarangBTB: btbItemRow?.nama_barang || "",
+                quantityBTB: btbItemRow?.jumlah_diterima ?? "",
+                satuanBTB: btbItemRow?.id_satuan
+                  ? satuanMap[String(btbItemRow.id_satuan)] || ""
+                  : "",
+                biayaBTB: btbRow?.biaya ?? "",
+                diterimaOleh: btbRow?.id_user
+                  ? userMap[String(btbRow.id_user)] || ""
+                  : "",
+                skemaBTB: btbRow?.id_skema
+                  ? skemaMap[String(btbRow.id_skema)] || ""
+                  : "",
+                // === Kolom BKB ===
+                noBKB: bkbRow?.no_bkb || "",
+                tanggalBKB: formatTanggal(bkbRow?.tanggal_bkb || ""),
+                namaBarangBKB: bkbItemRow?.nama_barang || "",
+                quantityBKB: bkbItemRow?.jumlah_keluar ?? "",
+                satuanBKB: bkbItemRow?.id_satuan
+                  ? satuanMap[String(bkbItemRow.id_satuan)] || ""
+                  : "",
+                keteranganBKB: bkbItemRow?.keterangan || "",
+                dikeluarkanOleh: bkbRow?.dikeluarkan_oleh
+                  ? userMap[String(bkbRow.dikeluarkan_oleh)] || ""
+                  : "",
+                skemaBKB: bkbRow?.id_skema
+                  ? skemaMap[String(bkbRow.id_skema)] || ""
+                  : "",
+              });
+            });
           });
         });
-      });
-    });
-    setRekapData(rekapRows);
-  }, []);
-
-  useEffect(() => {
-    // Ambil userData dari localStorage
-    const userRaw = localStorage.getItem("userData");
-    if (userRaw) {
-      try {
-        const user = JSON.parse(userRaw);
-        setUserRole(user.role);
-        setUserDivision(user.division || "");
-      } catch {}
+        setRekapData(rekapRows);
+      } catch (err) {
+        setRekapData([]);
+      }
     }
-  }, []);
-
-  // Ambil userSchema dari localStorage
-  const [userSchema, setUserSchema] = useState<string>("");
-  useEffect(() => {
-    const userRaw = localStorage.getItem("userData");
-    let schema = "";
-    try {
-      schema = userRaw ? JSON.parse(userRaw).schema ?? "" : "";
-    } catch {}
-    setUserSchema(schema);
-  }, []);
+    fetchData();
+    // Tambahkan dependensi agar label map selalu update
+  }, [
+    supplierMap,
+    userMap,
+    skemaMap,
+    statusPengirimanMap,
+    statusPermintaanMap,
+    satuanMap,
+  ]);
 
   // Unique values for dropdown filter
   const uniqueValues: { [key: string]: string[] } = {};
@@ -484,23 +499,8 @@ export default function RekapFullPage() {
     ).sort();
   });
 
-  // Filtered data
+  // Filtered data (tanpa filter role/divisi/skema)
   const filteredData = rekapData.filter((row) => {
-    // Jika user divisi, hanya tampilkan data divisinya
-    if (userRole === "divisi" && userDivision) {
-      if ((row.divisi ?? "").toLowerCase() !== userDivision.toLowerCase()) {
-        return false;
-      }
-    }
-    // Jika user punya schema dan bukan superadmin, filter sesuai skema
-    if (
-      userSchema &&
-      userRole !== "superadmin" &&
-      row.skemaBKB &&
-      row.skemaBKB !== userSchema
-    ) {
-      return false;
-    }
     // Global search
     const matchesSearch =
       !searchTerm ||
@@ -569,7 +569,27 @@ export default function RekapFullPage() {
 
     // Add data rows
     exportData.forEach((row) => {
-      worksheet.addRow(columns.map((col) => row[col.key]));
+      worksheet.addRow(
+        columns.map((col) => {
+          if (
+            [
+              "quantityAwalPR",
+              "quantityPR",
+              "diskonPersen",
+              "ppnPersen",
+              "quantityBTB",
+            ].includes(col.key)
+          ) {
+            return formatInt(row[col.key]);
+          }
+          if (
+            ["biayaBTB", "totalHarga", "ppnRp", "diskonRp"].includes(col.key)
+          ) {
+            return formatRupiahFull(row[col.key]);
+          }
+          return row[col.key];
+        })
+      );
     });
 
     // Autofit columns (improved)
@@ -830,7 +850,23 @@ export default function RekapFullPage() {
                           key={col.key}
                           className="px-4 py-2 text-left"
                         >
-                          {row[col.key]}
+                          {/* Format khusus untuk beberapa kolom */}
+                          {[
+                            "quantityAwalPR",
+                            "quantityPR",
+                            "diskonPersen",
+                            "ppnPersen",
+                            "quantityBTB",
+                          ].includes(col.key)
+                            ? formatInt(row[col.key])
+                            : [
+                                "biayaBTB",
+                                "totalHarga",
+                                "ppnRp",
+                                "diskonRp",
+                              ].includes(col.key)
+                            ? formatRupiahFull(row[col.key])
+                            : row[col.key]}
                         </TableCell>
                       ))}
                       <TableCell className="px-4 py-2">

@@ -139,7 +139,7 @@ export default function MonitoringPRPage() {
     new Set(
       prData
         .map((pr) => pr.dibuatOleh)
-        .filter((d): d is string => d !== undefined && d.trim() !== "")
+        .filter((d): d is string => typeof d === "string" && d.trim() !== "")
     )
   ).sort();
   const uniqueSkema = Array.from(
