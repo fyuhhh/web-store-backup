@@ -15,6 +15,9 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const [userData, setUserData] = useState<any>(null);
+  const [userDetail, setUserDetail] = useState<any>(null);
+  const [skemaList, setSkemaList] = useState<any[]>([]);
+  const [peranList, setPeranList] = useState<any[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -23,7 +26,24 @@ export function MainLayout({ children }: MainLayoutProps) {
       router.push("/login");
       return;
     }
-    setUserData(JSON.parse(stored));
+    const parsed = JSON.parse(stored);
+    setUserData(parsed);
+
+    // Fetch user detail dari backend
+    if (parsed?.id_user) {
+      fetch(`http://localhost:5000/api/user/${parsed.id_user}`)
+        .then((r) => r.json())
+        .then((data) => setUserDetail(data))
+        .catch(() => setUserDetail(null));
+    }
+
+    // Fetch semua skema dan peran dari backend
+    fetch("http://localhost:5000/api/skema")
+      .then((r) => r.json())
+      .then((data) => setSkemaList(data));
+    fetch("http://localhost:5000/api/peran")
+      .then((r) => r.json())
+      .then((data) => setPeranList(data));
   }, [router]);
 
   const handleLogout = () => {
@@ -35,6 +55,18 @@ export function MainLayout({ children }: MainLayoutProps) {
     return <div>Loading...</div>;
   }
 
+  // Ambil id_skema dan id_peran dari userDetail, fallback ke userData
+  const id_skema = userDetail?.id_skema ?? userData.id_skema ?? userData.skema;
+  const id_peran = userDetail?.id_peran ?? userData.id_peran ?? userData.role;
+
+  // Cari label skema dan peran dari list
+  const skemaLabel =
+    skemaList.find((s: any) => String(s.id_skema) === String(id_skema))
+      ?.skema || "-";
+  const peranLabel =
+    peranList.find((p: any) => String(p.id_peran) === String(id_peran))
+      ?.peran || "-";
+
   return (
     <RoleGuard allowed={["/dashboard/rekap-full"]}>
       <div className="flex h-screen bg-background">
@@ -44,22 +76,16 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-xl font-semibold text-foreground">
-                  Sistem Monitoring PR-PO-BTB-BKB
+                  Sistem Monitoring Store
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Schema:{" "}
-                  {userData.skema === "pentacity"
-                    ? "Pentacity"
-                    : userData.skema === "ewalk"
-                    ? "Ewalk"
-                    : userData.skema || "-"}{" "}
-                  | Role: {userData.role}
+                  Skema: {skemaLabel} | Role: {peranLabel}
                 </p>
               </div>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                   <User className="h-4 w-4" />
-                  <span>{userData.username}</span>
+                  <span>{userDetail?.username || userData.username}</span>
                 </div>
                 <Button
                   variant="outline"

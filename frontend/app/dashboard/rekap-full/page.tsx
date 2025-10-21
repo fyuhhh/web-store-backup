@@ -33,7 +33,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { ChevronDown, Edit, Trash2 } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 import { Label } from "@/components/ui/label";
 // halo disini saya cooba coba
@@ -310,169 +310,393 @@ export default function RekapFullPage() {
             (item: any) => item.id_PR === pr.id_PR
           );
           items.forEach((item: any, idx: number) => {
-            // Cari PO Item yang terkait dengan PR Item ini
-            const poItem = poItemData.find(
-              (poi: any) => poi.id_PRItem === item.id_PRItem
-            );
-            // Cari PO yang terkait dengan PO Item ini
-            const po = poItem
-              ? poData.find((p: any) => p.id_PO === poItem.id_PO)
-              : null;
-
-            // Format tanggal PR dan PO
-            const formatTanggal = (tgl: string) => {
-              if (!tgl) return "";
-              const d = new Date(tgl);
-              return `${d.getDate().toString().padStart(2, "0")}-${(
-                d.getMonth() + 1
-              )
-                .toString()
-                .padStart(2, "0")}-${d.getFullYear()}`;
-            };
-
-            const targetTanggalPO = pr.tanggalPR
-              ? formatTanggal(addWorkingDays(pr.tanggalPR, 3))
-              : "";
-            let delay = "";
-            if (pr.tanggalPR && pr.tanggalPO) {
-              delay =
-                countWorkingDaysBetween(pr.tanggalPR, pr.tanggalPO) + " Hari";
-            }
-
-            // === BTB Mapping ===
-            // Cari BTB yang terkait dengan PO
-            let btbRow = null;
-            if (po) {
-              btbRow = btbData.find((b: any) => b.id_po === po.id_PO);
-            }
-            // Cari BTB Item yang terkait dengan BTB dan PR Item (via PO Item)
-            let btbItemRow = null;
-            if (btbRow) {
-              btbItemRow = btbItemData.find(
-                (bi: any) =>
-                  bi.id_btb === btbRow.id_btb &&
-                  poItem &&
-                  bi.id_POItem === poItem.id_POItem
-              );
-            }
-
-            // === BKB Mapping ===
-            // Cari BKB Item yang terkait dengan BTB Item (via id_btb_item)
-            let bkbItemRows: any[] = [];
-            if (btbItemRow) {
-              bkbItemRows = bkbItemData.filter(
-                (bki: any) => bki.id_btb_item === btbItemRow.id_btb_item
-              );
-            }
-            // Jika tidak ada BKB, tetap push satu baris kosong
-            if (bkbItemRows.length === 0) {
-              bkbItemRows = [null];
-            }
-
-            bkbItemRows.forEach((bkbItemRow) => {
-              // Cari BKB header
-              let bkbRow = null;
-              if (bkbItemRow && bkbItemRow.id_bkb) {
-                bkbRow = bkbData.find(
-                  (b: any) => b.id_bkb === bkbItemRow.id_bkb
-                );
-              }
-              rekapRows.push({
-                id:
-                  pr.id_PR +
-                  "-" +
-                  idx +
-                  (bkbItemRow ? "-bkb-" + bkbItemRow.id_bkb_item : ""),
-                tahunPR: getYear(pr.tanggalPR),
-                bulanPR: getMonthName(pr.tanggalPR),
-                noPR: pr.noPR,
-                tanggalPR: formatTanggal(pr.tanggalPR),
-                hariPR: getDayName(pr.tanggalPR),
-                daftarBarangPR: item.namaBarang,
-                quantityAwalPR: item.quantityAwalPR,
-                quantityPR: item.jumlah,
-                // Ubah ke label satuan PR
-                satuanPR: item.id_satuan
-                  ? satuanMap[String(item.id_satuan)] || item.id_satuan
-                  : "",
-                keteranganPR: item.keterangan || "",
-                // Ubah ke label divisi
-                divisi: pr.id_divisi
-                  ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
-                  : "",
-                dibuatOleh: pr.dibuatOleh,
-                // Ubah ke label skema PR
-                skemaPR: pr.id_skema
-                  ? skemaMap[String(pr.id_skema)] || pr.id_skema
-                  : "",
-                targetTanggalPO: targetTanggalPO,
-                delay: delay,
-                // Kolom PO
-                noPO: po?.noPO || "",
-                tanggalPO: formatTanggal(po?.tanggalPO || ""),
-                daftarBarangPO: poItem ? item.namaBarang : "",
-                quantityPO: poItem?.jumlahPO ?? "",
-                satuanPO: poItem?.id_satuan ?? "",
-                keteranganPO: poItem?.keterangan ?? "",
-                diskonPersen: po?.diskon ?? "",
-                diskonRp: po?.originalDiskon ?? "",
-                ppnPersen: po?.ppn ?? "",
-                ppnRp: po?.ppnAmount ?? "",
-                totalHarga: po?.totalPembayaran ?? "",
-                tanggalEstimasiDiterima: formatTanggal(
-                  po?.estimasiTanggalTerima || ""
-                ),
-                kode: po?.id_statusPermintaan
-                  ? statusPermintaanMap[String(po.id_statusPermintaan)] || ""
-                  : "",
-                statusPengiriman: po?.id_statusPengiriman
-                  ? statusPengirimanMap[String(po.id_statusPengiriman)] || ""
-                  : "",
-                supplier: po?.id_supplier
-                  ? supplierMap[String(po.id_supplier)] || ""
-                  : "",
-                diorderOleh: po?.orderedBy
-                  ? userMap[String(po.orderedBy)] || ""
-                  : "",
-                skemaPO: po?.id_skema
-                  ? skemaMap[String(po.id_skema)] || ""
-                  : "",
-                // === Kolom BTB ===
-                noBTB: btbRow?.no_btb || "",
-                tanggalBTB: formatTanggal(btbRow?.tanggal_btb || ""),
-                periodeBTB: btbRow?.periode || "",
-                namaSupplierBTB: btbRow?.id_supplier
-                  ? supplierMap[String(btbRow.id_supplier)] || ""
-                  : "",
-                namaBarangBTB: btbItemRow?.nama_barang || "",
-                quantityBTB: btbItemRow?.jumlah_diterima ?? "",
-                satuanBTB: btbItemRow?.id_satuan
-                  ? satuanMap[String(btbItemRow.id_satuan)] || ""
-                  : "",
-                biayaBTB: btbRow?.biaya ?? "",
-                diterimaOleh: btbRow?.id_user
-                  ? userMap[String(btbRow.id_user)] || ""
-                  : "",
-                skemaBTB: btbRow?.id_skema
-                  ? skemaMap[String(btbRow.id_skema)] || ""
-                  : "",
-                // === Kolom BKB ===
-                noBKB: bkbRow?.no_bkb || "",
-                tanggalBKB: formatTanggal(bkbRow?.tanggal_bkb || ""),
-                namaBarangBKB: bkbItemRow?.nama_barang || "",
-                quantityBKB: bkbItemRow?.jumlah_keluar ?? "",
-                satuanBKB: bkbItemRow?.id_satuan
-                  ? satuanMap[String(bkbItemRow.id_satuan)] || ""
-                  : "",
-                keteranganBKB: bkbItemRow?.keterangan || "",
-                dikeluarkanOleh: bkbRow?.dikeluarkan_oleh
-                  ? userMap[String(bkbRow.dikeluarkan_oleh)] || ""
-                  : "",
-                skemaBKB: bkbRow?.id_skema
-                  ? skemaMap[String(bkbRow.id_skema)] || ""
-                  : "",
+            // Cari semua PO Item yang terkait dengan PR Item ini, urutkan berdasarkan tanggal PO (atau id_PO)
+            const poItemsForPRItem = poItemData
+              .filter((poi: any) => poi.id_PRItem === item.id_PRItem)
+              .map((poi: any) => {
+                // Cari PO terkait
+                const po = poData.find((p: any) => p.id_PO === poi.id_PO);
+                return {
+                  ...poi,
+                  _poTanggal: po?.tanggalPO || "",
+                  _poId: po?.id_PO || 0,
+                  _poObj: po,
+                };
+              })
+              .sort((a, b) => {
+                // Urutkan berdasarkan tanggal PO, jika sama urutkan berdasarkan id_PO
+                if (a._poTanggal && b._poTanggal) {
+                  if (a._poTanggal < b._poTanggal) return -1;
+                  if (a._poTanggal > b._poTanggal) return 1;
+                }
+                return (a._poId || 0) - (b._poId || 0);
               });
-            });
+
+            // Simulasikan pengurangan sisa quantity PR progresif
+            let sisaQuantity = Number(item.quantityAwalPR ?? item.jumlah ?? 0);
+            if (poItemsForPRItem.length === 0) {
+              // Format tanggal PR dan PO
+              const formatTanggal = (tgl: string) => {
+                if (!tgl) return "";
+                const d = new Date(tgl);
+                return `${d.getDate().toString().padStart(2, "0")}-${(
+                  d.getMonth() + 1
+                )
+                  .toString()
+                  .padStart(2, "0")}-${d.getFullYear()}`;
+              };
+
+              const targetTanggalPO = pr.tanggalPR
+                ? formatTanggal(addWorkingDays(pr.tanggalPR, 3))
+                : "";
+              let delay = "";
+              if (pr.tanggalPR && pr.tanggalPO) {
+                delay =
+                  countWorkingDaysBetween(pr.tanggalPR, pr.tanggalPO) + " Hari";
+              }
+
+              // === BTB Mapping ===
+              // Cari BTB yang terkait dengan PO
+              let btbRow = null;
+              if (pr) {
+                btbRow = btbData.find((b: any) => b.id_po === pr.id_PR);
+              }
+              // Cari BTB Item yang terkait dengan BTB dan PO Item
+              let btbItemRow = btbRow
+                ? btbItemData.filter(
+                    (bi: any) =>
+                      bi.id_btb === btbRow.id_btb &&
+                      bi.id_POItem === item.id_PRItem
+                  )
+                : [];
+
+              // === BKB Mapping ===
+              // Cari semua BKB Item yang terkait dengan BTB Item (via id_btb_item)
+              let bkbItemRows: any[] = [];
+              if (btbItemRow) {
+                btbItemRow.forEach((item) => {
+                  const bkbItems = bkbItemData.filter(
+                    (bki: any) => bki.id_btb_item === item.id_btb_item
+                  );
+                  bkbItemRows.push(...bkbItems);
+                });
+              }
+              // Jika tidak ada BKB, tetap push satu baris kosong
+              if (bkbItemRows.length === 0) {
+                bkbItemRows = [null];
+              }
+
+              bkbItemRows.forEach((bkbItemRow) => {
+                // Cari BKB header
+                let bkbRow = null;
+                if (bkbItemRow && bkbItemRow.id_bkb) {
+                  bkbRow = bkbData.find(
+                    (b: any) => b.id_bkb === bkbItemRow.id_bkb
+                  );
+                }
+                rekapRows.push({
+                  id:
+                    pr.id_PR +
+                    "-" +
+                    idx +
+                    (bkbItemRow ? "-bkb-" + bkbItemRow.id_bkb_item : ""),
+                  tahunPR: getYear(pr.tanggalPR),
+                  bulanPR: getMonthName(pr.tanggalPR),
+                  noPR: pr.noPR,
+                  tanggalPR: formatTanggal(pr.tanggalPR),
+                  hariPR: getDayName(pr.tanggalPR),
+                  daftarBarangPR: item.namaBarang,
+                  quantityAwalPR: item.quantityAwalPR,
+                  quantityPR: sisaQuantity,
+                  // Ubah ke label satuan PR
+                  satuanPR: item.id_satuan
+                    ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                    : "",
+                  keteranganPR: item.keterangan || "",
+                  // Ubah ke label divisi
+                  divisi: pr.id_divisi
+                    ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                    : "",
+                  dibuatOleh: pr.dibuatOleh,
+                  // Ubah ke label skema PR
+                  skemaPR: pr.id_skema
+                    ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                    : "",
+                  targetTanggalPO: targetTanggalPO,
+                  delay: delay,
+                  // Kolom PO
+                  noPO: "",
+                  tanggalPO: "",
+                  daftarBarangPO: "",
+                  quantityPO: "",
+                  satuanPO: "",
+                  keteranganPO: "",
+                  diskonPersen: "",
+                  diskonRp: "",
+                  ppnPersen: "",
+                  ppnRp: "",
+                  totalHarga: "",
+                  tanggalEstimasiDiterima: "",
+                  kode: "",
+                  statusPengiriman: "",
+                  supplier: "",
+                  diorderOleh: "",
+                  skemaPO: "",
+                  // === Kolom BTB ===
+                  noBTB: btbRow?.no_btb || "",
+                  tanggalBTB: formatTanggal(btbRow?.tanggal_btb || ""),
+                  periodeBTB: btbRow?.periode || "",
+                  namaSupplierBTB: btbRow?.id_supplier
+                    ? supplierMap[String(btbRow.id_supplier)] || ""
+                    : "",
+                  namaBarangBTB: btbItemRow?.nama_barang || "",
+                  quantityBTB: btbItemRow?.jumlah_diterima ?? "",
+                  satuanBTB: btbItemRow?.id_satuan
+                    ? satuanMap[String(btbItemRow.id_satuan)] || ""
+                    : "",
+                  biayaBTB: btbRow?.biaya ?? "",
+                  diterimaOleh: btbRow?.id_user
+                    ? userMap[String(btbRow.id_user)] || ""
+                    : "",
+                  skemaBTB: btbRow?.id_skema
+                    ? skemaMap[String(btbRow.id_skema)] || ""
+                    : "",
+                  // === Kolom BKB ===
+                  noBKB: bkbRow?.no_bkb || "",
+                  tanggalBKB: formatTanggal(bkbRow?.tanggal_bkb || ""),
+                  namaBarangBKB: bkbItemRow?.nama_barang || "",
+                  quantityBKB: bkbItemRow?.jumlah_keluar ?? "",
+                  satuanBKB: bkbItemRow?.id_satuan
+                    ? satuanMap[String(bkbItemRow.id_satuan)] || ""
+                    : "",
+                  keteranganBKB: bkbItemRow?.keterangan || "",
+                  dikeluarkanOleh: bkbRow?.dikeluarkan_oleh
+                    ? userMap[String(bkbRow.dikeluarkan_oleh)] || ""
+                    : "",
+                  skemaBKB: bkbRow?.id_skema
+                    ? skemaMap[String(bkbRow.id_skema)] || ""
+                    : "",
+                });
+              });
+            } else {
+              poItemsForPRItem.forEach((poItem, poIdx) => {
+                const po = poItem._poObj;
+                // Sisa quantity sebelum PO ini = sisaQuantity
+                // Sisa quantity setelah PO ini = sisaQuantity - poItem.jumlahPO
+                const sisaSebelum = sisaQuantity;
+                const jumlahPO = Number(poItem.jumlahPO ?? 0);
+                sisaQuantity = sisaQuantity - jumlahPO;
+
+                // === BTB Mapping ===
+                // Cari semua BTB yang terkait dengan PO (bukan hanya satu)
+                const btbRows = po
+                  ? btbData.filter((b: any) => b.id_po === po.id_PO)
+                  : [];
+                // Jika tidak ada BTB, tetap push satu baris kosong
+                const btbRowsToMap = btbRows.length > 0 ? btbRows : [null];
+
+                btbRowsToMap.forEach((btbRow) => {
+                  // Ambil semua BTB Item yang terkait dengan BTB dan PO Item
+                  const btbItemRows = btbRow
+                    ? btbItemData.filter(
+                        (bi: any) =>
+                          bi.id_btb === btbRow.id_btb &&
+                          bi.id_POItem === poItem.id_POItem
+                      )
+                    : [];
+
+                  // Jika tidak ada BTB Item, tetap push satu baris kosong
+                  const btbItemRowsToMap =
+                    btbItemRows.length > 0 ? btbItemRows : [null];
+
+                  btbItemRowsToMap.forEach((btbItemRow) => {
+                    // === BKB Mapping ===
+                    // Cari semua BKB Item yang terkait dengan BTB Item (via id_btb_item)
+                    let bkbItemRows: any[] = [];
+                    if (btbItemRow) {
+                      bkbItemRows = bkbItemData.filter(
+                        (bki: any) => bki.id_btb_item === btbItemRow.id_btb_item
+                      );
+                    }
+                    // Jika tidak ada BKB, tetap push satu baris kosong
+                    if (bkbItemRows.length === 0) {
+                      bkbItemRows = [null];
+                    }
+
+                    bkbItemRows.forEach((bkbItemRow) => {
+                      // Cari BKB header
+                      let bkbRow = null;
+                      if (bkbItemRow && bkbItemRow.id_bkb) {
+                        bkbRow = bkbData.find(
+                          (b: any) => b.id_bkb === bkbItemRow.id_bkb
+                        );
+                      }
+                      rekapRows.push({
+                        id:
+                          pr.id_PR +
+                          "-" +
+                          idx +
+                          "-poi-" +
+                          poItem.id_POItem +
+                          (btbRow ? "-btb-" + btbRow.id_btb : "") +
+                          (btbItemRow
+                            ? "-btbitem-" + btbItemRow.id_btb_item
+                            : "") +
+                          (bkbItemRow ? "-bkb-" + bkbItemRow.id_bkb_item : ""),
+                        tahunPR: getYear(pr.tanggalPR),
+                        bulanPR: getMonthName(pr.tanggalPR),
+                        noPR: pr.noPR,
+                        tanggalPR: (() => {
+                          if (!pr.tanggalPR) return "";
+                          const d = new Date(pr.tanggalPR);
+                          return `${d.getDate().toString().padStart(2, "0")}-${(
+                            d.getMonth() + 1
+                          )
+                            .toString()
+                            .padStart(2, "0")}-${d.getFullYear()}`;
+                        })(),
+                        hariPR: getDayName(pr.tanggalPR),
+                        daftarBarangPR: item.namaBarang,
+                        quantityAwalPR: item.quantityAwalPR,
+                        quantityPR: sisaSebelum, // <-- Sisa sebelum PO ini
+                        satuanPR: item.id_satuan
+                          ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                          : "",
+                        keteranganPR: item.keterangan || "",
+                        divisi: pr.id_divisi
+                          ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                          : "",
+                        dibuatOleh: pr.dibuatOleh,
+                        skemaPR: pr.id_skema
+                          ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                          : "",
+                        targetTanggalPO: pr.tanggalPR
+                          ? (() => {
+                              const d = new Date(pr.tanggalPR);
+                              d.setDate(d.getDate() + 3);
+                              return `${String(d.getDate()).padStart(
+                                2,
+                                "0"
+                              )}-${String(d.getMonth() + 1).padStart(
+                                2,
+                                "0"
+                              )}-${d.getFullYear()}`;
+                            })()
+                          : "",
+                        delay:
+                          pr.tanggalPR && po?.tanggalPO
+                            ? countWorkingDaysBetween(
+                                pr.tanggalPR,
+                                po.tanggalPO
+                              ) + " Hari"
+                            : "",
+                        // Kolom PO
+                        noPO: po?.noPO || "",
+                        tanggalPO: (() => {
+                          if (!po?.tanggalPO) return "";
+                          const d = new Date(po.tanggalPO);
+                          return `${d.getDate().toString().padStart(2, "0")}-${(
+                            d.getMonth() + 1
+                          )
+                            .toString()
+                            .padStart(2, "0")}-${d.getFullYear()}`;
+                        })(),
+                        daftarBarangPO: item.namaBarang,
+                        quantityPO: jumlahPO,
+                        satuanPO: poItem?.id_satuan
+                          ? satuanMap[String(poItem.id_satuan)] ||
+                            poItem.id_satuan
+                          : "",
+                        keteranganPO: poItem?.keterangan ?? "",
+                        diskonPersen: po?.diskon ?? "",
+                        diskonRp: po?.originalDiskon ?? "",
+                        ppnPersen: po?.ppn ?? "",
+                        ppnRp: po?.ppnAmount ?? "",
+                        totalHarga: po?.totalPembayaran ?? "",
+                        tanggalEstimasiDiterima: (() => {
+                          if (!po?.estimasiTanggalTerima) return "";
+                          const d = new Date(po.estimasiTanggalTerima);
+                          return `${d.getDate().toString().padStart(2, "0")}-${(
+                            d.getMonth() + 1
+                          )
+                            .toString()
+                            .padStart(2, "0")}-${d.getFullYear()}`;
+                        })(),
+                        kode: po?.id_statusPermintaan
+                          ? statusPermintaanMap[
+                              String(po.id_statusPermintaan)
+                            ] || ""
+                          : "",
+                        statusPengiriman: po?.id_statusPengiriman
+                          ? statusPengirimanMap[
+                              String(po.id_statusPengiriman)
+                            ] || ""
+                          : "",
+                        supplier: po?.id_supplier
+                          ? supplierMap[String(po.id_supplier)] || ""
+                          : "",
+                        diorderOleh: po?.orderedBy
+                          ? userMap[String(po.orderedBy)] || ""
+                          : "",
+                        skemaPO: po?.id_skema
+                          ? skemaMap[String(po.id_skema)] || ""
+                          : "",
+                        // === Kolom BTB ===
+                        noBTB: btbRow?.no_btb || "",
+                        tanggalBTB: (() => {
+                          if (!btbRow?.tanggal_btb) return "";
+                          const d = new Date(btbRow.tanggal_btb);
+                          return `${d.getDate().toString().padStart(2, "0")}-${(
+                            d.getMonth() + 1
+                          )
+                            .toString()
+                            .padStart(2, "0")}-${d.getFullYear()}`;
+                        })(),
+                        periodeBTB: btbRow?.periode || "",
+                        namaSupplierBTB: btbRow?.id_supplier
+                          ? supplierMap[String(btbRow.id_supplier)] || ""
+                          : "",
+                        namaBarangBTB: btbItemRow?.nama_barang || "",
+                        quantityBTB: btbItemRow?.jumlah_diterima ?? "",
+                        satuanBTB: btbItemRow?.id_satuan
+                          ? satuanMap[String(btbItemRow.id_satuan)] || ""
+                          : "",
+                        biayaBTB: btbRow?.biaya ?? "",
+                        diterimaOleh: btbRow?.id_user
+                          ? userMap[String(btbRow.id_user)] || ""
+                          : "",
+                        skemaBTB: btbRow?.id_skema
+                          ? skemaMap[String(btbRow.id_skema)] || ""
+                          : "",
+                        // === Kolom BKB ===
+                        noBKB: bkbRow?.no_bkb || "",
+                        tanggalBKB: (() => {
+                          if (!bkbRow?.tanggal_bkb) return "";
+                          const d = new Date(bkbRow.tanggal_bkb);
+                          return `${d.getDate().toString().padStart(2, "0")}-${(
+                            d.getMonth() + 1
+                          )
+                            .toString()
+                            .padStart(2, "0")}-${d.getFullYear()}`;
+                        })(),
+                        namaBarangBKB: bkbItemRow?.nama_barang || "",
+                        quantityBKB: bkbItemRow?.jumlah_keluar ?? "",
+                        satuanBKB: bkbItemRow?.id_satuan
+                          ? satuanMap[String(bkbItemRow.id_satuan)] || ""
+                          : "",
+                        keteranganBKB: bkbItemRow?.keterangan || "",
+                        dikeluarkanOleh: bkbRow?.dikeluarkan_oleh
+                          ? userMap[String(bkbRow.dikeluarkan_oleh)] || ""
+                          : "",
+                        skemaBKB: bkbRow?.id_skema
+                          ? skemaMap[String(bkbRow.id_skema)] || ""
+                          : "",
+                      });
+                    });
+                  });
+                });
+              });
+            }
           });
         });
         setRekapData(rekapRows);
@@ -619,16 +843,6 @@ export default function RekapFullPage() {
     a.download = fileName;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  // Handle edit/delete
-  const handleEdit = (row: any) => {
-    alert("Edit: " + row.noPR);
-  };
-  const handleDelete = (id: string) => {
-    if (confirm("Hapus data ini?")) {
-      setRekapData((prev) => prev.filter((row) => row.id !== id));
-    }
   };
 
   return (
@@ -825,7 +1039,8 @@ export default function RekapFullPage() {
                         </Popover>
                       </TableHead>
                     ))}
-                    <TableHead className="w-24 text-left">Aksi</TableHead>
+                    {/* Hapus kolom aksi */}
+                    {/* <TableHead className="w-24 text-left">Aksi</TableHead> */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -869,7 +1084,8 @@ export default function RekapFullPage() {
                             : row[col.key]}
                         </TableCell>
                       ))}
-                      <TableCell className="px-4 py-2">
+                      {/* Hapus cell aksi */}
+                      {/* <TableCell className="px-4 py-2">
                         <div className="flex gap-2">
                           <Button
                             size="sm"
@@ -886,7 +1102,7 @@ export default function RekapFullPage() {
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                      </TableCell>
+                      </TableCell> */}
                     </TableRow>
                   ))}
                 </TableBody>

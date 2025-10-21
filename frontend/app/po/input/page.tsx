@@ -1,8 +1,12 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import "@/app/pr/input-baru/datepicker-red-weekend.css";
+
 import type React from "react";
 
-import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -56,9 +60,9 @@ export default function InputPOPage() {
   // PO Form state
   const [poFormData, setPoFormData] = useState({
     noPO: "",
-    tanggalPO: new Date().toISOString().split("T")[0],
+    tanggalPO: null as Date | null,
     supplier: "",
-    estimasiTanggalDiterima: "",
+    estimasiTanggalDiterima: null as Date | null,
     diskon: "",
     ppn: "11",
     statusPengiriman: "",
@@ -397,7 +401,7 @@ export default function InputPOPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           noPO: poFormData.noPO,
-          tanggalPO: poFormData.tanggalPO,
+          tanggalPO: formatDateForBackend(poFormData.tanggalPO),
           id_supplier: poFormData.supplier, // Use supplier ID from form data
           diskon: poFormData.diskon,
           originalDiskon: calculations.totalDiscount,
@@ -405,7 +409,9 @@ export default function InputPOPage() {
           ppnAmount: calculations.ppnAmount,
           totalPembayaran: calculations.totalPayment,
           orderedBy: orderedByUserId, // <-- kirim id_user, bukan nama
-          estimasiTanggalTerima: poFormData.estimasiTanggalDiterima,
+          estimasiTanggalTerima: formatDateForBackend(
+            poFormData.estimasiTanggalDiterima
+          ),
           id_statusPengiriman: poFormData.statusPengiriman, // Use status IDs from form
           id_statusPermintaan: poFormData.statusPermintaan,
           status: "Menunggu",
@@ -829,6 +835,28 @@ export default function InputPOPage() {
     return found ? found.satuan : satuanValue;
   }
 
+  // Helper format tanggal ke yyyy-mm-dd untuk backend
+  function formatDateForBackend(date: Date | null) {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  // Fungsi untuk memberi class pada weekend
+  function highlightWeekends(date: Date) {
+    const day = date.getDay();
+    if (day === 0 || day === 6) return "datepicker-red";
+    return undefined;
+  }
+
+  // Tambahkan helper format rupiah untuk input
+  function formatRupiahInput(val: number | string) {
+    if (val === "" || val === undefined || isNaN(Number(val))) return "";
+    return Number(val).toLocaleString("id-ID");
+  }
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -858,7 +886,7 @@ export default function InputPOPage() {
           <Button
             onClick={() => (window.location.href = "/po/status")}
             variant="outline"
-            className="bg-primary hover:bg-primary/90"
+            className="bg-primary hover:bg-primary/90 !text-white"
           >
             Kembali ke Status PO
           </Button>
@@ -888,12 +916,7 @@ export default function InputPOPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="noPO"
-                      className="text-sm font-medium text-muted-foreground"
-                    >
-                      No. PO
-                    </Label>
+                    <Label htmlFor="noPO">No. PO</Label>
                     <Input
                       id="noPO"
                       value={poFormData.noPO}
@@ -905,23 +928,38 @@ export default function InputPOPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="tanggalPO"
-                      className="text-sm font-medium text-muted-foreground"
-                    >
-                      Tanggal PO
-                    </Label>
-                    <Input
+                    <Label htmlFor="tanggalPO">Tanggal PO</Label>
+                    <DatePicker
                       id="tanggalPO"
-                      type="date"
-                      value={poFormData.tanggalPO}
-                      onChange={(e) =>
-                        setPoFormData({
-                          ...poFormData,
-                          tanggalPO: e.target.value,
-                        })
+                      selected={poFormData.tanggalPO}
+                      onChange={(date) =>
+                        setPoFormData({ ...poFormData, tanggalPO: date })
                       }
-                      className="border-border focus:border-primary/50"
+                      dateFormat="dd-MM-yyyy"
+                      placeholderText="Pilih tanggal"
+                      className="w-full px-3 py-2 border rounded-md bg-white"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                      dayClassName={highlightWeekends}
+                      customInput={
+                        <Input
+                          value={
+                            poFormData.tanggalPO
+                              ? `${String(
+                                  poFormData.tanggalPO.getDate()
+                                ).padStart(2, "0")}-${String(
+                                  poFormData.tanggalPO.getMonth() + 1
+                                ).padStart(
+                                  2,
+                                  "0"
+                                )}-${poFormData.tanggalPO.getFullYear()}`
+                              : ""
+                          }
+                          readOnly
+                          className="w-full px-3 py-2 border rounded-md bg-white"
+                        />
+                      }
                     />
                   </div>
                 </div>
@@ -1024,23 +1062,44 @@ export default function InputPOPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="estimasiTanggalDiterima"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
+                  <Label htmlFor="estimasiTanggalDiterima">
                     Estimasi Tanggal Diterima
                   </Label>
-                  <Input
+                  <DatePicker
                     id="estimasiTanggalDiterima"
-                    type="date"
-                    value={poFormData.estimasiTanggalDiterima}
-                    onChange={(e) =>
+                    selected={poFormData.estimasiTanggalDiterima}
+                    onChange={(date) =>
                       setPoFormData({
                         ...poFormData,
-                        estimasiTanggalDiterima: e.target.value,
+                        estimasiTanggalDiterima: date,
                       })
                     }
-                    className="border-border focus:border-primary/50"
+                    dateFormat="dd-MM-yyyy"
+                    placeholderText="Pilih tanggal"
+                    className="w-full px-3 py-2 border rounded-md bg-white"
+                    showMonthDropdown
+                    showYearDropdown
+                    dropdownMode="select"
+                    dayClassName={highlightWeekends}
+                    customInput={
+                      <Input
+                        value={
+                          poFormData.estimasiTanggalDiterima
+                            ? `${String(
+                                poFormData.estimasiTanggalDiterima.getDate()
+                              ).padStart(2, "0")}-${String(
+                                poFormData.estimasiTanggalDiterima.getMonth() +
+                                  1
+                              ).padStart(
+                                2,
+                                "0"
+                              )}-${poFormData.estimasiTanggalDiterima.getFullYear()}`
+                            : ""
+                        }
+                        readOnly
+                        className="w-full px-3 py-2 border rounded-md bg-white"
+                      />
+                    }
                   />
                 </div>
 
@@ -1383,17 +1442,25 @@ export default function InputPOPage() {
                               </TableCell>
                               <TableCell>
                                 <Input
-                                  type="number"
-                                  value={item.hargaSatuan}
-                                  min={0}
-                                  onChange={(e) =>
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={formatRupiahInput(item.hargaSatuan)}
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  onChange={(e) => {
+                                    // Hanya ambil digit angka
+                                    const raw = e.target.value.replace(
+                                      /[^\d]/g,
+                                      ""
+                                    );
                                     handleHargaSatuanChange(
                                       item.prId,
                                       item.id,
-                                      e.target.value
-                                    )
-                                  }
-                                  className="w-24"
+                                      raw
+                                    );
+                                  }}
+                                  className="w-24 text-right"
+                                  placeholder="0"
+                                  autoComplete="off"
                                 />
                               </TableCell>
                               <TableCell>
@@ -1562,70 +1629,6 @@ export default function InputPOPage() {
         </Card>
 
         {/* Tabel PR Siap Proses ke PO */}
-        <Card className="bg-card border-border mb-6">
-          <CardHeader>
-            <CardTitle>PR Siap Proses ke PO</CardTitle>
-            <CardDescription>
-              Daftar semua PR yang siap diproses menjadi PO (data sama seperti
-              Monitoring PR)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>No. PR</TableHead>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Daftar Barang</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Satuan</TableHead>
-                    <TableHead>Keterangan</TableHead>
-                    <TableHead>Urgensi</TableHead>
-                    <TableHead>Divisi</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Dibuat Oleh</TableHead>
-                    <TableHead>Skema</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {prData.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={11}
-                        className="text-center text-muted-foreground"
-                      >
-                        Tidak ada PR.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    <>
-                      {prData.flatMap((pr) =>
-                        pr.items.map((item, idx) => (
-                          <TableRow key={`${pr.id}-${item.id}-${idx}`}>
-                            <TableCell>{pr.noPR}</TableCell>
-                            <TableCell>{pr.tanggalPR?.split("T")[0]}</TableCell>
-                            <TableCell>{item.namaBarang}</TableCell>
-                            <TableCell>{item.jumlah}</TableCell>
-                            <TableCell>{item.satuan}</TableCell>
-                            <TableCell>{item.keterangan}</TableCell>
-                            <TableCell>{getUrgensiBadge(pr.urgensi)}</TableCell>
-                            <TableCell>{pr.divisi}</TableCell>
-                            <TableCell>{item.status}</TableCell>
-                            <TableCell>{pr.dibuatOleh}</TableCell>
-                            <TableCell>
-                              {pr.skemaLabel ?? pr.skema ?? ""}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </MainLayout>
   );

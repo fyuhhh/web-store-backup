@@ -860,7 +860,7 @@ export default function MonitoringPOPage() {
                     <TableHead className="min-w-[180px]">
                       Daftar Barang
                     </TableHead>
-                    <TableHead className="min-w-[90px]">Qty</TableHead>
+                    <TableHead className="min-w-[90px]">Quantity PO</TableHead>
                     <TableHead className="min-w-[90px]">Satuan</TableHead>
                     <TableHead className="min-w-[160px]">Keterangan</TableHead>
                     <TableHead className="min-w-[120px]">

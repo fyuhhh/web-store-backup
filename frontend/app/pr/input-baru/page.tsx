@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+// Tambahkan CSS custom untuk tanggal merah
+import "./datepicker-red-weekend.css";
 
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -33,7 +37,7 @@ export default function InputBaruPRPage() {
   // Form state
   const [formData, setFormData] = useState({
     noPR: "",
-    tanggalPR: "",
+    tanggalPR: null as Date | null, // ubah ke Date | null
     divisi: "",
     urgensi: "",
     items: [
@@ -181,6 +185,24 @@ export default function InputBaruPRPage() {
     return date.toISOString().split("T")[0];
   }
 
+  // Helper untuk format tanggal ke DD-MM-YYYY
+  function formatDate(date: Date | null) {
+    if (!date) return "";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+
+  // Helper untuk format tanggal ke YYYY-MM-DD untuk backend
+  function formatDateForBackend(date: Date | null) {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -243,8 +265,8 @@ export default function InputBaruPRPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           noPR: formData.noPR,
-          // Perbaikan: tambah 1 hari pada tanggal sebelum dikirim
-          tanggalPR: addOneDay(formData.tanggalPR),
+          // Kirim ke backend dalam format YYYY-MM-DD
+          tanggalPR: addOneDay(formatDateForBackend(formData.tanggalPR)),
           id_divisi: formData.divisi,
           id_urgensi: formData.urgensi,
           status: "Menunggu", // <-- ubah ke enum DB
@@ -268,8 +290,8 @@ export default function InputBaruPRPage() {
             id_PR,
             namaBarang: item.namaBarang,
             jumlah: jumlah,
-            originalJumlah: jumlah,    // Ensure this is sent as decimal
-            quantityAwalPR: jumlah,    // Ensure this is sent as decimal
+            originalJumlah: jumlah, // Ensure this is sent as decimal
+            quantityAwalPR: jumlah, // Ensure this is sent as decimal
             id_satuan: Number(item.id_satuan),
             keterangan: item.keterangan || "",
           }),
@@ -334,7 +356,7 @@ export default function InputBaruPRPage() {
   const resetForm = () => {
     setFormData({
       noPR: "",
-      tanggalPR: "",
+      tanggalPR: null, // reset ke null
       divisi: "",
       urgensi: "",
       items: [
@@ -389,6 +411,14 @@ export default function InputBaruPRPage() {
     } catch {}
   };
 
+  // Fungsi untuk memberi class pada weekend
+  function highlightWeekends(date: Date) {
+    const day = date.getDay();
+    // 0 = Minggu, 6 = Sabtu
+    if (day === 0 || day === 6) return "datepicker-red";
+    return undefined;
+  }
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -435,8 +465,9 @@ export default function InputBaruPRPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Bagian atas: No PR, Tanggal, Divisi, Urgensi dalam 1 baris */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <Label htmlFor="noPR">No. PR</Label>
                   <Input
@@ -447,23 +478,38 @@ export default function InputBaruPRPage() {
                     }
                     placeholder="PR/2024/001"
                     required
+                    className="w-full"
                   />
                 </div>
                 <div>
                   <Label htmlFor="tanggalPR">Tanggal PR Dibuat</Label>
-                  <Input
+                  <DatePicker
                     id="tanggalPR"
-                    type="date"
-                    value={formData.tanggalPR}
-                    onChange={(e) =>
-                      setFormData({ ...formData, tanggalPR: e.target.value })
+                    selected={formData.tanggalPR}
+                    onChange={(date) =>
+                      setFormData({ ...formData, tanggalPR: date })
                     }
-                    required
+                    dateFormat="dd-MM-yyyy"
+                    placeholderText="Pilih tanggal"
+                    className="w-full px-3 py-2 border rounded-md bg-white"
+                    popperPlacement="bottom"
+                    showMonthDropdown
+                    showYearDropdown
+                    dropdownMode="select"
+                    dayClassName={highlightWeekends}
+                    customInput={
+                      <Input
+                        value={
+                          formData.tanggalPR
+                            ? formatDate(formData.tanggalPR)
+                            : ""
+                        }
+                        readOnly
+                        className="w-full px-3 py-2 border rounded-md bg-white"
+                      />
+                    }
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="divisi">Divisi</Label>
                   <Select
@@ -472,7 +518,7 @@ export default function InputBaruPRPage() {
                       setFormData({ ...formData, divisi: value })
                     }
                   >
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="bg-white w-full">
                       <SelectValue placeholder="Pilih divisi" />
                     </SelectTrigger>
                     <SelectContent
@@ -574,7 +620,7 @@ export default function InputBaruPRPage() {
                       setFormData({ ...formData, urgensi: value })
                     }
                   >
-                    <SelectTrigger className="bg-white">
+                    <SelectTrigger className="bg-white w-full">
                       <SelectValue placeholder="Pilih urgensi" />
                     </SelectTrigger>
                     <SelectContent className="bg-white max-h-64 overflow-y-auto">
@@ -842,7 +888,7 @@ export default function InputBaruPRPage() {
                 </Select>
               </div>
 
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 justify-end">
                 <Button
                   type="submit"
                   className="bg-primary hover:bg-primary/90"

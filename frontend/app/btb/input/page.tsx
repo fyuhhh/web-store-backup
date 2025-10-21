@@ -1,12 +1,13 @@
 "use client";
 
-import type React from "react";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import "@/app/pr/input-baru/datepicker-red-weekend.css";
 
 // Import exceljs for Excel export with style support
 import * as ExcelJS from "exceljs";
 
-import { useState, useEffect } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -124,7 +125,7 @@ export default function BTBInputPage() {
   // Form state
   const [formData, setFormData] = useState<any>({
     noBTB: "",
-    tanggal: "",
+    tanggal: null as Date | null,
     periode: "",
     supplier: "",
     kodeSupplier: "",
@@ -134,7 +135,7 @@ export default function BTBInputPage() {
     biaya: 0, // default biaya
     diterimaOleh: "",
     poId: "",
-    tanggalDiterima: "",
+    tanggalDiterima: null as Date | null,
     skema: "", // <-- tambah field skema
   });
 
@@ -436,6 +437,15 @@ export default function BTBInputPage() {
     setBtbData(data);
   };
 
+  // Helper format tanggal ke yyyy-mm-dd untuk backend
+  function formatDateForBackend(date: Date | null) {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -476,7 +486,7 @@ export default function BTBInputPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           no_btb: formData.noBTB,
-          tanggal_btb: formData.tanggal,
+          tanggal_btb: formatDateForBackend(formData.tanggal),
           periode: formData.periode,
           id_po,
           id_supplier, // <-- kirim id_supplier (number/integer)
@@ -485,7 +495,7 @@ export default function BTBInputPage() {
           id_skema,
           biaya: formData.biaya,
           diterima_oleh: userData.id_user || userData.id,
-          tanggal_diterima: formData.tanggal,
+          tanggal_diterima: formatDateForBackend(formData.tanggalDiterima),
           // status dan created_at otomatis di backend
         }),
       });
@@ -621,7 +631,7 @@ export default function BTBInputPage() {
   const resetForm = () => {
     setFormData({
       noBTB: "",
-      tanggal: "",
+      tanggal: null,
       periode: "",
       supplier: "",
       kodeSupplier: "",
@@ -631,7 +641,7 @@ export default function BTBInputPage() {
       biaya: 0,
       diterimaOleh: "",
       poId: "",
-      tanggalDiterima: "",
+      tanggalDiterima: null,
       skema: "",
     });
     setShowForm(false);
@@ -869,6 +879,12 @@ export default function BTBInputPage() {
     return found ? found.namaSupplier : id;
   }
 
+  function highlightWeekends(date: Date) {
+    const day = date.getDay();
+    if (day === 0 || day === 6) return "datepicker-red";
+    return undefined;
+  }
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -942,7 +958,7 @@ export default function BTBInputPage() {
                       </TableHead>
                       <TableHead>No. PO</TableHead>
                       <TableHead>Daftar Barang</TableHead>
-                      <TableHead>Qty</TableHead>
+                      <TableHead>Quantity PO</TableHead>
                       <TableHead>Satuan</TableHead>
                       <TableHead>Keterangan</TableHead>
                       <TableHead>Harga Satuan</TableHead>
@@ -1241,17 +1257,42 @@ export default function BTBInputPage() {
                   </div>
                   <div>
                     <Label htmlFor="tanggal">Tanggal BTB</Label>
-                    <Input
+                    <DatePicker
                       id="tanggal"
-                      type="date"
-                      value={
-                        formData.tanggal ||
-                        new Date().toISOString().split("T")[0]
+                      selected={formData.tanggal}
+                      onChange={(date) =>
+                        setFormData({ ...formData, tanggal: date })
                       }
-                      onChange={(e) =>
-                        setFormData({ ...formData, tanggal: e.target.value })
+                      dateFormat="dd-MM-yyyy"
+                      placeholderText="Pilih tanggal"
+                      className="w-full px-3 py-2 border rounded-md bg-white"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                      dayClassName={highlightWeekends}
+                      customInput={
+                        <Input
+                          value={
+                            formData.tanggal
+                              ? (() => {
+                                  const d =
+                                    formData.tanggal instanceof Date
+                                      ? formData.tanggal
+                                      : new Date(formData.tanggal);
+                                  return `${String(d.getDate()).padStart(
+                                    2,
+                                    "0"
+                                  )}-${String(d.getMonth() + 1).padStart(
+                                    2,
+                                    "0"
+                                  )}-${d.getFullYear()}`;
+                                })()
+                              : ""
+                          }
+                          readOnly
+                          className="w-full px-3 py-2 border rounded-md bg-white"
+                        />
                       }
-                      required
                     />
                   </div>
                   <div>

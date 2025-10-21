@@ -191,7 +191,7 @@ export default function BKBMonitoringPage() {
                     <TableHead>No. BKB</TableHead>
                     <TableHead>Tanggal BKB</TableHead>
                     <TableHead>Nama Barang</TableHead>
-                    <TableHead>Quantity</TableHead>
+                    <TableHead>Quantity BKB</TableHead>
                     <TableHead>Satuan</TableHead>
                     <TableHead>Keterangan</TableHead>
                     <TableHead>Dikeluarkan Oleh</TableHead>

@@ -140,7 +140,7 @@ export default function BTBMonitoringPage() {
           return {
             id: item.id_btb_item,
             noBTB: btb?.no_btb ?? "",
-            tanggal: btb?.tanggal_diterima ?? "",
+            tanggal: btb?.tanggal_btb ?? "", // <-- gunakan tanggal_btb
             periode: btb?.periode ?? "",
             id_supplier: btb?.id_supplier ?? "", // simpan id_supplier
             nama_supplier: btb?.nama_supplier ?? "", // simpan nama_supplier
@@ -692,7 +692,7 @@ export default function BTBMonitoringPage() {
                             type="button"
                             className="inline-flex items-center gap-1"
                           >
-                            Quantity <ChevronDown className="w-4 h-4" />
+                            Quantity BTB <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">

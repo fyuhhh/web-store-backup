@@ -33,6 +33,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // Dummy data for dashboard
 const kpiData = {
@@ -70,83 +71,209 @@ const supplierData = [
 ];
 
 export default function DashboardPage() {
+  // State untuk total item
+  const [totalPRItem, setTotalPRItem] = useState(0);
+  const [totalPOItem, setTotalPOItem] = useState(0);
+  const [totalBTBItem, setTotalBTBItem] = useState(0);
+  const [totalBKBItem, setTotalBKBItem] = useState(0);
+
+  // State untuk status PR
+  const [prStatusCount, setPrStatusCount] = useState({
+    selesai: 0,
+    gantung: 0,
+    menunggu: 0,
+  });
+
+  // State untuk jam
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Helper untuk format jam digital
+  function formatTime(date: Date) {
+    return date
+      .toLocaleTimeString("id-ID", { hour12: false })
+      .replace(/(\d{2}):(\d{2}):(\d{2})/, "$1:$2:$3");
+  }
+
+  function formatDate(date: Date) {
+    return date.toLocaleDateString("id-ID", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  }
+
+  useEffect(() => {
+    // Fetch total PR item
+    fetch("http://localhost:5000/api/pr-item")
+      .then((r) => r.json())
+      .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
+    // Fetch total PO item
+    fetch("http://localhost:5000/api/po-item")
+      .then((r) => r.json())
+      .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
+    // Fetch total BTB item
+    fetch("http://localhost:5000/api/btb-item")
+      .then((r) => r.json())
+      .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
+    // Fetch total BKB item
+    fetch("http://localhost:5000/api/bkb-item")
+      .then((r) => r.json())
+      .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
+
+    // Fetch status PR dari backend
+    fetch("http://localhost:5000/api/pr")
+      .then((r) => r.json())
+      .then((data) => {
+        let selesai = 0,
+          gantung = 0,
+          menunggu = 0;
+        if (Array.isArray(data)) {
+          data.forEach((pr) => {
+            if (pr.status === "Telah Selesai") selesai++;
+            else if (pr.status === "Gantung") gantung++;
+            else if (pr.status === "Menunggu") menunggu++;
+          });
+        }
+        setPrStatusCount({ selesai, gantung, menunggu });
+      });
+  }, []);
+
+  const router = useRouter();
+
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Jam digital besar dan tanggal */}
+        <div className="flex flex-col items-center justify-center py-2">
+          <div
+            style={{
+              fontSize: "3.5rem",
+              fontWeight: "bold",
+              letterSpacing: "0.08em",
+              fontFamily: "monospace",
+              color: "#3396D3",
+              textShadow: "0 2px 12px #3396d355",
+              background: "rgba(255,255,255,0.7)",
+              borderRadius: "1.5rem",
+              padding: "0.5rem 2rem",
+              marginBottom: "0.5rem",
+              boxShadow: "0 2px 16px #3396d322",
+              userSelect: "none",
+            }}
+          >
+            {formatTime(now)}
+          </div>
+          <div className="text-xl font-semibold mt-2 text-muted-foreground">
+            {formatDate(now)}
+          </div>
+        </div>
+
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-card border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total PR</CardTitle>
-              <FileText className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {kpiData.totalPR}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-success flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +12% dari bulan lalu
-                </span>
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total PO</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {kpiData.totalPO}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-success flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +8% dari bulan lalu
-                </span>
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total BTB</CardTitle>
-              <Package className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {kpiData.totalBTB}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-success flex items-center">
-                  <TrendingUp className="h-3 w-3 mr-1" />
-                  +5% dari bulan lalu
-                </span>
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total BKB</CardTitle>
-              <PackageOpen className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-foreground">
-                {kpiData.totalBKB}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                <span className="text-destructive flex items-center">
-                  <TrendingDown className="h-3 w-3 mr-1" />
-                  -2% dari bulan lalu
-                </span>
-              </p>
-            </CardContent>
-          </Card>
+          {/* Total PR */}
+          <div
+            className="kpi-card-anim"
+            tabIndex={0}
+            role="button"
+            onClick={() => router.push("/pr/monitoring")}
+            style={{ outline: "none" }}
+          >
+            <Card className="bg-card border-border">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total PR</CardTitle>
+                <FileText className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {totalPRItem}
+                </div>
+                <p className="text-xs text-muted-foreground"></p>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Total PO */}
+          <div
+            className="kpi-card-anim"
+            tabIndex={0}
+            role="button"
+            onClick={() => router.push("/po/monitoring")}
+            style={{ outline: "none" }}
+          >
+            <Card className="bg-card border-border">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total PO</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {totalPOItem}
+                </div>
+                <p className="text-xs text-muted-foreground"></p>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Total BTB */}
+          <div
+            className="kpi-card-anim"
+            tabIndex={0}
+            role="button"
+            onClick={() => router.push("/btb/monitoring")}
+            style={{ outline: "none" }}
+          >
+            <Card className="bg-card border-border">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total BTB</CardTitle>
+                <Package className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {totalBTBItem}
+                </div>
+                <p className="text-xs text-muted-foreground"></p>
+              </CardContent>
+            </Card>
+          </div>
+          {/* Total BKB */}
+          <div
+            className="kpi-card-anim"
+            tabIndex={0}
+            role="button"
+            onClick={() => router.push("/bkb/monitoring")}
+            style={{ outline: "none" }}
+          >
+            <Card className="bg-card border-border">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total BKB</CardTitle>
+                <PackageOpen className="h-4 w-4 text-primary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-foreground">
+                  {totalBKBItem}
+                </div>
+                <p className="text-xs text-muted-foreground"></p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
+        <style jsx>{`
+          .kpi-card-anim {
+            transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            border-radius: 1rem;
+          }
+          .kpi-card-anim:hover,
+          .kpi-card-anim:focus {
+            transform: scale(1.045) translateY(-2px);
+            box-shadow: 0 4px 24px #3396d322;
+            z-index: 2;
+          }
+        `}</style>
 
         {/* SLA and Performance Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -215,23 +342,29 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <CheckCircle className="h-4 w-4 text-success mr-2" />
-                    <span className="text-sm">Selesai</span>
+                    <span className="text-sm">Telah Selesai</span>
                   </div>
-                  <span className="text-sm font-medium">45</span>
+                  <span className="text-sm font-medium">
+                    {prStatusCount.selesai}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 text-primary mr-2" />
-                    <span className="text-sm">Proses</span>
+                    <span className="text-sm">Gantung</span>
                   </div>
-                  <span className="text-sm font-medium">30</span>
+                  <span className="text-sm font-medium">
+                    {prStatusCount.gantung}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <TrendingDown className="h-4 w-4 text-warning mr-2" />
-                    <span className="text-sm">Tertunda</span>
+                    <span className="text-sm">Menunggu</span>
                   </div>
-                  <span className="text-sm font-medium">15</span>
+                  <span className="text-sm font-medium">
+                    {prStatusCount.menunggu}
+                  </span>
                 </div>
               </div>
             </CardContent>

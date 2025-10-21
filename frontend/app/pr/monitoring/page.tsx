@@ -976,7 +976,7 @@ export default function MonitoringPRPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Qty
+                            Quantity PR
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>

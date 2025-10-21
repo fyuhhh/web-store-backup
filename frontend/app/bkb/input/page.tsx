@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import "@/app/pr/input-baru/datepicker-red-weekend.css";
 import {
   Card,
   CardContent,
@@ -54,7 +57,7 @@ export default function BKBInputPage() {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<any>({
     noBKB: "",
-    tanggalBKB: "",
+    tanggalBKB: null as Date | null,
     barang: [],
     keterangan: "",
     skema: "", // <-- tambah field skema
@@ -298,6 +301,15 @@ export default function BKBInputPage() {
     }));
   };
 
+  // Helper format tanggal ke yyyy-mm-dd untuk backend
+  function formatDateForBackend(date: Date | null) {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
   // Handler submit form BKB
   const handleSubmitBKB = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -341,18 +353,23 @@ export default function BKBInputPage() {
     // Siapkan payload untuk backend
     const payload = {
       no_bkb: formData.noBKB,
-      tanggal_bkb: formData.tanggalBKB,
+      tanggal_bkb: formatDateForBackend(formData.tanggalBKB),
       keterangan: formData.keterangan,
       dibuat_oleh: userId,
       dikeluarkan_oleh: userId,
       skema: formData.skema, // <-- id_skema
-      barang: formData.barang.map((b: any) => ({
-        id_btb_item: b.btbId,
-        nama_barang: b.barang,
-        jumlah_keluar: b.jumlah,
-        satuan: b.satuan, // <-- id_satuan
-        keterangan: formData.keterangan,
-      })),
+      barang: formData.barang.map((b: any) => {
+        // Ambil tanggal BTB dari backendBTBRows
+        const btb = backendBTBRows.find((row) => row.id === b.btbId);
+        return {
+          id_btb_item: b.btbId,
+          nama_barang: b.barang,
+          jumlah_keluar: b.jumlah,
+          satuan: b.satuan, // <-- id_satuan
+          keterangan: formData.keterangan,
+          tanggal: btb?.tanggal || "", // <-- tambahkan tanggal BTB
+        };
+      }),
     };
 
     try {
@@ -481,17 +498,41 @@ export default function BKBInputPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <Label>Tanggal BKB</Label>
-                <Input
-                  type="date"
-                  value={formData.tanggalBKB}
-                  onChange={(e) =>
+                <DatePicker
+                  id="tanggalBKB"
+                  selected={formData.tanggalBKB}
+                  onChange={(date) =>
                     setFormData((prev: any) => ({
                       ...prev,
-                      tanggalBKB: e.target.value,
+                      tanggalBKB: date,
                     }))
                   }
-                  required
-                  className="w-full"
+                  dateFormat="dd-MM-yyyy"
+                  placeholderText="Pilih tanggal"
+                  className="w-full px-3 py-2 border rounded-md bg-white"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                  dayClassName={highlightWeekends}
+                  customInput={
+                    <Input
+                      value={
+                        formData.tanggalBKB
+                          ? `${String(formData.tanggalBKB.getDate()).padStart(
+                              2,
+                              "0"
+                            )}-${String(
+                              formData.tanggalBKB.getMonth() + 1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}-${formData.tanggalBKB.getFullYear()}`
+                          : ""
+                      }
+                      readOnly
+                      className="w-full px-3 py-2 border rounded-md bg-white"
+                    />
+                  }
                 />
               </div>
               <div className="flex-1 min-w-0">
@@ -665,7 +706,7 @@ export default function BKBInputPage() {
                     <TableHead>Periode</TableHead>
                     <TableHead>Nama Supplier</TableHead>
                     <TableHead>Nama Barang</TableHead>
-                    <TableHead>Quantity</TableHead>
+                    <TableHead>Quantity BTB</TableHead>
                     <TableHead>Satuan</TableHead>
                     <TableHead>Sisa Stok</TableHead>
                     <TableHead>Biaya</TableHead>
@@ -729,4 +770,10 @@ export default function BKBInputPage() {
       </div>
     </MainLayout>
   );
+}
+
+function highlightWeekends(date: Date) {
+  const day = date.getDay();
+  if (day === 0 || day === 6) return "datepicker-red";
+  return undefined;
 }

@@ -1,0 +1,4 @@
+.react-datepicker__day.datepicker-red {
+  color: #e53935 !important;
+  font-weight: bold;
+}
