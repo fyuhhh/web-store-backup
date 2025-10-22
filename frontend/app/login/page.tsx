@@ -74,95 +74,112 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-primary">Sistem Monitoring</h1>
+    <div
+      className="min-h-screen flex items-center justify-center p-4"
+      style={{
+        background: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)",
+      }}
+    >
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center space-y-3">
+          <h1 className="text-3xl font-extrabold text-primary tracking-tight">
+            Sistem Monitoring
+          </h1>
         </div>
-        <Card className="bg-card border-border shadow-lg">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl text-center">
+        <Card
+          className="bg-white/80 border border-primary/20 shadow-xl rounded-2xl backdrop-blur-md"
+          style={{
+            boxShadow: "0 8px 32px #6366f11a",
+            border: "1px solid #e0e7ff",
+          }}
+        >
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-2xl text-center font-semibold text-primary">
               Masuk ke Sistem
             </CardTitle>
-            <CardDescription className="text-center">
-              Masukkan kredensial Anda untuk mengakses aplikasi
+            <CardDescription className="text-center text-muted-foreground">
+              Masukkan Nama Pengguna dan Kata Sandi Anda
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="username">Nama Pengguna</Label>
+                <Label htmlFor="username" className="font-medium text-primary">
+                  Nama Pengguna
+                </Label>
                 <Input
                   id="username"
                   type="text"
-                  placeholder="Masukkan nama pengguna"
+                  placeholder="Masukkan Nama Pengguna"
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value);
                     setErrorMsg("");
                   }}
                   required
+                  className="h-11 rounded-lg bg-muted/30 border-primary/30 focus:border-primary focus:ring-primary/30"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Kata Sandi</Label>
+                <Label htmlFor="password" className="font-medium text-primary">
+                  Kata Sandi
+                </Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Masukkan kata sandi"
+                  placeholder="Masukkan Kata Sandi"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setErrorMsg("");
                   }}
                   required
+                  className="h-11 rounded-lg bg-muted/30 border-primary/30 focus:border-primary focus:ring-primary/30"
                 />
               </div>
               {errorMsg && (
-                <div className="text-red-500 text-sm text-center">
+                <div className="text-red-500 text-sm text-center rounded-md bg-red-50 py-2">
                   {errorMsg}
                 </div>
               )}
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90"
+                className="w-full h-11 bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold rounded-lg shadow hover:from-indigo-500 hover:to-primary/90 transition"
               >
                 Masuk
               </Button>
             </form>
           </CardContent>
         </Card>
-        <div className="mt-4 text-center text-xs text-muted-foreground">
-          <div>
-            <strong>Demo Penta:</strong>
+        {/* Demo akun section */}
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center text-xs text-muted-foreground">
+          <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">
+            <div className="font-semibold text-primary">Demo Penta</div>
+            <div>
+              Nama Pengguna: <span className="font-mono">penta</span>
+            </div>
+            <div>
+              Kata Sandi: <span className="font-mono">penta</span>
+            </div>
           </div>
-          <div>
-            Nama Pengguna: <span className="font-mono">penta</span>
+          <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">
+            <div className="font-semibold text-primary">Demo Admin</div>
+            <div>
+              Nama Pengguna: <span className="font-mono">admin</span>
+            </div>
+            <div>
+              Kata Sandi: <span className="font-mono">admin</span>
+            </div>
           </div>
-          <div>
-            Kata Sandi: <span className="font-mono">penta</span>
-          </div>
-        </div>
-        <div className="mt-4 text-center text-xs text-muted-foreground">
-          <div>
-            <strong>Demo Admin:</strong>
-          </div>
-          <div>
-            Nama Pengguna: <span className="font-mono">admin</span>
-          </div>
-          <div>
-            Kata Sandi: <span className="font-mono">admin</span>
-          </div>
-        </div>
-        <div className="mt-4 text-center text-xs text-muted-foreground">
-          <div>
-            <strong>Superadmin:</strong>
-          </div>
-          <div>
-            Nama Pengguna: <span className="font-mono">superadmin</span>
-          </div>
-          <div>
-            Kata Sandi: <span className="font-mono">superadminpentaewalk</span>
+          <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">
+            <div className="font-semibold text-primary">Superadmin</div>
+            <div>
+              Nama Pengguna: <span className="font-mono">superadmin</span>
+            </div>
+            <div>
+              Kata Sandi:{" "}
+              <span className="font-mono">superadminpentaewalk</span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,11 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 
 // Import exceljs for Excel export with style support
 import * as ExcelJS from "exceljs";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -753,6 +753,27 @@ export default function MonitoringPOPage() {
     a.click();
     window.URL.revokeObjectURL(url);
   };
+
+  // Auto-logout logic (testing: 5 detik idle)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        localStorage.removeItem("userData");
+        window.location.href = "/login";
+      }, 600000); // 5 detik idle
+    };
+
+    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, []);
 
   return (
     <MainLayout>

@@ -964,6 +964,27 @@ export default function BTBInputPage() {
   const allPageSelected =
     pagePOIds.length > 0 && pagePOIds.every((id) => selectedPOs.includes(id));
 
+  // Auto-logout logic (testing: 5 detik idle)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        localStorage.removeItem("userData");
+        window.location.href = "/login";
+      }, 600000); // 5 detik idle
+    };
+
+    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, []);
+
   return (
     <MainLayout>
       <div className="space-y-6">
