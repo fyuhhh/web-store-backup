@@ -134,6 +134,17 @@ export default function LoginPage() {
         </Card>
         <div className="mt-4 text-center text-xs text-muted-foreground">
           <div>
+            <strong>Demo Penta:</strong>
+          </div>
+          <div>
+            Nama Pengguna: <span className="font-mono">penta</span>
+          </div>
+          <div>
+            Kata Sandi: <span className="font-mono">penta</span>
+          </div>
+        </div>
+        <div className="mt-4 text-center text-xs text-muted-foreground">
+          <div>
             <strong>Demo Admin:</strong>
           </div>
           <div>

@@ -419,7 +419,8 @@ export default function RekapFullPage() {
                     : "",
                   dibuatOleh: pr.dibuatOleh,
                   // Ubah ke label skema PR
-                  skemaPR: pr.id_skema
+                  skemaPR: pr.id_skema ?? "", // <-- simpan id skema, bukan label
+                  skemaPRLabel: pr.id_skema
                     ? skemaMap[String(pr.id_skema)] || pr.id_skema
                     : "",
                   targetTanggalPO: targetTanggalPO,
@@ -567,7 +568,8 @@ export default function RekapFullPage() {
                           ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
                           : "",
                         dibuatOleh: pr.dibuatOleh,
-                        skemaPR: pr.id_skema
+                        skemaPR: pr.id_skema ?? "", // <-- simpan id skema, bukan label
+                        skemaPRLabel: pr.id_skema
                           ? skemaMap[String(pr.id_skema)] || pr.id_skema
                           : "",
                         targetTanggalPO: pr.tanggalPR
@@ -715,6 +717,29 @@ export default function RekapFullPage() {
     satuanMap,
   ]);
 
+  // Ambil id_skema dari localStorage (userData)
+  const [userSkemaId, setUserSkemaId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Ambil dari localStorage
+    const stored = localStorage.getItem("userData");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        // id_skema bisa di userData atau skema
+        setUserSkemaId(String(parsed.id_skema ?? parsed.skema ?? ""));
+        // Log id_skema yang diterima
+        console.log(
+          "User id_skema (from localStorage):",
+          parsed.id_skema ?? parsed.skema ?? ""
+        );
+      } catch {
+        setUserSkemaId(null);
+        console.log("Gagal parsing userData dari localStorage");
+      }
+    }
+  }, []);
+
   // Unique values for dropdown filter
   const uniqueValues: { [key: string]: string[] } = {};
   columns.forEach((col) => {
@@ -723,8 +748,12 @@ export default function RekapFullPage() {
     ).sort();
   });
 
-  // Filtered data (tanpa filter role/divisi/skema)
+  // Filtered data (bandingkan id skema, bukan label)
   const filteredData = rekapData.filter((row) => {
+    // Filter skemaPR sesuai user login (bandingkan id)
+    if (userSkemaId && String(row.skemaPR) !== userSkemaId) {
+      return false;
+    }
     // Global search
     const matchesSearch =
       !searchTerm ||
@@ -742,6 +771,20 @@ export default function RekapFullPage() {
     });
     return matchesSearch && matchesFilters;
   });
+
+  // Log id_PR, skemaPR, skemaPRLabel yang tampil di rekap full
+  useEffect(() => {
+    if (userSkemaId) {
+      console.log(
+        "Filtered Rekap PRs (id_PR, skemaPR, skemaPRLabel):",
+        filteredData.map((row) => ({
+          id_PR: row.noPR,
+          skemaPR: row.skemaPR,
+          skemaPRLabel: row.skemaPRLabel,
+        }))
+      );
+    }
+  }, [filteredData, userSkemaId]);
 
   // Pagination
   const pagedData = filteredData.slice(
@@ -776,6 +819,7 @@ export default function RekapFullPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Rekap Full");
 
+    // Header sesuai urutan tabel rekap full
     const headers = columns.map((col) => col.label);
     const headerRow = worksheet.addRow(headers);
 
@@ -791,32 +835,82 @@ export default function RekapFullPage() {
       };
     });
 
-    // Add data rows
+    // Helper format tanggal ke dd-mm-yyyy
+    function formatTanggalExcel(tgl: string) {
+      if (!tgl) return "";
+      // Cek jika sudah dd-mm-yyyy, return langsung
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
+      // Jika yyyy-mm-dd
+      const [y, m, d] = tgl.split("-");
+      if (y && m && d) return `${d}-${m}-${y}`;
+      return tgl;
+    }
+    // Helper format quantity
+    function formatQtyExcel(val: any) {
+      const num = Number(val);
+      if (Number.isNaN(num)) return "";
+      return num % 1 === 0 ? num.toString() : num.toString();
+    }
+    // Helper format rupiah
+    function formatRupiahFull(val: any) {
+      if (val === undefined || val === "" || isNaN(val)) return "";
+      return "Rp. " + Number(val).toLocaleString("id-ID");
+    }
+
+    // Add data rows persis seperti tampilan tabel
     exportData.forEach((row) => {
       worksheet.addRow(
         columns.map((col) => {
+          // Format tanggal
+          if (
+            [
+              "tanggalPR",
+              "tanggalPO",
+              "tanggalEstimasiDiterima",
+              "tanggalBTB",
+              "tanggalBKB",
+              "targetTanggalPO",
+            ].includes(col.key)
+          ) {
+            return formatTanggalExcel(row[col.key]);
+          }
+          // Format quantity
           if (
             [
               "quantityAwalPR",
               "quantityPR",
-              "diskonPersen",
-              "ppnPersen",
+              "quantityPO",
               "quantityBTB",
+              "quantityBKB",
             ].includes(col.key)
           ) {
-            return formatInt(row[col.key]);
+            return formatQtyExcel(row[col.key]);
           }
+          // Format rupiah
           if (
             ["biayaBTB", "totalHarga", "ppnRp", "diskonRp"].includes(col.key)
           ) {
             return formatRupiahFull(row[col.key]);
+          }
+          // Skema kolom: tampilkan label jika ada
+          if (col.key === "skemaPR") {
+            return row.skemaPRLabel ?? row.skemaPR ?? "";
+          }
+          if (col.key === "skemaPO") {
+            return row.skemaPO ?? "";
+          }
+          if (col.key === "skemaBTB") {
+            return row.skemaBTB ?? "";
+          }
+          if (col.key === "skemaBKB") {
+            return row.skemaBKB ?? "";
           }
           return row[col.key];
         })
       );
     });
 
-    // Autofit columns (improved)
+    // Autofit columns
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
       column.eachCell({ includeEmpty: true }, (cell) => {
@@ -1066,13 +1160,15 @@ export default function RekapFullPage() {
                           className="px-4 py-2 text-left"
                         >
                           {/* Format khusus untuk beberapa kolom */}
-                          {[
-                            "quantityAwalPR",
-                            "quantityPR",
-                            "diskonPersen",
-                            "ppnPersen",
-                            "quantityBTB",
-                          ].includes(col.key)
+                          {col.key === "skemaPR"
+                            ? row.skemaPRLabel // <-- tampilkan label skema PR
+                            : [
+                                "quantityAwalPR",
+                                "quantityPR",
+                                "diskonPersen",
+                                "ppnPersen",
+                                "quantityBTB",
+                              ].includes(col.key)
                             ? formatInt(row[col.key])
                             : [
                                 "biayaBTB",

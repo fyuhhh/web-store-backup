@@ -169,7 +169,10 @@ export default function BTBInputPage() {
   } | null>(null);
 
   const [userSchema, setUserSchema] = useState<string>("");
+  const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
   const [supplierList, setSupplierList] = useState<any[]>([]);
+  const [skemaList, setSkemaList] = useState<any[]>([]);
+  const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadData();
@@ -177,10 +180,21 @@ export default function BTBInputPage() {
     // Ambil skema user dari localStorage
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.skema || "");
-    // Ambil supplier dari backend
+    setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
+    // Ambil supplier dan skema dari backend
     fetch("http://localhost:5000/api/supplier")
       .then((r) => r.json())
       .then((data) => setSupplierList(data));
+    fetch("http://localhost:5000/api/skema")
+      .then((r) => r.json())
+      .then((data) => {
+        setSkemaList(data);
+        setSkemaMap(
+          Object.fromEntries(
+            data.map((s: any) => [String(s.id_skema), s.skema])
+          )
+        );
+      });
   }, []);
 
   // Reset to page 1 when filters change
@@ -808,27 +822,6 @@ export default function BTBInputPage() {
     )
   ).sort();
 
-  // Filter data untuk tabel PO (copy dari monitoring\page.tsx)
-  const filteredPOData = backendPOData
-    .filter((po) => !userSchema || String(po.skema) === String(userSchema))
-    .map((po) => {
-      let status = po.status || "Menunggu";
-      return { ...po, status };
-    })
-    .filter((po) =>
-      po.poItems.some((poItem: any) =>
-        poItem.items.some((item: any) => item.jumlahPO > 0)
-      )
-    );
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredPOData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filteredPOData.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
-
   // Badge status (copy dari monitoring\page.tsx)
   const getStatusBadge = (status: string) => {
     if (status === "Completed" || status === "Telah dibuat BTB") {
@@ -884,6 +877,92 @@ export default function BTBInputPage() {
     if (day === 0 || day === 6) return "datepicker-red";
     return undefined;
   }
+
+  // Tambahkan state untuk filter kode dan skema
+  const [kodeSearchTerm, setKodeSearchTerm] = useState("");
+  const [filterKode, setFilterKode] = useState<string[]>([]);
+  const [skemaSearchTerm, setSkemaSearchTerm] = useState("");
+  const [filterSkema, setFilterSkema] = useState<string[]>([]);
+
+  const uniqueKode = Array.from(
+    new Set(
+      poData
+        .map((po) => String(po.statusPermintaan ?? ""))
+        .filter((k) => k.trim() !== "")
+    )
+  ).sort();
+
+  // Tambahkan filteredPOData dan paginatedData sebelum return
+
+  // Tabel PO: gunakan backendPOData dan filter skema sesuai user login
+  const filteredPOData = backendPOData
+    .filter((po) => !userSkemaId || String(po.skema) === userSkemaId)
+    .filter((po) => {
+      // Gabungkan searchTerm untuk noPO, supplier, barang
+      const searchLower = searchTerm.toLowerCase();
+      const matchSearch =
+        !searchTerm ||
+        po.noPO.toLowerCase().includes(searchLower) ||
+        String(po.supplier).toLowerCase().includes(searchLower) ||
+        po.poItems.some((poItem) =>
+          poItem.items.some((item) =>
+            item.namaBarang.toLowerCase().includes(searchLower)
+          )
+        );
+      // Filter supplier
+      const matchSupplier =
+        filterSupplier.length === 0 || filterSupplier.includes(po.supplier);
+      // Filter satuan
+      const matchSatuan =
+        filterSatuan.length === 0 ||
+        po.poItems.some((poItem) =>
+          poItem.items.some((item) => filterSatuan.includes(item.satuan))
+        );
+      // Filter barang
+      const matchBarang =
+        !filterNamaBarang ||
+        po.poItems.some((poItem) =>
+          poItem.items.some((item) =>
+            item.namaBarang
+              .toLowerCase()
+              .includes(filterNamaBarang.toLowerCase())
+          )
+        );
+      // Filter status
+      const matchStatus =
+        filterStatus.length === 0 || filterStatus.includes(po.status);
+      // Filter kode
+      const matchKode =
+        filterKode.length === 0 ||
+        filterKode.includes(String(po.statusPermintaan));
+      // Filter skema
+      const matchSkema =
+        filterSkema.length === 0 || filterSkema.includes(String(po.skema));
+      // ...tambahkan filter lain sesuai kebutuhan...
+      return (
+        matchSearch &&
+        matchSupplier &&
+        matchSatuan &&
+        matchBarang &&
+        matchStatus &&
+        matchKode &&
+        matchSkema
+      );
+    });
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredPOData.length / itemsPerPage)
+  );
+  const paginatedData = filteredPOData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // --- Checkbox header untuk select all pada halaman (mirip monitoring BTB) ---
+  const pagePOIds = paginatedData.map((po) => po.id);
+  const allPageSelected =
+    pagePOIds.length > 0 && pagePOIds.every((id) => selectedPOs.includes(id));
 
   return (
     <MainLayout>
@@ -941,13 +1020,18 @@ export default function BTBInputPage() {
                     <TableRow>
                       <TableHead className="w-12">
                         <Checkbox
-                          checked={
-                            selectedPOs.length === filteredPOData.length &&
-                            filteredPOData.length > 0
-                          }
-                          onCheckedChange={(checked) =>
-                            handleSelectAll(checked === true)
-                          }
+                          checked={allPageSelected}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedPOs((prev) =>
+                                Array.from(new Set([...prev, ...pagePOIds]))
+                              );
+                            } else {
+                              setSelectedPOs((prev) =>
+                                prev.filter((id) => !pagePOIds.includes(id))
+                              );
+                            }
+                          }}
                           style={{
                             boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
                             border: "1.5px solid #bbb",
@@ -956,20 +1040,633 @@ export default function BTBInputPage() {
                           className="focus:ring-2 focus:ring-primary"
                         />
                       </TableHead>
-                      <TableHead>No. PO</TableHead>
-                      <TableHead>Daftar Barang</TableHead>
-                      <TableHead>Quantity PO</TableHead>
-                      <TableHead>Satuan</TableHead>
-                      <TableHead>Keterangan</TableHead>
-                      <TableHead>Harga Satuan</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Tanggal PO</TableHead>
-                      <TableHead>Estimasi Diterima</TableHead>
-                      <TableHead>Supplier</TableHead>
-                      <TableHead>Kode</TableHead>
-                      <TableHead>Status Pengiriman</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Diorder oleh</TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              No. PO <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari No. PO..."
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            <div className="flex items-center mt-2">
+                              <Checkbox
+                                checked={
+                                  pagePOIds.length > 0 &&
+                                  pagePOIds.every((id) =>
+                                    selectedPOs.includes(id)
+                                  )
+                                }
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedPOs((prev) =>
+                                      Array.from(
+                                        new Set([...prev, ...pagePOIds])
+                                      )
+                                    );
+                                  } else {
+                                    setSelectedPOs((prev) =>
+                                      prev.filter(
+                                        (id) => !pagePOIds.includes(id)
+                                      )
+                                    );
+                                  }
+                                }}
+                              />
+                              <Label className="ml-2 text-xs">
+                                Pilih semua halaman ini
+                              </Label>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Daftar Barang <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari barang..."
+                              value={filterNamaBarang}
+                              onChange={(e) =>
+                                setFilterNamaBarang(e.target.value)
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Quantity PO <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Min Qty"
+                              type="number"
+                              value={filterQtyMin}
+                              onChange={(e) =>
+                                setFilterQtyMin(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="Max Qty"
+                              type="number"
+                              value={filterQtyMax}
+                              onChange={(e) =>
+                                setFilterQtyMax(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Satuan <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari satuan..."
+                              value={satuanSearchTerm}
+                              onChange={(e) =>
+                                setSatuanSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueSatuan
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(satuanSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSatuan.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSatuan([...filterSatuan, s]);
+                                        else
+                                          setFilterSatuan(
+                                            filterSatuan.filter((x) => x !== s)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Keterangan <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari keterangan..."
+                              value={filterKeterangan}
+                              onChange={(e) =>
+                                setFilterKeterangan(e.target.value)
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Harga Satuan <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Min Harga"
+                              type="number"
+                              value={filterHargaSatuanMin}
+                              onChange={(e) =>
+                                setFilterHargaSatuanMin(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="Max Harga"
+                              type="number"
+                              value={filterHargaSatuanMax}
+                              onChange={(e) =>
+                                setFilterHargaSatuanMax(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Total <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Min Total"
+                              type="number"
+                              value={filterTotalMin}
+                              onChange={(e) =>
+                                setFilterTotalMin(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="Max Total"
+                              type="number"
+                              value={filterTotalMax}
+                              onChange={(e) =>
+                                setFilterTotalMax(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Tanggal PO <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari tanggal..."
+                              value={tanggalPOSearchTerm}
+                              onChange={(e) =>
+                                setTanggalPOSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueTanggalPO
+                                .filter((tgl) =>
+                                  tgl
+                                    .toLowerCase()
+                                    .includes(tanggalPOSearchTerm.toLowerCase())
+                                )
+                                .map((tgl) => (
+                                  <div
+                                    key={tgl}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterTanggalPO.includes(tgl)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterTanggalPO([
+                                            ...filterTanggalPO,
+                                            tgl,
+                                          ]);
+                                        else
+                                          setFilterTanggalPO(
+                                            filterTanggalPO.filter(
+                                              (x) => x !== tgl
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{tgl}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Estimasi Diterima{" "}
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari estimasi..."
+                              value={estimasiDiterimaSearchTerm}
+                              onChange={(e) =>
+                                setEstimasiDiterimaSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueEstimasiDiterima
+                                .filter((tgl) =>
+                                  tgl
+                                    .toLowerCase()
+                                    .includes(
+                                      estimasiDiterimaSearchTerm.toLowerCase()
+                                    )
+                                )
+                                .map((tgl) => (
+                                  <div
+                                    key={tgl}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterEstimasiDiterima.includes(
+                                        tgl
+                                      )}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterEstimasiDiterima([
+                                            ...filterEstimasiDiterima,
+                                            tgl,
+                                          ]);
+                                        else
+                                          setFilterEstimasiDiterima(
+                                            filterEstimasiDiterima.filter(
+                                              (x) => x !== tgl
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{tgl}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Supplier <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari supplier..."
+                              value={supplierSearchTerm}
+                              onChange={(e) =>
+                                setSupplierSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueSuppliers
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(supplierSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSupplier.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSupplier([
+                                            ...filterSupplier,
+                                            s,
+                                          ]);
+                                        else
+                                          setFilterSupplier(
+                                            filterSupplier.filter(
+                                              (x) => x !== s
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Kode <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari kode..."
+                              value={kodeSearchTerm}
+                              onChange={(e) =>
+                                setKodeSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueKode
+                                .filter((k) =>
+                                  k
+                                    .toLowerCase()
+                                    .includes(kodeSearchTerm.toLowerCase())
+                                )
+                                .map((k) => (
+                                  <div
+                                    key={k}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterKode.includes(k)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterKode([...filterKode, k]);
+                                        else
+                                          setFilterKode(
+                                            filterKode.filter((x) => x !== k)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{k}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Status Pengiriman{" "}
+                              <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari status pengiriman..."
+                              value={statusPengirimanSearchTerm}
+                              onChange={(e) =>
+                                setStatusPengirimanSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueStatusPengiriman
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(
+                                      statusPengirimanSearchTerm.toLowerCase()
+                                    )
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterStatusPengiriman.includes(
+                                        s
+                                      )}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterStatusPengiriman([
+                                            ...filterStatusPengiriman,
+                                            s,
+                                          ]);
+                                        else
+                                          setFilterStatusPengiriman(
+                                            filterStatusPengiriman.filter(
+                                              (x) => x !== s
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Status <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari status..."
+                              value={statusSearchTerm}
+                              onChange={(e) =>
+                                setStatusSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueStatus
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(statusSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterStatus.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterStatus([...filterStatus, s]);
+                                        else
+                                          setFilterStatus(
+                                            filterStatus.filter((x) => x !== s)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Diorder oleh <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari user..."
+                              value={diorderOlehSearchTerm}
+                              onChange={(e) =>
+                                setDiorderOlehSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueDiorderOleh
+                                .filter((o) =>
+                                  o
+                                    .toLowerCase()
+                                    .includes(
+                                      diorderOlehSearchTerm.toLowerCase()
+                                    )
+                                )
+                                .map((o) => (
+                                  <div
+                                    key={o}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterDiorderOleh.includes(o)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterDiorderOleh([
+                                            ...filterDiorderOleh,
+                                            o,
+                                          ]);
+                                        else
+                                          setFilterDiorderOleh(
+                                            filterDiorderOleh.filter(
+                                              (x) => x !== o
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{o}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Skema <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari skema..."
+                              value={skemaSearchTerm}
+                              onChange={(e) =>
+                                setSkemaSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueKode
+                                .filter((s) =>
+                                  String(s)
+                                    .toLowerCase()
+                                    .includes(skemaSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSkema.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSkema([...filterSkema, s]);
+                                        else
+                                          setFilterSkema(
+                                            filterSkema.filter((x) => x !== s)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1026,7 +1723,6 @@ export default function BTBInputPage() {
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
                                 {item.satuan}
                               </TableCell>
-                              {/* Keterangan: pakai HoverCard */}
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words">
                                 <HoverCard>
                                   <HoverCardTrigger asChild>
@@ -1044,11 +1740,9 @@ export default function BTBInputPage() {
                                   </HoverCardContent>
                                 </HoverCard>
                               </TableCell>
-                              {/* Harga Satuan */}
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px]">
                                 Rp {item.hargaSatuan.toLocaleString("id-ID")}
                               </TableCell>
-                              {/* Total: hanya di baris pertama, ambil dari po.totalPembayaran */}
                               {itemIndex === 0 ? (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -1058,7 +1752,6 @@ export default function BTBInputPage() {
                                   {po.totalPembayaran.toLocaleString("id-ID")}
                                 </TableCell>
                               ) : null}
-                              {/* Tanggal PO */}
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -1067,7 +1760,6 @@ export default function BTBInputPage() {
                                   {formatTanggal(po.tanggalPO)}
                                 </TableCell>
                               )}
-                              {/* Estimasi Diterima */}
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -1076,7 +1768,6 @@ export default function BTBInputPage() {
                                   {formatTanggal(po.estimasiTanggalTerima)}
                                 </TableCell>
                               )}
-                              {/* Supplier */}
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -1085,7 +1776,6 @@ export default function BTBInputPage() {
                                   {po.supplier}
                                 </TableCell>
                               )}
-                              {/* Kode */}
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -1094,7 +1784,6 @@ export default function BTBInputPage() {
                                   {po.statusPermintaan ?? ""}
                                 </TableCell>
                               )}
-                              {/* Status Pengiriman */}
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -1103,7 +1792,6 @@ export default function BTBInputPage() {
                                   {po.statusPengiriman ?? ""}
                                 </TableCell>
                               )}
-                              {/* Status: badge warna sama seperti monitoring PO */}
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -1112,13 +1800,20 @@ export default function BTBInputPage() {
                                   {getStatusBadge(po.status)}
                                 </TableCell>
                               )}
-                              {/* Diorder oleh */}
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
                                   className="text-left border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {po.orderedBy ?? ""}
+                                </TableCell>
+                              )}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-gray-300 align-middle min-w-[100px]"
+                                >
+                                  {skemaMap[String(po.skema)] ?? po.skema}
                                 </TableCell>
                               )}
                             </TableRow>

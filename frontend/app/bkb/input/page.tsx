@@ -64,6 +64,7 @@ export default function BKBInputPage() {
   });
   const [userNick, setUserNick] = useState("");
   const [userSchema, setUserSchema] = useState<string>("");
+  const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
   const [notif, setNotif] = useState<{
     type: "success" | "error";
     message: string;
@@ -107,6 +108,7 @@ export default function BKBInputPage() {
           skema: user.skema || "", // <-- set skema otomatis dari user login
         }));
         setUserSchema(user.skema || ""); // <-- set userSchema state
+        setUserSkemaId(String(user.id_skema ?? user.skema ?? "")); // Set id_skema user
       } catch {}
     }
   }, []);
@@ -157,7 +159,8 @@ export default function BKBInputPage() {
           return {
             id: item.id_btb_item,
             noBTB: btb?.no_btb ?? "",
-            tanggal: btb?.tanggal_diterima ?? "",
+            tanggalBTB: btb?.tanggal_btb ?? "", // <-- ambil tanggal_btb dari backend
+            tanggal: btb?.tanggal_diterima ?? "", // legacy, bisa dihapus jika tidak dipakai
             periode: btb?.periode ?? "",
             id_supplier: btb?.id_supplier ?? "",
             nama_supplier: btb?.nama_supplier ?? "",
@@ -195,6 +198,17 @@ export default function BKBInputPage() {
     return "Rp " + Number(val).toLocaleString("id-ID");
   }
 
+  // Helper untuk format integer tanpa .00
+  function formatInt(val: any) {
+    if (val === undefined || val === null || val === "") return "";
+    const num = Number(val);
+    return Number.isNaN(num)
+      ? ""
+      : num % 1 === 0
+      ? num.toString()
+      : num.toFixed(2);
+  }
+
   // Unique values for filters
   const uniqueSuppliers = Array.from(
     new Set(
@@ -220,7 +234,8 @@ export default function BKBInputPage() {
 
   // Filtered data: hanya tampilkan BTB/items dengan stok > 0 dan skema sesuai user
   const filteredBTBData = backendBTBRows
-    .filter((row) => !userSchema || row.skema === userSchema)
+    // Filter hanya BTB dengan id_skema sesuai user login
+    .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
     .filter((row) => {
       const matchesSearch =
         row.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -465,7 +480,7 @@ export default function BKBInputPage() {
                 const btbInfo = getBTBInfo(b.btbId);
                 return (
                   <div key={idx}>
-                    <span className="font-medium">{b.barang}</span> dari{" "}
+                    <span className="font-medium">{b.barang}</span> dari
                     <span className="text-primary font-semibold">
                       {btbInfo.noBTB}
                     </span>
@@ -550,11 +565,316 @@ export default function BKBInputPage() {
                 <Table className="w-full min-w-[800px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nama Barang</TableHead>
-                      <TableHead>Quantity Keluar</TableHead>
-                      <TableHead>Sisa BTB</TableHead>
-                      <TableHead>Satuan</TableHead>
-                      <TableHead>Asal BTB</TableHead>
+                      <TableHead>
+                        {/* Checkbox header jika ingin multi-select */}
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              No. BTB <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari No. BTB..."
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Tanggal BTB <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari tanggal..."
+                              value={tanggalBTBSearchTerm}
+                              onChange={(e) =>
+                                setTanggalBTBSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueTanggalBTB
+                                .filter((t) =>
+                                  t
+                                    .toLowerCase()
+                                    .includes(
+                                      tanggalBTBSearchTerm.toLowerCase()
+                                    )
+                                )
+                                .map((t) => (
+                                  <div
+                                    key={t}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterTanggalBTB.includes(t)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterTanggalBTB([
+                                            ...filterTanggalBTB,
+                                            t,
+                                          ]);
+                                        else
+                                          setFilterTanggalBTB(
+                                            filterTanggalBTB.filter(
+                                              (x) => x !== t
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{t}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Periode <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari periode..."
+                              value={periodeSearchTerm}
+                              onChange={(e) =>
+                                setPeriodeSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniquePeriode
+                                .filter((p) =>
+                                  p
+                                    .toLowerCase()
+                                    .includes(periodeSearchTerm.toLowerCase())
+                                )
+                                .map((p) => (
+                                  <div
+                                    key={p}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterPeriode === p}
+                                      onCheckedChange={(checked) => {
+                                        setFilterPeriode(checked ? p : "");
+                                      }}
+                                    />
+                                    <Label className="text-sm">{p}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Nama Supplier <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari supplier..."
+                              value={supplierSearchTerm}
+                              onChange={(e) =>
+                                setSupplierSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueSuppliers
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(supplierSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSupplier.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSupplier([
+                                            ...filterSupplier,
+                                            s,
+                                          ]);
+                                        else
+                                          setFilterSupplier(
+                                            filterSupplier.filter(
+                                              (x) => x !== s
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Nama Barang <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari barang..."
+                              value={barangSearchTerm}
+                              onChange={(e) =>
+                                setBarangSearchTerm(e.target.value)
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Quantity BTB <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Min Qty"
+                              type="number"
+                              value={filterQtyMin}
+                              onChange={(e) =>
+                                setFilterQtyMin(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="Max Qty"
+                              type="number"
+                              value={filterQtyMax}
+                              onChange={(e) =>
+                                setFilterQtyMax(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Satuan <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari satuan..."
+                              value={satuanSearchTerm}
+                              onChange={(e) =>
+                                setSatuanSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueSatuan
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(satuanSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSatuan.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSatuan([...filterSatuan, s]);
+                                        else
+                                          setFilterSatuan(
+                                            filterSatuan.filter((x) => x !== s)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Sisa Stok <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <span className="text-xs text-muted-foreground">
+                              Filter sisa stok manual diimplementasi jika perlu
+                            </span>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1">
+                              Biaya <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Min Biaya"
+                              type="number"
+                              value={filterBiayaMin}
+                              onChange={(e) =>
+                                setFilterBiayaMin(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                            <Input
+                              placeholder="Max Biaya"
+                              type="number"
+                              value={filterBiayaMax}
+                              onChange={(e) =>
+                                setFilterBiayaMax(
+                                  e.target.value === ""
+                                    ? ""
+                                    : Number(e.target.value)
+                                )
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead>Diterima Oleh</TableHead>
+                      <TableHead>Skema</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -576,11 +896,7 @@ export default function BKBInputPage() {
                                 type="number"
                                 min={1}
                                 max={sisa}
-                                value={
-                                  Number(b.jumlah) % 1 === 0
-                                    ? parseInt(b.jumlah)
-                                    : b.jumlah
-                                }
+                                value={formatInt(b.jumlah)}
                                 onChange={(e) =>
                                   handleBarangChange(
                                     idx,
@@ -592,8 +908,7 @@ export default function BKBInputPage() {
                                 className="w-20"
                               />
                               <span className="text-xs text-muted-foreground">
-                                /{" "}
-                                {Number(sisa) % 1 === 0 ? parseInt(sisa) : sisa}
+                                / {formatInt(sisa)}
                               </span>
                             </div>
                           </TableCell>
@@ -601,7 +916,7 @@ export default function BKBInputPage() {
                             <Badge
                               variant={sisa > 0 ? "default" : "destructive"}
                             >
-                              {Number(sisa) % 1 === 0 ? parseInt(sisa) : sisa}
+                              {formatInt(sisa)}
                             </Badge>
                           </TableCell>
                           <TableCell>{satuanLabel}</TableCell>
@@ -701,15 +1016,307 @@ export default function BKBInputPage() {
                     <TableHead>
                       {/* Checkbox header jika ingin multi-select */}
                     </TableHead>
-                    <TableHead>No. BTB</TableHead>
-                    <TableHead>Tanggal BTB</TableHead>
-                    <TableHead>Periode</TableHead>
-                    <TableHead>Nama Supplier</TableHead>
-                    <TableHead>Nama Barang</TableHead>
-                    <TableHead>Quantity BTB</TableHead>
-                    <TableHead>Satuan</TableHead>
-                    <TableHead>Sisa Stok</TableHead>
-                    <TableHead>Biaya</TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            No. BTB <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Cari No. BTB..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Tanggal BTB <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Cari tanggal..."
+                            value={tanggalBTBSearchTerm}
+                            onChange={(e) =>
+                              setTanggalBTBSearchTerm(e.target.value)
+                            }
+                          />
+                          <div className="max-h-40 overflow-y-auto mt-2">
+                            {uniqueTanggalBTB
+                              .filter((t) =>
+                                t
+                                  .toLowerCase()
+                                  .includes(tanggalBTBSearchTerm.toLowerCase())
+                              )
+                              .map((t) => (
+                                <div
+                                  key={t}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    checked={filterTanggalBTB.includes(t)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked)
+                                        setFilterTanggalBTB([
+                                          ...filterTanggalBTB,
+                                          t,
+                                        ]);
+                                      else
+                                        setFilterTanggalBTB(
+                                          filterTanggalBTB.filter(
+                                            (x) => x !== t
+                                          )
+                                        );
+                                    }}
+                                  />
+                                  <Label className="text-sm">{t}</Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Periode <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Cari periode..."
+                            value={periodeSearchTerm}
+                            onChange={(e) =>
+                              setPeriodeSearchTerm(e.target.value)
+                            }
+                          />
+                          <div className="max-h-40 overflow-y-auto mt-2">
+                            {uniquePeriode
+                              .filter((p) =>
+                                p
+                                  .toLowerCase()
+                                  .includes(periodeSearchTerm.toLowerCase())
+                              )
+                              .map((p) => (
+                                <div
+                                  key={p}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    checked={filterPeriode === p}
+                                    onCheckedChange={(checked) => {
+                                      setFilterPeriode(checked ? p : "");
+                                    }}
+                                  />
+                                  <Label className="text-sm">{p}</Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Nama Supplier <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Cari supplier..."
+                            value={supplierSearchTerm}
+                            onChange={(e) =>
+                              setSupplierSearchTerm(e.target.value)
+                            }
+                          />
+                          <div className="max-h-40 overflow-y-auto mt-2">
+                            {uniqueSuppliers
+                              .filter((s) =>
+                                s
+                                  .toLowerCase()
+                                  .includes(supplierSearchTerm.toLowerCase())
+                              )
+                              .map((s) => (
+                                <div
+                                  key={s}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    checked={filterSupplier.includes(s)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked)
+                                        setFilterSupplier([
+                                          ...filterSupplier,
+                                          s,
+                                        ]);
+                                      else
+                                        setFilterSupplier(
+                                          filterSupplier.filter((x) => x !== s)
+                                        );
+                                    }}
+                                  />
+                                  <Label className="text-sm">{s}</Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Nama Barang <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Cari barang..."
+                            value={barangSearchTerm}
+                            onChange={(e) =>
+                              setBarangSearchTerm(e.target.value)
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Quantity BTB <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Min Qty"
+                            type="number"
+                            value={filterQtyMin}
+                            onChange={(e) =>
+                              setFilterQtyMin(
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value)
+                              )
+                            }
+                          />
+                          <Input
+                            placeholder="Max Qty"
+                            type="number"
+                            value={filterQtyMax}
+                            onChange={(e) =>
+                              setFilterQtyMax(
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value)
+                              )
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Satuan <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Cari satuan..."
+                            value={satuanSearchTerm}
+                            onChange={(e) =>
+                              setSatuanSearchTerm(e.target.value)
+                            }
+                          />
+                          <div className="max-h-40 overflow-y-auto mt-2">
+                            {uniqueSatuan
+                              .filter((s) =>
+                                s
+                                  .toLowerCase()
+                                  .includes(satuanSearchTerm.toLowerCase())
+                              )
+                              .map((s) => (
+                                <div
+                                  key={s}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    checked={filterSatuan.includes(s)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked)
+                                        setFilterSatuan([...filterSatuan, s]);
+                                      else
+                                        setFilterSatuan(
+                                          filterSatuan.filter((x) => x !== s)
+                                        );
+                                    }}
+                                  />
+                                  <Label className="text-sm">{s}</Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Sisa Stok <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <span className="text-xs text-muted-foreground">
+                            Filter sisa stok manual diimplementasi jika perlu
+                          </span>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
+                    <TableHead>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Biaya <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Min Biaya"
+                            type="number"
+                            value={filterBiayaMin}
+                            onChange={(e) =>
+                              setFilterBiayaMin(
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value)
+                              )
+                            }
+                          />
+                          <Input
+                            placeholder="Max Biaya"
+                            type="number"
+                            value={filterBiayaMax}
+                            onChange={(e) =>
+                              setFilterBiayaMax(
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value)
+                              )
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
                     <TableHead>Diterima Oleh</TableHead>
                     <TableHead>Skema</TableHead>
                   </TableRow>
@@ -736,11 +1343,11 @@ export default function BKBInputPage() {
                           />
                         </TableCell>
                         <TableCell>{row.noBTB}</TableCell>
-                        <TableCell>{formatTanggal(row.tanggal)}</TableCell>
+                        <TableCell>{formatTanggal(row.tanggalBTB)}</TableCell>
                         <TableCell>{row.periode}</TableCell>
                         <TableCell>{row.nama_supplier}</TableCell>
                         <TableCell>{row.nama_barang}</TableCell>
-                        <TableCell>{row.jumlah}</TableCell>
+                        <TableCell>{formatInt(row.jumlah)}</TableCell>
                         <TableCell>{row.satuan}</TableCell>
                         <TableCell>
                           <Badge
@@ -748,7 +1355,7 @@ export default function BKBInputPage() {
                               Number(row.sisa) > 0 ? "default" : "destructive"
                             }
                           >
-                            {row.sisa}
+                            {formatInt(row.sisa)}
                           </Badge>
                         </TableCell>
                         <TableCell>{formatRupiah(row.biaya)}</TableCell>

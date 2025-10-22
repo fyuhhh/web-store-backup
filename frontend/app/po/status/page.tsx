@@ -48,6 +48,8 @@ export default function StatusPOPage() {
     []
   );
   const [userSkema, setUserSkema] = useState<string>("");
+  // Tambahkan state untuk id_skema user
+  const [userSkemaId, setUserSkemaId] = useState<string | null>(null);
 
   // Filter states for table columns
   const [searchTerm, setSearchTerm] = useState("");
@@ -100,6 +102,8 @@ export default function StatusPOPage() {
     const userDataString = localStorage.getItem("userData");
     const userData = userDataString ? JSON.parse(userDataString) : null;
     setUserSkema(userData?.skema || "");
+    // Ambil id_skema dari userData
+    setUserSkemaId(String(userData?.id_skema ?? userData?.skema ?? ""));
   }, []);
 
   const savePOData = (data: POData[]) => {
@@ -295,7 +299,8 @@ export default function StatusPOPage() {
     .filter(
       (pr) =>
         (pr.status === "Menunggu" || pr.status === "Gantung") &&
-        (!userSkema || pr.skema === userSkema)
+        // Filter hanya PR dengan id_skema sesuai user login
+        (!userSkemaId || String(pr.id_skema ?? pr.skema) === userSkemaId)
     )
     .map((pr) => ({
       ...pr,
@@ -554,52 +559,40 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[140px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            No. PR
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            No. PR <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
                             placeholder="Cari No. PR..."
                             value={noPRSearchTerm}
                             onChange={(e) => setNoPRSearchTerm(e.target.value)}
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueNoPR
-                              .filter((noPR) =>
-                                noPR
+                              .filter((no) =>
+                                no
                                   .toLowerCase()
                                   .includes(noPRSearchTerm.toLowerCase())
                               )
-                              .map((noPR) => (
+                              .map((no) => (
                                 <div
-                                  key={noPR}
+                                  key={no}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`noPR-${noPR}`}
-                                    checked={filterNoPR.includes(noPR)}
+                                    checked={filterNoPR.includes(no)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterNoPR([...filterNoPR, noPR]);
-                                      } else {
+                                      if (checked)
+                                        setFilterNoPR([...filterNoPR, no]);
+                                      else
                                         setFilterNoPR(
-                                          filterNoPR.filter((f) => f !== noPR)
+                                          filterNoPR.filter((x) => x !== no)
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`noPR-${noPR}`}
-                                    className="text-sm"
-                                  >
-                                    {noPR}
-                                  </Label>
+                                  <Label className="text-sm">{no}</Label>
                                 </div>
                               ))}
                           </div>
@@ -610,27 +603,22 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[140px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Tanggal PR
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Tanggal PR <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
-                            type="date"
+                            placeholder="Cari tanggal..."
                             value={tanggalPRSearchTerm}
                             onChange={(e) =>
                               setTanggalPRSearchTerm(e.target.value)
                             }
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueTanggalPR
                               .filter((tgl) =>
-                                formatTanggal(tgl)
+                                tgl
                                   .toLowerCase()
                                   .includes(tanggalPRSearchTerm.toLowerCase())
                               )
@@ -640,29 +628,22 @@ export default function StatusPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`tglPR-${tgl}`}
                                     checked={filterTanggalPR.includes(tgl)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
+                                      if (checked)
                                         setFilterTanggalPR([
                                           ...filterTanggalPR,
                                           tgl,
                                         ]);
-                                      } else {
+                                      else
                                         setFilterTanggalPR(
                                           filterTanggalPR.filter(
-                                            (f) => f !== tgl
+                                            (x) => x !== tgl
                                           )
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`tglPR-${tgl}`}
-                                    className="text-sm"
-                                  >
-                                    {formatTanggal(tgl)}
-                                  </Label>
+                                  <Label className="text-sm">{tgl}</Label>
                                 </div>
                               ))}
                           </div>
@@ -673,22 +654,17 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[180px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Daftar Barang
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Nama Barang <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
-                            placeholder="Cari nama barang..."
+                            placeholder="Cari barang..."
                             value={filterNamaBarang}
                             onChange={(e) =>
                               setFilterNamaBarang(e.target.value)
                             }
-                            className="mb-2"
                           />
                         </PopoverContent>
                       </Popover>
@@ -697,30 +673,22 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[90px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Quantity PR
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Qty <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
-                            type="number"
                             placeholder="Cari Qty..."
                             value={filterQtySearchTerm}
                             onChange={(e) =>
                               setFilterQtySearchTerm(e.target.value)
                             }
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueQty
                               .filter((qty) =>
-                                String(
-                                  Number(qty) % 1 === 0 ? Number(qty) : qty
-                                )
+                                String(qty)
                                   .toLowerCase()
                                   .includes(filterQtySearchTerm.toLowerCase())
                               )
@@ -730,24 +698,17 @@ export default function StatusPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`qty-${qty}`}
                                     checked={filterQty.includes(qty)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
+                                      if (checked)
                                         setFilterQty([...filterQty, qty]);
-                                      } else {
+                                      else
                                         setFilterQty(
-                                          filterQty.filter((f) => f !== qty)
+                                          filterQty.filter((x) => x !== qty)
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`qty-${qty}`}
-                                    className="text-sm"
-                                  >
-                                    {Number(qty) % 1 === 0 ? Number(qty) : qty}
-                                  </Label>
+                                  <Label className="text-sm">{qty}</Label>
                                 </div>
                               ))}
                           </div>
@@ -758,61 +719,42 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[90px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Satuan
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Satuan <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
                             placeholder="Cari satuan..."
                             value={satuanSearchTerm}
                             onChange={(e) =>
                               setSatuanSearchTerm(e.target.value)
                             }
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueSatuan
-                              .filter(
-                                (satuan) =>
-                                  typeof satuan === "string" &&
-                                  satuan
-                                    .toLowerCase()
-                                    .includes(satuanSearchTerm.toLowerCase())
+                              .filter((s) =>
+                                s
+                                  .toLowerCase()
+                                  .includes(satuanSearchTerm.toLowerCase())
                               )
-                              .map((satuan) => (
+                              .map((s) => (
                                 <div
-                                  key={satuan}
+                                  key={s}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`satuan-${satuan}`}
-                                    checked={filterSatuan.includes(satuan)}
+                                    checked={filterSatuan.includes(s)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterSatuan([
-                                          ...filterSatuan,
-                                          satuan,
-                                        ]);
-                                      } else {
+                                      if (checked)
+                                        setFilterSatuan([...filterSatuan, s]);
+                                      else
                                         setFilterSatuan(
-                                          filterSatuan.filter(
-                                            (f) => f !== satuan
-                                          )
+                                          filterSatuan.filter((x) => x !== s)
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`satuan-${satuan}`}
-                                    className="text-sm"
-                                  >
-                                    {satuan}
-                                  </Label>
+                                  <Label className="text-sm">{s}</Label>
                                 </div>
                               ))}
                           </div>
@@ -823,22 +765,17 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[160px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Keterangan
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Keterangan <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
                             placeholder="Cari keterangan..."
                             value={filterKeterangan}
                             onChange={(e) =>
                               setFilterKeterangan(e.target.value)
                             }
-                            className="mb-2"
                           />
                         </PopoverContent>
                       </Popover>
@@ -847,59 +784,42 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[100px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Urgensi
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Urgensi <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
                             placeholder="Cari urgensi..."
                             value={urgensiSearchTerm}
                             onChange={(e) =>
                               setUrgensiSearchTerm(e.target.value)
                             }
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueUrgensi
-                              .filter((urgensi) =>
-                                urgensi
+                              .filter((u) =>
+                                u
                                   .toLowerCase()
                                   .includes(urgensiSearchTerm.toLowerCase())
                               )
-                              .map((urgensi) => (
+                              .map((u) => (
                                 <div
-                                  key={urgensi}
+                                  key={u}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`urgensi-${urgensi}`}
-                                    checked={filterUrgensi.includes(urgensi)}
+                                    checked={filterUrgensi.includes(u)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterUrgensi([
-                                          ...filterUrgensi,
-                                          urgensi,
-                                        ]);
-                                      } else {
+                                      if (checked)
+                                        setFilterUrgensi([...filterUrgensi, u]);
+                                      else
                                         setFilterUrgensi(
-                                          filterUrgensi.filter(
-                                            (f) => f !== urgensi
-                                          )
+                                          filterUrgensi.filter((x) => x !== u)
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`urgensi-${urgensi}`}
-                                    className="text-sm"
-                                  >
-                                    {urgensi}
-                                  </Label>
+                                  <Label className="text-sm">{u}</Label>
                                 </div>
                               ))}
                           </div>
@@ -910,59 +830,42 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[100px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Divisi
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Divisi <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
                             placeholder="Cari divisi..."
                             value={divisiSearchTerm}
                             onChange={(e) =>
                               setDivisiSearchTerm(e.target.value)
                             }
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueDivisi
-                              .filter((divisi) =>
-                                divisi
+                              .filter((d) =>
+                                d
                                   .toLowerCase()
                                   .includes(divisiSearchTerm.toLowerCase())
                               )
-                              .map((divisi) => (
+                              .map((d) => (
                                 <div
-                                  key={divisi}
+                                  key={d}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`divisi-${divisi}`}
-                                    checked={filterDivisi.includes(divisi)}
+                                    checked={filterDivisi.includes(d)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterDivisi([
-                                          ...filterDivisi,
-                                          divisi,
-                                        ]);
-                                      } else {
+                                      if (checked)
+                                        setFilterDivisi([...filterDivisi, d]);
+                                      else
                                         setFilterDivisi(
-                                          filterDivisi.filter(
-                                            (f) => f !== divisi
-                                          )
+                                          filterDivisi.filter((x) => x !== d)
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`divisi-${divisi}`}
-                                    className="text-sm"
-                                  >
-                                    {divisi}
-                                  </Label>
+                                  <Label className="text-sm">{d}</Label>
                                 </div>
                               ))}
                           </div>
@@ -973,59 +876,42 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[100px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Status
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Status <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
                             placeholder="Cari status..."
                             value={statusSearchTerm}
                             onChange={(e) =>
                               setStatusSearchTerm(e.target.value)
                             }
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueStatus
-                              .filter((status) =>
-                                status
+                              .filter((s) =>
+                                s
                                   .toLowerCase()
                                   .includes(statusSearchTerm.toLowerCase())
                               )
-                              .map((status) => (
+                              .map((s) => (
                                 <div
-                                  key={status}
+                                  key={s}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`status-${status}`}
-                                    checked={filterStatus.includes(status)}
+                                    checked={filterStatus.includes(s)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterStatus([
-                                          ...filterStatus,
-                                          status,
-                                        ]);
-                                      } else {
+                                      if (checked)
+                                        setFilterStatus([...filterStatus, s]);
+                                      else
                                         setFilterStatus(
-                                          filterStatus.filter(
-                                            (f) => f !== status
-                                          )
+                                          filterStatus.filter((x) => x !== s)
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`status-${status}`}
-                                    className="text-sm"
-                                  >
-                                    {status}
-                                  </Label>
+                                  <Label className="text-sm">{s}</Label>
                                 </div>
                               ))}
                           </div>
@@ -1036,61 +922,47 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[120px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Dibuat Oleh
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Dibuat Oleh <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
-                            placeholder="Cari nama..."
+                            placeholder="Cari pembuat..."
                             value={dibuatOlehSearchTerm}
                             onChange={(e) =>
                               setDibuatOlehSearchTerm(e.target.value)
                             }
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueDibuatOleh
-                              .filter((nama) =>
-                                (nama ?? "")
+                              .filter((d) =>
+                                d
                                   .toLowerCase()
-                                  .includes(
-                                    (dibuatOlehSearchTerm ?? "").toLowerCase()
-                                  )
+                                  .includes(dibuatOlehSearchTerm.toLowerCase())
                               )
-                              .map((nama) => (
+                              .map((d) => (
                                 <div
-                                  key={nama}
+                                  key={d}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`dibuatOleh-${nama}`}
-                                    checked={filterDibuatOleh.includes(nama)}
+                                    checked={filterDibuatOleh.includes(d)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
+                                      if (checked)
                                         setFilterDibuatOleh([
                                           ...filterDibuatOleh,
-                                          nama,
+                                          d,
                                         ]);
-                                      } else {
+                                      else
                                         setFilterDibuatOleh(
                                           filterDibuatOleh.filter(
-                                            (f) => f !== nama
+                                            (x) => x !== d
                                           )
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`dibuatOleh-${nama}`}
-                                    className="text-sm"
-                                  >
-                                    {nama}
-                                  </Label>
+                                  <Label className="text-sm">{d}</Label>
                                 </div>
                               ))}
                           </div>
@@ -1101,54 +973,40 @@ export default function StatusPOPage() {
                     <TableHead className="min-w-[120px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Skema
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
+                          <button className="inline-flex items-center gap-1">
+                            Skema <ChevronDown className="w-4 h-4" />
+                          </button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                        <PopoverContent className="w-48 p-2 bg-white">
                           <Input
                             placeholder="Cari skema..."
                             value={skemaSearchTerm}
                             onChange={(e) => setSkemaSearchTerm(e.target.value)}
-                            className="mb-2"
                           />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
+                          <div className="max-h-40 overflow-y-auto mt-2">
                             {uniqueSkema
-                              .filter(
-                                (skema) =>
-                                  typeof skema === "string" &&
-                                  skema
-                                    .toLowerCase()
-                                    .includes(skemaSearchTerm.toLowerCase())
+                              .filter((s) =>
+                                String(s)
+                                  .toLowerCase()
+                                  .includes(skemaSearchTerm.toLowerCase())
                               )
-                              .map((skema) => (
+                              .map((s) => (
                                 <div
-                                  key={skema}
+                                  key={s}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
-                                    id={`skema-${skema}`}
-                                    checked={filterSkema.includes(skema)}
+                                    checked={filterSkema.includes(s)}
                                     onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterSkema([...filterSkema, skema]);
-                                      } else {
+                                      if (checked)
+                                        setFilterSkema([...filterSkema, s]);
+                                      else
                                         setFilterSkema(
-                                          filterSkema.filter((f) => f !== skema)
+                                          filterSkema.filter((x) => x !== s)
                                         );
-                                      }
                                     }}
                                   />
-                                  <Label
-                                    htmlFor={`skema-${skema}`}
-                                    className="text-sm"
-                                  >
-                                    {skema}
-                                  </Label>
+                                  <Label className="text-sm">{s}</Label>
                                 </div>
                               ))}
                           </div>
@@ -1216,6 +1074,7 @@ export default function StatusPOPage() {
                             {pr.dibuatOleh}
                           </TableCell>
                           <TableCell rowSpan={filteredItems.length}>
+                            {/* Skema: tampilkan label skema */}
                             {pr.skemaLabel ?? pr.skema ?? ""}
                           </TableCell>
                         </TableRow>

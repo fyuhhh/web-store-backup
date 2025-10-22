@@ -62,6 +62,17 @@ function formatTanggal(tgl: string | null | undefined) {
   return `${d}-${m}-${y}`;
 }
 
+// Helper untuk format integer tanpa .00
+function formatInt(val: any) {
+  if (val === undefined || val === null || val === "") return "";
+  const num = Number(val);
+  return Number.isNaN(num)
+    ? ""
+    : num % 1 === 0
+    ? num.toString()
+    : num.toFixed(2);
+}
+
 export default function BTBMonitoringPage() {
   const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -90,9 +101,12 @@ export default function BTBMonitoringPage() {
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
   const [userSchema, setUserSchema] = useState<string>("");
+  const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
   const [loading, setLoading] = useState(false);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
+  // Tambahkan state selectedBTBIds
+  const [selectedBTBIds, setSelectedBTBIds] = useState<string[]>([]);
 
   // Ambil data dari backend
   useEffect(() => {
@@ -174,6 +188,7 @@ export default function BTBMonitoringPage() {
   useEffect(() => {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.skema || "");
+    setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
   }, []);
 
   // Compute unique values for filters dari btbRows
@@ -189,12 +204,15 @@ export default function BTBMonitoringPage() {
 
   // Filter data
   const filteredBTBData = btbRows
-    .filter((row) => !userSchema || row.skema === userSchema)
+    // Filter hanya BTB dengan id_skema sesuai user login
+    .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
     .filter((row) => {
       const matchesSearch =
         row.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
         String(row.supplier).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.barang.toLowerCase().includes(searchTerm.toLowerCase());
+        String(row.barang ?? "")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase());
 
       const matchesStatus = !filterStatus || row.status === filterStatus;
 
@@ -269,7 +287,7 @@ export default function BTBMonitoringPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring BTB");
 
-    // Header sesuai tabel monitoring
+    // Header sesuai urutan tabel monitoring BTB
     const headers = [
       "No. BTB",
       "Tanggal BTB",
@@ -278,6 +296,7 @@ export default function BTBMonitoringPage() {
       "Nama Barang",
       "Quantity",
       "Satuan",
+      "Sisa Stok",
       "Biaya",
       "Diterima Oleh",
       "Skema",
@@ -290,29 +309,40 @@ export default function BTBMonitoringPage() {
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Add data rows
+    // Helper format tanggal ke dd-mm-yyyy
+    function formatTanggalExcel(tgl: string | null | undefined) {
+      if (!tgl) return "";
+      const [date] = tgl.split("T");
+      const [y, m, d] = date.split("-");
+      return y && m && d ? `${d}-${m}-${y}` : tgl;
+    }
+    // Helper format quantity
+    function formatQtyExcel(val: any) {
+      const num = Number(val);
+      if (Number.isNaN(num)) return "";
+      return num % 1 === 0 ? num.toString() : num.toString();
+    }
+    // Helper format rupiah
+    function formatRupiah(val: any) {
+      if (val === undefined || val === "" || isNaN(val)) return "";
+      return "Rp " + Number(val).toLocaleString("id-ID");
+    }
+
+    // Add data rows persis seperti tampilan tabel
     exportBTBData.forEach((btb) => {
-      const items =
-        btb.items && Array.isArray(btb.items) && btb.items.length > 0
-          ? btb.items
-          : btb.barang
-          ? [{ barang: btb.barang, jumlah: btb.jumlah, satuan: btb.satuan }]
-          : [];
-      if (items.length === 0) return;
-      items.forEach((item, idx) => {
-        worksheet.addRow([
-          idx === 0 ? btb.noBTB : "",
-          idx === 0 ? btb.tanggal : "",
-          idx === 0 ? btb.periode : "",
-          idx === 0 ? btb.supplier : "",
-          item.barang ?? "",
-          item.jumlah ?? "",
-          item.satuan ?? "",
-          idx === 0 ? formatRupiah(btb.biaya) : "",
-          idx === 0 ? btb.diterimaOleh ?? "" : "",
-          idx === 0 ? btb.skema ?? "" : "",
-        ]);
-      });
+      worksheet.addRow([
+        btb.noBTB,
+        formatTanggalExcel(btb.tanggal),
+        btb.periode,
+        btb.nama_supplier ?? btb.supplier ?? "",
+        btb.nama_barang ?? "",
+        formatQtyExcel(btb.jumlah),
+        btb.satuan ?? "",
+        formatQtyExcel(btb.sisa),
+        formatRupiah(btb.biaya),
+        userMap[String(btb.diterimaOleh)] ?? btb.diterimaOleh ?? "",
+        skemaMap[String(btb.skema)] ?? btb.skema ?? "",
+      ]);
     });
 
     // Auto-fit columns based on max length of cell values
@@ -476,10 +506,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[140px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             No. BTB <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -496,10 +523,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[120px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             Tanggal BTB <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -556,10 +580,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[120px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             Periode <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -606,10 +627,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[160px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             Nama Supplier <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -666,10 +684,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[160px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             Nama Barang <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -688,10 +703,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[90px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             Quantity BTB <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -729,10 +741,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[90px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             Satuan <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -784,10 +793,7 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[90px]">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                          >
+                          <button className="inline-flex items-center gap-1">
                             Sisa Stok <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
@@ -801,7 +807,39 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Biaya */}
                     <TableHead className="text-left min-w-[120px]">
-                      Biaya
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="inline-flex items-center gap-1">
+                            Biaya <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2 bg-white">
+                          <Input
+                            placeholder="Min Biaya"
+                            type="number"
+                            value={filterBiayaMin}
+                            onChange={(e) =>
+                              setFilterBiayaMin(
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value)
+                              )
+                            }
+                          />
+                          <Input
+                            placeholder="Max Biaya"
+                            type="number"
+                            value={filterBiayaMax}
+                            onChange={(e) =>
+                              setFilterBiayaMax(
+                                e.target.value === ""
+                                  ? ""
+                                  : Number(e.target.value)
+                              )
+                            }
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </TableHead>
                     {/* Diterima Oleh */}
                     <TableHead className="text-left min-w-[120px]">
@@ -867,7 +905,7 @@ export default function BTBMonitoringPage() {
                           </TableCell>
                           {/* Quantity */}
                           <TableCell className="px-4 py-2 text-left">
-                            {row.jumlah}
+                            {formatInt(row.jumlah)}
                           </TableCell>
                           {/* Satuan */}
                           <TableCell className="px-4 py-2 text-left">
@@ -880,7 +918,7 @@ export default function BTBMonitoringPage() {
                                 Number(row.sisa) > 0 ? "default" : "destructive"
                               }
                             >
-                              {row.sisa}
+                              {formatInt(row.sisa)}
                             </Badge>
                           </TableCell>
                           {/* Biaya */}

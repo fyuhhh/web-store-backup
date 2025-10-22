@@ -10,6 +10,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -20,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import {
   Pagination,
   PaginationContent,
@@ -28,6 +36,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import * as ExcelJS from "exceljs";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Helper format tanggal DD-MM-YYYY
 function formatTanggal(tgl: string | null | undefined) {
@@ -48,6 +58,15 @@ export default function BKBMonitoringPage() {
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
   const [satuanMap, setSatuanMap] = useState<Record<string, string>>({});
   const [btbMap, setBtbMap] = useState<Record<string, string>>({});
+  const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
+
+  // Tambahkan state untuk export
+  const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
+    "all"
+  );
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+  const [selectedBKBIds, setSelectedBKBIds] = useState<string[]>([]);
 
   // Fetch satuan list from backend and build mapping
   useEffect(() => {
@@ -130,14 +149,129 @@ export default function BKBMonitoringPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [satuanMap]); // refetch rows when satuanMap ready
 
+  // Ambil id_skema user dari localStorage
+  useEffect(() => {
+    const userRaw = localStorage.getItem("userData");
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        setUserSkemaId(String(user.id_skema ?? user.skema ?? ""));
+      } catch {}
+    }
+  }, []);
+
   // Filter data
-  const filteredBKBData = bkbRows.filter((row) => {
-    const matchesSearch =
-      row.noBKB.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      row.namaBarang.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      row.keterangan.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
-  });
+  const filteredBKBData = bkbRows
+    // Filter hanya BKB dengan id_skema sesuai user login
+    .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
+    .filter((row) => {
+      const matchesSearch =
+        row.noBKB.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.namaBarang.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        row.keterangan.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSearch;
+    });
+
+  // Data untuk export sesuai mode
+  const getExportBKBData = () => {
+    if (exportMode === "selected") {
+      return filteredBKBData.filter((row) => selectedBKBIds.includes(row.id));
+    }
+    if (exportMode === "range" && exportStartDate && exportEndDate) {
+      return filteredBKBData.filter(
+        (row) =>
+          row.tanggalBKB >= exportStartDate && row.tanggalBKB <= exportEndDate
+      );
+    }
+    return filteredBKBData;
+  };
+
+  // Export Excel function
+  const handleExport = async () => {
+    const exportBKBData = getExportBKBData();
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Monitoring BKB");
+
+    // Header sesuai urutan tabel monitoring BKB
+    const headers = [
+      "No. BKB",
+      "Tanggal BKB",
+      "Nama Barang",
+      "Quantity BKB",
+      "Satuan",
+      "Keterangan",
+      "Dikeluarkan Oleh",
+      "Skema",
+    ];
+
+    // Add header row
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "left", vertical: "middle" };
+    });
+
+    // Helper format tanggal ke dd-mm-yyyy
+    function formatTanggalExcel(tgl: string | null | undefined) {
+      if (!tgl) return "";
+      const [date] = tgl.split("T");
+      const [y, m, d] = date.split("-");
+      return y && m && d ? `${d}-${m}-${y}` : tgl;
+    }
+    // Helper format quantity
+    function formatQtyExcel(val: any) {
+      const num = Number(val);
+      if (Number.isNaN(num)) return "";
+      return num % 1 === 0 ? num.toString() : num.toString();
+    }
+
+    // Add data rows persis seperti tampilan tabel
+    exportBKBData.forEach((row) => {
+      worksheet.addRow([
+        row.noBKB,
+        formatTanggalExcel(row.tanggalBKB),
+        row.namaBarang,
+        formatQtyExcel(row.quantity),
+        row.satuan ?? "",
+        row.keterangan ?? "",
+        userMap[String(row.dikeluarkanOleh)] ?? row.dikeluarkanOleh ?? "",
+        skemaMap[String(row.skema)] ?? row.skema ?? "",
+      ]);
+    });
+
+    // Auto-fit columns based on max length of cell values
+    worksheet.columns.forEach((column) => {
+      let maxLength = 10;
+      column.eachCell({ includeEmpty: true }, (cell) => {
+        const cellValue = cell.value ? String(cell.value) : "";
+        maxLength = Math.max(maxLength, cellValue.length + 2);
+      });
+      column.width = maxLength;
+    });
+
+    // Set row heights for better readability
+    worksheet.eachRow((row, rowNumber) => {
+      row.height = rowNumber === 1 ? 22 : 18;
+      row.alignment = { vertical: "middle" };
+    });
+
+    // Freeze header row
+    worksheet.views = [{ state: "frozen", ySplit: 1 }];
+
+    // Download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `monitoring-bkb-${
+      new Date().toISOString().split("T")[0]
+    }.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   // Pagination logic
   const totalPages = Math.ceil(filteredBKBData.length / itemsPerPage);
@@ -149,6 +283,7 @@ export default function BKBMonitoringPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
@@ -158,13 +293,59 @@ export default function BKBMonitoringPage() {
               Pantau pengeluaran barang dari BTB
             </p>
           </div>
-          <div>
-            <Input
-              placeholder="Cari No. BKB / Barang / Keterangan..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-64"
-            />
+          <div className="flex items-center gap-3 bg-muted/40 px-4 py-2 rounded-lg">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="exportMode" className="text-xs font-medium">
+                Mode Export
+              </Label>
+              <Select
+                value={exportMode}
+                onValueChange={(val) =>
+                  setExportMode(val as "all" | "selected" | "range")
+                }
+              >
+                <SelectTrigger id="exportMode" className="w-[140px] h-9">
+                  <SelectValue placeholder="Export Mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="selected">Terpilih</SelectItem>
+                  <SelectItem value="range">Rentang Tanggal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {exportMode === "range" && (
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs font-medium">Tanggal</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    className="w-[130px] h-9"
+                    placeholder="Mulai"
+                  />
+                  <span className="mx-1">-</span>
+                  <Input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    className="w-[130px] h-9"
+                    placeholder="Akhir"
+                  />
+                </div>
+              </div>
+            )}
+            <Button
+              onClick={handleExport}
+              className="bg-primary hover:bg-primary/90 h-9"
+              disabled={
+                (exportMode === "selected" && selectedBKBIds.length === 0) ||
+                (exportMode === "range" && (!exportStartDate || !exportEndDate))
+              }
+            >
+              Export Excel
+            </Button>
           </div>
         </div>
         <Card className="bg-card border-border">
@@ -188,6 +369,28 @@ export default function BKBMonitoringPage() {
               <Table className="border border-gray-300">
                 <TableHeader>
                   <TableRow>
+                    {/* Checkbox header untuk export terpilih */}
+                    <TableHead>
+                      {exportMode === "selected" && (
+                        <Checkbox
+                          checked={paginatedData.every((row) =>
+                            selectedBKBIds.includes(row.id)
+                          )}
+                          onCheckedChange={(checked) => {
+                            const pageIds = paginatedData.map((row) => row.id);
+                            if (checked) {
+                              setSelectedBKBIds((prev) =>
+                                Array.from(new Set([...prev, ...pageIds]))
+                              );
+                            } else {
+                              setSelectedBKBIds((prev) =>
+                                prev.filter((id) => !pageIds.includes(id))
+                              );
+                            }
+                          }}
+                        />
+                      )}
+                    </TableHead>
                     <TableHead>No. BKB</TableHead>
                     <TableHead>Tanggal BKB</TableHead>
                     <TableHead>Nama Barang</TableHead>
@@ -206,6 +409,23 @@ export default function BKBMonitoringPage() {
                   ) : (
                     paginatedData.map((row, idx) => (
                       <TableRow key={row.id}>
+                        {/* Checkbox cell agar jumlah kolom selalu sama */}
+                        {exportMode === "selected" ? (
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedBKBIds.includes(row.id)}
+                              onCheckedChange={(checked) => {
+                                setSelectedBKBIds((prev) =>
+                                  checked
+                                    ? [...prev, row.id]
+                                    : prev.filter((id) => id !== row.id)
+                                );
+                              }}
+                            />
+                          </TableCell>
+                        ) : (
+                          <TableCell />
+                        )}
                         <TableCell>{row.noBKB}</TableCell>
                         <TableCell>{formatTanggal(row.tanggalBKB)}</TableCell>
                         <TableCell>{row.namaBarang}</TableCell>

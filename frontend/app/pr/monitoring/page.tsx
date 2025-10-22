@@ -111,6 +111,9 @@ export default function MonitoringPRPage() {
   const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
   const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
   const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
+  const [skemaOptions, setSkemaOptions] = useState<any[]>([]);
+  // Ganti default value dari "" ke "all"
+  const [filterSkemaId, setFilterSkemaId] = useState<string>("all");
   // Compute unique values
   const uniqueSatuan = Array.from(
     new Set(prData.flatMap((pr) => pr.items?.map((item) => item.satuan) || []))
@@ -148,6 +151,8 @@ export default function MonitoringPRPage() {
 
   const [userSchema, setUserSchema] = useState<string>("");
   const [userSkema, setUserSkema] = useState<string>("");
+  // Tambahkan state untuk id_skema user
+  const [userSkemaId, setUserSkemaId] = useState<string | null>(null);
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
@@ -160,9 +165,14 @@ export default function MonitoringPRPage() {
     fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
+    fetch("http://localhost:5000/api/skema")
+      .then((res) => res.json())
+      .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.schema || "");
     setUserSkema(userData.skema || "");
+    // Ambil id_skema dari localStorage (userData)
+    setUserSkemaId(String(userData.id_skema ?? userData.skema ?? ""));
   }, []);
 
   useEffect(() => {
@@ -338,9 +348,9 @@ export default function MonitoringPRPage() {
     return `${d}-${m}-${y}`;
   }
 
-  // Filter data
+  // Filter data: hanya tampilkan PR dengan id_skema sesuai user login
   const filteredPRData = prData
-    .filter((pr) => !userSkema || pr.skema === userSkema) // ganti schema -> skema
+    .filter((pr) => (userSkemaId ? String(pr.skema) === userSkemaId : true))
     .map((pr) => {
       // Status default "Diproses" jika belum ada status, atau gunakan status yang sudah ada
       let status = pr.status || "Diproses";
@@ -437,7 +447,11 @@ export default function MonitoringPRPage() {
         matchesDibuatOleh &&
         matchesSkema
       );
-    });
+    })
+    // Ganti filter logic: jika "all", tampilkan semua
+    .filter(
+      (pr) => filterSkemaId === "all" || String(pr.skema) === filterSkemaId
+    );
   //.filter((pr) => pr.items?.some((item) => item.jumlah > 0));
 
   // Pagination logic
@@ -521,6 +535,7 @@ export default function MonitoringPRPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PR");
 
+    // Header sesuai urutan tabel monitoring PR
     const headers = [
       "No. PR",
       "Tanggal PR",
@@ -533,6 +548,7 @@ export default function MonitoringPRPage() {
       "Divisi",
       "Status",
       "Dibuat Oleh",
+      "Skema",
     ];
 
     // Add header row with bold font
@@ -542,35 +558,53 @@ export default function MonitoringPRPage() {
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Prepare and add data rows
+    // Helper format tanggal ke dd-mm-yyyy
+    function formatTanggalExcel(tgl: string) {
+      if (!tgl) return "";
+      const [date] = tgl.split("T");
+      const [y, m, d] = date.split("-");
+      return y && m && d ? `${d}-${m}-${y}` : tgl;
+    }
+    // Helper format quantity
+    function formatQtyExcel(val: any) {
+      const num = Number(val);
+      if (Number.isNaN(num)) return "";
+      return num % 1 === 0 ? num.toString() : num.toString();
+    }
+
+    // Prepare and add data rows persis seperti tampilan tabel
     exportPRData.forEach((pr) => {
       const validItems = pr.items?.filter((item) => item.jumlah > 0) || [];
       if (validItems.length > 0) {
         validItems.forEach((item, index) => {
-          const rowData = [
+          worksheet.addRow([
             index === 0 ? pr.noPR : "",
-            index === 0 ? pr.tanggalPR : "",
+            index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
             item.namaBarang,
-            String(item.jumlah),
-            String(item.quantityAwalPR),
+            formatQtyExcel(item.jumlah),
+            formatQtyExcel(item.quantityAwalPR),
             item.satuan,
             item.keterangan || "",
             index === 0 ? pr.urgensi : "",
             index === 0 ? pr.divisi : "",
             index === 0 ? pr.status : "",
             index === 0 ? pr.dibuatOleh : "",
-          ];
-
-          const dataRow = worksheet.addRow(rowData);
-          dataRow.eachCell((cell) => {
-            cell.alignment = { horizontal: "left", vertical: "middle" };
-          });
+            index === 0
+              ? skemaOptions.find(
+                  (s) => String(s.id_skema) === String(pr.skema)
+                )?.skema ??
+                pr.skemaLabel ??
+                pr.skema ??
+                ""
+              : "",
+          ]);
         });
       } else {
-        // Handle PR without items
-        const rowData = [
+        // Handle PR tanpa item
+        worksheet.addRow([
           pr.noPR,
-          pr.tanggalPR,
+          formatTanggalExcel(pr.tanggalPR),
+          "",
           "",
           "",
           "",
@@ -579,12 +613,12 @@ export default function MonitoringPRPage() {
           pr.divisi,
           pr.status,
           pr.dibuatOleh,
-        ];
-
-        const dataRow = worksheet.addRow(rowData);
-        dataRow.eachCell((cell) => {
-          cell.alignment = { horizontal: "left", vertical: "middle" };
-        });
+          skemaOptions.find((s) => String(s.id_skema) === String(pr.skema))
+            ?.skema ??
+            pr.skemaLabel ??
+            pr.skema ??
+            "",
+        ]);
       }
     });
 
@@ -722,6 +756,30 @@ export default function MonitoringPRPage() {
             </p>
           </div>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
+            {/* --- Filter skema --- */}
+            <div className="flex items-center gap-2">
+              <Label htmlFor="filterSkemaId" className="text-xs font-medium">
+                Filter Skema
+              </Label>
+              <Select value={filterSkemaId} onValueChange={setFilterSkemaId}>
+                <SelectTrigger id="filterSkemaId" className="w-[140px] h-9">
+                  <SelectValue placeholder="Semua Skema" />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* Ganti value dari "" ke "all" */}
+                  <SelectItem value="all">Semua Skema</SelectItem>
+                  {skemaOptions.map((skema) => (
+                    <SelectItem
+                      key={skema.id_skema}
+                      value={String(skema.id_skema)}
+                    >
+                      {skema.skema}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* --- existing export mode filter --- */}
             <div className="flex items-center gap-2">
               <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
                 Mode Export
@@ -1120,10 +1178,6 @@ export default function MonitoringPRPage() {
                                     checked={filterSatuan.includes(satuan)}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
-                                        setFilterSatuan([
-                                          ...filterSatuan,
-                                          satuan,
-                                        ]);
                                       } else {
                                         setFilterSatuan(
                                           filterSatuan.filter(
@@ -1437,66 +1491,7 @@ export default function MonitoringPRPage() {
                       </Popover>
                     </TableHead>
                     {/* Skema */}
-                    <TableHead className="min-w-[120px]">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Skema
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                          <Label className="text-sm font-medium">
-                            Cari Skema
-                          </Label>
-                          <Input
-                            placeholder="Cari skema..."
-                            value={skemaSearchTerm}
-                            onChange={(e) => setSkemaSearchTerm(e.target.value)}
-                            className="mb-2"
-                          />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
-                            {uniqueSkema
-                              .filter(
-                                (skema) =>
-                                  typeof skema === "string" &&
-                                  skema
-                                    .toLowerCase()
-                                    .includes(skemaSearchTerm.toLowerCase())
-                              )
-                              .map((skema) => (
-                                <div
-                                  key={skema}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    id={`skema-${skema}`}
-                                    checked={filterSkema.includes(skema)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterSkema([...filterSkema, skema]);
-                                      } else {
-                                        setFilterSkema(
-                                          filterSkema.filter((f) => f !== skema)
-                                        );
-                                      }
-                                    }}
-                                  />
-                                  <Label
-                                    htmlFor={`skema-${skema}`}
-                                    className="text-sm"
-                                  >
-                                    {skema}
-                                  </Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
+                    <TableHead className="min-w-[120px]">Skema</TableHead>
                     <TableHead className="min-w-[120px]">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1569,7 +1564,13 @@ export default function MonitoringPRPage() {
                             {pr.dibuatOleh}
                           </TableCell>
                           <TableCell rowSpan={validItems.length}>
-                            {pr.skemaLabel ?? pr.skema ?? ""}
+                            {/* Tampilkan label skema dari skemaOptions */}
+                            {skemaOptions.find(
+                              (s) => String(s.id_skema) === String(pr.skema)
+                            )?.skema ??
+                              pr.skemaLabel ??
+                              pr.skema ??
+                              ""}
                           </TableCell>
                           <TableCell rowSpan={validItems.length}>
                             <div className="flex space-x-1">

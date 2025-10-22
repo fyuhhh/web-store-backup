@@ -67,31 +67,31 @@ const menuItems = [
     href: "/dashboard/rekap-full",
     icon: BarChart3,
   },
-  {
-    title: "Biaya Plan",
-    href: "/biaya-plan",
-    icon: Calculator,
-  },
-  {
-    title: "Rekap Sasaran Mutu",
-    href: "/rekap-sasaran-mutu",
-    icon: Target,
-  },
-  {
-    title: "Analisa Sasaran Mutu",
-    href: "/analisa-sasaran-mutu",
-    icon: BarChart3,
-  },
-  {
-    title: "Cost Supplier",
-    href: "/cost-supplier",
-    icon: DollarSign,
-  },
-  {
-    title: "Data Evaluasi Supplier",
-    href: "/evaluasi-supplier",
-    icon: Users,
-  },
+  // {
+  //   title: "Biaya Plan",
+  //   href: "/biaya-plan",
+  //   icon: Calculator,
+  // },
+  // {
+  //   title: "Rekap Sasaran Mutu",
+  //   href: "/rekap-sasaran-mutu",
+  //   icon: Target,
+  // },
+  // {
+  //   title: "Analisa Sasaran Mutu",
+  //   href: "/analisa-sasaran-mutu",
+  //   icon: BarChart3,
+  // },
+  // {
+  //   title: "Cost Supplier",
+  //   href: "/cost-supplier",
+  //   icon: DollarSign,
+  // },
+  // {
+  //   title: "Data Evaluasi Supplier",
+  //   href: "/evaluasi-supplier",
+  //   icon: Users,
+  // },
 ];
 
 export function Sidebar() {
