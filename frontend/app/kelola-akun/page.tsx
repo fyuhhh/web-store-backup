@@ -256,24 +256,31 @@ export default function KelolaAkunPage() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex justify-end mb-4">
-        <Button variant="outline" onClick={handleLogout}>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-100 py-8 px-2">
+      <div className="flex justify-end mb-4 max-w-7xl mx-auto">
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          className="border-primary text-primary hover:bg-primary/10"
+        >
           Keluar
         </Button>
       </div>
       <Card
-        className="shadow-lg border border-border rounded-xl bg-white mx-auto"
+        className="shadow-2xl border border-primary/20 rounded-2xl bg-white/90 mx-auto"
         style={{ maxWidth: "1300px" }}
       >
         <CardHeader>
-          <CardTitle>Kelola Akun</CardTitle>
+          <CardTitle className="text-2xl font-bold text-primary flex items-center gap-2">
+            <span className="inline-block w-2 h-6 bg-gradient-to-b from-primary to-indigo-400 rounded-full mr-2" />
+            Kelola Akun
+          </CardTitle>
           <div className="mt-2">
             <Select value={tab} onValueChange={(v) => setTab(v as any)}>
-              <SelectTrigger className="w-[200px] bg-white border border-border rounded-md">
+              <SelectTrigger className="w-[200px] bg-white border border-primary/30 rounded-md shadow">
                 <SelectValue placeholder="Pilih menu" />
               </SelectTrigger>
-              <SelectContent className="bg-white border border-border rounded-md shadow-md">
+              <SelectContent className="bg-white border border-primary/20 rounded-md shadow-md">
                 <SelectItem value="buat">Buat Akun Baru</SelectItem>
                 <SelectItem value="monitoring">Monitoring Akun</SelectItem>
               </SelectContent>
@@ -286,171 +293,187 @@ export default function KelolaAkunPage() {
               onSubmit={
                 editingIndex ? handleUpdateAccount : handleCreateAccount
               }
-              className="space-y-4"
+              className="space-y-6 bg-gradient-to-br from-white via-indigo-50 to-blue-50 p-6 rounded-xl shadow-inner"
             >
-              <div>
-                <Label>Nama Pengguna</Label>
-                <Input
-                  value={form.username}
-                  onChange={(e) =>
-                    setForm({ ...form, username: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label>Kata Sandi</Label>
-                <Input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div>
-                <Label>Peran</Label>
-                <Select
-                  value={form.role}
-                  onValueChange={(v) => setForm({ ...form, role: v })}
-                  required
-                >
-                  <SelectTrigger className="bg-white border border-border">
-                    <SelectValue placeholder="Pilih peran" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-border">
-                    {roleOptions.length === 0 ? (
-                      <SelectItem value="__loading" disabled>
-                        Memuat...
-                      </SelectItem>
-                    ) : (
-                      roleOptions.map((role: any) => (
-                        <SelectItem
-                          key={role.id_peran}
-                          value={String(role.id_peran)}
-                        >
-                          {role.peran}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label className="font-semibold text-primary">
+                    Nama Pengguna
+                  </Label>
+                  <Input
+                    value={form.username}
+                    onChange={(e) =>
+                      setForm({ ...form, username: e.target.value })
+                    }
+                    required
+                    className="rounded-lg border-primary/30 focus:border-primary focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold text-primary">
+                    Kata Sandi
+                  </Label>
+                  <Input
+                    type="password"
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                    required
+                    className="rounded-lg border-primary/30 focus:border-primary focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold text-primary">Peran</Label>
+                  <Select
+                    value={form.role}
+                    onValueChange={(v) => setForm({ ...form, role: v })}
+                    required
+                  >
+                    <SelectTrigger className="bg-white border border-primary/30 rounded-lg">
+                      <SelectValue placeholder="Pilih peran" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-primary/20">
+                      {roleOptions.length === 0 ? (
+                        <SelectItem value="__loading" disabled>
+                          Memuat...
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              {form.role &&
-                (getPeranName(Number(form.role)).toLowerCase() === "divisi" ||
-                  form.role === "2") && (
-                  <div>
-                    <Label>Divisi</Label>
-                    <Select
-                      value={form.division}
-                      onValueChange={(v) => setForm({ ...form, division: v })}
-                      required
-                    >
-                      <SelectTrigger className="bg-white border border-border">
-                        <SelectValue placeholder="Pilih divisi" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-border max-h-60 overflow-y-auto">
-                        {divisiOptions.length === 0 ? (
-                          <SelectItem value="__loading" disabled>
-                            Memuat...
+                      ) : (
+                        roleOptions.map((role: any) => (
+                          <SelectItem
+                            key={role.id_peran}
+                            value={String(role.id_peran)}
+                          >
+                            {role.peran}
                           </SelectItem>
-                        ) : (
-                          divisiOptions.map((div: any) => (
-                            <SelectItem
-                              key={div.id_divisi}
-                              value={String(div.id_divisi)}
-                            >
-                              {div.divisi}
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.role &&
+                  (getPeranName(Number(form.role)).toLowerCase() === "divisi" ||
+                    form.role === "2") && (
+                    <div>
+                      <Label className="font-semibold text-primary">
+                        Divisi
+                      </Label>
+                      <Select
+                        value={form.division}
+                        onValueChange={(v) => setForm({ ...form, division: v })}
+                        required
+                      >
+                        <SelectTrigger className="bg-white border border-primary/30 rounded-lg">
+                          <SelectValue placeholder="Pilih divisi" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border border-primary/20 max-h-60 overflow-y-auto">
+                          {divisiOptions.length === 0 ? (
+                            <SelectItem value="__loading" disabled>
+                              Memuat...
                             </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              <div>
-                <Label>Skema Database</Label>
-                <Select
-                  value={form.skema}
-                  onValueChange={(v) => setForm({ ...form, skema: v })}
-                  required
-                >
-                  <SelectTrigger className="bg-white border border-border">
-                    <SelectValue placeholder="Pilih skema database" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white border border-border">
-                    {schemaOptions.length === 0 ? (
-                      <SelectItem value="__loading" disabled>
-                        Memuat...
-                      </SelectItem>
-                    ) : (
-                      schemaOptions.map((schema: any) => (
-                        <SelectItem
-                          key={schema.id_skema}
-                          value={String(schema.id_skema)}
-                        >
-                          {schema.skema}
+                          ) : (
+                            divisiOptions.map((div: any) => (
+                              <SelectItem
+                                key={div.id_divisi}
+                                value={String(div.id_divisi)}
+                              >
+                                {div.divisi}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                <div>
+                  <Label className="font-semibold text-primary">
+                    Skema Database
+                  </Label>
+                  <Select
+                    value={form.skema}
+                    onValueChange={(v) => setForm({ ...form, skema: v })}
+                    required
+                  >
+                    <SelectTrigger className="bg-white border border-primary/30 rounded-lg">
+                      <SelectValue placeholder="Pilih skema database" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white border border-primary/20">
+                      {schemaOptions.length === 0 ? (
+                        <SelectItem value="__loading" disabled>
+                          Memuat...
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                      ) : (
+                        schemaOptions.map((schema: any) => (
+                          <SelectItem
+                            key={schema.id_skema}
+                            value={String(schema.id_skema)}
+                          >
+                            {schema.skema}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <Button
-                type="submit"
-                className="bg-primary hover:bg-primary/90"
-                disabled={loading}
-              >
-                {editingIndex ? "Update Akun" : "Buat Akun"}
-              </Button>
-              {editingIndex && (
+              <div className="flex gap-2 justify-end pt-2">
                 <Button
-                  type="button"
-                  variant="outline"
-                  className="ml-2"
-                  onClick={() => {
-                    setEditingIndex(null);
-                    setForm({
-                      username: "",
-                      password: "",
-                      role: "",
-                      division: "",
-                      skema: "",
-                    });
-                  }}
+                  type="submit"
+                  className="bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold rounded-lg shadow hover:from-indigo-500 hover:to-primary/90 transition"
+                  disabled={loading}
                 >
-                  Batal Edit
+                  {editingIndex ? "Update Akun" : "Buat Akun"}
                 </Button>
-              )}
+                {editingIndex && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="ml-2 border-primary text-primary"
+                    onClick={() => {
+                      setEditingIndex(null);
+                      setForm({
+                        username: "",
+                        password: "",
+                        role: "",
+                        division: "",
+                        skema: "",
+                      });
+                    }}
+                  >
+                    Batal Edit
+                  </Button>
+                )}
+              </div>
             </form>
           )}
           {tab === "monitoring" && (
             <div>
-              <h2 className="font-semibold mb-2">Daftar Akun</h2>
-              <div className="w-full overflow-x-auto">
+              <h2 className="font-semibold mb-4 text-lg text-primary">
+                Daftar Akun
+              </h2>
+              <div className="w-full overflow-x-auto rounded-xl shadow-inner border border-primary/10 bg-gradient-to-br from-white via-indigo-50 to-blue-50">
                 <table className="min-w-[1200px] w-full border-collapse rounded-lg shadow-sm mx-auto">
                   <thead>
-                    <tr className="bg-muted/20">
-                      <th className="border px-4 py-2 font-semibold text-left min-w-[140px]">
+                    <tr className="bg-gradient-to-r from-primary/10 to-indigo-100">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[140px] text-primary">
                         Nama Pengguna
                       </th>
-                      <th className="border px-4 py-2 font-semibold text-left min-w-[140px]">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[140px] text-primary">
                         Password
                       </th>
-                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px] text-primary">
                         Peran
                       </th>
-                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px] text-primary">
                         Divisi
                       </th>
-                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px] text-primary">
                         Skema
                       </th>
-                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px] text-primary">
                         Dibuat
                       </th>
-                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px]">
+                      <th className="border px-4 py-2 font-semibold text-left min-w-[120px] text-primary">
                         Aksi
                       </th>
                     </tr>
@@ -459,16 +482,19 @@ export default function KelolaAkunPage() {
                     {accounts.map((acc, idx) => (
                       <tr
                         key={acc.id_user ?? acc.id ?? idx}
-                        className="hover:bg-muted/10 transition"
+                        className="hover:bg-primary/5 transition"
                       >
-                        <td className="border px-4 py-2">
+                        <td className="border px-4 py-2 font-medium">
                           {acc.nama_pengguna ?? acc.username}
                         </td>
                         <td className="border px-4 py-2">
-                          {acc.password ?? "-"}
+                          {/* Tampilkan password asli jika ada field 'plain_password', jika tidak tampilkan "-" */}
+                          {acc.plain_password ?? "-"}
                         </td>
                         <td className="border px-4 py-2">
-                          {getPeranName(acc.id_peran)}
+                          <span className="inline-block rounded-full px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold">
+                            {getPeranName(acc.id_peran)}
+                          </span>
                         </td>
                         <td className="border px-4 py-2">
                           {getDivisiName(acc.id_divisi)}
@@ -480,28 +506,30 @@ export default function KelolaAkunPage() {
                           {formatLocalTime(acc.created_at)}
                         </td>
                         <td className="border px-4 py-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditAccount(acc)}
-                            className="mr-2"
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="text-destructive"
-                            onClick={() =>
-                              handleDeleteAccount(acc.id_user ?? acc.id)
-                            }
-                            disabled={
-                              acc.nama_pengguna === "superadmin" ||
-                              acc.username === "superadmin"
-                            }
-                          >
-                            Hapus
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditAccount(acc)}
+                              className="border-primary text-primary"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive border-destructive"
+                              onClick={() =>
+                                handleDeleteAccount(acc.id_user ?? acc.id)
+                              }
+                              disabled={
+                                acc.nama_pengguna === "superadmin" ||
+                                acc.username === "superadmin"
+                              }
+                            >
+                              Hapus
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}

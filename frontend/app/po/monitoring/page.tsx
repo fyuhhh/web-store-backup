@@ -756,19 +756,19 @@ export default function MonitoringPOPage() {
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
+    // Helper: format tanggal persis seperti frontend (tambah 1 hari, fallback jika gagal)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      // Kalau format dari backend "YYYY-MM-DD" (tanpa jam), jangan pakai utc/local sama sekali
+      let dateObj;
       if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-        const [year, month, day] = tgl.split("-");
-        return `${day}-${month}-${year}`;
+        dateObj = dayjs(tgl).add(1, "day");
+      } else if (tgl.includes("T")) {
+        dateObj = dayjs.utc(tgl).add(1, "day");
+      } else {
+        dateObj = dayjs(tgl).add(1, "day");
       }
-      // Kalau format ISO (ada "T" atau "Z"), berarti pakai utc biar aman
-      if (tgl.includes("T")) {
-        return dayjs.utc(tgl).format("DD-MM-YYYY");
-      }
-      // fallback aman
-      return dayjs(tgl).format("DD-MM-YYYY");
+      // Jika dateObj valid, return string, jika tidak, return tgl asli
+      return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl ?? "";
     }
 
     // Helper format quantity
@@ -800,7 +800,7 @@ export default function MonitoringPOPage() {
           index === 0 ? po.noPO : "",
           item.namaBarang,
           formatQtyExcel(item.jumlahPO),
-          formatQtyExcel(item.jumlahAsli), // Quantity Awal PO
+          formatQtyExcel(item.jumlahAsli),
           item.satuan,
           item.keterangan || "",
           formatRupiah(item.hargaSatuan),

@@ -570,12 +570,18 @@ export default function MonitoringPRPage() {
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper format tanggal ke dd-mm-yyyy
+    // Helper format tanggal persis seperti frontend (tambah 1 hari)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      const [date] = tgl.split("T");
-      const [y, m, d] = date.split("-");
-      return y && m && d ? `${d}-${m}-${y}` : tgl;
+      let dateObj;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+        dateObj = dayjs(tgl).add(1, "day");
+      } else if (tgl.includes("T")) {
+        dateObj = dayjs.utc(tgl).add(1, "day");
+      } else {
+        dateObj = dayjs(tgl).add(1, "day");
+      }
+      return dateObj.format("DD-MM-YYYY");
     }
     // Helper format quantity
     function formatQtyExcel(val: any) {

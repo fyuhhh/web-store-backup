@@ -35,6 +35,14 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 dayjs.extend(utc);
 
 export default function BKBInputPage() {
@@ -456,6 +464,20 @@ export default function BKBInputPage() {
     return btb ? btb.sisa ?? btb.jumlah : 0;
   }
 
+  // Tambahkan state untuk pagination daftar BTB
+  const [btbCurrentPage, setBtbCurrentPage] = useState(1);
+  const btbItemsPerPage = 10;
+
+  // Pagination logic untuk daftar BTB
+  const btbTotalPages = Math.max(
+    1,
+    Math.ceil(filteredBTBData.length / btbItemsPerPage)
+  );
+  const paginatedBTBData = filteredBTBData.slice(
+    (btbCurrentPage - 1) * btbItemsPerPage,
+    btbCurrentPage * btbItemsPerPage
+  );
+
   // Auto-logout logic (testing: 5 detik idle)
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -740,6 +762,18 @@ export default function BKBInputPage() {
             <CardTitle>Daftar BTB</CardTitle>
             <CardDescription>
               Total: {filteredBTBData.length} BTB Item
+              {filteredBTBData.length > 0 && (
+                <>
+                  {" | "}
+                  Menampilkan {(btbCurrentPage - 1) * btbItemsPerPage + 1}-
+                  {Math.min(
+                    btbCurrentPage * btbItemsPerPage,
+                    filteredBTBData.length
+                  )}
+                  {" dari "}
+                  {filteredBTBData.length} BTB Item
+                </>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1062,7 +1096,7 @@ export default function BKBInputPage() {
                       <TableCell colSpan={12}>Loading...</TableCell>
                     </TableRow>
                   ) : (
-                    filteredBTBData.map((row, idx) => (
+                    paginatedBTBData.map((row, idx) => (
                       <TableRow key={row.id}>
                         <TableCell>
                           {/* Checkbox untuk pilih BTB item */}
@@ -1108,6 +1142,51 @@ export default function BKBInputPage() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+            {/* Pagination bawah tabel */}
+            <div className="mt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setBtbCurrentPage((prev) => Math.max(1, prev - 1))
+                      }
+                      className={
+                        btbCurrentPage === 1
+                          ? "pointer-events-none opacity-50"
+                          : ""
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: btbTotalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setBtbCurrentPage(page)}
+                          isActive={btbCurrentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setBtbCurrentPage((prev) =>
+                          Math.min(btbTotalPages, prev + 1)
+                        )
+                      }
+                      className={
+                        btbCurrentPage === btbTotalPages
+                          ? "pointer-events-none opacity-50"
+                          : ""
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           </CardContent>
         </Card>

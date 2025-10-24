@@ -270,13 +270,16 @@ export default function BKBMonitoringPage() {
 
     // Add data rows persis seperti tampilan tabel
     exportBKBData.forEach((row) => {
+      // Keterangan pendek (maks 20 karakter, sama seperti tampilan tabel)
+      const ket = row.keterangan ?? "";
+      const ketShort = ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
       worksheet.addRow([
         row.noBKB,
         formatTanggalExcel(row.tanggalBKB),
         row.namaBarang,
         formatQtyExcel(row.quantity),
         row.satuan ?? "",
-        row.keterangan ?? "",
+        ketShort,
         userMap[String(row.dikeluarkanOleh)] ?? row.dikeluarkanOleh ?? "",
         skemaMap[String(row.skema)] ?? row.skema ?? "",
       ]);
@@ -459,9 +462,10 @@ export default function BKBMonitoringPage() {
               Pantau pengeluaran barang dari BTB
             </p>
           </div>
-          <div className="flex items-center gap-3 bg-muted/40 px-4 py-2 rounded-lg">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="exportMode" className="text-xs font-medium">
+          {/* Export section: align like Monitoring PR/PO */}
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
                 Mode Export
               </Label>
               <Select
@@ -479,11 +483,9 @@ export default function BKBMonitoringPage() {
                   <SelectItem value="range">Rentang Tanggal</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            {exportMode === "range" && (
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs font-medium">Tanggal</Label>
-                <div className="flex items-center gap-2">
+              {exportMode === "range" && (
+                <div className="flex items-center gap-2 ml-2">
+                  <Label className="text-xs font-medium">Tanggal</Label>
                   <Input
                     type="date"
                     value={exportStartDate}
@@ -500,18 +502,19 @@ export default function BKBMonitoringPage() {
                     placeholder="Akhir"
                   />
                 </div>
-              </div>
-            )}
-            <Button
-              onClick={handleExport}
-              className="bg-primary hover:bg-primary/90 h-9"
-              disabled={
-                (exportMode === "selected" && selectedBKBIds.length === 0) ||
-                (exportMode === "range" && (!exportStartDate || !exportEndDate))
-              }
-            >
-              Export Excel
-            </Button>
+              )}
+              <Button
+                onClick={handleExport}
+                className="bg-primary hover:bg-primary/90 h-9 ml-2"
+                disabled={
+                  (exportMode === "selected" && selectedBKBIds.length === 0) ||
+                  (exportMode === "range" &&
+                    (!exportStartDate || !exportEndDate))
+                }
+              >
+                Export Excel
+              </Button>
+            </div>
           </div>
         </div>
         <Card className="bg-card border-border">

@@ -487,12 +487,18 @@ export default function BTBMonitoringPage() {
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper format tanggal ke dd-mm-yyyy
-    function formatTanggalExcel(tgl: string | null | undefined) {
-      if (!tgl) return "";
-      const [date] = tgl.split("T");
-      const [y, m, d] = date.split("-");
-      return y && m && d ? `${d}-${m}-${y}` : tgl;
+    // Helper format tanggal persis seperti frontend (formatTanggalLebihSehari)
+    function formatTanggalLebihSehari(tgl: string) {
+      if (!tgl) return "-";
+      let dateObj;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+        dateObj = dayjs(tgl).add(1, "day");
+      } else if (tgl.includes("T")) {
+        dateObj = dayjs.utc(tgl).add(1, "day");
+      } else {
+        dateObj = dayjs(tgl).add(1, "day");
+      }
+      return dateObj.format("DD-MM-YYYY");
     }
     // Helper format quantity
     function formatQtyExcel(val: any) {
@@ -501,7 +507,7 @@ export default function BTBMonitoringPage() {
       return num % 1 === 0 ? num.toString() : num.toString();
     }
     // Helper format rupiah
-    function formatRupiah(val: any) {
+    function formatRupiahExcel(val: any) {
       if (val === undefined || val === "" || isNaN(val)) return "";
       return "Rp " + Number(val).toLocaleString("id-ID");
     }
@@ -510,14 +516,14 @@ export default function BTBMonitoringPage() {
     exportBTBData.forEach((btb) => {
       worksheet.addRow([
         btb.noBTB,
-        formatTanggalExcel(btb.tanggal),
+        formatTanggalLebihSehari(btb.tanggal), // <-- samakan dengan frontend
         btb.periode,
         btb.nama_supplier ?? btb.supplier ?? "",
         btb.nama_barang ?? "",
         formatQtyExcel(btb.jumlah),
         btb.satuan ?? "",
         formatQtyExcel(btb.sisa),
-        formatRupiah(btb.biaya),
+        formatRupiahExcel(btb.biaya),
         userMap[String(btb.diterimaOleh)] ?? btb.diterimaOleh ?? "",
         skemaMap[String(btb.skema)] ?? btb.skema ?? "",
       ]);
@@ -591,9 +597,10 @@ export default function BTBMonitoringPage() {
               Pantau penerimaan barang dari Purchase Order
             </p>
           </div>
-          <div className="flex items-center gap-3 bg-muted/40 px-4 py-2 rounded-lg">
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="exportMode" className="text-xs font-medium">
+          {/* Export section: align like Monitoring PR/PO */}
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
                 Mode Export
               </Label>
               <Select
@@ -611,11 +618,9 @@ export default function BTBMonitoringPage() {
                   <SelectItem value="range">Rentang Tanggal</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            {exportMode === "range" && (
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs font-medium">Tanggal</Label>
-                <div className="flex items-center gap-2">
+              {exportMode === "range" && (
+                <div className="flex items-center gap-2 ml-2">
+                  <Label className="text-xs font-medium">Tanggal</Label>
                   <Input
                     type="date"
                     value={exportStartDate}
@@ -632,19 +637,20 @@ export default function BTBMonitoringPage() {
                     placeholder="Akhir"
                   />
                 </div>
-              </div>
-            )}
-            <Button
-              onClick={handleExport}
-              className="bg-primary hover:bg-primary/90 h-9"
-              disabled={
-                (exportMode === "selected" && selectedBTBIds.length === 0) ||
-                (exportMode === "range" && (!exportStartDate || !exportEndDate))
-              }
-            >
-              <ChevronDown className="h-4 w-4 mr-2" />
-              Export Excel
-            </Button>
+              )}
+              <Button
+                onClick={handleExport}
+                className="bg-primary hover:bg-primary/90 h-9 ml-2"
+                disabled={
+                  (exportMode === "selected" && selectedBTBIds.length === 0) ||
+                  (exportMode === "range" &&
+                    (!exportStartDate || !exportEndDate))
+                }
+              >
+                <ChevronDown className="h-4 w-4 mr-2" />
+                Export Excel
+              </Button>
+            </div>
           </div>
         </div>
         {/* Table */}

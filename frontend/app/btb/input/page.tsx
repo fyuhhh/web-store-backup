@@ -70,6 +70,12 @@ import {
 import { type POData, type PRData, type BTBData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
 
+// Tambahkan helper formatRupiahInput agar input biaya selalu tampil Rp
+function formatRupiahInput(val: any) {
+  if (val === undefined || val === "" || isNaN(val)) return "";
+  return "Rp " + Number(val).toLocaleString("id-ID");
+}
+
 export default function BTBInputPage() {
   const [poData, setPoData] = useState<POData[]>([]);
   const [btbData, setBtbData] = useState<BTBData[]>([]);
@@ -126,18 +132,18 @@ export default function BTBInputPage() {
   // Form state
   const [formData, setFormData] = useState<any>({
     noBTB: "",
-    tanggal: null as Date | null,
+    tanggal: null, // <-- pastikan default null, tidak auto terisi
     periode: "",
     supplier: "",
     kodeSupplier: "",
     barang: "",
     jumlah: "",
     satuan: "",
-    biaya: 0, // default biaya
+    biaya: 0,
     diterimaOleh: "",
     poId: "",
-    tanggalDiterima: null as Date | null,
-    skema: "", // <-- tambah field skema
+    tanggalDiterima: null,
+    skema: "",
   });
 
   // Add: for BTB form, store array of items from selected PO(s)
@@ -474,13 +480,6 @@ export default function BTBInputPage() {
     return dateObj.format("DD-MM-YYYY");
   }
 
-  function formatTanggalPO(tgl: string) {
-    if (!tgl) return "-";
-    const [y, m, d] = tgl.split("-"); // asumsi "YYYY-MM-DD"
-    if (y && m && d) return `${d}-${m}-${y}`;
-    return tgl;
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -763,10 +762,10 @@ export default function BTBInputPage() {
 
     setFormData({
       noBTB: "",
-      tanggal: new Date().toISOString().split("T")[0],
+      tanggal: null, // <-- pastikan tanggal kosong/null, tidak auto-isi
       periode: "",
-      supplier: firstPO.id_supplier ?? "", // <-- gunakan id_supplier (number/integer)
-      supplierLabel: firstPO.supplier ?? "", // label supplier
+      supplier: firstPO.id_supplier ?? "",
+      supplierLabel: firstPO.supplier ?? "",
       barang: "",
       jumlah: "",
       satuan: "",
@@ -1799,7 +1798,7 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[120px]"
                                 >
-                                  {formatTanggalPO(po.tanggalPO)}
+                                  {formatTanggalLebihSehari(po.tanggalPO)}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (
@@ -1807,7 +1806,7 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[140px]"
                                 >
-                                  {formatTanggalPO(
+                                  {formatTanggalLebihSehari(
                                     po.estimasiTanggalTerima
                                   )}
                                 </TableCell>
@@ -2113,34 +2112,25 @@ export default function BTBInputPage() {
                     <Label htmlFor="biaya">Biaya</Label>
                     <Input
                       id="biaya"
-                      type="number"
-                      min={0}
-                      step={100}
-                      value={formData.biaya}
+                      type="text"
+                      inputMode="numeric"
+                      value={
+                        formData.biaya === "" || formData.biaya === null
+                          ? ""
+                          : formatRupiahInput(formData.biaya)
+                      }
                       onChange={(e) => {
-                        let val = e.target.value;
-                        // Jika kosong, tetap gunakan default
-                        if (val === "" || isNaN(Number(val))) {
-                          setFormData((prev: any) => ({
-                            ...prev,
-                            biaya: "",
-                          }));
-                        } else {
-                          setFormData((prev: any) => ({
-                            ...prev,
-                            biaya: Number(val),
-                          }));
-                        }
+                        // Ambil hanya digit angka dari input
+                        const raw = e.target.value.replace(/[^\d]/g, "");
+                        setFormData({
+                          ...formData,
+                          biaya: raw === "" ? "" : Number(raw),
+                        });
                       }}
                       placeholder="Masukkan biaya (Rp)"
                       required
                       className="w-full"
                     />
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {formData.biaya !== "" && !isNaN(formData.biaya)
-                        ? formatRupiah(formData.biaya)
-                        : ""}
-                    </div>
                   </div>
                   <div>
                     <Label htmlFor="skema">Skema</Label>
