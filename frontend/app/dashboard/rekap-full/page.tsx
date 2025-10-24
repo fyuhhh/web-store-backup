@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -47,6 +48,13 @@ import {
 
 import ExcelJS from "exceljs";
 
+// Tambahkan helper untuk popover keterangan
+import {
+  Popover as HoverPopover,
+  PopoverTrigger as HoverPopoverTrigger,
+  PopoverContent as HoverPopoverContent,
+} from "@/components/ui/popover";
+
 // Kolom sesuai urutan permintaan, tambahkan skema di samping masing-masing kolom
 const columns = [
   { key: "tahunPR", label: "Tahun PR" },
@@ -68,6 +76,7 @@ const columns = [
   { key: "tanggalPO", label: "Tanggal PO" },
   { key: "daftarBarangPO", label: "Daftar Barang PO" },
   { key: "quantityPO", label: "Quantity PO" },
+  { key: "quantityAwalPO", label: "Quantity Awal PO" }, // <--- Tambahkan di sini, setelah Quantity PO
   { key: "satuanPO", label: "Satuan PO" },
   { key: "keteranganPO", label: "Keterangan PO" },
   { key: "diskonPersen", label: "Diskon (%)" },
@@ -87,7 +96,7 @@ const columns = [
   { key: "namaSupplierBTB", label: "Nama Supplier BTB" },
   { key: "namaBarangBTB", label: "Nama Barang BTB" },
   { key: "quantityBTB", label: "Quantity BTB" },
-  { key: "satuanBTB", label: "Satuan BTB" },
+  { key: "sisaStokBTB", label: "Sisa Stok BTB" }, // Tambahan
   { key: "biayaBTB", label: "Biaya BTB" },
   { key: "diterimaOleh", label: "Diterima Oleh" },
   { key: "skemaBTB", label: "Skema BTB" }, // 3. Skema BTB
@@ -173,6 +182,83 @@ function countWorkingDaysBetween(startDateStr: string, endDateStr: string) {
     }
   }
   return count;
+}
+
+// Helper format tanggal dd-mm-yyyy +1 hari (fix: handle dd-mm-yyyy and yyyy-mm-dd)
+function formatTanggalTambahSehari(tgl: string) {
+  if (!tgl) return "";
+  // Jika sudah dd-mm-yyyy, ubah ke Date dulu
+  let dateObj;
+  if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+    const [d, m, y] = tgl.split("-");
+    dateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+    dateObj = new Date(tgl);
+  } else {
+    return tgl;
+  }
+  if (isNaN(dateObj.getTime())) return tgl;
+  dateObj.setDate(dateObj.getDate() + 1);
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const year = dateObj.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
+// Helper untuk popover keterangan (hover, abu-abu, di luar tabel)
+function KeteranganPopover({ text, max = 20 }: { text: string; max?: number }) {
+  const [show, setShow] = useState(false);
+  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const ref = useRef<HTMLSpanElement>(null);
+
+  if (!text) return "";
+  if (text.length <= max) return text;
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPos({
+      x: rect.left + window.scrollX,
+      y: rect.bottom + window.scrollY + 4,
+    });
+    setShow(true);
+  };
+  const handleMouseLeave = () => setShow(false);
+
+  return (
+    <>
+      <span
+        ref={ref}
+        className="cursor-pointer"
+        style={{
+          whiteSpace: "nowrap",
+          textDecoration: "underline dotted",
+          color: "#6b7280",
+        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {text.slice(0, max) + "..."}{" "}
+      </span>
+      {show &&
+        typeof window !== "undefined" &&
+        ReactDOM.createPortal(
+          <div
+            className="z-[9999] bg-gray-100 text-gray-700 border border-gray-300 rounded px-3 py-2 shadow-lg max-w-xs text-sm"
+            style={{
+              position: "absolute",
+              left: pos.x,
+              top: pos.y,
+              minWidth: 200,
+              whiteSpace: "pre-line",
+              pointerEvents: "none",
+            }}
+          >
+            {text}
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }
 
 export default function RekapFullPage() {
@@ -407,7 +493,7 @@ export default function RekapFullPage() {
                   hariPR: getDayName(pr.tanggalPR),
                   daftarBarangPR: item.namaBarang,
                   quantityAwalPR: item.quantityAwalPR,
-                  quantityPR: sisaQuantity,
+                  quantityPR: item.jumlah, // <-- ambil dari pr_item.jumlah
                   // Ubah ke label satuan PR
                   satuanPR: item.id_satuan
                     ? satuanMap[String(item.id_satuan)] || item.id_satuan
@@ -430,6 +516,7 @@ export default function RekapFullPage() {
                   tanggalPO: "",
                   daftarBarangPO: "",
                   quantityPO: "",
+                  quantityAwalPO: "", // <--- Tambahkan kolom baru, kosong jika tidak ada PO
                   satuanPO: "",
                   keteranganPO: "",
                   diskonPersen: "",
@@ -455,6 +542,7 @@ export default function RekapFullPage() {
                   satuanBTB: btbItemRow?.id_satuan
                     ? satuanMap[String(btbItemRow.id_satuan)] || ""
                     : "",
+                  sisaStokBTB: btbItemRow?.qty_sisa ?? "", // <-- Ambil dari qty_sisa btb_item
                   biayaBTB: btbRow?.biaya ?? "",
                   diterimaOleh: btbRow?.id_user
                     ? userMap[String(btbRow.id_user)] || ""
@@ -559,7 +647,7 @@ export default function RekapFullPage() {
                         hariPR: getDayName(pr.tanggalPR),
                         daftarBarangPR: item.namaBarang,
                         quantityAwalPR: item.quantityAwalPR,
-                        quantityPR: sisaSebelum, // <-- Sisa sebelum PO ini
+                        quantityPR: item.jumlah, // <-- pastikan ambil dari pr_item.jumlah
                         satuanPR: item.id_satuan
                           ? satuanMap[String(item.id_satuan)] || item.id_satuan
                           : "",
@@ -605,6 +693,7 @@ export default function RekapFullPage() {
                         })(),
                         daftarBarangPO: item.namaBarang,
                         quantityPO: jumlahPO,
+                        quantityAwalPO: poItem?.jumlahAsli ?? "", // <--- Ambil dari po_item.jumlahAsli
                         satuanPO: poItem?.id_satuan
                           ? satuanMap[String(poItem.id_satuan)] ||
                             poItem.id_satuan
@@ -663,6 +752,7 @@ export default function RekapFullPage() {
                         satuanBTB: btbItemRow?.id_satuan
                           ? satuanMap[String(btbItemRow.id_satuan)] || ""
                           : "",
+                        sisaStokBTB: btbItemRow?.qty_sisa ?? "", // <-- Ambil dari qty_sisa btb_item
                         biayaBTB: btbRow?.biaya ?? "",
                         diterimaOleh: btbRow?.id_user
                           ? userMap[String(btbRow.id_user)] || ""
@@ -836,13 +926,34 @@ export default function RekapFullPage() {
     });
 
     // Helper format tanggal ke dd-mm-yyyy
-    function formatTanggalExcel(tgl: string) {
+    function formatTanggalExcel(tgl: string, key?: string) {
       if (!tgl) return "";
-      // Cek jika sudah dd-mm-yyyy, return langsung
-      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
+      // Jika sudah dd-mm-yyyy, ubah ke Date dulu
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+        const [d, m, y] = tgl.split("-");
+        let dateObj = new Date(`${y}-${m}-${d}`);
+        if (key === "tanggalPO" || key === "tanggalEstimasiDiterima") {
+          dateObj.setDate(dateObj.getDate() + 1);
+          const day = String(dateObj.getDate()).padStart(2, "0");
+          const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+          const year = dateObj.getFullYear();
+          return `${day}-${month}-${year}`;
+        }
+        return tgl;
+      }
       // Jika yyyy-mm-dd
       const [y, m, d] = tgl.split("-");
-      if (y && m && d) return `${d}-${m}-${y}`;
+      if (y && m && d) {
+        let dateObj = new Date(tgl);
+        if (key === "tanggalPO" || key === "tanggalEstimasiDiterima") {
+          dateObj.setDate(dateObj.getDate() + 1);
+          const day = String(dateObj.getDate()).padStart(2, "0");
+          const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+          const year = dateObj.getFullYear();
+          return `${day}-${month}-${year}`;
+        }
+        return `${d}-${m}-${y}`;
+      }
       return tgl;
     }
     // Helper format quantity
@@ -872,7 +983,7 @@ export default function RekapFullPage() {
               "targetTanggalPO",
             ].includes(col.key)
           ) {
-            return formatTanggalExcel(row[col.key]);
+            return formatTanggalExcel(row[col.key], col.key);
           }
           // Format quantity
           if (
@@ -881,10 +992,11 @@ export default function RekapFullPage() {
               "quantityPR",
               "quantityPO",
               "quantityBTB",
+              "sisaStokBTB",
               "quantityBKB",
             ].includes(col.key)
           ) {
-            return formatQtyExcel(row[col.key]);
+            return formatInt(row[col.key]);
           }
           // Format rupiah
           if (
@@ -904,6 +1016,16 @@ export default function RekapFullPage() {
           }
           if (col.key === "skemaBKB") {
             return row.skemaBKB ?? "";
+          }
+          // Keterangan: potong 20 karakter
+          if (
+            col.key === "keteranganPR" ||
+            col.key === "keteranganPO" ||
+            col.key === "keteranganBKB"
+          ) {
+            return typeof row[col.key] === "string" && row[col.key].length > 20
+              ? row[col.key].slice(0, 20) + "..."
+              : row[col.key];
           }
           return row[col.key];
         })
@@ -1159,25 +1281,38 @@ export default function RekapFullPage() {
                           key={col.key}
                           className="px-4 py-2 text-left"
                         >
-                          {/* Format khusus untuk beberapa kolom */}
-                          {col.key === "skemaPR"
-                            ? row.skemaPRLabel // <-- tampilkan label skema PR
-                            : [
-                                "quantityAwalPR",
-                                "quantityPR",
-                                "diskonPersen",
-                                "ppnPersen",
-                                "quantityBTB",
-                              ].includes(col.key)
-                            ? formatInt(row[col.key])
-                            : [
-                                "biayaBTB",
-                                "totalHarga",
-                                "ppnRp",
-                                "diskonRp",
-                              ].includes(col.key)
-                            ? formatRupiahFull(row[col.key])
-                            : row[col.key]}
+                          {col.key === "skemaPR" ? (
+                            row.skemaPRLabel
+                          ) : col.key === "tanggalPO" ? (
+                            formatTanggalTambahSehari(row[col.key])
+                          ) : col.key === "tanggalEstimasiDiterima" ? (
+                            formatTanggalTambahSehari(row[col.key])
+                          ) : col.key === "quantityBKB" ? (
+                            formatInt(row[col.key])
+                          ) : col.key === "keteranganPR" ||
+                            col.key === "keteranganPO" ||
+                            col.key === "keteranganBKB" ? (
+                            <KeteranganPopover text={row[col.key] ?? ""} />
+                          ) : [
+                              "quantityAwalPR",
+                              "quantityPR",
+                              "diskonPersen",
+                              "ppnPersen",
+                              "quantityBTB",
+                              "sisaStokBTB",
+                              "quantityAwalPO", // <--- pastikan formatInt juga untuk kolom baru
+                            ].includes(col.key) ? (
+                            formatInt(row[col.key])
+                          ) : [
+                              "biayaBTB",
+                              "totalHarga",
+                              "ppnRp",
+                              "diskonRp",
+                            ].includes(col.key) ? (
+                            formatRupiahFull(row[col.key])
+                          ) : (
+                            row[col.key]
+                          )}
                         </TableCell>
                       ))}
                       {/* Hapus cell aksi */}

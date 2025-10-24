@@ -176,15 +176,6 @@ export default function InputBaruPRPage() {
 
   const notifTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Helper untuk tambah 1 hari pada tanggal (format YYYY-MM-DD)
-  function addOneDay(dateStr: string) {
-    if (!dateStr) return dateStr;
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + 1);
-    // Format kembali ke YYYY-MM-DD
-    return date.toISOString().split("T")[0];
-  }
-
   // Helper untuk format tanggal ke DD-MM-YYYY
   function formatDate(date: Date | null) {
     if (!date) return "";
@@ -197,6 +188,7 @@ export default function InputBaruPRPage() {
   // Helper untuk format tanggal ke YYYY-MM-DD untuk backend
   function formatDateForBackend(date: Date | null) {
     if (!date) return "";
+    // Ambil tanggal persis dari input user, tanpa modifikasi
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -265,8 +257,8 @@ export default function InputBaruPRPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           noPR: formData.noPR,
-          // Kirim ke backend dalam format YYYY-MM-DD
-          tanggalPR: addOneDay(formatDateForBackend(formData.tanggalPR)),
+          // Kirim ke backend dalam format YYYY-MM-DD (tanpa addOneDay, tanpa modifikasi)
+          tanggalPR: formatDateForBackend(formData.tanggalPR),
           id_divisi: formData.divisi,
           id_urgensi: formData.urgensi,
           status: "Menunggu", // <-- ubah ke enum DB

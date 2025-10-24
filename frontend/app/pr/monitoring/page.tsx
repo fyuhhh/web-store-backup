@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 // Import exceljs for Excel export with style support
 import * as ExcelJS from "exceljs";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+dayjs.extend(utc);
 
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -213,6 +216,16 @@ export default function MonitoringPRPage() {
     const prItemRes = await fetch("http://localhost:5000/api/pr-item");
     const prItemList = await prItemRes.json();
 
+    // LOG: Tampilkan tanggalPR yang diterima dari backend
+    console.log(
+      "PR dari backend:",
+      prList.map((pr: any) => ({
+        id_PR: pr.id_PR,
+        noPR: pr.noPR,
+        tanggalPR: pr.tanggalPR,
+      }))
+    );
+
     // Helper mapping dari id ke nama
     const satuanMap = Object.fromEntries(
       satuanOptions.map((s: any) => [String(s.id_satuan), s.satuan])
@@ -252,9 +265,10 @@ export default function MonitoringPRPage() {
 
     // Urutkan sehingga PR terbaru (tanggalPR terbaru) muncul paling atas
     validatedData.sort((a: any, b: any) => {
-      const ta = a.tanggalPR ? new Date(a.tanggalPR).getTime() : 0;
-      const tb = b.tanggalPR ? new Date(b.tanggalPR).getTime() : 0;
-      return tb - ta;
+      // Gunakan string comparison agar tidak kena timezone bug
+      const ta = a.tanggalPR ? a.tanggalPR.replace(/-/g, "") : "";
+      const tb = b.tanggalPR ? b.tanggalPR.replace(/-/g, "") : "";
+      return tb.localeCompare(ta);
     });
 
     setPrData(validatedData);
@@ -343,9 +357,7 @@ export default function MonitoringPRPage() {
   // Helper untuk format tanggal DD-MM-YYYY
   function formatTanggal(tgl: string) {
     if (!tgl) return "";
-    const [date] = tgl.split("T");
-    const [y, m, d] = date.split("-");
-    return `${d}-${m}-${y}`;
+    return dayjs(tgl).local().format("DD-MM-YYYY");
   }
 
   // Filter data: hanya tampilkan PR dengan id_skema sesuai user login

@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+dayjs.extend(utc);
 
 // Import exceljs for Excel export with style support
 import * as ExcelJS from "exceljs";
 
-import { useState } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -66,18 +69,23 @@ import {
 } from "@/components/ui/pagination";
 import { type POData, type PRData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
+function formatTanggal(tgl: string) {
+  if (!tgl) return "";
+  // Tambahkan 1 hari ke tanggal sebelum ditampilkan
+  let dateObj;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+    // Format "YYYY-MM-DD"
+    dateObj = dayjs(tgl).add(1, "day");
+  } else if (tgl.includes("T")) {
+    // Format ISO
+    dateObj = dayjs.utc(tgl).add(1, "day");
+  } else {
+    dateObj = dayjs(tgl).add(1, "day");
+  }
+  return dateObj.format("DD-MM-YYYY");
+}
 
 export default function MonitoringPOPage() {
-  // Update the formatTanggal function
-  function formatTanggal(tgl: string | null) {
-    if (!tgl) return "-";
-    // Asumsi tgl format "YYYY-MM-DD"
-    const [date] = tgl.split("T");
-    const [y, m, d] = date.split("-");
-    if (!y || !m || !d) return tgl;
-    return `${d}-${m}-${y}`;
-  }
-
   const [poData, setPoData] = useState<POData[]>([]);
   const [prData, setPrData] = useState<PRData[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
@@ -242,6 +250,32 @@ export default function MonitoringPOPage() {
 
         // Map each PO
         const mappedPOs = (poList || []).map((po: any) => {
+          // --- LOG: tipe dan isi tanggal dari backend ---
+          console.log(
+            `[MONITORING PO] typeof tanggalPO:`,
+            typeof po.tanggalPO,
+            "| value:",
+            po.tanggalPO,
+            "| typeof estimasiTanggalTerima:",
+            typeof po.estimasiTanggalTerima,
+            "| value:",
+            po.estimasiTanggalTerima
+          );
+          // --- LOG: tanggal raw dari backend ---
+          console.log(
+            `[MONITORING PO] Tanggal PO raw:`,
+            po.tanggalPO,
+            "| Estimasi Diterima raw:",
+            po.estimasiTanggalTerima
+          );
+          // --- LOG: tanggal yang akan ditampilkan di frontend ---
+          console.log(
+            `[MONITORING PO] Tanggal PO tampil:`,
+            formatTanggal(po.tanggalPO),
+            "| Estimasi Diterima tampil:",
+            formatTanggal(po.estimasiTanggalTerima)
+          );
+
           // ISO for range filtering
           const prMap = Object.fromEntries(
             prList.map((p: any) => [String(p.id_PR), p.noPR])
@@ -325,8 +359,8 @@ export default function MonitoringPOPage() {
           return {
             id: po.id_PO ?? po.id,
             noPO: po.noPO ?? "",
-            tanggalPO: formatTanggal(po.tanggalPO),
-            estimasiTanggalTerima: formatTanggal(po.estimasiTanggalTerima),
+            tanggalPO: formatTanggal(po.tanggalPO), // gunakan dayjs lokal
+            estimasiTanggalTerima: formatTanggal(po.estimasiTanggalTerima), // gunakan dayjs lokal
             supplier:
               supplierMap[String(po.id_supplier)] ||
               po.supplier ||
@@ -365,39 +399,91 @@ export default function MonitoringPOPage() {
     window.location.href = "/po/input";
   };
 
-  const handleDelete = async (id: string) => {
-    if (
-      confirm(
-        "Apakah Anda yakin ingin menghapus PO ini? Data yang dihapus tidak dapat dikembalikan."
-      )
-    ) {
-      try {
-        // Hapus PO langsung ke backend
+  // --- Tambah state untuk modal konfirmasi dan toast ---
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+
+  // --- Add auto-close for toast ---
+  useEffect(() => {
+    if (toastOpen) {
+      const timer = setTimeout(() => setToastOpen(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastOpen]);
+
+  // --- Komponen Modal dan Toast ---
+  function ConfirmModal({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
+          <h2 className="text-lg font-semibold mb-2">{title}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{description}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={onConfirm}>
+              Hapus
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  function Toast({ open, message, onClose }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in">
+          <span className="text-green-600 font-medium">{message}</span>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // --- Perbaiki handleDelete agar bisa multi dan pakai modal ---
+  const handleDelete = async (ids: string[] | string) => {
+    const idList = Array.isArray(ids) ? ids : [ids];
+    setDeleteIds(idList);
+    setConfirmDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setConfirmDeleteOpen(false);
+    try {
+      for (const id of deleteIds) {
         await fetch(`http://localhost:5000/api/po/${id}`, { method: "DELETE" });
-        // Setelah hapus, fetch ulang data dari backend
-        const poRes = await fetch("http://localhost:5000/api/po");
-        const poList = await poRes.json();
-        setPoData(poList);
-        setSelectedPOs(selectedPOs.filter((poId) => poId !== id));
-        alert("PO berhasil dihapus!");
-      } catch (error) {
-        console.error("Error deleting PO:", error);
-        alert("Terjadi kesalahan saat menghapus PO. Silakan coba lagi.");
       }
+      setPoData((prev) => prev.filter((po) => !deleteIds.includes(po.id)));
+      setSelectedPOs((prev) => prev.filter((id) => !deleteIds.includes(id)));
+      setToastMsg("PO berhasil dihapus.");
+      setToastOpen(true);
+    } catch (error) {
+      setToastMsg("Terjadi kesalahan saat menghapus PO.");
+      setToastOpen(true);
     }
+    setDeleteIds([]);
   };
 
-  const handleSelectPO = (poId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedPOs([...selectedPOs, poId]);
-    } else {
-      setSelectedPOs(selectedPOs.filter((id) => id !== poId));
-    }
-  };
-
+  // --- Perbaiki handleSelectAll agar hanya memilih PO yang sedang dipaging ---
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedPOs(filteredPOData.map((po) => po.id));
+      setSelectedPOs(paginatedData.map((po) => po.id));
     } else {
       setSelectedPOs([]);
     }
@@ -642,11 +728,12 @@ export default function MonitoringPOPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PO");
 
-    // Header sesuai urutan tabel monitoring PO
+    // Header sesuai urutan tabel monitoring PO (update: tambah Quantity Awal PO setelah Quantity PO)
     const headers = [
       "No. PO",
       "Daftar Barang",
-      "Quantity",
+      "Quantity PO",
+      "Quantity Awal PO",
       "Satuan",
       "Keterangan",
       "Harga Satuan",
@@ -669,13 +756,21 @@ export default function MonitoringPOPage() {
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper format tanggal ke dd-mm-yyyy
-    function formatTanggalExcel(tgl: string | null) {
+    function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      const [date] = tgl.split("T");
-      const [y, m, d] = date.split("-");
-      return y && m && d ? `${d}-${m}-${y}` : tgl;
+      // Kalau format dari backend "YYYY-MM-DD" (tanpa jam), jangan pakai utc/local sama sekali
+      if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+        const [year, month, day] = tgl.split("-");
+        return `${day}-${month}-${year}`;
+      }
+      // Kalau format ISO (ada "T" atau "Z"), berarti pakai utc biar aman
+      if (tgl.includes("T")) {
+        return dayjs.utc(tgl).format("DD-MM-YYYY");
+      }
+      // fallback aman
+      return dayjs(tgl).format("DD-MM-YYYY");
     }
+
     // Helper format quantity
     function formatQtyExcel(val: any) {
       const num = Number(val);
@@ -705,6 +800,7 @@ export default function MonitoringPOPage() {
           index === 0 ? po.noPO : "",
           item.namaBarang,
           formatQtyExcel(item.jumlahPO),
+          formatQtyExcel(item.jumlahAsli), // Quantity Awal PO
           item.satuan,
           item.keterangan || "",
           formatRupiah(item.hargaSatuan),
@@ -774,6 +870,14 @@ export default function MonitoringPOPage() {
       events.forEach((ev) => window.removeEventListener(ev, resetTimer));
     };
   }, []);
+
+  const handleSelectPO = (poId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedPOs((prev) => [...prev, poId]);
+    } else {
+      setSelectedPOs((prev) => prev.filter((id) => id !== poId));
+    }
+  };
 
   return (
     <MainLayout>
@@ -853,17 +957,28 @@ export default function MonitoringPOPage() {
             <CardDescription>
               Total: {filteredPOData.length} PO | Dipilih: {selectedPOs.length}
             </CardDescription>
+            {selectedPOs.length > 0 && (
+              <Button
+                variant="destructive"
+                className="mt-2"
+                onClick={() => handleDelete(selectedPOs)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Hapus PO Terpilih ({selectedPOs.length})
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto min-w-[1300px]">
-              <Table className="min-w-[1300px] border border-gray-300">
+            <div className="overflow-x-auto min-w-[1400px]">
+              <Table className="min-w-[1400px] border border-gray-300">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-16">
+                      {/* Checkbox Select All */}
                       <Checkbox
                         checked={
-                          selectedPOs.length === filteredPOData.length &&
-                          filteredPOData.length > 0
+                          selectedPOs.length === paginatedData.length &&
+                          paginatedData.length > 0
                         }
                         onCheckedChange={handleSelectAll}
                         style={{
@@ -969,6 +1084,10 @@ export default function MonitoringPOPage() {
                           />
                         </PopoverContent>
                       </Popover>
+                    </TableHead>
+                    {/* Tambahkan kolom Quantity Awal PO */}
+                    <TableHead className="min-w-[90px]">
+                      Quantity Awal PO
                     </TableHead>
                     <TableHead className="min-w-[90px]">
                       <Popover>
@@ -1546,6 +1665,10 @@ export default function MonitoringPOPage() {
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
                               {item.jumlahPO}
                             </TableCell>
+                            {/* Tambahkan cell Quantity Awal PO */}
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
+                              {item.jumlahAsli ?? ""}
+                            </TableCell>
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
                               {item.satuan}
                             </TableCell>
@@ -1706,6 +1829,19 @@ export default function MonitoringPOPage() {
             </PaginationContent>
           </Pagination>
         </Card>
+        {/* --- Add modal and toast to the layout --- */}
+        <ConfirmModal
+          open={confirmDeleteOpen}
+          title="Konfirmasi Hapus PO"
+          description={`Apakah Anda yakin ingin menghapus ${deleteIds.length} PO? Data yang dihapus tidak dapat dikembalikan.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+        <Toast
+          open={toastOpen}
+          message={toastMsg}
+          onClose={() => setToastOpen(false)}
+        />
       </div>
     </MainLayout>
   );

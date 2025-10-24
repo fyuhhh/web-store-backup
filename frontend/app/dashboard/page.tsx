@@ -109,19 +109,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch total PR item
-    fetch("http://localhost:5000/api/pr-item")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
     // Fetch total PO item
-    fetch("http://localhost:5000/api/po-item")
+    fetch("http://localhost:5000/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BTB item
-    fetch("http://localhost:5000/api/btb-item")
+    fetch("http://localhost:5000/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BKB item
-    fetch("http://localhost:5000/api/bkb-item")
+    fetch("http://localhost:5000/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 

@@ -7,6 +7,7 @@ import "@/app/pr/input-baru/datepicker-red-weekend.css";
 
 // Import exceljs for Excel export with style support
 import * as ExcelJS from "exceljs";
+import dayjs from "dayjs";
 
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -458,6 +459,26 @@ export default function BTBInputPage() {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+  }
+
+  function formatTanggalLebihSehari(tgl: string) {
+    if (!tgl) return "";
+    let dateObj;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+      dateObj = dayjs(tgl).add(1, "day");
+    } else if (tgl.includes("T")) {
+      dateObj = dayjs.utc(tgl).add(1, "day");
+    } else {
+      dateObj = dayjs(tgl).add(1, "day");
+    }
+    return dateObj.format("DD-MM-YYYY");
+  }
+
+  function formatTanggalPO(tgl: string) {
+    if (!tgl) return "-";
+    const [y, m, d] = tgl.split("-"); // asumsi "YYYY-MM-DD"
+    if (y && m && d) return `${d}-${m}-${y}`;
+    return tgl;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1778,7 +1799,7 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[120px]"
                                 >
-                                  {formatTanggal(po.tanggalPO)}
+                                  {formatTanggalPO(po.tanggalPO)}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (
@@ -1786,7 +1807,9 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[140px]"
                                 >
-                                  {formatTanggal(po.estimasiTanggalTerima)}
+                                  {formatTanggalPO(
+                                    po.estimasiTanggalTerima
+                                  )}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (

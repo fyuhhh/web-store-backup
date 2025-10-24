@@ -156,10 +156,10 @@ export default function LoginPage() {
           <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">
             <div className="font-semibold text-primary">Demo Penta</div>
             <div>
-              Nama Pengguna: <span className="font-mono">penta</span>
+              Nama Pengguna: <span className="font-mono">ewalk</span>
             </div>
             <div>
-              Kata Sandi: <span className="font-mono">penta</span>
+              Kata Sandi: <span className="font-mono">ewalk</span>
             </div>
           </div>
           <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">

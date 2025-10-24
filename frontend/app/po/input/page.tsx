@@ -29,6 +29,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+dayjs.extend(utc);
+
 import {
   Popover,
   PopoverContent,
@@ -401,7 +405,11 @@ export default function InputPOPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           noPO: poFormData.noPO,
-          tanggalPO: formatDateForBackend(poFormData.tanggalPO),
+          tanggalPO:
+            typeof poFormData.tanggalPO === "string"
+              ? poFormData.tanggalPO
+              : formatDateForBackend(poFormData.tanggalPO),
+          // gunakan format string YYYY-MM-DD
           id_supplier: poFormData.supplier, // Use supplier ID from form data
           diskon: poFormData.diskon,
           originalDiskon: calculations.totalDiscount,
@@ -411,7 +419,7 @@ export default function InputPOPage() {
           orderedBy: orderedByUserId, // <-- kirim id_user, bukan nama
           estimasiTanggalTerima: formatDateForBackend(
             poFormData.estimasiTanggalDiterima
-          ),
+          ), // gunakan value dari input user, format YYYY-MM-DD
           id_statusPengiriman: poFormData.statusPengiriman, // Use status IDs from form
           id_statusPermintaan: poFormData.statusPermintaan,
           status: "Menunggu",
@@ -483,19 +491,22 @@ export default function InputPOPage() {
         const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
         const prData = await prRes.json();
         // Kirim semua field PR lama + status baru
+        // --- Tambahkan log payload sebelum PUT ---
+        const payload = {
+          noPR: prData.noPR,
+          tanggalPR: normalizeToDateString(prData.tanggalPR),
+          id_divisi: prData.id_divisi,
+          id_urgensi: prData.id_urgensi,
+          status: newStatus,
+          dibuatOleh: prData.dibuatOleh,
+          id_skema: prData.id_skema,
+          createdAt: prData.createdAt,
+        };
+        console.log("PUT /api/pr payload:", payload);
         await fetch(`http://localhost:5000/api/pr/${prId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            noPR: prData.noPR,
-            tanggalPR: prData.tanggalPR,
-            id_divisi: prData.id_divisi,
-            id_urgensi: prData.id_urgensi,
-            status: newStatus,
-            dibuatOleh: prData.dibuatOleh,
-            id_skema: prData.id_skema,
-            createdAt: prData.createdAt,
-          }),
+          body: JSON.stringify(payload),
         });
       }
 
@@ -749,19 +760,19 @@ export default function InputPOPage() {
     if (selectedFromStatus) {
       try {
         const selectedPRData = JSON.parse(selectedFromStatus);
-        // Mapping langsung dari data yang sudah diambil dari backend
-        // Ensure we keep id_satuan and satuanLabel so we can send id_satuan to backend
+        // --- LOG: tampilkan data PR yang diterima di halaman Input PO ---
+        console.log("PR diterima di Input PO:", selectedPRData);
         setPoItems(
           selectedPRData.map((pr: any) => ({
             prId: pr.id_PR ?? pr.id,
             noPR: pr.noPR,
+            tanggalPR: pr.tanggalPR, // <-- simpan persis string tanggalPR dari PR (misal "06-10-2025")
             skema: pr.id_skema ?? "",
             items: (pr.items || []).map((item: any) => ({
               id: item.id_PRItem ?? item.id,
               namaBarang: item.namaBarang ?? item.namabarang,
               jumlahPO: item.jumlah,
               jumlahAsli: item.jumlah,
-              // keep both label and id
               satuanLabel: item.satuanLabel || item.satuan || "",
               id_satuan: item.id_satuan ?? item.idSatuan ?? null,
               hargaSatuan: 0,
@@ -769,6 +780,7 @@ export default function InputPOPage() {
               keterangan: item.keterangan ?? "",
               skema: pr.id_skema ?? "",
               dibuatOleh: pr.dibuatOleh ?? "",
+              tanggalPR: pr.tanggalPR, // <-- simpan juga di item jika perlu
             })),
           }))
         );
@@ -836,19 +848,31 @@ export default function InputPOPage() {
   }
 
   // Helper format tanggal ke yyyy-mm-dd untuk backend
-  function formatDateForBackend(date: Date | null) {
+  function formatDateForBackend(date: Date | string | null) {
     if (!date) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return dayjs(date).utc().format("YYYY-MM-DD");
   }
-
   // Fungsi untuk memberi class pada weekend
   function highlightWeekends(date: Date) {
     const day = date.getDay();
     if (day === 0 || day === 6) return "datepicker-red";
     return undefined;
+  }
+
+  // Tambahkan helper normalizeToDateString
+  function normalizeToDateString(
+    dateOrString: Date | string | null | undefined
+  ) {
+    if (!dateOrString) return "";
+    if (typeof dateOrString === "string") {
+      if (dateOrString.includes("T")) {
+        // 🚀 PAKAI dayjs(dateOrString).local() agar sesuai waktu Indonesia (WIB)
+        return dayjs(dateOrString).local().format("YYYY-MM-DD");
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(dateOrString)) return dateOrString;
+      return dayjs(dateOrString).local().format("YYYY-MM-DD");
+    }
+    return dayjs(dateOrString).local().format("YYYY-MM-DD");
   }
 
   // Tambahkan helper format rupiah untuk input
@@ -952,7 +976,11 @@ export default function InputPOPage() {
                     <Label htmlFor="tanggalPO">Tanggal PO</Label>
                     <DatePicker
                       id="tanggalPO"
-                      selected={poFormData.tanggalPO}
+                      selected={
+                        typeof poFormData.tanggalPO === "string"
+                          ? new Date(poFormData.tanggalPO)
+                          : poFormData.tanggalPO
+                      }
                       onChange={(date) =>
                         setPoFormData({ ...poFormData, tanggalPO: date })
                       }
@@ -967,14 +995,16 @@ export default function InputPOPage() {
                         <Input
                           value={
                             poFormData.tanggalPO
-                              ? `${String(
-                                  poFormData.tanggalPO.getDate()
-                                ).padStart(2, "0")}-${String(
-                                  poFormData.tanggalPO.getMonth() + 1
-                                ).padStart(
-                                  2,
-                                  "0"
-                                )}-${poFormData.tanggalPO.getFullYear()}`
+                              ? typeof poFormData.tanggalPO === "string"
+                                ? poFormData.tanggalPO // tampilkan string langsung jika sudah format tanggal
+                                : `${String(
+                                    poFormData.tanggalPO.getDate()
+                                  ).padStart(2, "0")}-${String(
+                                    poFormData.tanggalPO.getMonth() + 1
+                                  ).padStart(
+                                    2,
+                                    "0"
+                                  )}-${poFormData.tanggalPO.getFullYear()}`
                               : ""
                           }
                           readOnly

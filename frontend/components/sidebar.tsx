@@ -19,6 +19,7 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  UserCircle,
 } from "lucide-react";
 
 const menuItems = [
@@ -99,15 +100,30 @@ export function Sidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<{ nama_pengguna?: string } | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const userRaw = localStorage.getItem("userData");
       if (userRaw) {
         try {
-          const user = JSON.parse(userRaw);
-          setRole(user.role);
+          const userObj = JSON.parse(userRaw);
+          setRole(userObj.role);
+          setUser(userObj);
         } catch {}
+      }
+    }
+  }, []);
+
+  // Buka sidebar otomatis setelah login (transisi animasi)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (localStorage.getItem("sidebarShouldOpen") === "true") {
+        setCollapsed(true); // Mulai dari collapsed
+        setTimeout(() => {
+          setCollapsed(false); // Buka dengan animasi
+          localStorage.removeItem("sidebarShouldOpen");
+        }, 150); // Delay kecil agar transisi terlihat
       }
     }
   }, []);
@@ -135,10 +151,22 @@ export function Sidebar() {
   return (
     <div
       className={cn(
-        "bg-sidebar border-r border-sidebar-border transition-all duration-300",
+        "relative bg-sidebar border-r border-sidebar-border transition-all duration-300",
         collapsed ? "w-16" : "w-64"
       )}
     >
+      {/* Avatar & Username */}
+      <div className="flex flex-col items-center py-4 border-b border-sidebar-border">
+        <div className="flex items-center space-x-2">
+          <UserCircle className="h-8 w-8 text-sidebar-foreground" />
+          {!collapsed && (
+            <span className="font-semibold text-sidebar-foreground text-base">
+              {user?.nama_pengguna || "User"}
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="flex h-full flex-col">
         <div className="flex h-16 items-center justify-between px-4 bg-sidebar">
           <div
@@ -166,7 +194,6 @@ export function Sidebar() {
             )}
           </Button>
         </div>
-
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {filteredMenu.map((item) => {
@@ -184,42 +211,69 @@ export function Sidebar() {
                     <Button
                       variant="ghost"
                       className={cn(
-                        "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                        "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group relative transition-all duration-200",
                         isActive &&
-                          "bg-sidebar-primary text-sidebar-primary-foreground",
+                          "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
                         collapsed && "justify-center px-2"
                       )}
+                      style={{
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
                       onClick={() => !collapsed && toggleExpanded(item.title)}
                     >
-                      <item.icon className="h-4 w-4" />
+                      {/* Active bar indicator */}
+                      {isActive && !collapsed && (
+                        <span
+                          className="absolute left-0 top-0 h-full w-1 rounded-r bg-gradient-to-b from-blue-400 to-blue-700"
+                          style={{ zIndex: 2 }}
+                        />
+                      )}
+                      <item.icon className="h-4 w-4 z-10" />
                       {!collapsed && (
                         <>
-                          <span className="ml-2">{item.title}</span>
+                          <span className="ml-2 z-10">{item.title}</span>
                           <ChevronRight
                             className={cn(
-                              "ml-auto h-4 w-4 transition-transform",
+                              "ml-auto h-4 w-4 transition-transform z-10",
                               isExpanded && "rotate-90"
                             )}
                           />
                         </>
                       )}
                     </Button>
-                    {!collapsed && isExpanded && (
-                      <div className="ml-6 mt-2 space-y-1">
-                        {item.submenu.map((subItem) => (
-                          <Link key={subItem.href} href={subItem.href}>
-                            <Button
-                              variant="ghost"
-                              className={cn(
-                                "w-full justify-start text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                                pathname === subItem.href &&
-                                  "bg-sidebar-primary text-sidebar-primary-foreground"
-                              )}
-                            >
-                              {subItem.title}
-                            </Button>
-                          </Link>
-                        ))}
+                    {/* Animated submenu */}
+                    {!collapsed && (
+                      <div
+                        className={cn(
+                          "ml-6 overflow-hidden transition-all duration-300",
+                          isExpanded
+                            ? "max-h-40 opacity-100"
+                            : "max-h-0 opacity-0"
+                        )}
+                        style={{ transitionProperty: "max-height, opacity" }}
+                      >
+                        {isExpanded &&
+                          item.submenu.map((subItem) => (
+                            <Link key={subItem.href} href={subItem.href}>
+                              <Button
+                                variant="ghost"
+                                className={cn(
+                                  "w-full justify-start text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-150",
+                                  pathname === subItem.href &&
+                                    "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+                                )}
+                                style={{
+                                  borderLeft:
+                                    pathname === subItem.href
+                                      ? "3px solid #3396D3"
+                                      : "3px solid transparent",
+                                }}
+                              >
+                                {subItem.title}
+                              </Button>
+                            </Link>
+                          ))}
                       </div>
                     )}
                   </div>
@@ -231,14 +285,27 @@ export function Sidebar() {
                   <Button
                     variant="ghost"
                     className={cn(
-                      "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group relative transition-all duration-200",
                       pathname === item.href &&
-                        "bg-sidebar-primary text-sidebar-primary-foreground",
+                        "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
                       collapsed && "justify-center px-2"
                     )}
+                    style={{
+                      position: "relative",
+                      overflow: "hidden",
+                    }}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {!collapsed && <span className="ml-2">{item.title}</span>}
+                    {/* Active bar indicator */}
+                    {pathname === item.href && !collapsed && (
+                      <span
+                        className="absolute left-0 top-0 h-full w-1 rounded-r bg-gradient-to-b from-blue-400 to-blue-700"
+                        style={{ zIndex: 2 }}
+                      />
+                    )}
+                    <item.icon className="h-4 w-4 z-10" />
+                    {!collapsed && (
+                      <span className="ml-2 z-10">{item.title}</span>
+                    )}
                   </Button>
                 </Link>
               );

@@ -3,8 +3,15 @@
 import type React from "react";
 import * as ExcelJS from "exceljs";
 import { ChevronDown } from "lucide-react";
+// Tambahkan import Trash2
+import { Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+dayjs.extend(utc);
 
 import { useState, useEffect } from "react";
+
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -73,6 +80,19 @@ function formatInt(val: any) {
     : num.toFixed(2);
 }
 
+function formatTanggalLebihSehari(tgl: string) {
+  if (!tgl) return "-";
+  let dateObj;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+    dateObj = dayjs(tgl).add(1, "day");
+  } else if (tgl.includes("T")) {
+    dateObj = dayjs.utc(tgl).add(1, "day");
+  } else {
+    dateObj = dayjs(tgl).add(1, "day");
+  }
+  return dateObj.format("DD-MM-YYYY");
+}
+
 export default function BTBMonitoringPage() {
   const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -108,6 +128,158 @@ export default function BTBMonitoringPage() {
   // Tambahkan state selectedBTBIds
   const [selectedBTBIds, setSelectedBTBIds] = useState<string[]>([]);
 
+  // Tambah state untuk modal konfirmasi dan toast
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
+
+  // Auto-close toast
+  useEffect(() => {
+    if (toastOpen) {
+      const timer = setTimeout(() => setToastOpen(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastOpen]);
+
+  // Komponen Modal dan Toast
+  function ConfirmModal({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
+          <h2 className="text-lg font-semibold mb-2">{title}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{description}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={onConfirm}>
+              Hapus
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  function Toast({ open, message, onClose }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in">
+          <span className="text-green-600 font-medium">{message}</span>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Hapus BTB (multi/single) - hapus juga di backend
+  const handleDelete = (ids: string[] | string) => {
+    // Ambil id_btb unik dari baris yang dipilih
+    const idList = Array.isArray(ids) ? ids : [ids];
+    // Map id_btb_item ke id_btb (dari btbRows)
+    const idBtbList = Array.from(
+      new Set(
+        idList
+          .map((id) => {
+            const row = btbRows.find((r) => r.id === id);
+            // row.id_btb = id parent BTB
+            // row.id = id_btb_item
+            // row.noBTB = no_btb
+            // row.tanggal = tanggal_btb
+            // row.periode = periode
+            // row.id_supplier = id_supplier
+            // row.nama_supplier = nama_supplier
+            // row.supplier = id_supplier (legacy)
+            // row.nama_barang = nama_barang
+            // row.jumlah = jumlah_diterima
+            // row.satuan = satuan
+            // row.sisa = qty_sisa
+            // row.biaya = biaya
+            // row.diterimaOleh = id_user
+            // row.skema = id_skema
+            // row.id_btb = id_btb (parent)
+            // row.id = id_btb_item
+            // row.id_btb bisa undefined jika mapping belum ada
+            // fallback: cari id_btb dari btbRows yang sama noBTB dan tanggal
+            if (row?.id_btb) return row.id_btb;
+            // fallback: cari dari noBTB dan tanggal
+            const fallback = btbRows.find(
+              (r) =>
+                r.noBTB === row?.noBTB &&
+                r.tanggal === row?.tanggal &&
+                r.periode === row?.periode
+            );
+            return fallback?.id_btb;
+          })
+          .filter(Boolean)
+      )
+    );
+    setDeleteIds(idBtbList as string[]);
+    setConfirmDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setConfirmDeleteOpen(false);
+    try {
+      for (const id_btb of deleteIds) {
+        // Hapus BTB di backend (beserta item, ON DELETE CASCADE)
+        await fetch(`http://localhost:5000/api/btb/${id_btb}`, {
+          method: "DELETE",
+        });
+      }
+      // Hapus semua baris yang id_btb-nya ada di deleteIds
+      setBtbRows((prev) =>
+        prev.filter((row) => !deleteIds.includes(String(row.id_btb)))
+      );
+      setSelectedBTBIds((prev) =>
+        prev.filter((id) => {
+          const row = btbRows.find((r) => r.id === id);
+          return row && !deleteIds.includes(String(row.id_btb));
+        })
+      );
+      setToastMsg("BTB berhasil dihapus.");
+      setToastOpen(true);
+    } catch (error) {
+      setToastMsg("Terjadi kesalahan saat menghapus BTB.");
+      setToastOpen(true);
+    }
+    setDeleteIds([]);
+  };
+
+  // Checkbox select all (per halaman)
+  const handleSelectAll = (checked: boolean) => {
+    const pageIds = filteredBTBData
+      .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+      .map((row) => row.id);
+    if (checked) {
+      setSelectedBTBIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    } else {
+      setSelectedBTBIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    }
+  };
+
+  // Checkbox per baris
+  const handleSelectBTB = (id: string, checked: boolean) => {
+    if (checked) {
+      setSelectedBTBIds((prev) => [...prev, id]);
+    } else {
+      setSelectedBTBIds((prev) => prev.filter((x) => x !== id));
+    }
+  };
+
   // Ambil data dari backend
   useEffect(() => {
     async function fetchBTBData() {
@@ -125,7 +297,12 @@ export default function BTBMonitoringPage() {
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
         const userList = await userRes.json();
-        const skemaList = await skemaRes.json();
+        // --- FIX: pastikan skemaList adalah array ---
+        let skemaListRaw = await skemaRes.json();
+        const skemaList = Array.isArray(skemaListRaw)
+          ? skemaListRaw
+          : Object.values(skemaListRaw);
+        // -------------------------------------------
         const satuanList = await satuanRes.json();
 
         // Buat mapping id_user -> nama_pengguna
@@ -153,6 +330,7 @@ export default function BTBMonitoringPage() {
           const btb = btbList.find((b: any) => b.id_btb === item.id_btb);
           return {
             id: item.id_btb_item,
+            id_btb: item.id_btb, // <-- tambahkan id_btb parent
             noBTB: btb?.no_btb ?? "",
             tanggal: btb?.tanggal_btb ?? "", // <-- gunakan tanggal_btb
             periode: btb?.periode ?? "",
@@ -485,6 +663,16 @@ export default function BTBMonitoringPage() {
                 </>
               )}
             </CardDescription>
+            {exportMode === "selected" && selectedBTBIds.length > 0 && (
+              <Button
+                variant="destructive"
+                className="mt-2"
+                onClick={() => handleDelete(selectedBTBIds)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Hapus BTB Terpilih ({selectedBTBIds.length})
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -503,23 +691,7 @@ export default function BTBMonitoringPage() {
                             .every((btb: any) =>
                               selectedBTBIds.includes(btb.id)
                             )}
-                          onCheckedChange={(checked) => {
-                            const pageIds = filteredBTBData
-                              .slice(
-                                (currentPage - 1) * itemsPerPage,
-                                currentPage * itemsPerPage
-                              )
-                              .map((btb: any) => btb.id);
-                            if (checked) {
-                              setSelectedBTBIds((prev) =>
-                                Array.from(new Set([...prev, ...pageIds]))
-                              );
-                            } else {
-                              setSelectedBTBIds((prev) =>
-                                prev.filter((id) => !pageIds.includes(id))
-                              );
-                            }
-                          }}
+                          onCheckedChange={handleSelectAll}
                         />
                       )}
                     </TableHead>
@@ -725,7 +897,8 @@ export default function BTBMonitoringPage() {
                       <Popover>
                         <PopoverTrigger asChild>
                           <button className="inline-flex items-center gap-1">
-                            Quantity BTB <ChevronDown className="w-4 h-4" />
+                            Quantity Awal BTB{" "}
+                            <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
@@ -870,12 +1043,16 @@ export default function BTBMonitoringPage() {
                     <TableHead className="text-left min-w-[120px]">
                       Skema
                     </TableHead>
+                    {/* Tambahkan kolom aksi */}
+                    <TableHead className="text-left min-w-[80px]">
+                      Aksi
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={11}>Loading...</TableCell>
+                      <TableCell colSpan={12}>Loading...</TableCell>
                     </TableRow>
                   ) : (
                     filteredBTBData
@@ -890,13 +1067,9 @@ export default function BTBMonitoringPage() {
                             <TableCell>
                               <Checkbox
                                 checked={selectedBTBIds.includes(row.id)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedBTBIds((prev) =>
-                                    checked
-                                      ? [...prev, row.id]
-                                      : prev.filter((id) => id !== row.id)
-                                  );
-                                }}
+                                onCheckedChange={(checked) =>
+                                  handleSelectBTB(row.id, checked as boolean)
+                                }
                               />
                             </TableCell>
                           ) : (
@@ -908,7 +1081,7 @@ export default function BTBMonitoringPage() {
                           </TableCell>
                           {/* Tanggal BTB */}
                           <TableCell className="px-4 py-2 text-left">
-                            {formatTanggal(row.tanggal)}
+                            {formatTanggalLebihSehari(row.tanggal)}
                           </TableCell>
                           {/* Periode */}
                           <TableCell className="px-4 py-2 text-left">
@@ -954,6 +1127,16 @@ export default function BTBMonitoringPage() {
                           {/* Skema */}
                           <TableCell className="px-4 py-2 text-left">
                             {skemaMap[String(row.skema)] ?? row.skema}
+                          </TableCell>
+                          {/* Kolom aksi */}
+                          <TableCell className="px-4 py-2 text-left">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDelete(row.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </TableCell>
                         </TableRow>
                       ))
@@ -1006,6 +1189,19 @@ export default function BTBMonitoringPage() {
             </PaginationContent>
           </Pagination>
         </Card>
+        {/* Modal dan Toast */}
+        <ConfirmModal
+          open={confirmDeleteOpen}
+          title="Konfirmasi Hapus BTB"
+          description={`Apakah Anda yakin ingin menghapus ${deleteIds.length} BTB? Data yang dihapus tidak dapat dikembalikan.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+        <Toast
+          open={toastOpen}
+          message={toastMsg}
+          onClose={() => setToastOpen(false)}
+        />
       </div>
     </MainLayout>
   );

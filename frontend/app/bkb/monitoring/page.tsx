@@ -38,6 +38,11 @@ import {
 } from "@/components/ui/pagination";
 import * as ExcelJS from "exceljs";
 import { Checkbox } from "@/components/ui/checkbox";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import { Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
+dayjs.extend(utc);
 
 // Helper format tanggal DD-MM-YYYY
 function formatTanggal(tgl: string | null | undefined) {
@@ -46,6 +51,36 @@ function formatTanggal(tgl: string | null | undefined) {
   const [y, m, d] = date.split("-");
   if (!y || !m || !d) return tgl;
   return `${d}-${m}-${y}`;
+}
+
+// Tambah helper: tanggal +1 hari
+function formatTanggalTambahSehari(tgl: string) {
+  if (!tgl) return "-";
+  let dateObj;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+    dateObj = dayjs(tgl).add(1, "day");
+  } else if (tgl.includes("T")) {
+    dateObj = dayjs(tgl).add(1, "day");
+  } else {
+    dateObj = dayjs(tgl).add(1, "day");
+  }
+  return dateObj.format("DD-MM-YYYY");
+}
+
+function formatTanggalPas(tgl: string) {
+  if (!tgl) return "-";
+  return dayjs.utc(tgl).local().format("DD-MM-YYYY");
+}
+
+// Helper format integer tanpa .00
+function formatInt(val: any) {
+  if (val === undefined || val === null || val === "") return "";
+  const num = Number(val);
+  return Number.isNaN(num)
+    ? ""
+    : num % 1 === 0
+    ? num.toString()
+    : num.toFixed(2);
 }
 
 export default function BKBMonitoringPage() {
@@ -67,6 +102,12 @@ export default function BKBMonitoringPage() {
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
   const [selectedBKBIds, setSelectedBKBIds] = useState<string[]>([]);
+
+  // Tambahkan state untuk konfirmasi hapus dan toast
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
 
   // Fetch satuan list from backend and build mapping
   useEffect(() => {
@@ -125,15 +166,17 @@ export default function BKBMonitoringPage() {
         setBtbMap(btbMapObj);
 
         // Gabungkan: untuk setiap bkb_item, cari parent bkb dan label satuan
+        // Tambahkan id_bkb ke setiap row
         const rows = bkbItemList.map((item: any) => {
           const bkb = bkbList.find((b: any) => b.id_bkb === item.id_bkb);
           return {
             id: item.id_bkb_item,
+            id_bkb: item.id_bkb, // <-- tambahkan id_bkb parent
             noBKB: bkb?.no_bkb ?? "",
             tanggalBKB: bkb?.tanggal_bkb ?? "",
             namaBarang: item.nama_barang ?? "",
             quantity: item.jumlah_keluar ?? "",
-            satuan: satuanMap[String(item.id_satuan)] ?? "", // tampilkan label satuan
+            satuan: satuanMap[String(item.id_satuan)] ?? "",
             keterangan: item.keterangan ?? "",
             dikeluarkanOleh: bkb?.dikeluarkan_oleh ?? "",
             skema: bkb?.id_skema ?? "",
@@ -280,6 +323,129 @@ export default function BKBMonitoringPage() {
     currentPage * itemsPerPage
   );
 
+  // Auto-close toast
+  useEffect(() => {
+    if (toastOpen) {
+      const timer = setTimeout(() => setToastOpen(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastOpen]);
+
+  // Modal konfirmasi hapus
+  function ConfirmModal({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
+          <h2 className="text-lg font-semibold mb-2">{title}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{description}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={onConfirm}>
+              Hapus
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Toast notifikasi
+  function Toast({ open, message, onClose }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in">
+          <span className="text-green-600 font-medium">{message}</span>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Hapus BKB (multi/single) - hapus juga di backend
+  const handleDelete = (ids: string[] | string) => {
+    // Ambil id_bkb unik dari baris yang dipilih
+    const idList = Array.isArray(ids) ? ids : [ids];
+    // Map id_bkb_item ke id_bkb (dari bkbRows)
+    const idBkbList = Array.from(
+      new Set(
+        idList
+          .map((id) => {
+            const row = bkbRows.find((r) => r.id === id);
+            // row.id_bkb = id parent BKB
+            // row.id = id_bkb_item
+            // row.noBKB = no_bkb
+            // row.tanggalBKB = tanggal_bkb
+            // row.namaBarang = nama_barang
+            // row.quantity = jumlah_keluar
+            // row.satuan = satuan
+            // row.keterangan = keterangan
+            // row.dikeluarkanOleh = dikeluarkan_oleh
+            // row.skema = id_skema
+            // row.id_bkb bisa undefined jika mapping belum ada
+            if (row?.id_bkb) return row.id_bkb;
+            // fallback: cari dari noBKB dan tanggal
+            const fallback = bkbRows.find(
+              (r) => r.noBKB === row?.noBKB && r.tanggalBKB === row?.tanggalBKB
+            );
+            return fallback?.id_bkb;
+          })
+          .filter(Boolean)
+      )
+    );
+    setDeleteIds(idBkbList as string[]);
+    setConfirmDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setConfirmDeleteOpen(false);
+    try {
+      for (const id_bkb of deleteIds) {
+        // Hapus BKB di backend (beserta item, ON DELETE CASCADE)
+        await fetch(`http://localhost:5000/api/bkb/${id_bkb}`, {
+          method: "DELETE",
+        });
+      }
+      // Hapus semua baris yang id_bkb-nya ada di deleteIds
+      setBkbRows((prev) =>
+        prev.filter((row) => !deleteIds.includes(String(row.id_bkb)))
+      );
+      setSelectedBKBIds((prev) =>
+        prev.filter((id) => {
+          const row = bkbRows.find((r) => r.id === id);
+          return row && !deleteIds.includes(String(row.id_bkb));
+        })
+      );
+      setToastMsg("BKB berhasil dihapus.");
+      setToastOpen(true);
+    } catch (error) {
+      setToastMsg("Terjadi kesalahan saat menghapus BKB.");
+      setToastOpen(true);
+    }
+    setDeleteIds([]);
+  };
+
+  // State untuk popover keterangan
+  const [hoveredKeterangan, setHoveredKeterangan] = useState<string | null>(
+    null
+  );
+  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -363,6 +529,16 @@ export default function BKBMonitoringPage() {
                 </>
               )}
             </CardDescription>
+            {exportMode === "selected" && selectedBKBIds.length > 0 && (
+              <Button
+                variant="destructive"
+                className="mt-2"
+                onClick={() => handleDelete(selectedBKBIds)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Hapus BKB Terpilih ({selectedBKBIds.length})
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -399,61 +575,130 @@ export default function BKBMonitoringPage() {
                     <TableHead>Keterangan</TableHead>
                     <TableHead>Dikeluarkan Oleh</TableHead>
                     <TableHead>Skema</TableHead>
+                    {/* Tambahkan kolom aksi */}
+                    <TableHead className="text-left min-w-[80px]">
+                      Aksi
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8}>Loading...</TableCell>
+                      <TableCell colSpan={9}>Loading...</TableCell>
                     </TableRow>
                   ) : (
-                    paginatedData.map((row, idx) => (
-                      <TableRow key={row.id}>
-                        {/* Checkbox cell agar jumlah kolom selalu sama */}
-                        {exportMode === "selected" ? (
+                    paginatedData.map((row, idx) => {
+                      // Keterangan pendek (maks 20 karakter)
+                      const ket = row.keterangan ?? "";
+                      const ketShort =
+                        ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
+                      return (
+                        <TableRow key={row.id}>
+                          {/* Checkbox cell agar jumlah kolom selalu sama */}
+                          {exportMode === "selected" ? (
+                            <TableCell>
+                              <Checkbox
+                                checked={selectedBKBIds.includes(row.id)}
+                                onCheckedChange={(checked) => {
+                                  setSelectedBKBIds((prev) =>
+                                    checked
+                                      ? [...prev, row.id]
+                                      : prev.filter((id) => id !== row.id)
+                                  );
+                                }}
+                              />
+                            </TableCell>
+                          ) : (
+                            <TableCell />
+                          )}
+                          <TableCell>{row.noBKB}</TableCell>
                           <TableCell>
-                            <Checkbox
-                              checked={selectedBKBIds.includes(row.id)}
-                              onCheckedChange={(checked) => {
-                                setSelectedBKBIds((prev) =>
-                                  checked
-                                    ? [...prev, row.id]
-                                    : prev.filter((id) => id !== row.id)
-                                );
-                              }}
-                            />
+                            {formatTanggalPas(row.tanggalBKB)}
                           </TableCell>
-                        ) : (
-                          <TableCell />
-                        )}
-                        <TableCell>{row.noBKB}</TableCell>
-                        <TableCell>{formatTanggal(row.tanggalBKB)}</TableCell>
-                        <TableCell>{row.namaBarang}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              Number(row.quantity) > 0
-                                ? "default"
-                                : "destructive"
-                            }
+                          <TableCell>{row.namaBarang}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                Number(row.quantity) > 0
+                                  ? "default"
+                                  : "destructive"
+                              }
+                            >
+                              {formatInt(row.quantity)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{row.satuan}</TableCell>
+                          {/* Keterangan: tampilkan pendek, popover di luar tabel */}
+                          <TableCell
+                            onMouseEnter={(e) => {
+                              if (ket.length > 20) {
+                                setHoveredKeterangan(ket);
+                                const rect = (
+                                  e.target as HTMLElement
+                                ).getBoundingClientRect();
+                                setPopoverPos({
+                                  x: rect.left + rect.width / 2,
+                                  y: rect.bottom + window.scrollY,
+                                });
+                              }
+                            }}
+                            onMouseLeave={() => {
+                              setHoveredKeterangan(null);
+                              setPopoverPos(null);
+                            }}
+                            style={{
+                              cursor: ket.length > 20 ? "pointer" : undefined,
+                            }}
                           >
-                            {row.quantity}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{row.satuan}</TableCell>
-                        <TableCell>{row.keterangan}</TableCell>
-                        <TableCell>
-                          {userMap[String(row.dikeluarkanOleh)] ??
-                            row.dikeluarkanOleh}
-                        </TableCell>
-                        <TableCell>
-                          {skemaMap[String(row.skema)] ?? row.skema}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                            <span className="text-muted-foreground">
+                              {ketShort}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {userMap[String(row.dikeluarkanOleh)] ??
+                              row.dikeluarkanOleh}
+                          </TableCell>
+                          <TableCell>
+                            {skemaMap[String(row.skema)] ?? row.skema}
+                          </TableCell>
+                          {/* Kolom aksi */}
+                          <TableCell className="px-4 py-2 text-left">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDelete(row.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
+              {/* Popover keterangan di luar tabel */}
+              {hoveredKeterangan && popoverPos && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: popoverPos.x,
+                    top: popoverPos.y + 8,
+                    zIndex: 100,
+                    background: "#f3f4f6",
+                    color: "#6b7280",
+                    borderRadius: 8,
+                    boxShadow: "0 2px 8px #0001",
+                    padding: "8px 14px",
+                    maxWidth: 400,
+                    fontSize: 14,
+                    pointerEvents: "none",
+                    transform: "translateX(-50%)",
+                  }}
+                >
+                  {hoveredKeterangan}
+                </div>
+              )}
             </div>
           </CardContent>
           <Pagination className="mt-4">
@@ -493,6 +738,19 @@ export default function BKBMonitoringPage() {
             </PaginationContent>
           </Pagination>
         </Card>
+        {/* Modal dan Toast */}
+        <ConfirmModal
+          open={confirmDeleteOpen}
+          title="Konfirmasi Hapus BKB"
+          description={`Apakah Anda yakin ingin menghapus ${deleteIds.length} BKB? Data yang dihapus tidak dapat dikembalikan.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+        <Toast
+          open={toastOpen}
+          message={toastMsg}
+          onClose={() => setToastOpen(false)}
+        />
       </div>
     </MainLayout>
   );

@@ -37,6 +37,9 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+dayjs.extend(utc);
 
 export default function StatusPOPage() {
   const [prData, setPrData] = useState<any[]>([]);
@@ -360,12 +363,10 @@ export default function StatusPOPage() {
     new Set(processedPRs.map((pr) => pr.skema))
   ).sort();
 
-  // Helper untuk format tanggal DD-MM-YYYY
+  // Helper untuk format tanggal DD-MM-YYYY pakai dayjs local
   function formatTanggal(tgl: string) {
     if (!tgl) return "";
-    const [date] = tgl.split("T");
-    const [y, m, d] = date.split("-");
-    return `${d}-${m}-${y}`;
+    return dayjs(tgl).local().format("DD-MM-YYYY");
   }
 
   // Filter data
