@@ -563,9 +563,13 @@ export default function InputPOPage() {
           .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
           .map((item: any) => ({
             namaBarang: item.namaBarang,
-            jumlah: item.jumlah,
-            quantityAwalPR: item.quantityAwalPR,
-            satuan: item.satuanLabel || item.satuan || item.id_satuan,
+            jumlah: item.jumlah, // <-- Qty ambil dari jumlah (bukan originalJumlah)
+            quantityAwalPR:
+              item.quantityAwalPR ?? item.originalJumlah ?? item.jumlah,
+            satuan:
+              satuanMap[String(item.id_satuan)] ||
+              item.satuanLabel ||
+              item.id_satuan,
             keterangan: item.keterangan,
             id: item.id_PRItem,
             status: item.status || "",
@@ -576,8 +580,12 @@ export default function InputPOPage() {
           noPR: pr.noPR,
           tanggalPR: pr.tanggalPR,
           items,
-          urgensi: pr.urgensiLabel || pr.urgensi || pr.id_urgensi,
-          divisi: pr.divisiLabel || pr.divisi || pr.id_divisi,
+          urgensi:
+            urgensiMap[String(pr.id_urgensi)] ||
+            pr.urgensiLabel ||
+            pr.id_urgensi,
+          divisi:
+            divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
           status: pr.status,
           dibuatOleh: pr.dibuatOleh,
           skema: pr.id_skema,

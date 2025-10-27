@@ -847,7 +847,9 @@ export default function InputBaruPRPage() {
                                         size="xs"
                                         className="px-2 py-1 text-xs bg-primary text-white"
                                         onClick={() =>
-                                          handleEditSatuan(String(sat.id_satuan))
+                                          handleEditSatuan(
+                                            String(sat.id_satuan)
+                                          )
                                         }
                                       >
                                         Simpan
@@ -880,7 +882,9 @@ export default function InputBaruPRPage() {
                                         variant="ghost"
                                         className="text-xs text-blue-600 px-1 py-0.5"
                                         onClick={() => {
-                                          setEditSatuanId(String(sat.id_satuan));
+                                          setEditSatuanId(
+                                            String(sat.id_satuan)
+                                          );
                                           setEditSatuanValue(sat.satuan);
                                         }}
                                       >
@@ -892,7 +896,9 @@ export default function InputBaruPRPage() {
                                         variant="ghost"
                                         className="text-xs text-red-600 px-1 py-0.5"
                                         onClick={() =>
-                                          handleDeleteSatuan(String(sat.id_satuan))
+                                          handleDeleteSatuan(
+                                            String(sat.id_satuan)
+                                          )
                                         }
                                       >
                                         Hapus
