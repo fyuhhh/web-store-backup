@@ -159,16 +159,16 @@ export default function MonitoringPRPage() {
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
-    fetch("http://localhost:5000/api/divisi")
+    fetch("http://192.168.10.10:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://localhost:5000/api/urgensi")
+    fetch("http://192.168.10.10:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://localhost:5000/api/satuan")
+    fetch("http://192.168.10.10:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
-    fetch("http://localhost:5000/api/skema")
+    fetch("http://192.168.10.10:5000/api/skema")
       .then((res) => res.json())
       .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -211,9 +211,9 @@ export default function MonitoringPRPage() {
   ]);
 
   const loadPRData = async () => {
-    const prRes = await fetch("http://localhost:5000/api/pr");
+    const prRes = await fetch("http://192.168.10.10:5000/api/pr");
     const prList = await prRes.json();
-    const prItemRes = await fetch("http://localhost:5000/api/pr-item");
+    const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
     const prItemList = await prItemRes.json();
 
     // LOG: Tampilkan tanggalPR yang diterima dari backend
@@ -297,8 +297,8 @@ export default function MonitoringPRPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
-        await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
+        await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
+        await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
           method: "DELETE",
         });
       }
