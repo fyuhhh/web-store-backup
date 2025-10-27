@@ -63,6 +63,10 @@ export default function InputBaruPRPage() {
   const [showAddSatuan, setShowAddSatuan] = useState(false);
   const [newSatuan, setNewSatuan] = useState("");
 
+  // Tambahkan state untuk edit satuan
+  const [editSatuanId, setEditSatuanId] = useState<string | null>(null);
+  const [editSatuanValue, setEditSatuanValue] = useState("");
+
   useEffect(() => {
     loadPRData();
 
@@ -399,6 +403,45 @@ export default function InputBaruPRPage() {
           });
         setNewSatuan("");
         setShowAddSatuan(false);
+      }
+    } catch {}
+  };
+
+  // Handler hapus satuan
+  const handleDeleteSatuan = async (id: string) => {
+    if (!id) return;
+    if (!window.confirm("Yakin ingin menghapus satuan ini?")) return;
+    try {
+      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetch("http://192.168.10.10:5000/api/satuan")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setSatuanOptions(data);
+          });
+      }
+    } catch {}
+  };
+
+  // Handler edit satuan
+  const handleEditSatuan = async (id: string) => {
+    if (!editSatuanValue.trim()) return;
+    try {
+      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ satuan: editSatuanValue }),
+      });
+      if (res.ok) {
+        fetch("http://192.168.10.10:5000/api/satuan")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setSatuanOptions(data);
+          });
+        setEditSatuanId(null);
+        setEditSatuanValue("");
       }
     } catch {}
   };
@@ -786,12 +829,77 @@ export default function InputBaruPRPage() {
                                   .includes(satuanSearch.toLowerCase())
                               )
                               .map((sat: any) => (
-                                <SelectItem
+                                <div
                                   key={sat.id_satuan}
-                                  value={String(sat.id_satuan)}
+                                  className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
                                 >
-                                  {sat.satuan}
-                                </SelectItem>
+                                  {editSatuanId === String(sat.id_satuan) ? (
+                                    <>
+                                      <Input
+                                        value={editSatuanValue}
+                                        onChange={(e) =>
+                                          setEditSatuanValue(e.target.value)
+                                        }
+                                        className="w-[90px] h-7 text-xs"
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="xs"
+                                        className="px-2 py-1 text-xs bg-primary text-white"
+                                        onClick={() =>
+                                          handleEditSatuan(String(sat.id_satuan))
+                                        }
+                                      >
+                                        Simpan
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="xs"
+                                        variant="outline"
+                                        className="px-2 py-1 text-xs"
+                                        onClick={() => {
+                                          setEditSatuanId(null);
+                                          setEditSatuanValue("");
+                                        }}
+                                      >
+                                        Batal
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <SelectItem
+                                        key={sat.id_satuan}
+                                        value={String(sat.id_satuan)}
+                                        className="flex-1"
+                                      >
+                                        {sat.satuan}
+                                      </SelectItem>
+                                      <Button
+                                        type="button"
+                                        size="xs"
+                                        variant="ghost"
+                                        className="text-xs text-blue-600 px-1 py-0.5"
+                                        onClick={() => {
+                                          setEditSatuanId(String(sat.id_satuan));
+                                          setEditSatuanValue(sat.satuan);
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="xs"
+                                        variant="ghost"
+                                        className="text-xs text-red-600 px-1 py-0.5"
+                                        onClick={() =>
+                                          handleDeleteSatuan(String(sat.id_satuan))
+                                        }
+                                      >
+                                        Hapus
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
                               ))
                           )}
                           {satuanOptions.length > 0 &&
