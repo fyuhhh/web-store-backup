@@ -169,37 +169,7 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-        {/* Demo akun section */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-center text-xs text-muted-foreground">
-          <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">
-            <div className="font-semibold text-primary">Demo Penta</div>
-            <div>
-              Nama Pengguna: <span className="font-mono">ewalk</span>
-            </div>
-            <div>
-              Kata Sandi: <span className="font-mono">ewalk</span>
-            </div>
-          </div>
-          <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">
-            <div className="font-semibold text-primary">Demo Admin</div>
-            <div>
-              Nama Pengguna: <span className="font-mono">admin</span>
-            </div>
-            <div>
-              Kata Sandi: <span className="font-mono">admin</span>
-            </div>
-          </div>
-          <div className="bg-white/70 rounded-lg p-3 shadow border border-primary/10">
-            <div className="font-semibold text-primary">Superadmin</div>
-            <div>
-              Nama Pengguna: <span className="font-mono">superadmin</span>
-            </div>
-            <div>
-              Kata Sandi:{" "}
-              <span className="font-mono">superadminpentaewalk</span>
-            </div>
-          </div>
-        </div>
+    
       </div>
     </div>
   );
