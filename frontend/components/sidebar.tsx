@@ -34,8 +34,6 @@ const menuItems = [
     submenu: [
       { title: "Input PR", href: "/pr/input-baru" },
       { title: "Monitoring PR", href: "/pr/monitoring" },
-      { title: "Status Pencapaian PR", href: "/pr/status" },
-      { title: "Rekap PR", href: "/pr/rekap" },
     ],
   },
   {

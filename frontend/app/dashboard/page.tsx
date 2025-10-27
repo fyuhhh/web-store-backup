@@ -56,13 +56,7 @@ const monthlyData = [
   { month: "Jun", PR: 28, PO: 21, BTB: 17, BKB: 14 },
 ];
 
-const statusData = [
-  { name: "Selesai", value: 45, color: "hsl(var(--success))" },
-  { name: "Proses", value: 30, color: "hsl(var(--primary))" },
-  { name: "Tertunda", value: 15, color: "hsl(var(--warning))" },
-  { name: "Dibatalkan", value: 10, color: "hsl(var(--destructive))" },
-];
-
+// Dummy supplier data (restore this block)
 const supplierData = [
   { name: "PT. Supplier A", rating: 4.8, orders: 23, onTime: 95 },
   { name: "PT. Supplier B", rating: 4.5, orders: 18, onTime: 88 },
@@ -134,7 +128,14 @@ export default function DashboardPage() {
           menunggu = 0;
         if (Array.isArray(data)) {
           data.forEach((pr) => {
-            if (pr.status === "Telah Selesai") selesai++;
+            // Jika status null/undefined/kosong, anggap telah selesai
+            if (
+              pr.status === "Telah Selesai" ||
+              pr.status === null ||
+              pr.status === undefined ||
+              pr.status === ""
+            )
+              selesai++;
             else if (pr.status === "Gantung") gantung++;
             else if (pr.status === "Menunggu") menunggu++;
           });
@@ -165,6 +166,162 @@ export default function DashboardPage() {
       events.forEach((ev) => window.removeEventListener(ev, resetTimer));
     };
   }, []);
+
+  // State for PR status distribution (bukan PO!)
+  const [prStatusDist, setPrStatusDist] = useState({
+    selesai: 0,
+    gantung: 0,
+    menunggu: 0,
+  });
+
+  // State for monthly trend data (grouped by year, dari PR)
+  const [trendData, setTrendData] = useState<{ [year: string]: any[] }>({});
+  const [selectedYear, setSelectedYear] = useState<string>("");
+
+  useEffect(() => {
+    // Fetch total PR item
+    fetch("http://localhost:5000/api/pr")
+      .then((r) => r.json())
+      .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
+    // Fetch total PO item
+    fetch("http://localhost:5000/api/po")
+      .then((r) => r.json())
+      .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
+    // Fetch total BTB item
+    fetch("http://localhost:5000/api/btb")
+      .then((r) => r.json())
+      .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
+    // Fetch total BKB item
+    fetch("http://localhost:5000/api/bkb")
+      .then((r) => r.json())
+      .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
+
+    // Fetch status PR dari backend
+    fetch("http://localhost:5000/api/pr")
+      .then((r) => r.json())
+      .then((data) => {
+        let selesai = 0,
+          gantung = 0,
+          menunggu = 0;
+        if (Array.isArray(data)) {
+          data.forEach((pr) => {
+            // Jika status null/undefined/kosong, anggap telah selesai
+            if (
+              pr.status === "Telah Selesai" ||
+              pr.status === null ||
+              pr.status === undefined ||
+              pr.status === ""
+            )
+              selesai++;
+            else if (pr.status === "Gantung") gantung++;
+            else if (pr.status === "Menunggu") menunggu++;
+          });
+        }
+        setPrStatusCount({ selesai, gantung, menunggu });
+      });
+
+    // Fetch status PR untuk distribusi status dan trend bulanan
+    fetch("http://localhost:5000/api/pr")
+      .then((r) => r.json())
+      .then((data) => {
+        // Distribusi Status
+        let selesai = 0,
+          gantung = 0,
+          menunggu = 0;
+        if (Array.isArray(data)) {
+          data.forEach((pr) => {
+            if (
+              pr.status === "Telah Selesai" ||
+              pr.status === null ||
+              pr.status === undefined ||
+              pr.status === ""
+            )
+              selesai++;
+            else if (pr.status === "Gantung") gantung++;
+            else if (pr.status === "Menunggu") menunggu++;
+          });
+        }
+        setPrStatusDist({ selesai, gantung, menunggu });
+
+        // Trend Bulanan (group by year and month, count status)
+        const grouped: { [year: string]: { [month: string]: any } } = {};
+        if (Array.isArray(data)) {
+          data.forEach((pr) => {
+            const date = pr.tanggalPR ? new Date(pr.tanggalPR) : null;
+            if (!date || isNaN(date.getTime())) return;
+            const year = date.getFullYear().toString();
+            const month = date.toLocaleString("id-ID", { month: "short" });
+            if (!grouped[year]) grouped[year] = {};
+            if (!grouped[year][month]) {
+              grouped[year][month] = {
+                month,
+                selesai: 0,
+                gantung: 0,
+                menunggu: 0,
+              };
+            }
+            if (
+              pr.status === "Telah Selesai" ||
+              pr.status === null ||
+              pr.status === undefined ||
+              pr.status === ""
+            )
+              grouped[year][month].selesai++;
+            else if (pr.status === "Gantung") grouped[year][month].gantung++;
+            else if (pr.status === "Menunggu") grouped[year][month].menunggu++;
+          });
+        }
+        // Convert to array per year
+        const trend: { [year: string]: any[] } = {};
+        Object.keys(grouped).forEach((year) => {
+          trend[year] = Object.values(grouped[year]);
+        });
+        setTrendData(trend);
+        // Default to latest year
+        const years = Object.keys(trend).sort();
+        setSelectedYear(years[years.length - 1] || "");
+      });
+  }, []);
+
+  // Auto-logout logic (testing: 5 detik idle)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        localStorage.removeItem("userData");
+        window.location.href = "/login";
+      }, 600000); // 5 detik idle
+    };
+
+    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, []);
+
+  // PieChart data for Distribusi Status (pakai PR, bukan PO)
+  const pieStatusData = [
+    {
+      name: "Telah Selesai",
+      value: prStatusDist.selesai,
+      color: "hsl(var(--success))",
+    },
+    {
+      name: "Gantung",
+      value: prStatusDist.gantung,
+      color: "hsl(var(--primary))",
+    },
+    {
+      name: "Menunggu",
+      value: prStatusDist.menunggu,
+      color: "hsl(var(--warning))",
+    },
+  ];
 
   return (
     <MainLayout>
@@ -281,6 +438,41 @@ export default function DashboardPage() {
             </Card>
           </div>
         </div>
+
+        {/* Status Overview di tengah */}
+        <div className="flex justify-center">
+          <Card className="bg-card border-border min-w-[320px] max-w-md w-full">
+            <CardHeader>
+              <CardTitle>Status Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-row gap-6 justify-between items-center">
+                <div className="flex flex-col items-center">
+                  <CheckCircle className="h-5 w-5 text-success mb-1" />
+                  <span className="text-xs">Selesai</span>
+                  <span className="text-base font-bold text-success">
+                    {prStatusCount.selesai}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <Clock className="h-5 w-5 text-primary mb-1" />
+                  <span className="text-xs">Gantung</span>
+                  <span className="text-base font-bold text-primary">
+                    {prStatusCount.gantung}
+                  </span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <TrendingDown className="h-5 w-5 text-warning mb-1" />
+                  <span className="text-xs">Menunggu</span>
+                  <span className="text-base font-bold text-warning">
+                    {prStatusCount.menunggu}
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <style jsx>{`
           .kpi-card-anim {
             transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
@@ -296,122 +488,53 @@ export default function DashboardPage() {
           }
         `}</style>
 
-        {/* SLA and Performance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-primary" />
-                SLA Performance
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>PR Tepat Waktu</span>
-                  <span className="font-medium">
-                    {kpiData.prOnTime}/{kpiData.totalPR}
-                  </span>
-                </div>
-                <Progress
-                  value={(kpiData.prOnTime / kpiData.totalPR) * 100}
-                  className="h-2"
-                />
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span>Rata-rata Waktu Proses</span>
-                  <span className="font-medium">
-                    {kpiData.avgProcessTime} hari
-                  </span>
-                </div>
-                <Badge
-                  variant={
-                    kpiData.avgProcessTime <= 3 ? "default" : "destructive"
-                  }
-                >
-                  {kpiData.avgProcessTime <= 3 ? "Baik" : "Perlu Perbaikan"}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>Utilisasi Budget</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground mb-2">
-                {kpiData.budgetUtilization}%
-              </div>
-              <Progress
-                value={kpiData.budgetUtilization}
-                className="h-3 mb-2"
-              />
-              <p className="text-sm text-muted-foreground">
-                Rp 2.4M dari Rp 3.6M budget tahunan
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>Status Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <CheckCircle className="h-4 w-4 text-success mr-2" />
-                    <span className="text-sm">Telah Selesai</span>
-                  </div>
-                  <span className="text-sm font-medium">
-                    {prStatusCount.selesai}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Clock className="h-4 w-4 text-primary mr-2" />
-                    <span className="text-sm">Gantung</span>
-                  </div>
-                  <span className="text-sm font-medium">
-                    {prStatusCount.gantung}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <TrendingDown className="h-4 w-4 text-warning mr-2" />
-                    <span className="text-sm">Menunggu</span>
-                  </div>
-                  <span className="text-sm font-medium">
-                    {prStatusCount.menunggu}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle>Trend Bulanan</CardTitle>
               <CardDescription>
-                Aktivitas PR-PO-BTB-BKB per bulan
+                Aktivitas Perbulan
+                {/* Year selector */}
+                {Object.keys(trendData).length > 0 && (
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(e.target.value)}
+                    className="ml-4 px-2 py-1 border rounded text-sm"
+                  >
+                    {Object.keys(trendData)
+                      .sort()
+                      .map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                  </select>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData}>
+                <BarChart data={trendData[selectedYear] || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="PR" fill="hsl(var(--primary))" />
-                  <Bar dataKey="PO" fill="hsl(var(--success))" />
-                  <Bar dataKey="BTB" fill="hsl(var(--warning))" />
-                  <Bar dataKey="BKB" fill="hsl(var(--destructive))" />
+                  <Bar
+                    dataKey="selesai"
+                    fill="hsl(var(--success))"
+                    name="Telah Selesai"
+                  />
+                  <Bar
+                    dataKey="gantung"
+                    fill="hsl(var(--primary))"
+                    name="Gantung"
+                  />
+                  <Bar
+                    dataKey="menunggu"
+                    fill="hsl(var(--warning))"
+                    name="Menunggu"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -420,13 +543,15 @@ export default function DashboardPage() {
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle>Distribusi Status</CardTitle>
-              <CardDescription>Status keseluruhan dokumen</CardDescription>
+              <CardDescription>
+                Status PO: Selesai, Gantung, Menunggu
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
-                    data={statusData}
+                    data={pieStatusData}
                     cx="50%"
                     cy="50%"
                     labelLine={false}
@@ -437,7 +562,7 @@ export default function DashboardPage() {
                     fill="#8884d8"
                     dataKey="value"
                   >
-                    {statusData.map((entry, index) => (
+                    {pieStatusData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -449,7 +574,8 @@ export default function DashboardPage() {
         </div>
 
         {/* Supplier Performance */}
-        <Card className="bg-card border-border">
+        {/* HAPUS Evaluasi Supplier */}
+        {/* <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle>Evaluasi Supplier</CardTitle>
             <CardDescription>
@@ -495,7 +621,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </MainLayout>
   );
