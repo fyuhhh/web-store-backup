@@ -328,6 +328,47 @@ export default function DashboardPage() {
     setTimeout(() => setIsMounted(true), 10);
   }, []);
 
+  // Tambahkan state untuk animasi count up
+  const [displayPR, setDisplayPR] = useState(0);
+
+  // Animasi count up untuk Total PR
+  useEffect(() => {
+    let raf: number;
+    let start: number | null = null;
+    let from = 0;
+    let to = totalPRItem; // <-- pastikan to adalah totalPRItem dari backend
+    let duration = 900; // ms
+
+    function animateCountUp(ts: number) {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
+      setDisplayPR(value);
+      if (progress < 1) {
+        raf = requestAnimationFrame(animateCountUp);
+      } else {
+        setDisplayPR(to);
+      }
+    }
+
+    function easeOutExpo(x: number) {
+      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    }
+
+    // Jalankan animasi setiap totalPRItem berubah
+    start = null;
+    from = 0;
+    to = totalPRItem;
+    setDisplayPR(0);
+    raf = requestAnimationFrame(animateCountUp);
+
+    return () => {
+      cancelAnimationFrame(raf);
+    };
+  }, [totalPRItem]);
+
+  const router = useRouter();
+
   return (
     <MainLayout>
       <div
@@ -376,8 +417,28 @@ export default function DashboardPage() {
                 <FileText className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">
-                  {totalPRItem}
+                <div
+                  className="text-2xl font-bold text-foreground"
+                  style={{
+                    fontVariantNumeric: "tabular-nums",
+                    transition: "color 0.3s",
+                    minHeight: "2.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  {/* Animasi naik ke atas dengan shadow */}
+                  <span
+                    key={displayPR}
+                    className="pr-1 animate-countup"
+                    style={{
+                      display: "inline-block",
+                      minWidth: "2ch",
+                    }}
+                  >
+                    {displayPR}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground"></p>
               </CardContent>
@@ -494,6 +555,30 @@ export default function DashboardPage() {
             transform: scale(1.045) translateY(-2px);
             box-shadow: 0 4px 24px #3396d322;
             z-index: 2;
+          }
+          .animate-countup {
+            animation: countup-fadeup 0.5s cubic-bezier(.4,2,.6,1);
+            box-shadow: 0 6px 18px -6px #3396d355;
+            border-radius: 0.4em;
+            background: rgba(255,255,255,0.7);
+            padding: 0.1em 0.5em;
+          }
+          @keyframes countup-fadeup {
+            0% {
+              opacity: 0;
+              transform: translateY(16px) scale(1.08);
+              box-shadow: 0 12px 32px -8px #3396d355;
+            }
+            60% {
+              opacity: 1;
+              transform: translateY(-4px) scale(1.02);
+              box-shadow: 0 8px 24px -8px #3396d355;
+            }
+            100% {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+              box-shadow: 0 6px 18px -6px #3396d355;
+            }
           }
         `}</style>
 
