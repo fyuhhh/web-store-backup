@@ -98,7 +98,7 @@ export default function LoginPage() {
               Masuk ke Sistem
             </CardTitle>
             <CardDescription className="text-center text-muted-foreground">
-              Input Nama Pengguna dan Kata Sandi Anda
+              Masukkan Nama Pengguna dan Kata Sandi Anda
             </CardDescription>
           </CardHeader>
           <CardContent>
