@@ -70,7 +70,8 @@ export default function LoginPage() {
             "divisi" ||
           data.user.id_peran === 3
         ) {
-          router.push(`/dashboard/rekap-full?divisi=${data.user.divisi}`);
+          // GANTI: redirect ke dashboard, BUKAN ke rekap-full
+          router.push("/dashboard");
         } else {
           router.push("/dashboard");
         }
@@ -169,7 +170,6 @@ export default function LoginPage() {
             </form>
           </CardContent>
         </Card>
-    
       </div>
     </div>
   );

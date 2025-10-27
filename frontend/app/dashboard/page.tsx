@@ -456,6 +456,20 @@ export default function DashboardPage() {
 
   const router = useRouter();
 
+  // State untuk user (tambahan)
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userRaw = localStorage.getItem("userData");
+      if (userRaw) {
+        try {
+          setUser(JSON.parse(userRaw));
+        } catch {}
+      }
+    }
+  }, []);
+
   return (
     <MainLayout>
       <div
@@ -489,168 +503,299 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Total PR */}
-          <div
-            className="kpi-card-anim"
-            tabIndex={0}
-            role="button"
-            onClick={() => router.push("/pr/monitoring")}
-            style={{ outline: "none" }}
-          >
-            <Card className="bg-card border-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total PR</CardTitle>
-                <FileText className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div
-                  className="text-2xl font-bold text-foreground"
-                  style={{
-                    fontVariantNumeric: "tabular-nums",
-                    transition: "color 0.3s",
-                    minHeight: "2.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span
-                    key={displayPR}
-                    className="pr-1 animate-countup"
+        {user && user.id_peran === 3 ? (
+          // Untuk user divisi/pengurus 1: hanya 3 card, tetap besar dan rata tengah
+          <div className="flex justify-center">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 w-full max-w-6xl">
+              {/* Total PR */}
+              <div
+                className="kpi-card-anim"
+                tabIndex={0}
+                role="button"
+                onClick={() => router.push("/pr/monitoring")}
+                style={{ outline: "none" }}
+              >
+                <Card className="bg-card border-border">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total PR</CardTitle>
+                    <FileText className="h-4 w-4 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className="text-2xl font-bold text-foreground"
+                      style={{
+                        fontVariantNumeric: "tabular-nums",
+                        transition: "color 0.3s",
+                        minHeight: "2.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
+                      }}
+                    >
+                      <span
+                        key={displayPR}
+                        className="pr-1 animate-countup"
+                        style={{
+                          display: "inline-block",
+                          minWidth: "2ch",
+                        }}
+                      >
+                        {displayPR}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground"></p>
+                  </CardContent>
+                </Card>
+              </div>
+              {/* Total PO */}
+              <div
+                className="kpi-card-anim"
+                tabIndex={0}
+                role="button"
+                onClick={() => router.push("/po/monitoring")}
+                style={{ outline: "none" }}
+              >
+                <Card className="bg-card border-border">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total PO</CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className="text-2xl font-bold text-foreground"
+                      style={{
+                        fontVariantNumeric: "tabular-nums",
+                        transition: "color 0.3s",
+                        minHeight: "2.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
+                      }}
+                    >
+                      <span
+                        key={displayPO}
+                        className="pr-1 animate-countup"
+                        style={{
+                          display: "inline-block",
+                          minWidth: "2ch",
+                        }}
+                      >
+                        {displayPO}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground"></p>
+                  </CardContent>
+                </Card>
+              </div>
+              {/* Total BKB */}
+              <div
+                className="kpi-card-anim"
+                tabIndex={0}
+                role="button"
+                onClick={() => router.push("/bkb/monitoring")}
+                style={{ outline: "none" }}
+              >
+                <Card className="bg-card border-border">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total BKB</CardTitle>
+                    <PackageOpen className="h-4 w-4 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className="text-2xl font-bold text-foreground"
+                      style={{
+                        fontVariantNumeric: "tabular-nums",
+                        transition: "color 0.3s",
+                        minHeight: "2.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
+                      }}
+                    >
+                      <span
+                        key={displayBKB}
+                        className="pr-1 animate-countup"
+                        style={{
+                          display: "inline-block",
+                          minWidth: "2ch",
+                        }}
+                      >
+                        {displayBKB}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground"></p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        ) : (
+          // Untuk user lain: 4 card seperti biasa
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Total PR */}
+            <div
+              className="kpi-card-anim"
+              tabIndex={0}
+              role="button"
+              onClick={() => router.push("/pr/monitoring")}
+              style={{ outline: "none" }}
+            >
+              <Card className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total PR</CardTitle>
+                  <FileText className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className="text-2xl font-bold text-foreground"
                     style={{
-                      display: "inline-block",
-                      minWidth: "2ch",
+                      fontVariantNumeric: "tabular-nums",
+                      transition: "color 0.3s",
+                      minHeight: "2.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
                     }}
                   >
-                    {displayPR}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground"></p>
-              </CardContent>
-            </Card>
-          </div>
-          {/* Total PO */}
-          <div
-            className="kpi-card-anim"
-            tabIndex={0}
-            role="button"
-            onClick={() => router.push("/po/monitoring")}
-            style={{ outline: "none" }}
-          >
-            <Card className="bg-card border-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total PO</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div
-                  className="text-2xl font-bold text-foreground"
-                  style={{
-                    fontVariantNumeric: "tabular-nums",
-                    transition: "color 0.3s",
-                    minHeight: "2.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span
-                    key={displayPO}
-                    className="pr-1 animate-countup"
+                    <span
+                      key={displayPR}
+                      className="pr-1 animate-countup"
+                      style={{
+                        display: "inline-block",
+                        minWidth: "2ch",
+                      }}
+                    >
+                      {displayPR}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground"></p>
+                </CardContent>
+              </Card>
+            </div>
+            {/* Total PO */}
+            <div
+              className="kpi-card-anim"
+              tabIndex={0}
+              role="button"
+              onClick={() => router.push("/po/monitoring")}
+              style={{ outline: "none" }}
+            >
+              <Card className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total PO</CardTitle>
+                  <ShoppingCart className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className="text-2xl font-bold text-foreground"
                     style={{
-                      display: "inline-block",
-                      minWidth: "2ch",
+                      fontVariantNumeric: "tabular-nums",
+                      transition: "color 0.3s",
+                      minHeight: "2.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
                     }}
                   >
-                    {displayPO}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground"></p>
-              </CardContent>
-            </Card>
-          </div>
-          {/* Total BTB */}
-          <div
-            className="kpi-card-anim"
-            tabIndex={0}
-            role="button"
-            onClick={() => router.push("/btb/monitoring")}
-            style={{ outline: "none" }}
-          >
-            <Card className="bg-card border-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total BTB</CardTitle>
-                <Package className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div
-                  className="text-2xl font-bold text-foreground"
-                  style={{
-                    fontVariantNumeric: "tabular-nums",
-                    transition: "color 0.3s",
-                    minHeight: "2.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span
-                    key={displayBTB}
-                    className="pr-1 animate-countup"
+                    <span
+                      key={displayPO}
+                      className="pr-1 animate-countup"
+                      style={{
+                        display: "inline-block",
+                        minWidth: "2ch",
+                      }}
+                    >
+                      {displayPO}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground"></p>
+                </CardContent>
+              </Card>
+            </div>
+            {/* Total BTB (hanya tampil jika bukan user divisi) */}
+            {!user || user.id_peran !== 3 ? (
+              <div
+                className="kpi-card-anim"
+                tabIndex={0}
+                role="button"
+                onClick={() => router.push("/btb/monitoring")}
+                style={{ outline: "none" }}
+              >
+                <Card className="bg-card border-border">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total BTB</CardTitle>
+                    <Package className="h-4 w-4 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className="text-2xl font-bold text-foreground"
+                      style={{
+                        fontVariantNumeric: "tabular-nums",
+                        transition: "color 0.3s",
+                        minHeight: "2.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
+                      }}
+                    >
+                      <span
+                        key={displayBTB}
+                        className="pr-1 animate-countup"
+                        style={{
+                          display: "inline-block",
+                          minWidth: "2ch",
+                        }}
+                      >
+                        {displayBTB}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground"></p>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : null}
+            {/* Total BKB */}
+            <div
+              className="kpi-card-anim"
+              tabIndex={0}
+              role="button"
+              onClick={() => router.push("/bkb/monitoring")}
+              style={{ outline: "none" }}
+            >
+              <Card className="bg-card border-border">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total BKB</CardTitle>
+                  <PackageOpen className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div
+                    className="text-2xl font-bold text-foreground"
                     style={{
-                      display: "inline-block",
-                      minWidth: "2ch",
+                      fontVariantNumeric: "tabular-nums",
+                      transition: "color 0.3s",
+                      minHeight: "2.5rem",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
                     }}
                   >
-                    {displayBTB}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground"></p>
-              </CardContent>
-            </Card>
+                    <span
+                      key={displayBKB}
+                      className="pr-1 animate-countup"
+                      style={{
+                        display: "inline-block",
+                        minWidth: "2ch",
+                      }}
+                    >
+                      {displayBKB}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground"></p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-          {/* Total BKB */}
-          <div
-            className="kpi-card-anim"
-            tabIndex={0}
-            role="button"
-            onClick={() => router.push("/bkb/monitoring")}
-            style={{ outline: "none" }}
-          >
-            <Card className="bg-card border-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total BKB</CardTitle>
-                <PackageOpen className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div
-                  className="text-2xl font-bold text-foreground"
-                  style={{
-                    fontVariantNumeric: "tabular-nums",
-                    transition: "color 0.3s",
-                    minHeight: "2.5rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-start",
-                  }}
-                >
-                  <span
-                    key={displayBKB}
-                    className="pr-1 animate-countup"
-                    style={{
-                      display: "inline-block",
-                      minWidth: "2ch",
-                    }}
-                  >
-                    {displayBKB}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground"></p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        )}
 
         {/* Status Overview di tengah */}
         <div className="flex justify-center">
@@ -700,10 +845,10 @@ export default function DashboardPage() {
             z-index: 2;
           }
           .animate-countup {
-            animation: countup-fadeup 0.5s cubic-bezier(.4,2,.6,1);
+            animation: countup-fadeup 0.5s cubic-bezier(0.4, 2, 0.6, 1);
             box-shadow: 0 6px 18px -6px #3396d355;
             border-radius: 0.4em;
-            background: rgba(255,255,255,0.7);
+            background: rgba(255, 255, 255, 0.7);
             padding: 0.1em 0.5em;
           }
           @keyframes countup-fadeup {

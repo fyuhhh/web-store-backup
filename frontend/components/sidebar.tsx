@@ -98,7 +98,7 @@ export function Sidebar() {
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
-  const [user, setUser] = useState<{ nama_pengguna?: string } | null>(null);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -134,17 +134,50 @@ export function Sidebar() {
     );
   };
 
-  // Jika divisi, hanya render menu Rekap Keseluruhan
-  const filteredMenu =
-    role && role !== "admin"
-      ? [
-          {
-            title: "Rekap Keseluruhan",
-            href: "/dashboard/rekap-full",
-            icon: BarChart3,
-          },
-        ]
-      : menuItems;
+  // Filter menu untuk user divisi (id_peran === 3)
+  const isDivisi =
+    (user && (user.id_peran === 3 || (user.role ?? "").toLowerCase() === "divisi")) ||
+    (role && role.toLowerCase() === "divisi");
+
+  const filteredMenu = isDivisi
+    ? [
+        {
+          title: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          title: "PR (Purchase Request)",
+          icon: FileText,
+          submenu: [
+            { title: "Input PR", href: "/pr/input-baru" },
+            { title: "Monitoring PR", href: "/pr/monitoring" },
+          ],
+        },
+        {
+          title: "PO (Purchase Order)",
+          icon: ShoppingCart,
+          submenu: [
+            { title: "Input PO", href: "/po/status" },
+            { title: "Monitoring PO", href: "/po/monitoring" },
+            { title: "Rekap PO", href: "/po/rekap" },
+          ],
+        },
+        {
+          title: "BKB",
+          icon: PackageOpen,
+          submenu: [
+            { title: "Input BKB", href: "/bkb/input" },
+            { title: "Monitoring BKB", href: "/bkb/monitoring" },
+          ],
+        },
+        {
+          title: "Rekap Keseluruhan",
+          href: "/dashboard/rekap-full",
+          icon: BarChart3,
+        },
+      ]
+    : menuItems;
 
   return (
     <div
