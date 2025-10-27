@@ -32,7 +32,7 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 // Dummy data for dashboard
@@ -143,8 +143,6 @@ export default function DashboardPage() {
         setPrStatusCount({ selesai, gantung, menunggu });
       });
   }, []);
-
-  const router = useRouter();
 
   // Auto-logout logic (testing: 5 detik idle)
   useEffect(() => {
@@ -323,9 +321,37 @@ export default function DashboardPage() {
     },
   ];
 
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // Fade-in on mount (hanya sekali)
+  useEffect(() => {
+    // Mulai dari opacity 0, lalu set ke 1 agar animasi fade-in
+    setTimeout(() => setIsMounted(true), 10);
+  }, []);
+
+  // Handler with fade-out before redirect
+  const handleCardClick = (href: string) => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      router.push(href);
+    }, 500); // Durasi fade-out
+  };
+
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div
+        ref={containerRef}
+        className={`transition-all duration-700 ${
+          isTransitioning
+            ? "opacity-0 scale-95 pointer-events-none"
+            : isMounted
+            ? "opacity-100 scale-100"
+            : "opacity-0 scale-95"
+        }`}
+      >
         {/* Jam digital besar dan tanggal */}
         <div className="flex flex-col items-center justify-center py-2">
           <div
@@ -358,7 +384,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => router.push("/pr/monitoring")}
+            onClick={() => handleCardClick("/pr/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
@@ -379,7 +405,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => router.push("/po/monitoring")}
+            onClick={() => handleCardClick("/po/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
@@ -400,7 +426,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => router.push("/btb/monitoring")}
+            onClick={() => handleCardClick("/btb/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
@@ -421,7 +447,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => router.push("/bkb/monitoring")}
+            onClick={() => handleCardClick("/bkb/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
