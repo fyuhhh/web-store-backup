@@ -330,14 +330,17 @@ export default function DashboardPage() {
 
   // Tambahkan state untuk animasi count up
   const [displayPR, setDisplayPR] = useState(0);
+  const [displayPO, setDisplayPO] = useState(0);
+  const [displayBTB, setDisplayBTB] = useState(0);
+  const [displayBKB, setDisplayBKB] = useState(0);
 
   // Animasi count up untuk Total PR
   useEffect(() => {
     let raf: number;
     let start: number | null = null;
     let from = 0;
-    let to = totalPRItem; // <-- pastikan to adalah totalPRItem dari backend
-    let duration = 900; // ms
+    let to = totalPRItem;
+    let duration = 900;
 
     function animateCountUp(ts: number) {
       if (start === null) start = ts;
@@ -350,22 +353,106 @@ export default function DashboardPage() {
         setDisplayPR(to);
       }
     }
-
     function easeOutExpo(x: number) {
       return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
     }
-
-    // Jalankan animasi setiap totalPRItem berubah
     start = null;
     from = 0;
     to = totalPRItem;
     setDisplayPR(0);
     raf = requestAnimationFrame(animateCountUp);
-
-    return () => {
-      cancelAnimationFrame(raf);
-    };
+    return () => cancelAnimationFrame(raf);
   }, [totalPRItem]);
+
+  // Animasi count up untuk Total PO
+  useEffect(() => {
+    let raf: number;
+    let start: number | null = null;
+    let from = 0;
+    let to = totalPOItem;
+    let duration = 900;
+
+    function animateCountUp(ts: number) {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
+      setDisplayPO(value);
+      if (progress < 1) {
+        raf = requestAnimationFrame(animateCountUp);
+      } else {
+        setDisplayPO(to);
+      }
+    }
+    function easeOutExpo(x: number) {
+      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    }
+    start = null;
+    from = 0;
+    to = totalPOItem;
+    setDisplayPO(0);
+    raf = requestAnimationFrame(animateCountUp);
+    return () => cancelAnimationFrame(raf);
+  }, [totalPOItem]);
+
+  // Animasi count up untuk Total BTB
+  useEffect(() => {
+    let raf: number;
+    let start: number | null = null;
+    let from = 0;
+    let to = totalBTBItem;
+    let duration = 900;
+
+    function animateCountUp(ts: number) {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
+      setDisplayBTB(value);
+      if (progress < 1) {
+        raf = requestAnimationFrame(animateCountUp);
+      } else {
+        setDisplayBTB(to);
+      }
+    }
+    function easeOutExpo(x: number) {
+      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    }
+    start = null;
+    from = 0;
+    to = totalBTBItem;
+    setDisplayBTB(0);
+    raf = requestAnimationFrame(animateCountUp);
+    return () => cancelAnimationFrame(raf);
+  }, [totalBTBItem]);
+
+  // Animasi count up untuk Total BKB
+  useEffect(() => {
+    let raf: number;
+    let start: number | null = null;
+    let from = 0;
+    let to = totalBKBItem;
+    let duration = 900;
+
+    function animateCountUp(ts: number) {
+      if (start === null) start = ts;
+      const progress = Math.min((ts - start) / duration, 1);
+      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
+      setDisplayBKB(value);
+      if (progress < 1) {
+        raf = requestAnimationFrame(animateCountUp);
+      } else {
+        setDisplayBKB(to);
+      }
+    }
+    function easeOutExpo(x: number) {
+      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    }
+    start = null;
+    from = 0;
+    to = totalBKBItem;
+    setDisplayBKB(0);
+    raf = requestAnimationFrame(animateCountUp);
+    return () => cancelAnimationFrame(raf);
+  }, [totalBKBItem]);
 
   const router = useRouter();
 
@@ -428,7 +515,6 @@ export default function DashboardPage() {
                     justifyContent: "flex-start",
                   }}
                 >
-                  {/* Animasi naik ke atas dengan shadow */}
                   <span
                     key={displayPR}
                     className="pr-1 animate-countup"
@@ -458,8 +544,27 @@ export default function DashboardPage() {
                 <ShoppingCart className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">
-                  {totalPOItem}
+                <div
+                  className="text-2xl font-bold text-foreground"
+                  style={{
+                    fontVariantNumeric: "tabular-nums",
+                    transition: "color 0.3s",
+                    minHeight: "2.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  <span
+                    key={displayPO}
+                    className="pr-1 animate-countup"
+                    style={{
+                      display: "inline-block",
+                      minWidth: "2ch",
+                    }}
+                  >
+                    {displayPO}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground"></p>
               </CardContent>
@@ -479,8 +584,27 @@ export default function DashboardPage() {
                 <Package className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">
-                  {totalBTBItem}
+                <div
+                  className="text-2xl font-bold text-foreground"
+                  style={{
+                    fontVariantNumeric: "tabular-nums",
+                    transition: "color 0.3s",
+                    minHeight: "2.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  <span
+                    key={displayBTB}
+                    className="pr-1 animate-countup"
+                    style={{
+                      display: "inline-block",
+                      minWidth: "2ch",
+                    }}
+                  >
+                    {displayBTB}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground"></p>
               </CardContent>
@@ -500,8 +624,27 @@ export default function DashboardPage() {
                 <PackageOpen className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">
-                  {totalBKBItem}
+                <div
+                  className="text-2xl font-bold text-foreground"
+                  style={{
+                    fontVariantNumeric: "tabular-nums",
+                    transition: "color 0.3s",
+                    minHeight: "2.5rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-start",
+                  }}
+                >
+                  <span
+                    key={displayBKB}
+                    className="pr-1 animate-countup"
+                    style={{
+                      display: "inline-block",
+                      minWidth: "2ch",
+                    }}
+                  >
+                    {displayBKB}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground"></p>
               </CardContent>
