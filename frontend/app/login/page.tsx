@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,7 +18,9 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,30 +46,35 @@ export default function LoginPage() {
       // Simpan userData ke localStorage (simpan seluruh objek user)
       localStorage.setItem("userData", JSON.stringify(data.user));
 
-      // Redirect sesuai role/peran
-      if (data.user.id_peran === 5) {
-        router.push("/kelola-akun");
-      } else if (data.user.id_peran === 1) {
-        router.push("/dashboard");
-      } else if (
-        (data.user.role ?? data.user.peran ?? "").toLowerCase() ===
-          "superadmin" ||
-        data.user.nama_pengguna?.toLowerCase() === "superadmin"
-      ) {
-        router.push("/kelola-akun");
-      } else if (
-        (data.user.role ?? data.user.peran ?? "").toLowerCase() === "admin" ||
-        data.user.id_peran === 2
-      ) {
-        router.push("/dashboard");
-      } else if (
-        (data.user.role ?? data.user.peran ?? "").toLowerCase() === "divisi" ||
-        data.user.id_peran === 3
-      ) {
-        router.push(`/dashboard/rekap-full?divisi=${data.user.divisi}`);
-      } else {
-        router.push("/dashboard");
-      }
+      // Mulai animasi fade-out sebelum redirect
+      setIsTransitioning(true);
+      setTimeout(() => {
+        // Redirect sesuai role/peran
+        if (data.user.id_peran === 5) {
+          router.push("/kelola-akun");
+        } else if (data.user.id_peran === 1) {
+          router.push("/dashboard");
+        } else if (
+          (data.user.role ?? data.user.peran ?? "").toLowerCase() ===
+            "superadmin" ||
+          data.user.nama_pengguna?.toLowerCase() === "superadmin"
+        ) {
+          router.push("/kelola-akun");
+        } else if (
+          (data.user.role ?? data.user.peran ?? "").toLowerCase() === "admin" ||
+          data.user.id_peran === 2
+        ) {
+          router.push("/dashboard");
+        } else if (
+          (data.user.role ?? data.user.peran ?? "").toLowerCase() ===
+            "divisi" ||
+          data.user.id_peran === 3
+        ) {
+          router.push(`/dashboard/rekap-full?divisi=${data.user.divisi}`);
+        } else {
+          router.push("/dashboard");
+        }
+      }, 600); // Durasi animasi 600ms
     } catch (err) {
       setErrorMsg("Terjadi kesalahan server.");
     }
@@ -75,7 +82,12 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4"
+      ref={containerRef}
+      className={`min-h-screen flex items-center justify-center p-4 transition-all duration-700 ${
+        isTransitioning
+          ? "opacity-0 scale-95 pointer-events-none"
+          : "opacity-100 scale-100"
+      }`}
       style={{
         background: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)",
       }}
@@ -144,9 +156,15 @@ export default function LoginPage() {
               )}
               <Button
                 type="submit"
-                className="w-full h-11 bg-gradient-to-r from-primary to-indigo-500 text-white font-semibold rounded-lg shadow hover:from-indigo-500 hover:to-primary/90 transition"
+                className="relative w-full h-11 overflow-hidden rounded-lg font-semibold text-white transition-all duration-500 ease-out
+             bg-gradient-to-r from-primary to-indigo-500 shadow-md
+             hover:scale-[1.03] hover:shadow-lg hover:shadow-indigo-400/30"
               >
-                Masuk
+                <span className="relative z-10">Masuk</span>
+                <span
+                  className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-primary to-indigo-500
+               opacity-0 group-hover:opacity-100 animate-gradient-move transition-opacity duration-500"
+                ></span>
               </Button>
             </form>
           </CardContent>

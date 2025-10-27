@@ -32,7 +32,7 @@ import {
   Clock,
   CheckCircle,
 } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 // Dummy data for dashboard
@@ -103,24 +103,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch total PR item
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
     // Fetch total PO item
-    fetch("http://192.168.10.10:5000/api/po")
+    fetch("http://localhost:5000/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BTB item
-    fetch("http://192.168.10.10:5000/api/btb")
+    fetch("http://localhost:5000/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BKB item
-    fetch("http://192.168.10.10:5000/api/bkb")
+    fetch("http://localhost:5000/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
     // Fetch status PR dari backend
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         let selesai = 0,
@@ -178,24 +178,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch total PR item
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
     // Fetch total PO item
-    fetch("http://192.168.10.10:5000/api/po")
+    fetch("http://localhost:5000/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BTB item
-    fetch("http://192.168.10.10:5000/api/btb")
+    fetch("http://localhost:5000/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BKB item
-    fetch("http://192.168.10.10:5000/api/bkb")
+    fetch("http://localhost:5000/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
     // Fetch status PR dari backend
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         let selesai = 0,
@@ -219,7 +219,7 @@ export default function DashboardPage() {
       });
 
     // Fetch status PR untuk distribusi status dan trend bulanan
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         // Distribusi Status
@@ -321,35 +321,18 @@ export default function DashboardPage() {
     },
   ];
 
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  // State for fade-in animation
   const [isMounted, setIsMounted] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-
-  // Fade-in on mount (hanya sekali)
   useEffect(() => {
     // Mulai dari opacity 0, lalu set ke 1 agar animasi fade-in
     setTimeout(() => setIsMounted(true), 10);
   }, []);
 
-  // Handler with fade-out before redirect
-  const handleCardClick = (href: string) => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      router.push(href);
-    }, 500); // Durasi fade-out
-  };
-
   return (
     <MainLayout>
       <div
-        ref={containerRef}
         className={`transition-all duration-700 ${
-          isTransitioning
-            ? "opacity-0 scale-95 pointer-events-none"
-            : isMounted
-            ? "opacity-100 scale-100"
-            : "opacity-0 scale-95"
+          isMounted ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
       >
         {/* Jam digital besar dan tanggal */}
@@ -384,7 +367,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => handleCardClick("/pr/monitoring")}
+            onClick={() => router.push("/pr/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
@@ -405,7 +388,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => handleCardClick("/po/monitoring")}
+            onClick={() => router.push("/po/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
@@ -426,7 +409,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => handleCardClick("/btb/monitoring")}
+            onClick={() => router.push("/btb/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
@@ -447,7 +430,7 @@ export default function DashboardPage() {
             className="kpi-card-anim"
             tabIndex={0}
             role="button"
-            onClick={() => handleCardClick("/bkb/monitoring")}
+            onClick={() => router.push("/bkb/monitoring")}
             style={{ outline: "none" }}
           >
             <Card className="bg-card border-border">
