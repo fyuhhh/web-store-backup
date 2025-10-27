@@ -103,24 +103,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch total PR item
-    fetch("http://localhost:5000/api/pr")
+    fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
       .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
     // Fetch total PO item
-    fetch("http://localhost:5000/api/po")
+    fetch("http://192.168.10.10:5000/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BTB item
-    fetch("http://localhost:5000/api/btb")
+    fetch("http://192.168.10.10:5000/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BKB item
-    fetch("http://localhost:5000/api/bkb")
+    fetch("http://192.168.10.10:5000/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
     // Fetch status PR dari backend
-    fetch("http://localhost:5000/api/pr")
+    fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         let selesai = 0,
@@ -180,24 +180,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch total PR item
-    fetch("http://localhost:5000/api/pr")
+    fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
       .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
     // Fetch total PO item
-    fetch("http://localhost:5000/api/po")
+    fetch("http://192.168.10.10:5000/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BTB item
-    fetch("http://localhost:5000/api/btb")
+    fetch("http://192.168.10.10:5000/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BKB item
-    fetch("http://localhost:5000/api/bkb")
+    fetch("http://192.168.10.10:5000/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
     // Fetch status PR dari backend
-    fetch("http://localhost:5000/api/pr")
+    fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         let selesai = 0,
@@ -221,7 +221,7 @@ export default function DashboardPage() {
       });
 
     // Fetch status PR untuk distribusi status dan trend bulanan
-    fetch("http://localhost:5000/api/pr")
+    fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         // Distribusi Status

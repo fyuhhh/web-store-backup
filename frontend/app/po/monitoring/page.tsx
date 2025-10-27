@@ -159,15 +159,15 @@ export default function MonitoringPOPage() {
           skemaRes,
           userRes, // <-- tambahkan fetch user
         ] = await Promise.all([
-          fetch("http://localhost:5000/api/po"),
-          fetch("http://localhost:5000/api/po-item"),
-          fetch("http://localhost:5000/api/pr-item"),
-          fetch("http://localhost:5000/api/pr"),
-          fetch("http://localhost:5000/api/supplier"),
-          fetch("http://localhost:5000/api/status-permintaan"),
-          fetch("http://localhost:5000/api/status-pengiriman"),
-          fetch("http://localhost:5000/api/skema"),
-          fetch("http://localhost:5000/api/user"), // <-- fetch user
+          fetch("http://192.168.10.10:5000/api/po"),
+          fetch("http://192.168.10.10:5000/api/po-item"),
+          fetch("http://192.168.10.10:5000/api/pr-item"),
+          fetch("http://192.168.10.10:5000/api/pr"),
+          fetch("http://192.168.10.10:5000/api/supplier"),
+          fetch("http://192.168.10.10:5000/api/status-permintaan"),
+          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
+          fetch("http://192.168.10.10:5000/api/skema"),
+          fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
         ]);
 
         const [
@@ -467,7 +467,7 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        await fetch(`http://localhost:5000/api/po/${id}`, { method: "DELETE" });
+        await fetch(`http://192.168.10.10:5000/api/po/${id}`, { method: "DELETE" });
       }
       setPoData((prev) => prev.filter((po) => !deleteIds.includes(po.id)));
       setSelectedPOs((prev) => prev.filter((id) => !deleteIds.includes(id)));

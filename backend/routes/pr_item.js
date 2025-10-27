@@ -205,9 +205,9 @@ router.delete("/by-pr/:id", async (req, res) => {
 // ✅ Catatan
 // Akses endpoint ini dengan prefix /api/pr-item
 // Contoh:
-// GET    http://localhost:5000/api/pr-item
-// POST   http://localhost:5000/api/pr-item
-// GET    http://localhost:5000/api/pr-item/pr/1
-// DELETE http://localhost:5000/api/pr-item/2
+// GET    http://192.168.10.10:5000/api/pr-item
+// POST   http://192.168.10.10:5000/api/pr-item
+// GET    http://192.168.10.10:5000/api/pr-item/pr/1
+// DELETE http://192.168.10.10:5000/api/pr-item/2
 
 export default router;
