@@ -504,7 +504,7 @@ export default function DashboardPage() {
 
         {/* KPI Cards */}
         {user && user.id_peran === 3 ? (
-          // Untuk user divisi/pengurus 1: hanya 3 card, tetap besar dan rata tengah
+          // Hanya tampilkan PR, BTB, BKB untuk id_peran 3
           <div className="flex justify-center">
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 w-full max-w-6xl">
               {/* Total PR */}
@@ -547,18 +547,18 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
               </div>
-              {/* Total PO */}
+              {/* Total BTB */}
               <div
                 className="kpi-card-anim"
                 tabIndex={0}
                 role="button"
-                onClick={() => router.push("/po/monitoring")}
+                onClick={() => router.push("/btb/monitoring")}
                 style={{ outline: "none" }}
               >
                 <Card className="bg-card border-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total PO</CardTitle>
-                    <ShoppingCart className="h-4 w-4 text-primary" />
+                    <CardTitle className="text-sm font-medium">Total BTB</CardTitle>
+                    <Package className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
                     <div
@@ -573,14 +573,14 @@ export default function DashboardPage() {
                       }}
                     >
                       <span
-                        key={displayPO}
+                        key={displayBTB}
                         className="pr-1 animate-countup"
                         style={{
                           display: "inline-block",
                           minWidth: "2ch",
                         }}
                       >
-                        {displayPO}
+                        {displayBTB}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground"></p>
@@ -621,6 +621,52 @@ export default function DashboardPage() {
                         }}
                       >
                         {displayBKB}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground"></p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
+        ) : user && user.id_peran === 4 ? (
+          // Hanya tampilkan PO untuk id_peran 4
+          <div className="flex justify-center">
+            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6 w-full max-w-md">
+              {/* Total PO */}
+              <div
+                className="kpi-card-anim"
+                tabIndex={0}
+                role="button"
+                onClick={() => router.push("/po/monitoring")}
+                style={{ outline: "none" }}
+              >
+                <Card className="bg-card border-border">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total PO</CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-primary" />
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      className="text-2xl font-bold text-foreground"
+                      style={{
+                        fontVariantNumeric: "tabular-nums",
+                        transition: "color 0.3s",
+                        minHeight: "2.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
+                      }}
+                    >
+                      <span
+                        key={displayPO}
+                        className="pr-1 animate-countup"
+                        style={{
+                          display: "inline-block",
+                          minWidth: "2ch",
+                        }}
+                      >
+                        {displayPO}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground"></p>
