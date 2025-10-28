@@ -55,7 +55,7 @@ import {
   PopoverContent as HoverPopoverContent,
 } from "@/components/ui/popover";
 
-// Kolom sesuai urutan permintaan, tambahkan skema di samping masing-masing kolom
+// Kolom sesuai urutan permintaan, hapus kolom kode
 const columns = [
   { key: "tahunPR", label: "Tahun PR" },
   { key: "bulanPR", label: "Bulan PR" },
@@ -69,14 +69,14 @@ const columns = [
   { key: "keteranganPR", label: "Keterangan PR" },
   { key: "divisi", label: "Divisi" },
   { key: "dibuatOleh", label: "Dibuat Oleh" },
-  { key: "skemaPR", label: "Skema PR" }, // 1. Skema PR
+  { key: "skemaPR", label: "Skema PR" },
   { key: "targetTanggalPO", label: "Target Tanggal PO" },
   { key: "delay", label: "Delay" },
   { key: "noPO", label: "No. PO" },
   { key: "tanggalPO", label: "Tanggal PO" },
   { key: "daftarBarangPO", label: "Daftar Barang PO" },
   { key: "quantityPO", label: "Quantity PO" },
-  { key: "quantityAwalPO", label: "Quantity Awal PO" }, // <--- Tambahkan di sini, setelah Quantity PO
+  { key: "quantityAwalPO", label: "Quantity Awal PO" },
   { key: "satuanPO", label: "Satuan PO" },
   { key: "keteranganPO", label: "Keterangan PO" },
   { key: "diskonPersen", label: "Diskon (%)" },
@@ -85,21 +85,20 @@ const columns = [
   { key: "ppnRp", label: "PPN (Rp)" },
   { key: "totalHarga", label: "Total Harga" },
   { key: "tanggalEstimasiDiterima", label: "Tanggal Estimasi Diterima" },
-  { key: "kode", label: "Kode" },
   { key: "statusPengiriman", label: "Status Pengiriman" },
   { key: "supplier", label: "Supplier" },
   { key: "diorderOleh", label: "Diorder Oleh" },
-  { key: "skemaPO", label: "Skema PO" }, // 2. Skema PO
+  { key: "skemaPO", label: "Skema PO" },
   { key: "noBTB", label: "No. BTB" },
   { key: "tanggalBTB", label: "Tanggal BTB" },
   { key: "periodeBTB", label: "Periode" },
   { key: "namaSupplierBTB", label: "Nama Supplier BTB" },
   { key: "namaBarangBTB", label: "Nama Barang BTB" },
   { key: "quantityBTB", label: "Quantity BTB" },
-  { key: "sisaStokBTB", label: "Sisa Stok BTB" }, // Tambahan
+  { key: "sisaStokBTB", label: "Sisa Stok BTB" },
   { key: "biayaBTB", label: "Biaya BTB" },
   { key: "diterimaOleh", label: "Diterima Oleh" },
-  { key: "skemaBTB", label: "Skema BTB" }, // 3. Skema BTB
+  { key: "skemaBTB", label: "Skema BTB" },
   { key: "noBKB", label: "No. BKB" },
   { key: "tanggalBKB", label: "Tanggal BKB" },
   { key: "namaBarangBKB", label: "Nama Barang BKB" },
@@ -107,7 +106,7 @@ const columns = [
   { key: "satuanBKB", label: "Satuan BKB" },
   { key: "keteranganBKB", label: "Keterangan BKB" },
   { key: "dikeluarkanOleh", label: "Dikeluarkan Oleh" },
-  { key: "skemaBKB", label: "Skema BKB" }, // 4. Skema BKB (modif kolom skema lama)
+  { key: "skemaBKB", label: "Skema BKB" },
 ];
 
 function getMonthName(dateStr: string) {
@@ -545,7 +544,7 @@ export default function RekapFullPage() {
                   ppnRp: "",
                   totalHarga: "",
                   tanggalEstimasiDiterima: "",
-                  kode: "",
+                  // kode: "",
                   statusPengiriman: "",
                   supplier: "",
                   diorderOleh: "",
@@ -733,11 +732,6 @@ export default function RekapFullPage() {
                             .toString()
                             .padStart(2, "0")}-${d.getFullYear()}`;
                         })(),
-                        kode: po?.id_statusPermintaan
-                          ? statusPermintaanMap[
-                              String(po.id_statusPermintaan)
-                            ] || ""
-                          : "",
                         statusPengiriman: po?.id_statusPengiriman
                           ? statusPengirimanMap[
                               String(po.id_statusPengiriman)
@@ -1013,7 +1007,7 @@ export default function RekapFullPage() {
               "quantityPO",
               "quantityBTB",
               "sisaStokBTB",
-              "quantityBKB",
+              "quantityAwalPO", // <--- pastikan formatInt juga untuk kolom baru
             ].includes(col.key)
           ) {
             return formatInt(row[col.key]);
