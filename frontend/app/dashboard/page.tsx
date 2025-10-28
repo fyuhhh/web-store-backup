@@ -517,7 +517,9 @@ export default function DashboardPage() {
               >
                 <Card className="bg-card border-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total PR</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total PR
+                    </CardTitle>
                     <FileText className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
@@ -557,7 +559,9 @@ export default function DashboardPage() {
               >
                 <Card className="bg-card border-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total BTB</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total BTB
+                    </CardTitle>
                     <Package className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
@@ -597,7 +601,9 @@ export default function DashboardPage() {
               >
                 <Card className="bg-card border-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total BKB</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total BKB
+                    </CardTitle>
                     <PackageOpen className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
@@ -643,7 +649,9 @@ export default function DashboardPage() {
               >
                 <Card className="bg-card border-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total PO</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total PO
+                    </CardTitle>
                     <ShoppingCart className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
@@ -688,7 +696,9 @@ export default function DashboardPage() {
             >
               <Card className="bg-card border-border">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total PR</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total PR
+                  </CardTitle>
                   <FileText className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
@@ -728,7 +738,9 @@ export default function DashboardPage() {
             >
               <Card className="bg-card border-border">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total PO</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total PO
+                  </CardTitle>
                   <ShoppingCart className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
@@ -769,7 +781,9 @@ export default function DashboardPage() {
               >
                 <Card className="bg-card border-border">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total BTB</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total BTB
+                    </CardTitle>
                     <Package className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
@@ -810,7 +824,9 @@ export default function DashboardPage() {
             >
               <Card className="bg-card border-border">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total BKB</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Total BKB
+                  </CardTitle>
                   <PackageOpen className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>

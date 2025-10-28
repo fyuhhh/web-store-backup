@@ -200,7 +200,8 @@ export function Sidebar() {
       },
     ];
   } else if (
-    (user && (user.id_peran === 3 || (user.role ?? "").toLowerCase() === "divisi")) ||
+    (user &&
+      (user.id_peran === 3 || (user.role ?? "").toLowerCase() === "divisi")) ||
     (role && role.toLowerCase() === "divisi")
   ) {
     // Fallback untuk divisi lama

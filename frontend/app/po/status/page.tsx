@@ -81,18 +81,23 @@ export default function StatusPOPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
 
+  // NEW: state untuk menyimpan item terpilih per PR (map: prId -> array of item ids)
+  const [selectedItemsMap, setSelectedItemsMap] = useState<
+    Record<string, string[]>
+  >({});
+
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
     const fetchPRData = async () => {
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch("http://localhost:5000/api/pr");
       const prList = await prRes.json();
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
-      const satuanRes = await fetch("http://192.168.10.10:5000/api/satuan");
+      const satuanRes = await fetch("http://localhost:5000/api/satuan");
       const satuanList = await satuanRes.json();
-      const divisiRes = await fetch("http://192.168.10.10:5000/api/divisi");
+      const divisiRes = await fetch("http://localhost:5000/api/divisi");
       const divisiList = await divisiRes.json();
-      const urgensiRes = await fetch("http://192.168.10.10:5000/api/urgensi");
+      const urgensiRes = await fetch("http://localhost:5000/api/urgensi");
       const urgensiList = await urgensiRes.json();
       setPrData(prList);
       setPrItemData(prItemList);
@@ -114,14 +119,32 @@ export default function StatusPOPage() {
     setPoData(data);
   };
 
-  const handleSelectPR = (prId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedPRsForProcess([...selectedPRsForProcess, prId]);
-    } else {
-      setSelectedPRsForProcess(
-        selectedPRsForProcess.filter((id) => id !== prId)
-      );
-    }
+  // Toggle selection of a single item for a PR
+  const toggleItemSelection = (
+    prId: string,
+    itemId: string,
+    checked: boolean
+  ) => {
+    setSelectedItemsMap((prev) => {
+      const cur = new Set(prev[prId] || []);
+      if (checked) cur.add(itemId);
+      else cur.delete(itemId);
+      return { ...prev, [prId]: Array.from(cur) };
+    });
+    // Ensure PR-level checkbox status mirrors item selection
+    setSelectedPRsForProcess((prev) => {
+      const hasAny =
+        checked ||
+        (prev.includes(prId) && (selectedItemsMap[prId] || []).length > 0);
+      if (checked && !prev.includes(prId)) return [...prev, prId];
+      if (!checked) {
+        const remaining = (selectedItemsMap[prId] || []).filter(
+          (id) => id !== itemId
+        );
+        if (remaining.length === 0) return prev.filter((id) => id !== prId);
+      }
+      return prev;
+    });
   };
 
   const handleProcessPRtoPO = () => {
@@ -226,11 +249,58 @@ export default function StatusPOPage() {
     );
   };
 
+  // When user toggles PR-level checkbox, select/deselect all items of that PR
+  const handleSelectPR = (prId: string, checked: boolean) => {
+    if (checked) {
+      // select all items for prId
+      const pr = processedPRs.find(
+        (p) => String(p.id_PR ?? p.id) === String(prId)
+      );
+      const allIds = (pr?.items || []).map((it: any) => String(it.id));
+      setSelectedItemsMap((prev) => ({ ...prev, [prId]: allIds }));
+      setSelectedPRsForProcess((prev) =>
+        prev.includes(prId) ? prev : [...prev, prId]
+      );
+    } else {
+      // deselect all items
+      setSelectedItemsMap((prev) => {
+        const n = { ...prev };
+        delete n[prId];
+        return n;
+      });
+      setSelectedPRsForProcess((prev) => prev.filter((id) => id !== prId));
+    }
+  };
+
+  // Per-page select all -> select all items of PRs on current page
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedPRsForProcess(processedPRs.map((pr) => pr.id));
+      // Pilih semua item pada semua PR di halaman ini
+      const newSelectedItemsMap = { ...selectedItemsMap };
+      const newSelectedPRs: string[] = [...selectedPRsForProcess];
+      paginatedData.forEach((pr) => {
+        const prId = String(pr.id_PR);
+        const itemIds = (pr.items || [])
+          .filter((item: any) => item.jumlah > 0)
+          .map((item: any) => String(item.id));
+        newSelectedItemsMap[prId] = itemIds;
+        if (!newSelectedPRs.includes(prId)) newSelectedPRs.push(prId);
+      });
+      setSelectedItemsMap(newSelectedItemsMap);
+      setSelectedPRsForProcess(newSelectedPRs);
     } else {
-      setSelectedPRsForProcess([]);
+      // Deselect semua item pada semua PR di halaman ini
+      const newSelectedItemsMap = { ...selectedItemsMap };
+      paginatedData.forEach((pr) => {
+        const prId = String(pr.id_PR);
+        newSelectedItemsMap[prId] = [];
+      });
+      setSelectedItemsMap(newSelectedItemsMap);
+      setSelectedPRsForProcess((prev) =>
+        prev.filter(
+          (id) => !paginatedData.some((pr) => String(pr.id_PR) === id)
+        )
+      );
     }
   };
 
@@ -319,6 +389,7 @@ export default function StatusPOPage() {
           keterangan: item.keterangan,
           id: item.id_PRItem,
           status: item.status || "",
+          id_satuan: item.id_satuan, // <-- pastikan id_satuan selalu ada di setiap item
         })),
       urgensi:
         urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
@@ -485,6 +556,24 @@ export default function StatusPOPage() {
     };
   }, []);
 
+  // Tambahkan helper untuk cek semua/some item selected
+  function isAllItemsSelected(pr: any) {
+    const itemIds = (pr.items || [])
+      .filter((item: any) => item.jumlah > 0)
+      .map((item: any) => String(item.id));
+    const selected = selectedItemsMap[String(pr.id_PR)] || [];
+    return (
+      itemIds.length > 0 && itemIds.every((id: string) => selected.includes(id))
+    );
+  }
+  function isSomeItemsSelected(pr: any) {
+    const itemIds = (pr.items || [])
+      .filter((item: any) => item.jumlah > 0)
+      .map((item: any) => String(item.id));
+    const selected = selectedItemsMap[String(pr.id_PR)] || [];
+    return selected.length > 0 && selected.length < itemIds.length;
+  }
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -500,25 +589,30 @@ export default function StatusPOPage() {
             {selectedPRsForProcess.length > 0 ? (
               <Button
                 onClick={async () => {
-                  // Ambil detail PR dan item dari backend sesuai yang dipilih
-                  const selectedPRData = [];
-                  for (const prId of selectedPRsForProcess) {
-                    // Fetch PR utama
-                    const prRes = await fetch(
-                      `http://192.168.10.10:5000/api/pr/${prId}`
+                  // Ambil selected PR + hanya item terpilih
+                  const selectedPRData = processedPRs
+                    .filter((pr) =>
+                      selectedPRsForProcess.includes(String(pr.id_PR))
+                    )
+                    .map((pr) => {
+                      const pickedIds =
+                        selectedItemsMap[String(pr.id_PR)] || [];
+                      // id_satuan sudah pasti ada di setiap item
+                      const items = (pr.items || []).filter((it: any) =>
+                        pickedIds.includes(String(it.id))
+                      );
+                      return { ...pr, items };
+                    })
+                    .filter((pr) => (pr.items || []).length > 0);
+
+                  if (selectedPRData.length === 0) {
+                    alert(
+                      "Pilih minimal satu item dari PR untuk diproses menjadi PO"
                     );
-                    const pr = await prRes.json();
-                    // Fetch PR item
-                    const prItemRes = await fetch(
-                      `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
-                    );
-                    const prItems = await prItemRes.json();
-                    selectedPRData.push({
-                      ...pr,
-                      items: prItems,
-                    });
+                    return;
                   }
-                  // Simpan ke localStorage
+
+                  // Simpan hanya item yang dipilih ke localStorage untuk halaman Input PO
                   localStorage.setItem(
                     "selectedPRsForPO",
                     JSON.stringify(selectedPRData)
@@ -565,9 +659,37 @@ export default function StatusPOPage() {
                     <TableHead className="w-16">
                       <Checkbox
                         checked={
-                          selectedPRsForProcess.length ===
-                            paginatedData.length && paginatedData.length > 0
+                          paginatedData.every((pr) => {
+                            const itemIds = (pr.items || [])
+                              .filter((item: any) => item.jumlah > 0)
+                              .map((item: any) => String(item.id));
+                            const selected =
+                              selectedItemsMap[String(pr.id_PR)] || [];
+                            return (
+                              itemIds.length > 0 &&
+                              itemIds.every((id: string) =>
+                                selected.includes(id)
+                              )
+                            );
+                          }) && paginatedData.length > 0
                         }
+                        // FIX: Only spread indeterminate if true, do not send prop at all if false
+                        {...(paginatedData.some((pr) => {
+                          const itemIds = (pr.items || [])
+                            .filter((item: any) => item.jumlah > 0)
+                            .map((item: any) => String(item.id));
+                          const selected =
+                            selectedItemsMap[String(pr.id_PR)] || [];
+                          return (
+                            selected.length > 0 &&
+                            (selected.length < itemIds.length ||
+                              !itemIds.every((id: string) =>
+                                selected.includes(id)
+                              ))
+                          );
+                        })
+                          ? { indeterminate: true }
+                          : {})}
                         onCheckedChange={handleSelectAll}
                         style={{
                           boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
@@ -1042,81 +1164,121 @@ export default function StatusPOPage() {
                     const filteredItems =
                       pr.items?.filter((item) => item.jumlah > 0) || [];
                     if (filteredItems.length === 0) return null;
+                    const prId = String(pr.id_PR);
+                    const selectedItemIds = selectedItemsMap[prId] || [];
                     return (
-                      <React.Fragment key={pr.id_PR}>
-                        <TableRow>
-                          <TableCell rowSpan={filteredItems.length}>
-                            <Checkbox
-                              checked={selectedPRsForProcess.includes(pr.id_PR)}
-                              onCheckedChange={(checked) =>
-                                handleSelectPR(pr.id_PR, checked as boolean)
-                              }
-                              style={{
-                                boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
-                                border: "1.5px solid #bbb",
-                                borderRadius: 4,
-                              }}
-                              className="focus:ring-2 focus:ring-primary"
-                            />
-                          </TableCell>
-                          <TableCell
-                            className="font-medium"
-                            rowSpan={filteredItems.length}
-                          >
-                            {pr.noPR}
-                          </TableCell>
-                          <TableCell rowSpan={filteredItems.length}>
-                            {formatTanggal(pr.tanggalPR)}
-                          </TableCell>
-                          <TableCell>{filteredItems[0]?.namaBarang}</TableCell>
-                          <TableCell>
-                            {parseFloat(filteredItems[0]?.jumlah) % 1 === 0
-                              ? parseInt(filteredItems[0]?.jumlah)
-                              : filteredItems[0]?.jumlah}
-                          </TableCell>
-                          <TableCell>{filteredItems[0]?.satuan}</TableCell>
-                          <TableCell>
-                            <div
-                              className="text-sm text-muted-foreground max-w-xs truncate"
-                              title={filteredItems[0]?.keterangan}
-                            >
-                              {filteredItems[0]?.keterangan}
-                            </div>
-                          </TableCell>
-                          <TableCell rowSpan={filteredItems.length}>
-                            {getUrgensiBadge(pr.urgensi)}
-                          </TableCell>
-                          <TableCell rowSpan={filteredItems.length}>
-                            {pr.divisi}
-                          </TableCell>
-                          <TableCell rowSpan={filteredItems.length}>
-                            {getStatusBadge(pr.status)}
-                          </TableCell>
-                          <TableCell rowSpan={filteredItems.length}>
-                            {pr.dibuatOleh}
-                          </TableCell>
-                          <TableCell rowSpan={filteredItems.length}>
-                            {/* Skema: tampilkan label skema */}
-                            {pr.skemaLabel ?? pr.skema ?? ""}
-                          </TableCell>
-                        </TableRow>
-                        {filteredItems.slice(1).map((item, index) => (
-                          <TableRow key={`${pr.id_PR}-item-${index + 1}`}>
-                            <TableCell>{item.namaBarang}</TableCell>
+                      <React.Fragment key={prId}>
+                        {filteredItems.map((item, idx) => (
+                          <TableRow key={`${prId}-item-${item.id}`}>
+                            {/* Checkbox PR-level hanya di baris pertama PR */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                <Checkbox
+                                  checked={isAllItemsSelected(pr)}
+                                  {...(isSomeItemsSelected(pr)
+                                    ? { indeterminate: true }
+                                    : {})}
+                                  onCheckedChange={(checked) => {
+                                    const allItemIds = filteredItems.map((it) =>
+                                      String(it.id)
+                                    );
+                                    setSelectedItemsMap((prev) => ({
+                                      ...prev,
+                                      [prId]: checked ? allItemIds : [],
+                                    }));
+                                    setSelectedPRsForProcess((prev) =>
+                                      checked
+                                        ? prev.includes(prId)
+                                          ? prev
+                                          : [...prev, prId]
+                                        : prev.filter((id) => id !== prId)
+                                    );
+                                  }}
+                                />
+                              </TableCell>
+                            ) : null}
+                            {/* No. PR hanya di baris pertama */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                {pr.noPR}
+                              </TableCell>
+                            ) : null}
+                            {/* Tanggal PR hanya di baris pertama */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                {formatTanggal(pr.tanggalPR)}
+                              </TableCell>
+                            ) : null}
+                            {/* Nama Barang */}
                             <TableCell>
-                              {parseFloat(item.jumlah) % 1 === 0
+                              <Checkbox
+                                checked={selectedItemIds.includes(
+                                  String(item.id)
+                                )}
+                                onCheckedChange={(checked) => {
+                                  setSelectedItemsMap((prev) => {
+                                    const cur = new Set(prev[prId] || []);
+                                    if (checked) cur.add(String(item.id));
+                                    else cur.delete(String(item.id));
+                                    const newArr = Array.from(cur);
+                                    setSelectedPRsForProcess((prevPRs) => {
+                                      if (
+                                        newArr.length > 0 &&
+                                        !prevPRs.includes(prId)
+                                      )
+                                        return [...prevPRs, prId];
+                                      if (newArr.length === 0)
+                                        return prevPRs.filter(
+                                          (id) => id !== prId
+                                        );
+                                      return prevPRs;
+                                    });
+                                    return { ...prev, [prId]: newArr };
+                                  });
+                                }}
+                              />
+                              <span className="ml-2">{item.namaBarang}</span>
+                            </TableCell>
+                            {/* Qty */}
+                            <TableCell>
+                              {Number(item.jumlah) % 1 === 0
                                 ? parseInt(item.jumlah)
                                 : item.jumlah}
                             </TableCell>
+                            {/* Satuan */}
                             <TableCell>{item.satuan}</TableCell>
-                            <TableCell>
-                              <div
-                                className="text-sm text-muted-foreground max-w-xs truncate"
-                                title={item.keterangan}
-                              >
-                                {item.keterangan}
-                              </div>
-                            </TableCell>
+                            {/* Keterangan */}
+                            <TableCell>{item.keterangan}</TableCell>
+                            {/* Urgensi hanya di baris pertama */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                {getUrgensiBadge(pr.urgensi)}
+                              </TableCell>
+                            ) : null}
+                            {/* Divisi hanya di baris pertama */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                {pr.divisi}
+                              </TableCell>
+                            ) : null}
+                            {/* Status hanya di baris pertama */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                {getStatusBadge(pr.status)}
+                              </TableCell>
+                            ) : null}
+                            {/* Dibuat Oleh hanya di baris pertama */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                {pr.dibuatOleh}
+                              </TableCell>
+                            ) : null}
+                            {/* Skema hanya di baris pertama */}
+                            {idx === 0 ? (
+                              <TableCell rowSpan={filteredItems.length}>
+                                {pr.skemaLabel || pr.skema}
+                              </TableCell>
+                            ) : null}
                           </TableRow>
                         ))}
                       </React.Fragment>
@@ -1125,44 +1287,51 @@ export default function StatusPOPage() {
                 </TableBody>
               </Table>
             </div>
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    className={
-                      currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                    }
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (page) => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={currentPage === page}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )
-                )}
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setCurrentPage(Math.min(totalPages, currentPage + 1))
-                    }
-                    className={
-                      currentPage === totalPages
-                        ? "pointer-events-none opacity-50"
-                        : ""
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
           </CardContent>
         </Card>
+
+        {/* Pagination */}
+        <Pagination>
+          <PaginationPrevious className="cursor-pointer">
+            Sebelumnya
+          </PaginationPrevious>
+          <PaginationItem
+            className="cursor-pointer"
+            onClick={() => setCurrentPage(1)}
+          >
+            1
+          </PaginationItem>
+          {totalPages > 2 && (
+            <PaginationItem className="cursor-pointer" disabled>
+              ...
+            </PaginationItem>
+          )}
+          {totalPages > 1 &&
+            Array.from({ length: totalPages - 2 }, (_, i) => i + 2)
+              .filter(
+                (page) => page >= currentPage - 1 && page <= currentPage + 1
+              )
+              .map((page) => (
+                <PaginationItem
+                  key={page}
+                  className="cursor-pointer"
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </PaginationItem>
+              ))}
+          {totalPages > 1 && (
+            <PaginationItem
+              className="cursor-pointer"
+              onClick={() => setCurrentPage(totalPages)}
+            >
+              {totalPages}
+            </PaginationItem>
+          )}
+          <PaginationNext className="cursor-pointer">
+            Selanjutnya
+          </PaginationNext>
+        </Pagination>
       </div>
     </MainLayout>
   );

@@ -205,6 +205,26 @@ function formatTanggalTambahSehari(tgl: string) {
   return `${day}-${month}-${year}`;
 }
 
+// Helper format tanggal dd-mm-yyyy +2 hari (fix: handle dd-mm-yyyy and yyyy-mm-dd)
+function formatTanggalTambahDuaHari(tgl: string) {
+  if (!tgl) return "";
+  let dateObj;
+  if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+    const [d, m, y] = tgl.split("-");
+    dateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+    dateObj = new Date(tgl);
+  } else {
+    return tgl;
+  }
+  if (isNaN(dateObj.getTime())) return tgl;
+  dateObj.setDate(dateObj.getDate() + 2);
+  const day = String(dateObj.getDate()).padStart(2, "0");
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const year = dateObj.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
 // Helper untuk popover keterangan (hover, abu-abu, di luar tabel)
 function KeteranganPopover({ text, max = 20 }: { text: string; max?: number }) {
   const [show, setShow] = useState(false);
@@ -300,17 +320,17 @@ export default function RekapFullPage() {
         satuanRes,
         divisiRes,
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/supplier").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/user").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/skema").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman").then((r) =>
+        fetch("http://localhost:5000/api/supplier").then((r) => r.json()),
+        fetch("http://localhost:5000/api/user").then((r) => r.json()),
+        fetch("http://localhost:5000/api/skema").then((r) => r.json()),
+        fetch("http://localhost:5000/api/status-pengiriman").then((r) =>
           r.json()
         ),
-        fetch("http://192.168.10.10:5000/api/status-permintaan").then((r) =>
+        fetch("http://localhost:5000/api/status-permintaan").then((r) =>
           r.json()
         ),
-        fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
+        fetch("http://localhost:5000/api/satuan").then((r) => r.json()),
+        fetch("http://localhost:5000/api/divisi").then((r) => r.json()),
       ]);
       setSupplierMap(
         Object.fromEntries(
@@ -372,14 +392,14 @@ export default function RekapFullPage() {
           bkbRes,
           bkbItemRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
         ]);
         const prData = Array.isArray(prRes) ? prRes : [];
         const prItemData = Array.isArray(prItemRes) ? prItemRes : [];
@@ -933,7 +953,7 @@ export default function RekapFullPage() {
         const [d, m, y] = tgl.split("-");
         let dateObj = new Date(`${y}-${m}-${d}`);
         if (key === "tanggalPO" || key === "tanggalEstimasiDiterima") {
-          dateObj.setDate(dateObj.getDate() + 1);
+          dateObj.setDate(dateObj.getDate() + 2);
           const day = String(dateObj.getDate()).padStart(2, "0");
           const month = String(dateObj.getMonth() + 1).padStart(2, "0");
           const year = dateObj.getFullYear();
@@ -946,7 +966,7 @@ export default function RekapFullPage() {
       if (y && m && d) {
         let dateObj = new Date(tgl);
         if (key === "tanggalPO" || key === "tanggalEstimasiDiterima") {
-          dateObj.setDate(dateObj.getDate() + 1);
+          dateObj.setDate(dateObj.getDate() + 2);
           const day = String(dateObj.getDate()).padStart(2, "0");
           const month = String(dateObj.getMonth() + 1).padStart(2, "0");
           const year = dateObj.getFullYear();
@@ -1284,9 +1304,9 @@ export default function RekapFullPage() {
                           {col.key === "skemaPR" ? (
                             row.skemaPRLabel
                           ) : col.key === "tanggalPO" ? (
-                            formatTanggalTambahSehari(row[col.key])
+                            formatTanggalTambahDuaHari(row[col.key])
                           ) : col.key === "tanggalEstimasiDiterima" ? (
-                            formatTanggalTambahSehari(row[col.key])
+                            formatTanggalTambahDuaHari(row[col.key])
                           ) : col.key === "quantityBKB" ? (
                             formatInt(row[col.key])
                           ) : col.key === "keteranganPR" ||
