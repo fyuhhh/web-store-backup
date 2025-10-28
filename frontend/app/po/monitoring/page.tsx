@@ -71,18 +71,30 @@ import { type POData, type PRData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
 function formatTanggal(tgl: string) {
   if (!tgl) return "";
-  // Tambahkan 1 hari ke tanggal sebelum ditampilkan
-  let dateObj;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-    // Format "YYYY-MM-DD"
-    dateObj = dayjs(tgl).add(1, "day");
-  } else if (tgl.includes("T")) {
-    // Format ISO
-    dateObj = dayjs.utc(tgl).add(1, "day");
-  } else {
-    dateObj = dayjs(tgl).add(1, "day");
+  // Pastikan tgl adalah string tanggal valid
+  let dateObj = dayjs(tgl);
+  // Jika tidak valid, coba parse manual (misal dari DD-MM-YYYY)
+  if (!dateObj.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+    const [d, m, y] = tgl.split("-");
+    dateObj = dayjs(`${y}-${m}-${d}`);
   }
-  return dateObj.format("DD-MM-YYYY");
+  // Tambahkan 1 hari ke tanggal sebelum ditampilkan
+  if (dateObj.isValid()) {
+    return dateObj.add(1, "day").format("DD-MM-YYYY");
+  }
+  return tgl ?? "";
+}
+
+function formatTanggalPlus1(tgl: string) {
+  if (!tgl) return "-";
+  const dateObj = dayjs(tgl).add(1, "day");
+  return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl;
+}
+
+function formatTanggalPlus2(tgl: string) {
+  if (!tgl) return "-";
+  const dateObj = dayjs(tgl).add(2, "day");
+  return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl;
 }
 
 export default function MonitoringPOPage() {
@@ -159,15 +171,15 @@ export default function MonitoringPOPage() {
           skemaRes,
           userRes, // <-- tambahkan fetch user
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"), // <-- fetch user
         ]);
 
         const [
@@ -359,8 +371,8 @@ export default function MonitoringPOPage() {
           return {
             id: po.id_PO ?? po.id,
             noPO: po.noPO ?? "",
-            tanggalPO: formatTanggal(po.tanggalPO), // gunakan dayjs lokal
-            estimasiTanggalTerima: formatTanggal(po.estimasiTanggalTerima), // gunakan dayjs lokal
+            tanggalPO: po.tanggalPO ?? "", // simpan mentah dari backend
+            estimasiTanggalTerima: po.estimasiTanggalTerima ?? "",
             supplier:
               supplierMap[String(po.id_supplier)] ||
               po.supplier ||
@@ -467,7 +479,7 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        await fetch(`http://192.168.10.10:5000/api/po/${id}`, { method: "DELETE" });
+        await fetch(`http://localhost:5000/api/po/${id}`, { method: "DELETE" });
       }
       setPoData((prev) => prev.filter((po) => !deleteIds.includes(po.id)));
       setSelectedPOs((prev) => prev.filter((id) => !deleteIds.includes(id)));
@@ -756,16 +768,16 @@ export default function MonitoringPOPage() {
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper: format tanggal persis seperti frontend (tambah 1 hari, fallback jika gagal)
+    // Helper: format tanggal persis seperti frontend (tambah 2 hari, fallback jika gagal)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
       let dateObj;
       if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-        dateObj = dayjs(tgl).add(1, "day");
+        dateObj = dayjs(tgl).add(2, "day");
       } else if (tgl.includes("T")) {
-        dateObj = dayjs.utc(tgl).add(1, "day");
+        dateObj = dayjs.utc(tgl).add(2, "day");
       } else {
-        dateObj = dayjs(tgl).add(1, "day");
+        dateObj = dayjs(tgl).add(2, "day");
       }
       // Jika dateObj valid, return string, jika tidak, return tgl asli
       return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl ?? "";
@@ -1707,15 +1719,14 @@ export default function MonitoringPOPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[120px]"
                                 >
-                                  {po.tanggalPO}{" "}
+                                  {formatTanggalPlus2(po.tanggalPO)}
                                 </TableCell>
                                 <TableCell
                                   key="estimasiTanggalDiterima"
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[140px]"
                                 >
-                                  {po.estimasiTanggalTerima}{" "}
-                                  {/* Use exact field name from backend */}
+                                  {formatTanggalPlus2(po.estimasiTanggalTerima)}
                                 </TableCell>
                                 <TableCell
                                   key="supplier"
