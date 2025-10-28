@@ -1814,7 +1814,7 @@ export default function MonitoringPOPage() {
             </div>
           </CardContent>
           <Pagination className="mt-4">
-            <PaginationContent>
+            <PaginationContent className="px-2 gap-1">
               <PaginationItem>
                 <PaginationPrevious
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
@@ -1829,6 +1829,19 @@ export default function MonitoringPOPage() {
                     <PaginationLink
                       onClick={() => setCurrentPage(page)}
                       isActive={currentPage === page}
+                      className={`min-w-[32px] text-center rounded ${
+                        currentPage === page
+                          ? "bg-primary text-white font-bold"
+                          : "bg-white text-black"
+                      }`}
+                      style={{
+                        display: "inline-block",
+                        margin: "0 2px",
+                        padding: "4px 0",
+                        fontSize: "16px",
+                        boxShadow:
+                          currentPage === page ? "0 2px 8px #bbb8" : "none",
+                      }}
                     >
                       {page}
                     </PaginationLink>

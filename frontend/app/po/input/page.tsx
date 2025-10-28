@@ -89,6 +89,7 @@ export default function InputPOPage() {
           diskonItem: number;
           skema: string;
           dibuatOleh: string;
+          id_satuan: string; // <-- ensure id_satuan is present
         }
       >;
     }>
@@ -407,13 +408,13 @@ export default function InputPOPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               id_PO,
-              id_PRItem: item.id,
+              id_PRItem: item.id_PRItem ?? item.id,
               hargaSatuan: item.hargaSatuan,
               jumlahPO: item.jumlahPO,
               jumlahAsli: item.jumlahAsli,
-              diskonItem: poFormData.diskon,
+              diskonItem: item.diskonItem,
               keterangan: item.keterangan,
-              id_satuan: item.id_satuan ?? null, // send unit id to backend
+              id_satuan: item.id_satuan, // <-- always send id_satuan (not label)
             }),
           });
 
@@ -436,7 +437,7 @@ export default function InputPOPage() {
               jumlah: newJumlah,
               originalJumlah: prItemData.originalJumlah || item.jumlahAsli,
               quantityAwalPR: prItemData.quantityAwalPR || item.jumlahAsli,
-              id_satuan: item.id_satuan,
+              id_satuan: prItemData.id_satuan || item.id_satuan, // <-- always send id_satuan from PR item, fallback to PO item mapping
               keterangan: item.keterangan || "",
             }),
           });
@@ -497,7 +498,6 @@ export default function InputPOPage() {
         type: "success",
         message: `PO ${poFormData.noPO} berhasil dibuat!`,
       });
-
       setTimeout(() => {
         setNotif(null);
         window.location.href = "/po/status";
@@ -523,20 +523,18 @@ export default function InputPOPage() {
       const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
 
-      // Mapping satuan/divisi/urgensi jika perlu (optional)
-      // Sama seperti di monitoring PR
+      // --- FIX: jangan pakai satuanMap di sini, hanya gunakan label/id langsung ---
       const prDataMapped = prList.map((pr: any) => {
         const items = prItemList
           .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
           .map((item: any) => ({
             namaBarang: item.namaBarang,
-            jumlah: item.jumlah, // <-- Qty ambil dari jumlah (bukan originalJumlah)
+            jumlah: item.jumlah,
             quantityAwalPR:
               item.quantityAwalPR ?? item.originalJumlah ?? item.jumlah,
-            satuan:
-              satuanMap[String(item.id_satuan)] ||
-              item.satuanLabel ||
-              item.id_satuan,
+            satuan: item.satuanLabel || item.id_satuan, // <-- only use label/id
+            satuanLabel: item.satuanLabel || "", // <-- only use label
+            id_satuan: item.id_satuan, // <-- keep id_satuan from backend
             keterangan: item.keterangan,
             id: item.id_PRItem,
             status: item.status || "",
@@ -547,12 +545,8 @@ export default function InputPOPage() {
           noPR: pr.noPR,
           tanggalPR: pr.tanggalPR,
           items,
-          urgensi:
-            urgensiMap[String(pr.id_urgensi)] ||
-            pr.urgensiLabel ||
-            pr.id_urgensi,
-          divisi:
-            divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
+          urgensi: pr.urgensiLabel || pr.id_urgensi,
+          divisi: pr.divisiLabel || pr.id_divisi,
           status: pr.status,
           dibuatOleh: pr.dibuatOleh,
           skema: pr.id_skema,
@@ -649,6 +643,9 @@ export default function InputPOPage() {
               satuanMap[String(item.id_satuan)] ||
               item.satuanLabel ||
               item.id_satuan,
+            satuanLabel:
+              item.satuanLabel || satuanMap[String(item.id_satuan)] || "", // <-- keep label
+            id_satuan: item.id_satuan, // <-- keep id_satuan from backend
             keterangan: item.keterangan,
             id: item.id_PRItem,
             status: item.status || "",
@@ -735,13 +732,11 @@ export default function InputPOPage() {
     if (selectedFromStatus) {
       try {
         const selectedPRData = JSON.parse(selectedFromStatus);
-        // --- LOG: tampilkan data PR yang diterima di halaman Input PO ---
-        console.log("PR diterima di Input PO:", selectedPRData);
         setPoItems(
           selectedPRData.map((pr: any) => ({
             prId: pr.id_PR ?? pr.id,
             noPR: pr.noPR,
-            tanggalPR: pr.tanggalPR, // <-- simpan persis string tanggalPR dari PR (misal "06-10-2025")
+            tanggalPR: pr.tanggalPR,
             skema: pr.id_skema ?? "",
             items: (pr.items || []).map((item: any) => ({
               id: item.id_PRItem ?? item.id,
@@ -749,13 +744,13 @@ export default function InputPOPage() {
               jumlahPO: item.jumlah,
               jumlahAsli: item.jumlah,
               satuanLabel: item.satuanLabel || item.satuan || "",
-              id_satuan: item.id_satuan ?? item.idSatuan ?? null,
+              id_satuan: item.id_satuan ?? item.idSatuan ?? null, // <-- always keep id_satuan
               hargaSatuan: 0,
               diskonItem: 0,
               keterangan: item.keterangan ?? "",
               skema: pr.id_skema ?? "",
               dibuatOleh: pr.dibuatOleh ?? "",
-              tanggalPR: pr.tanggalPR, // <-- simpan juga di item jika perlu
+              tanggalPR: pr.tanggalPR,
             })),
           }))
         );
@@ -975,7 +970,10 @@ export default function InputPOPage() {
                                   poFormData.tanggalPO.getDate()
                                 ).padStart(2, "0")}-${String(
                                   poFormData.tanggalPO.getMonth() + 1
-                                ).padStart(2, "0")}-${poFormData.tanggalPO.getFullYear()}`
+                                ).padStart(
+                                  2,
+                                  "0"
+                                )}-${poFormData.tanggalPO.getFullYear()}`
                             : ""
                         }
                         readOnly

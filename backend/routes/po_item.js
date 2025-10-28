@@ -42,9 +42,10 @@ router.post("/", async (req, res, next) => {
       jumlahAsli,
       diskonItem,
       keterangan,
-      id_satuan, // <-- tambahkan id_satuan dari frontend
+      id_satuan, // <-- must be sent from frontend
     } = req.body;
 
+    // id_satuan is always stored, never set to null unless frontend sends null
     const [result] = await db.query(
       `INSERT INTO po_item (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonItem, keterangan, id_satuan)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -56,7 +57,7 @@ router.post("/", async (req, res, next) => {
         jumlahAsli || 0,
         diskonItem || 0,
         keterangan || "",
-        id_satuan || null, // <-- simpan ke kolom id_satuan
+        id_satuan || null, // <-- always save id_satuan
       ]
     );
 

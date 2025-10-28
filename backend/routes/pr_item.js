@@ -220,4 +220,7 @@ router.delete("/by-pr/:id", async (req, res) => {
 // GET    http://192.168.10.10:5000/api/pr-item/pr/1
 // DELETE http://192.168.10.10:5000/api/pr-item/2
 
+// No change needed: id_satuan in PR item is never deleted or set to null by PO process
+// Only updated via explicit PUT /api/pr-item/:id
+
 export default router;
