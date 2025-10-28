@@ -329,7 +329,9 @@ export default function MonitoringPOPage() {
             const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
             const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
             const item = {
-              id: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
+              // --- mapping id_POItem asli dari backend ---
+              id_POItem: pi.id_POItem, // <-- ini id yang dipakai untuk hapus
+              id_PRItem: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
               namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
               jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
               jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
@@ -417,6 +419,17 @@ export default function MonitoringPOPage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
+  // --- Tambah state untuk modal hapus item PO ---
+  const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<"po" | "item" | null>(null);
+  const [deleteItemModalOpen, setDeleteItemModalOpen] = useState(false);
+  const [selectedPOItemsForDelete, setSelectedPOItemsForDelete] = useState<
+    { poId: string; items: any[] }[]
+  >([]);
+  const [selectedItemIdsToDelete, setSelectedItemIdsToDelete] = useState<
+    string[]
+  >([]);
+
   // --- Add auto-close for toast ---
   useEffect(() => {
     if (toastOpen) {
@@ -472,24 +485,57 @@ export default function MonitoringPOPage() {
   const handleDelete = async (ids: string[] | string) => {
     const idList = Array.isArray(ids) ? ids : [ids];
     setDeleteIds(idList);
-    setConfirmDeleteOpen(true);
+    setDeleteChoiceOpen(true);
+    setDeleteMode(null);
   };
 
-  const confirmDelete = async () => {
-    setConfirmDeleteOpen(false);
+  // --- Fungsi untuk handle pilihan hapus PO atau item ---
+  const handleDeleteChoice = (mode: "po" | "item") => {
+    setDeleteMode(mode);
+    setDeleteChoiceOpen(false);
+    if (mode === "po") {
+      setConfirmDeleteOpen(true);
+    } else if (mode === "item") {
+      // Siapkan data item dari PO yang dipilih
+      const poItems = poData
+        .filter((po) => deleteIds.includes(po.id))
+        .map((po) => ({
+          poId: po.id,
+          items:
+            po.poItems?.flatMap((poItem: any) =>
+              poItem.items.map((item: any) => ({
+                ...item,
+                poId: po.id,
+                poItemId: item.id_POItem, // <-- gunakan id_POItem asli dari backend
+              }))
+            ) ?? [],
+        }));
+      setSelectedPOItemsForDelete(poItems);
+      setSelectedItemIdsToDelete([]);
+      setDeleteItemModalOpen(true);
+    }
+  };
+
+  // --- Fungsi hapus item PO yang dipilih ---
+  const confirmDeleteItems = async () => {
+    setDeleteItemModalOpen(false);
     try {
-      for (const id of deleteIds) {
-        await fetch(`http://localhost:5000/api/po/${id}`, { method: "DELETE" });
+      // Hapus item PO satu per satu berdasarkan id_POItem yang valid
+      for (const itemId of selectedItemIdsToDelete) {
+        if (itemId) {
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
+            method: "DELETE",
+          });
+        }
       }
-      setPoData((prev) => prev.filter((po) => !deleteIds.includes(po.id)));
-      setSelectedPOs((prev) => prev.filter((id) => !deleteIds.includes(id)));
-      setToastMsg("PO berhasil dihapus.");
+      setToastMsg("Item PO berhasil dihapus.");
       setToastOpen(true);
-    } catch (error) {
-      setToastMsg("Terjadi kesalahan saat menghapus PO.");
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      setToastMsg("Gagal menghapus item PO.");
       setToastOpen(true);
     }
-    setDeleteIds([]);
+    setSelectedItemIdsToDelete([]);
   };
 
   // --- Perbaiki handleSelectAll agar hanya memilih PO yang sedang dipaging ---
@@ -754,7 +800,6 @@ export default function MonitoringPOPage() {
       "Estimasi Diterima",
       "Supplier",
       "Total Pembayaran",
-      "Kode",
       "Status Pengiriman",
       "Status",
       "Diorder oleh",
@@ -821,7 +866,6 @@ export default function MonitoringPOPage() {
           index === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
           index === 0 ? po.supplier : "",
           index === 0 ? formatRupiah(po.totalPembayaran) : "",
-          index === 0 ? po.statusPermintaan ?? "" : "",
           index === 0 ? po.statusPengiriman ?? "" : "",
           index === 0 ? po.status ?? "" : "",
           index === 0 ? po.orderedBy ?? "" : "",
@@ -889,6 +933,24 @@ export default function MonitoringPOPage() {
     } else {
       setSelectedPOs((prev) => prev.filter((id) => id !== poId));
     }
+  };
+
+  // --- Tambahkan kembali fungsi confirmDelete ---
+  const confirmDelete = async () => {
+    setConfirmDeleteOpen(false);
+    try {
+      for (const id of deleteIds) {
+        await fetch(`http://localhost:5000/api/po/${id}`, { method: "DELETE" });
+      }
+      setPoData((prev) => prev.filter((po) => !deleteIds.includes(po.id)));
+      setSelectedPOs((prev) => prev.filter((id) => !deleteIds.includes(id)));
+      setToastMsg("PO berhasil dihapus.");
+      setToastOpen(true);
+    } catch (error) {
+      setToastMsg("Terjadi kesalahan saat menghapus PO.");
+      setToastOpen(true);
+    }
+    setDeleteIds([]);
   };
 
   return (
@@ -960,8 +1022,6 @@ export default function MonitoringPOPage() {
           </div>
         </div>
 
-        {/* Removed filter card as filters will be in table headers */}
-
         {/* Table */}
         <Card className="bg-card border-border">
           <CardHeader>
@@ -976,7 +1036,7 @@ export default function MonitoringPOPage() {
                 onClick={() => handleDelete(selectedPOs)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Hapus PO Terpilih ({selectedPOs.length})
+                Hapus PO/Item Terpilih ({selectedPOs.length})
               </Button>
             )}
           </CardHeader>
@@ -1387,49 +1447,6 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[100px]">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Kode <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari kode..."
-                            value={kodeSearchTerm}
-                            onChange={(e) => setKodeSearchTerm(e.target.value)}
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueKode
-                              .filter((k) =>
-                                k
-                                  .toLowerCase()
-                                  .includes(kodeSearchTerm.toLowerCase())
-                              )
-                              .map((k) => (
-                                <div
-                                  key={k}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterKode.includes(k)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterKode([...filterKode, k]);
-                                      else
-                                        setFilterKode(
-                                          filterKode.filter((x) => x !== k)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{k}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
                     <TableHead className="min-w-[140px]">
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1736,13 +1753,6 @@ export default function MonitoringPOPage() {
                                   {po.supplier}
                                 </TableCell>
                                 <TableCell
-                                  key="statusPermintaan"
-                                  rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
-                                >
-                                  {po.statusPermintaan ?? ""}
-                                </TableCell>
-                                <TableCell
                                   key="statusPengiriman"
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[140px]"
@@ -1841,12 +1851,26 @@ export default function MonitoringPOPage() {
           </Pagination>
         </Card>
         {/* --- Add modal and toast to the layout --- */}
+        <DeleteChoiceModal
+          open={deleteChoiceOpen}
+          onClose={() => setDeleteChoiceOpen(false)}
+          onChoose={handleDeleteChoice}
+        />
         <ConfirmModal
           open={confirmDeleteOpen}
           title="Konfirmasi Hapus PO"
           description={`Apakah Anda yakin ingin menghapus ${deleteIds.length} PO? Data yang dihapus tidak dapat dikembalikan.`}
           onConfirm={confirmDelete}
           onCancel={() => setConfirmDeleteOpen(false)}
+        />
+        <DeleteItemModal
+          open={deleteItemModalOpen}
+          poItems={selectedPOItemsForDelete}
+          selectedIds={selectedItemIdsToDelete}
+          setSelectedIds={setSelectedItemIdsToDelete}
+          onConfirm={confirmDeleteItems}
+          onCancel={() => setDeleteItemModalOpen(false)}
+          poData={poData}
         />
         <Toast
           open={toastOpen}
@@ -1855,5 +1879,124 @@ export default function MonitoringPOPage() {
         />
       </div>
     </MainLayout>
+  );
+}
+
+// --- Modal pilihan hapus PO atau item ---
+function DeleteChoiceModal({ open, onClose, onChoose }: any) {
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
+        <h2 className="text-lg font-semibold mb-2">Pilih Jenis Hapus</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Anda ingin menghapus seluruh PO beserta semua item, atau hanya
+          menghapus item tertentu dari PO yang dipilih?
+        </p>
+        <div className="flex flex-col gap-2">
+          <Button variant="destructive" onClick={() => onChoose("po")}>
+            Hapus PO (beserta semua item)
+          </Button>
+          <Button variant="outline" onClick={() => onChoose("item")}>
+            Hapus Item pada PO
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            Batal
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// --- Modal pilih item PO yang mau dihapus ---
+function DeleteItemModal({
+  open,
+  poItems,
+  selectedIds,
+  setSelectedIds,
+  onConfirm,
+  onCancel,
+  poData,
+}: any) {
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[420px] max-h-[80vh] overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-2">
+          Pilih Item PO yang akan dihapus
+        </h2>
+        <div className="space-y-4">
+          {poItems.map(({ poId, items }) => (
+            <div key={poId}>
+              <div className="font-semibold mb-1">
+                PO: {poData.find((po: any) => po.id === poId)?.noPO || poId}
+              </div>
+              {items.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  Tidak ada item pada PO ini.
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {items.map((item: any, idx: number) => {
+                    // Gunakan id_POItem sebagai value checkbox
+                    const keyId = item.poItemId
+                      ? String(item.poItemId)
+                      : `${item.namaBarang}-${item.jumlahPO}-${idx}`;
+                    const valueId = item.poItemId ? String(item.poItemId) : ""; // hanya id_POItem yang valid
+                    const jumlahDisplay =
+                      parseFloat(item.jumlahPO) % 1 === 0
+                        ? parseInt(item.jumlahPO)
+                        : item.jumlahPO;
+                    return (
+                      <label key={keyId} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          value={valueId}
+                          checked={selectedIds.includes(valueId)}
+                          disabled={!valueId}
+                          onChange={(e) => {
+                            if (!valueId) return;
+                            if (e.target.checked) {
+                              setSelectedIds([...selectedIds, valueId]);
+                            } else {
+                              setSelectedIds(
+                                selectedIds.filter((x) => x !== valueId)
+                              );
+                            }
+                          }}
+                        />
+                        <span>
+                          {item.namaBarang} ({jumlahDisplay} {item.satuan})
+                          {!valueId && (
+                            <span className="text-xs text-red-500 ml-2">
+                              (ID POItem tidak ditemukan)
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" onClick={onCancel}>
+            Batal
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={selectedIds.length === 0}
+          >
+            Hapus Item Terpilih ({selectedIds.length})
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }

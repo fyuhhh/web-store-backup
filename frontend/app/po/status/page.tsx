@@ -389,7 +389,6 @@ export default function StatusPOPage() {
           keterangan: item.keterangan,
           id: item.id_PRItem,
           status: item.status || "",
-          id_satuan: item.id_satuan, // <-- pastikan id_satuan selalu ada di setiap item
         })),
       urgensi:
         urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
@@ -597,7 +596,6 @@ export default function StatusPOPage() {
                     .map((pr) => {
                       const pickedIds =
                         selectedItemsMap[String(pr.id_PR)] || [];
-                      // id_satuan sudah pasti ada di setiap item
                       const items = (pr.items || []).filter((it: any) =>
                         pickedIds.includes(String(it.id))
                       );

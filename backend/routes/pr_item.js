@@ -66,8 +66,10 @@ router.post("/", async (req, res) => {
     // Normalize field names and convert to decimal
     const finalNamaBarang = namaBarang || namabarang;
     const finalJumlah = parseFloat(jumlah) || 0;
-    const finalOriginalJumlah = parseFloat(originalJumlah || originaljumlah || jumlah) || 0;
-    const finalQuantityAwalPR = parseFloat(quantityAwalPR || quantityawalPR || jumlah) || 0;
+    const finalOriginalJumlah =
+      parseFloat(originalJumlah || originaljumlah || jumlah) || 0;
+    const finalQuantityAwalPR =
+      parseFloat(quantityAwalPR || quantityawalPR || jumlah) || 0;
 
     // More flexible validation
     if (!id_PR) {
@@ -170,9 +172,9 @@ router.put("/:id", async (req, res) => {
       return res.status(404).json({ error: "PR Item not found" });
     }
 
-    res.json({ 
+    res.json({
       message: "PR Item berhasil diupdate",
-      data: normalizedPayload 
+      data: normalizedPayload,
     });
   } catch (err) {
     console.error("Error updating PR item:", err);
@@ -184,7 +186,15 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    await db.query("DELETE FROM pr_item WHERE id_PRItem = ?", [id]);
+    // Tambahkan log id yang diterima
+    console.log("DELETE PR_Item id_PRItem:", id);
+    const [result] = await db.query("DELETE FROM pr_item WHERE id_PRItem = ?", [
+      id,
+    ]);
+    console.log("DELETE result:", result);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "PR Item tidak ditemukan" });
+    }
     res.json({ message: "PR Item berhasil dihapus" });
   } catch (err) {
     res.status(500).json({ error: err.message });

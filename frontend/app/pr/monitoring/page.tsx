@@ -241,8 +241,8 @@ export default function MonitoringPRPage() {
       const items = prItemList
         .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
         .map((item: any) => ({
-          // Ganti namabarang -> namaBarang agar konsisten dengan backend
-          namaBarang: item.namaBarang, // <-- perbaikan di sini
+          id_PRItem: item.id_PRItem, // <-- Tambahkan ini!
+          namaBarang: item.namaBarang,
           jumlah: item.jumlah,
           quantityAwalPR: item.quantityAwalPR,
           satuan: satuanMap[String(item.id_satuan)] || item.id_satuan,
@@ -254,8 +254,8 @@ export default function MonitoringPRPage() {
         noPR: pr.noPR,
         tanggalPR: pr.tanggalPR,
         items,
-        urgensi: urgensiMap[String(pr.id_urgensi)] || pr.id_urgensi, // tampilkan nama urgensi
-        divisi: divisiMap[String(pr.id_divisi)] || pr.id_divisi, // tampilkan nama divisi
+        urgensi: urgensiMap[String(pr.id_urgensi)] || pr.id_urgensi,
+        divisi: divisiMap[String(pr.id_divisi)] || pr.id_divisi,
         status: pr.status,
         dibuatOleh: pr.dibuatOleh,
         skema: pr.id_skema,
@@ -290,7 +290,75 @@ export default function MonitoringPRPage() {
   const handleDelete = async (ids: string[] | string) => {
     const idList = Array.isArray(ids) ? ids : [ids];
     setDeleteIds(idList);
-    setConfirmDeleteOpen(true);
+    setDeleteChoiceOpen(true);
+    setDeleteMode(null);
+  };
+
+  // Fungsi untuk handle pilihan hapus PR atau hapus item
+  const handleDeleteChoice = (mode: "pr" | "item") => {
+    setDeleteMode(mode);
+    setDeleteChoiceOpen(false);
+    if (mode === "pr") {
+      setConfirmDeleteOpen(true);
+    } else if (mode === "item") {
+      // Siapkan data item dari PR yang dipilih
+      const prItems = prData
+        .filter((pr) => deleteIds.includes(pr.id))
+        .map((pr) => ({
+          prId: pr.id,
+          items:
+            pr.items?.map((item: any) => ({
+              ...item,
+              prId: pr.id,
+            })) ?? [],
+        }));
+      setSelectedPRItemsForDelete(prItems);
+      setSelectedItemIdsToDelete([]);
+      setDeleteItemModalOpen(true);
+    }
+  };
+
+  // Fungsi hapus item PR yang dipilih
+  const confirmDeleteItems = async () => {
+    setDeleteItemModalOpen(false);
+    try {
+      // Tambahkan log untuk debug id yang akan dihapus
+      console.log("Selected item ids to delete:", selectedItemIdsToDelete);
+      for (const itemId of selectedItemIdsToDelete) {
+        // Cari id_PRItem asli dari prItems
+        let idToDelete = itemId;
+        for (const pr of selectedPRItemsForDelete) {
+          const found = pr.items.find(
+            (item: any, idx: number) =>
+              (item.id_PRItem && String(item.id_PRItem) === itemId) ||
+              (!item.id_PRItem &&
+                `${item.namaBarang}-${item.jumlah}-${idx}` === itemId)
+          );
+          if (found && found.id_PRItem) {
+            idToDelete = String(found.id_PRItem);
+            break;
+          }
+        }
+        console.log("Deleting PR Item id_PRItem:", idToDelete);
+        const resp = await fetch(
+          `http://localhost:5000/api/pr-item/${idToDelete}`,
+          {
+            method: "DELETE",
+          }
+        );
+        const respJson = await resp.json().catch(() => ({}));
+        console.log("Delete response:", resp.status, respJson);
+      }
+      // Setelah hapus, reload data dari backend
+      await loadPRData();
+      setToastMsg("Item PR berhasil dihapus.");
+      setToastOpen(true);
+    } catch (err) {
+      console.error("Error deleting PR item:", err);
+      setToastMsg("Gagal menghapus item PR.");
+      setToastOpen(true);
+    }
+    setSelectedItemIdsToDelete([]);
   };
 
   const confirmDelete = async () => {
@@ -752,6 +820,17 @@ export default function MonitoringPRPage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
+  // Tambahkan state untuk modal pilihan hapus
+  const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
+  const [deleteMode, setDeleteMode] = useState<"pr" | "item" | null>(null);
+  const [deleteItemModalOpen, setDeleteItemModalOpen] = useState(false);
+  const [selectedPRItemsForDelete, setSelectedPRItemsForDelete] = useState<
+    { prId: string; items: any[] }[]
+  >([]);
+  const [selectedItemIdsToDelete, setSelectedItemIdsToDelete] = useState<
+    string[]
+  >([]);
+
   // --- Add auto-close for toast ---
   useEffect(() => {
     if (toastOpen) {
@@ -888,7 +967,7 @@ export default function MonitoringPRPage() {
                 onClick={() => handleDelete(selectedPRs)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Hapus PR Terpilih ({selectedPRs.length})
+                Hapus PR/Item Terpilih ({selectedPRs.length})
               </Button>
             )}
           </CardHeader>
@@ -1646,6 +1725,29 @@ export default function MonitoringPRPage() {
                                 {item.keterangan}
                               </div>
                             </TableCell>
+                            {/* HAPUS tombol hapus item di sini */}
+                            {/* <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleDeletePRItem(
+                                    String(item.id_PRItem ?? item.id)
+                                  )
+                                }
+                                disabled={
+                                  deleteItemLoading ===
+                                  String(item.id_PRItem ?? item.id)
+                                }
+                              >
+                                {deleteItemLoading ===
+                                String(item.id_PRItem ?? item.id) ? (
+                                  "..."
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </TableCell> */}
                           </TableRow>
                         ))}
                       </React.Fragment>
@@ -1693,12 +1795,26 @@ export default function MonitoringPRPage() {
           </Pagination>
         </Card>
         {/* --- Add modal and toast to the layout --- */}
+        <DeleteChoiceModal
+          open={deleteChoiceOpen}
+          onClose={() => setDeleteChoiceOpen(false)}
+          onChoose={handleDeleteChoice}
+        />
         <ConfirmModal
           open={confirmDeleteOpen}
           title="Konfirmasi Hapus PR"
           description={`Apakah Anda yakin ingin menghapus ${deleteIds.length} PR? Data yang dihapus tidak dapat dikembalikan.`}
           onConfirm={confirmDelete}
           onCancel={() => setConfirmDeleteOpen(false)}
+        />
+        <DeleteItemModal
+          open={deleteItemModalOpen}
+          prItems={selectedPRItemsForDelete}
+          selectedIds={selectedItemIdsToDelete}
+          setSelectedIds={setSelectedItemIdsToDelete}
+          onConfirm={confirmDeleteItems}
+          onCancel={() => setDeleteItemModalOpen(false)}
+          prData={prData} // <-- tambahkan ini
         />
         <Toast
           open={toastOpen}
@@ -1707,5 +1823,126 @@ export default function MonitoringPRPage() {
         />
       </div>
     </MainLayout>
+  );
+}
+
+// Modal pilihan hapus PR atau item
+function DeleteChoiceModal({ open, onClose, onChoose }: any) {
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
+        <h2 className="text-lg font-semibold mb-2">Pilih Jenis Hapus</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Anda ingin menghapus seluruh PR beserta semua item, atau hanya
+          menghapus item tertentu dari PR yang dipilih?
+        </p>
+        <div className="flex flex-col gap-2">
+          <Button variant="destructive" onClick={() => onChoose("pr")}>
+            Hapus PR (beserta semua item)
+          </Button>
+          <Button variant="outline" onClick={() => onChoose("item")}>
+            Hapus Item pada PR
+          </Button>
+          <Button variant="ghost" onClick={onClose}>
+            Batal
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Modal pilih item yang mau dihapus
+function DeleteItemModal({
+  open,
+  prItems,
+  selectedIds,
+  setSelectedIds,
+  onConfirm,
+  onCancel,
+  prData,
+}: any) {
+  if (!open) return null;
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[420px] max-h-[80vh] overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-2">
+          Pilih Item PR yang akan dihapus
+        </h2>
+        <div className="space-y-4">
+          {prItems.map(({ prId, items }) => (
+            <div key={prId}>
+              <div className="font-semibold mb-1">
+                PR: {prData.find((pr: any) => pr.id === prId)?.noPR || prId}
+              </div>
+              {items.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  Tidak ada item pada PR ini.
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {items.map((item: any, idx: number) => {
+                    // Gunakan id_PRItem sebagai value checkbox, fallback hanya untuk key
+                    const keyId = item.id_PRItem
+                      ? String(item.id_PRItem)
+                      : `${item.namaBarang}-${item.jumlah}-${idx}`;
+                    const valueId = item.id_PRItem
+                      ? String(item.id_PRItem)
+                      : ""; // kosongkan jika tidak ada id_PRItem
+                    const jumlahDisplay =
+                      parseFloat(item.jumlah) % 1 === 0
+                        ? parseInt(item.jumlah)
+                        : item.jumlah;
+                    return (
+                      <label key={keyId} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          value={valueId}
+                          checked={selectedIds.includes(valueId)}
+                          disabled={!valueId} // disable jika tidak ada id_PRItem
+                          onChange={(e) => {
+                            if (!valueId) return; // tidak bisa pilih jika tidak ada id_PRItem
+                            if (e.target.checked) {
+                              setSelectedIds([...selectedIds, valueId]);
+                            } else {
+                              setSelectedIds(
+                                selectedIds.filter((x) => x !== valueId)
+                              );
+                            }
+                          }}
+                        />
+                        <span>
+                          {item.namaBarang} ({jumlahDisplay} {item.satuan})
+                          {!valueId && (
+                            <span className="text-xs text-red-500 ml-2">
+                              (ID PRItem tidak ditemukan)
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="outline" onClick={onCancel}>
+            Batal
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={onConfirm}
+            disabled={selectedIds.length === 0}
+          >
+            Hapus Item Terpilih ({selectedIds.length})
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
