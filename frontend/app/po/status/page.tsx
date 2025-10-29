@@ -1294,7 +1294,9 @@ export default function StatusPOPage() {
             <PaginationItem>
               <PaginationPrevious
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                className={
+                  currentPage === 1 ? "pointer-events-none opacity-50" : ""
+                }
               />
             </PaginationItem>
             {/* Show first page */}
@@ -1319,14 +1321,17 @@ export default function StatusPOPage() {
                 (page) =>
                   page !== 1 &&
                   page !== totalPages &&
-                  (page >= currentPage - 1 && page <= currentPage + 1)
+                  page >= currentPage - 1 &&
+                  page <= currentPage + 1
               )
               .map((page) => (
                 <PaginationItem key={page}>
                   <PaginationLink
                     onClick={() => setCurrentPage(page)}
                     isActive={currentPage === page}
-                    className={currentPage === page ? "bg-primary text-white" : ""}
+                    className={
+                      currentPage === page ? "bg-primary text-white" : ""
+                    }
                   >
                     {page}
                   </PaginationLink>
@@ -1344,7 +1349,9 @@ export default function StatusPOPage() {
                 <PaginationLink
                   onClick={() => setCurrentPage(totalPages)}
                   isActive={currentPage === totalPages}
-                  className={currentPage === totalPages ? "bg-primary text-white" : ""}
+                  className={
+                    currentPage === totalPages ? "bg-primary text-white" : ""
+                  }
                 >
                   {totalPages}
                 </PaginationLink>
@@ -1356,7 +1363,9 @@ export default function StatusPOPage() {
                   setCurrentPage(Math.min(totalPages, currentPage + 1))
                 }
                 className={
-                  currentPage === totalPages ? "pointer-events-none opacity-50" : ""
+                  currentPage === totalPages
+                    ? "pointer-events-none opacity-50"
+                    : ""
                 }
               />
             </PaginationItem>

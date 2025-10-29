@@ -1282,7 +1282,7 @@ export default function MonitoringPRPage() {
                           <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueSatuan
                               .filter((satuan) =>
-                                satuan
+                                (satuan ?? "")
                                   .toLowerCase()
                                   .includes(satuanSearchTerm.toLowerCase())
                               )

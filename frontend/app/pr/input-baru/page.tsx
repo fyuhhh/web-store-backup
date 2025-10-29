@@ -67,6 +67,10 @@ export default function InputBaruPRPage() {
   const [editSatuanId, setEditSatuanId] = useState<string | null>(null);
   const [editSatuanValue, setEditSatuanValue] = useState("");
 
+  // Tambahkan state untuk edit divisi
+  const [editDivisiId, setEditDivisiId] = useState<string | null>(null);
+  const [editDivisiValue, setEditDivisiValue] = useState("");
+
   useEffect(() => {
     loadPRData();
 
@@ -446,6 +450,45 @@ export default function InputBaruPRPage() {
     } catch {}
   };
 
+  // Handler hapus divisi
+  const handleDeleteDivisi = async (id: string) => {
+    if (!id) return;
+    if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/divisi/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetch("http://localhost:5000/api/divisi")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setDivisiOptions(data);
+          });
+      }
+    } catch {}
+  };
+
+  // Handler edit divisi
+  const handleEditDivisi = async (id: string) => {
+    if (!editDivisiValue.trim()) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/divisi/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ divisi: editDivisiValue }),
+      });
+      if (res.ok) {
+        fetch("http://localhost:5000/api/divisi")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setDivisiOptions(data);
+          });
+        setEditDivisiId(null);
+        setEditDivisiValue("");
+      }
+    } catch {}
+  };
+
   // Fungsi untuk memberi class pada weekend
   function highlightWeekends(date: Date) {
     const day = date.getDay();
@@ -647,12 +690,77 @@ export default function InputBaruPRPage() {
                               .includes(divisiSearch.toLowerCase())
                           )
                           .map((div: any) => (
-                            <SelectItem
+                            <div
                               key={div.id_divisi}
-                              value={String(div.id_divisi)}
+                              className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
                             >
-                              {div.divisi}
-                            </SelectItem>
+                              {editDivisiId === String(div.id_divisi) ? (
+                                <>
+                                  <Input
+                                    value={editDivisiValue}
+                                    onChange={(e) =>
+                                      setEditDivisiValue(e.target.value)
+                                    }
+                                    className="w-[90px] h-7 text-xs"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    className="px-2 py-1 text-xs bg-primary text-white"
+                                    onClick={() =>
+                                      handleEditDivisi(String(div.id_divisi))
+                                    }
+                                  >
+                                    Simpan
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    className="px-2 py-1 text-xs"
+                                    onClick={() => {
+                                      setEditDivisiId(null);
+                                      setEditDivisiValue("");
+                                    }}
+                                  >
+                                    Batal
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <SelectItem
+                                    key={div.id_divisi}
+                                    value={String(div.id_divisi)}
+                                    className="flex-1"
+                                  >
+                                    {div.divisi}
+                                  </SelectItem>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    className="text-xs text-blue-600 px-1 py-0.5"
+                                    onClick={() => {
+                                      setEditDivisiId(String(div.id_divisi));
+                                      setEditDivisiValue(div.divisi);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    className="text-xs text-red-600 px-1 py-0.5"
+                                    onClick={() =>
+                                      handleDeleteDivisi(String(div.id_divisi))
+                                    }
+                                  >
+                                    Hapus
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           ))
                       )}
                       {divisiOptions.length > 0 &&

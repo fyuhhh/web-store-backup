@@ -746,6 +746,17 @@ export default function BKBInputPage() {
             Pilih data BTB untuk dibuatkan Bukti Keluar Barang (BKB)
           </p>
         </div>
+        {/* Search Bar untuk Daftar BTB */}
+        {!showForm && (
+          <div className="flex items-center gap-2 mb-2">
+            <Input
+              placeholder="Cari No. BTB, Supplier, atau Nama Barang..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-[320px]"
+            />
+          </div>
+        )}
         {/* Tombol Input BKB */}
         <div className="mb-2 flex justify-end gap-2">
           <Button

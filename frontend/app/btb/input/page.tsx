@@ -1057,6 +1057,18 @@ export default function BTBInputPage() {
           )}
         </div>
 
+        {/* Search Bar untuk Daftar Purchase Order */}
+        {!showForm && (
+          <div className="flex items-center gap-2 mb-2">
+            <Input
+              placeholder="Cari No. PO, Supplier, atau Nama Barang..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-[320px]"
+            />
+          </div>
+        )}
+
         {/* Tabel PO dari Monitoring PO */}
         {!showForm && (
           <Card className="bg-card border-border">

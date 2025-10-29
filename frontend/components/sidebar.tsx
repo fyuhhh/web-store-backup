@@ -42,7 +42,6 @@ const menuItems = [
     submenu: [
       { title: "Input PO", href: "/po/status" },
       { title: "Monitoring PO", href: "/po/monitoring" },
-      { title: "Rekap PO", href: "/po/rekap" },
     ],
   },
   {
