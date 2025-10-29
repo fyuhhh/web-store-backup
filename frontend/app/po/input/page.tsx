@@ -75,6 +75,9 @@ export default function InputPOPage() {
 
   const [userSkema, setUserSkema] = useState("");
 
+  // Tambahkan state untuk checkbox "Harga sudah termasuk PPN"
+  const [ppnIncluded, setPpnIncluded] = useState(false);
+
   // State for PO items with pricing
   const [poItems, setPoItems] = useState<
     Array<{
@@ -86,10 +89,11 @@ export default function InputPOPage() {
           hargaSatuan: number;
           jumlahPO: number;
           jumlahAsli: number;
-          diskonItem: number;
+          diskonItem: string; // now string, e.g. "10%+5000+2%"
+          ppnItem: number | ""; // per item
           skema: string;
           dibuatOleh: string;
-          id_satuan: string; // <-- ensure id_satuan is present
+          id_satuan: string;
         }
       >;
     }>
@@ -212,71 +216,112 @@ export default function InputPOPage() {
     prCurrentPage * prItemsPerPage
   );
 
-  // Calculation functions
-  const parseDiscounts = (discountText: string) => {
-    if (!discountText.trim()) return [];
-
+  // Fungsi parsing diskon per item (stacked, persen/nominal)
+  function parseDiscounts(discountText: string) {
+    if (!discountText || typeof discountText !== "string") return [];
     const discounts = discountText.split("+").map((d) => d.trim());
     return discounts
-      .map((discount, index) => {
+      .map((discount) => {
         if (discount.endsWith("%")) {
           const percentage = parseFloat(discount.replace("%", ""));
           return { type: "percentage", value: percentage, original: discount };
-        } else {
+        } else if (discount !== "") {
           const nominal = parseFloat(discount);
           return { type: "nominal", value: nominal, original: discount };
         }
+        return null;
       })
-      .filter((d) => !isNaN(d.value));
-  };
+      .filter((d) => d && !isNaN(d.value));
+  }
 
+  // Calculation functions
   const calculateTotal = () => {
     let subtotal = 0;
+    let totalDiskon = 0;
+    let totalPPN = 0;
+    let totalPayment = 0;
+    const breakdown: Array<{
+      namaBarang: string;
+      hargaSatuan: number;
+      jumlahPO: number;
+      diskonItem: string;
+      ppnItem: number;
+      subtotal: number;
+      diskonAmount: number;
+      ppnAmount: number;
+      total: number;
+      diskonBreakdown: Array<{ label: string; value: string; amount: number }>;
+    }> = [];
 
-    // Calculate subtotal from all items
     poItems.forEach((poItem) => {
       poItem.items.forEach((item) => {
-        subtotal += item.hargaSatuan * item.jumlahPO;
+        const harga = Number(item.hargaSatuan) || 0;
+        const qty = Number(item.jumlahPO) || 0;
+        const ppn = Number(item.ppnItem) || 0;
+        const itemSubtotal = harga * qty;
+
+        // Diskon bertingkat
+        let currentAmount = itemSubtotal;
+        let diskonAmount = 0;
+        const diskonBreakdown: Array<{
+          label: string;
+          value: string;
+          amount: number;
+        }> = [];
+        const parsedDiscounts = parseDiscounts(item.diskonItem || "");
+        parsedDiscounts.forEach((discount, idx) => {
+          let amount = 0;
+          if (discount.type === "percentage") {
+            amount = currentAmount * (discount.value / 100);
+          } else {
+            amount = Math.min(discount.value, currentAmount);
+          }
+          diskonAmount += amount;
+          currentAmount -= amount;
+          diskonBreakdown.push({
+            label: `Diskon ${idx + 1}`,
+            value: discount.original,
+            amount,
+          });
+        });
+
+        let afterDiskon = itemSubtotal - diskonAmount;
+        let ppnAmount = afterDiskon * (ppn / 100);
+        let subtotalItem = afterDiskon;
+        let total = 0;
+
+        if (ppnIncluded) {
+          subtotalItem = afterDiskon + ppnAmount;
+          total = afterDiskon + ppnAmount;
+        } else {
+          subtotalItem = afterDiskon;
+          total = afterDiskon + ppnAmount;
+        }
+
+        subtotal += subtotalItem;
+        totalDiskon += diskonAmount;
+        totalPPN += ppnAmount;
+        totalPayment += total;
+
+        breakdown.push({
+          namaBarang: item.namaBarang,
+          hargaSatuan: harga,
+          jumlahPO: qty,
+          diskonItem: item.diskonItem,
+          ppnItem: ppn,
+          subtotal: subtotalItem,
+          diskonAmount,
+          ppnAmount,
+          total,
+          diskonBreakdown,
+        });
       });
     });
-
-    // Parse discounts
-    const parsedDiscounts = parseDiscounts(poFormData.diskon);
-
-    // Calculate discount amount sequentially
-    let totalDiscount = 0;
-    let currentAmount = subtotal;
-    const breakdown: Array<{ label: string; value: string; amount: number }> =
-      [];
-
-    parsedDiscounts.forEach((discount, index) => {
-      let discountAmount = 0;
-      if (discount.type === "percentage") {
-        discountAmount = currentAmount * (discount.value / 100);
-      } else {
-        discountAmount = Math.min(discount.value, currentAmount); // Cap at current amount
-      }
-      totalDiscount += discountAmount;
-      currentAmount -= discountAmount;
-
-      breakdown.push({
-        label: `Diskon ${index + 1}`,
-        value: discount.original,
-        amount: discountAmount,
-      });
-    });
-
-    // Calculate PPN
-    const ppnAmount =
-      (subtotal - totalDiscount) * (parseFloat(poFormData.ppn) / 100);
-
-    // Total payment
-    const totalPayment = subtotal - totalDiscount + ppnAmount;
 
     return {
       subtotal,
-      totalDiscount,
-      ppnAmount, // <-- ensure this is returned
+      totalDiskon,
+      totalPPN,
       totalPayment,
       breakdown,
     };
@@ -303,8 +348,11 @@ export default function InputPOPage() {
   // Tambahkan state untuk edit/hapus supplier/status pengiriman
   const [editSupplierId, setEditSupplierId] = useState<string | null>(null);
   const [editSupplierValue, setEditSupplierValue] = useState("");
-  const [editStatusPengirimanId, setEditStatusPengirimanId] = useState<string | null>(null);
-  const [editStatusPengirimanValue, setEditStatusPengirimanValue] = useState("");
+  const [editStatusPengirimanId, setEditStatusPengirimanId] = useState<
+    string | null
+  >(null);
+  const [editStatusPengirimanValue, setEditStatusPengirimanValue] =
+    useState("");
 
   // Fetch supplier, status_pengiriman, status_permintaan dari backend
   useEffect(() => {
@@ -392,11 +440,16 @@ export default function InputPOPage() {
   const handleEditStatusPengiriman = async (id: string) => {
     if (!editStatusPengirimanValue.trim()) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/status-pengiriman/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status_pengiriman: editStatusPengirimanValue }),
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/status-pengiriman/${id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status_pengiriman: editStatusPengirimanValue,
+          }),
+        }
+      );
       if (res.ok) {
         fetch("http://localhost:5000/api/status-pengiriman")
           .then((res) => res.json())
@@ -412,9 +465,12 @@ export default function InputPOPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus status pengiriman ini?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/status-pengiriman/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `http://localhost:5000/api/status-pengiriman/${id}`,
+        {
+          method: "DELETE",
+        }
+      );
       if (res.ok) {
         fetch("http://localhost:5000/api/status-pengiriman")
           .then((res) => res.json())
@@ -488,9 +544,10 @@ export default function InputPOPage() {
               hargaSatuan: item.hargaSatuan,
               jumlahPO: item.jumlahPO,
               jumlahAsli: item.jumlahAsli,
-              diskonItem: item.diskonItem,
+              diskonItem: item.diskonItem || 0, // per item
+              ppnItem: item.ppnItem || 0, // per item
               keterangan: item.keterangan,
-              id_satuan: item.id_satuan, // <-- always send id_satuan (not label)
+              id_satuan: item.id_satuan,
             }),
           });
 
@@ -822,7 +879,8 @@ export default function InputPOPage() {
               satuanLabel: item.satuanLabel || item.satuan || "",
               id_satuan: item.id_satuan ?? item.idSatuan ?? null, // <-- always keep id_satuan
               hargaSatuan: 0,
-              diskonItem: 0,
+              diskonItem: "", // default string
+              ppnItem: 11, // default (atau 0)
               keterangan: item.keterangan ?? "",
               skema: pr.id_skema ?? "",
               dibuatOleh: pr.dibuatOleh ?? "",
@@ -879,6 +937,48 @@ export default function InputPOPage() {
                 }
                 return i;
               }),
+            }
+          : pItem
+      )
+    );
+  }
+
+  // Handler untuk perubahan diskon per item
+  function handleDiskonItemChange(prId: string, itemId: string, value: string) {
+    setPoItems((prevPoItems) =>
+      prevPoItems.map((pItem) =>
+        pItem.prId === prId
+          ? {
+              ...pItem,
+              items: pItem.items.map((i) =>
+                i.id === itemId
+                  ? {
+                      ...i,
+                      diskonItem: value,
+                    }
+                  : i
+              ),
+            }
+          : pItem
+      )
+    );
+  }
+
+  // Handler untuk perubahan ppn per item
+  function handlePPNItemChange(prId: string, itemId: string, value: string) {
+    setPoItems((prevPoItems) =>
+      prevPoItems.map((pItem) =>
+        pItem.prId === prId
+          ? {
+              ...pItem,
+              items: pItem.items.map((i) =>
+                i.id === itemId
+                  ? {
+                      ...i,
+                      ppnItem: value === "" ? "" : Number(value),
+                    }
+                  : i
+              ),
             }
           : pItem
       )
@@ -1003,8 +1103,8 @@ export default function InputPOPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Baris field utama PO */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {/* Baris 1: No PO, Tanggal PO, Estimasi Tanggal Terima */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                 {/* No PO */}
                 <div className="space-y-2">
                   <Label htmlFor="noPO">No. PO</Label>
@@ -1058,7 +1158,7 @@ export default function InputPOPage() {
                     }
                   />
                 </div>
-                {/* Estimasi Diterima */}
+                {/* Estimasi Tanggal Terima */}
                 <div className="space-y-2">
                   <Label htmlFor="estimasiTanggalDiterima">
                     Estimasi Tanggal Diterima
@@ -1102,6 +1202,10 @@ export default function InputPOPage() {
                     }
                   />
                 </div>
+              </div>
+
+              {/* Baris 2: Supplier, Status Pengiriman, Skema */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                 {/* Supplier */}
                 <div className="space-y-2">
                   <Label
@@ -1173,459 +1277,647 @@ export default function InputPOPage() {
                       ) : (
                         supplierOptions
                           .filter((sup: any) =>
-                  {supplierOptions.length > 0 &&
-                    supplierOptions.filter((sup: any) =>
-                      sup.namaSupplier
-                        .toLowerCase()
-                        .includes(supplierSearch.toLowerCase())
-                    ).length === 0 && (
-                      <SelectItem value="__notfound" disabled>
-                        Data tidak ditemukan
-                      </SelectItem>
-                    )}
-                </SelectContent>
-              </Select>
-            </div>
+                            sup.namaSupplier
+                              .toLowerCase()
+                              .includes(supplierSearch.toLowerCase())
+                          )
+                          .map((sup: any) => (
+                            <div
+                              key={sup.id_supplier}
+                              className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
+                            >
+                              {editSupplierId === String(sup.id_supplier) ? (
+                                <>
+                                  <Input
+                                    value={editSupplierValue}
+                                    onChange={(e) =>
+                                      setEditSupplierValue(e.target.value)
+                                    }
+                                    className="w-[90px] h-7 text-xs"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    className="px-2 py-1 text-xs bg-primary text-white"
+                                    onClick={() =>
+                                      handleEditSupplier(
+                                        String(sup.id_supplier)
+                                      )
+                                    }
+                                  >
+                                    Simpan
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    className="px-2 py-1 text-xs"
+                                    onClick={() => {
+                                      setEditSupplierId(null);
+                                      setEditSupplierValue("");
+                                    }}
+                                  >
+                                    Batal
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <SelectItem
+                                    key={sup.id_supplier}
+                                    value={String(sup.id_supplier)}
+                                    className="flex-1"
+                                  >
+                                    {sup.namaSupplier}
+                                  </SelectItem>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    className="text-xs text-blue-600 px-1 py-0.5"
+                                    onClick={() => {
+                                      setEditSupplierId(
+                                        String(sup.id_supplier)
+                                      );
+                                      setEditSupplierValue(sup.namaSupplier);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    className="text-xs text-red-600 px-1 py-0.5"
+                                    onClick={() =>
+                                      handleDeleteSupplier(
+                                        String(sup.id_supplier)
+                                      )
+                                    }
+                                  >
+                                    Hapus
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          ))
+                      )}
+                      {supplierOptions.length > 0 &&
+                        supplierOptions.filter((sup: any) =>
+                          sup.namaSupplier
+                            .toLowerCase()
+                            .includes(supplierSearch.toLowerCase())
+                        ).length === 0 && (
+                          <SelectItem value="__notfound" disabled>
+                            Data tidak ditemukan
+                          </SelectItem>
+                        )}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Status Pengiriman */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="statusPengiriman"
-                className="text-sm font-medium text-muted-foreground"
-              >
-                Status Pengiriman
-              </Label>
-              <Select
-                value={String(poFormData.statusPengiriman)}
-                onValueChange={(value) =>
-                  setPoFormData({
-                    ...poFormData,
-                    statusPengiriman: value,
-                  })
-                }
-              >
-                <SelectTrigger className="border-border focus:border-primary/50 bg-white">
-                  <SelectValue placeholder="Pilih status pengiriman" />
-                </SelectTrigger>
-                <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                  <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                    <Input
-                      placeholder="Cari status pengiriman..."
-                      value={statusPengirimanSearch}
-                      onChange={(e) =>
-                        setStatusPengirimanSearch(e.target.value)
-                      }
-                      className="mb-2"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mb-2 w-full"
-                      onClick={() => setShowAddStatusPengiriman((v) => !v)}
-                    >
-                      + Tambahkan Status Pengiriman
-                    </Button>
-                    {showAddStatusPengiriman && (
-                      <div className="flex items-center gap-2 mb-2">
+                {/* Status Pengiriman */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="statusPengiriman"
+                    className="text-sm font-medium text-muted-foreground"
+                  >
+                    Status Pengiriman
+                  </Label>
+                  <Select
+                    value={String(poFormData.statusPengiriman)}
+                    onValueChange={(value) =>
+                      setPoFormData({
+                        ...poFormData,
+                        statusPengiriman: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
+                      <SelectValue placeholder="Pilih status pengiriman" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
                         <Input
-                          placeholder="Status pengiriman baru"
-                          value={newStatusPengiriman}
+                          placeholder="Cari status pengiriman..."
+                          value={statusPengirimanSearch}
                           onChange={(e) =>
-                            setNewStatusPengiriman(e.target.value)
+                            setStatusPengirimanSearch(e.target.value)
                           }
-                          className="w-[140px]"
+                          className="mb-2"
                         />
                         <Button
                           type="button"
-                          size="sm"
-                          onClick={handleAddStatusPengiriman}
-                          className="bg-primary text-white"
-                        >
-                          Simpan
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
                           variant="outline"
-                          onClick={() => {
-                            setShowAddStatusPengiriman(false);
-                            setNewStatusPengiriman("");
-                          }}
+                          size="sm"
+                          className="mb-2 w-full"
+                          onClick={() => setShowAddStatusPengiriman((v) => !v)}
                         >
-                          Batal
+                          + Tambahkan Status Pengiriman
                         </Button>
-                      </div>
-                    )}
-                  </div>
-                  {statusPengirimanOptions.length === 0 ? (
-                    <SelectItem value="__loading" disabled>
-                      Memuat...
-                    </SelectItem>
-                  ) : (
-                    statusPengirimanOptions
-                      .filter((opt: any) =>
-                        opt.status_pengiriman
-                          .toLowerCase()
-                          .includes(statusPengirimanSearch.toLowerCase())
-                      )
-                      .map((opt: any) => (
-                        <div
-                          key={opt.id_statusPengiriman}
-                          className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                        >
-                          {editStatusPengirimanId === String(opt.id_statusPengiriman) ? (
-                            <>
-                              <Input
-                                value={editStatusPengirimanValue}
-                                onChange={(e) =>
-                                  setEditStatusPengirimanValue(e.target.value)
-                                }
-                                className="w-[90px] h-7 text-xs"
-                              />
-                              <Button
-                                type="button"
-                                size="xs"
-                                className="px-2 py-1 text-xs bg-primary text-white"
-                                onClick={() =>
-                                  handleEditStatusPengiriman(String(opt.id_statusPengiriman))
-                                }
-                              >
-                                Simpan
-                              </Button>
-                              <Button
-                                type="button"
-                                size="xs"
-                                variant="outline"
-                                className="px-2 py-1 text-xs"
-                                onClick={() => {
-                                  setEditStatusPengirimanId(null);
-                                  setEditStatusPengirimanValue("");
-                                }}
-                              >
-                                Batal
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <SelectItem
-                                key={opt.id_statusPengiriman}
-                                value={String(opt.id_statusPengiriman)}
-                                className="flex-1"
-                              >
-                                {opt.status_pengiriman}
-                              </SelectItem>
-                              <Button
-                                type="button"
-                                size="xs"
-                                variant="ghost"
-                                className="text-xs text-blue-600 px-1 py-0.5"
-                                onClick={() => {
-                                  setEditStatusPengirimanId(String(opt.id_statusPengiriman));
-                                  setEditStatusPengirimanValue(opt.status_pengiriman);
-                                }}
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                type="button"
-                                size="xs"
-                                variant="ghost"
-                                className="text-xs text-red-600 px-1 py-0.5"
-                                onClick={() =>
-                                  handleDeleteStatusPengiriman(String(opt.id_statusPengiriman))
-                                }
-                              >
-                                Hapus
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      ))
-                  )}
-                  {statusPengirimanOptions.length > 0 &&
-                    statusPengirimanOptions.filter((opt: any) =>
-                      opt.status_pengiriman
-                        .toLowerCase()
-                        .includes(statusPengirimanSearch.toLowerCase())
-                    ).length === 0 && (
-                      <SelectItem value="__notfound" disabled>
-                        Data tidak ditemukan
-                      </SelectItem>
-                    )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Tambahkan jarak lebih besar sebelum Detail Barang dari PR */}
-            <div className="mt-12">
-              <h3 className="text-lg font-semibold mb-3">
-                Detail Barang dari PR
-              </h3>
-              <div className="border rounded-lg max-h-64 overflow-y-visible">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>No. PR</TableHead>
-                      <TableHead>Nama Barang</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Satuan</TableHead>
-                      <TableHead>Harga Satuan</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead>Keterangan</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pagedItems.map((item, idx) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.noPR}</TableCell>
-                        <TableCell>{item.namaBarang}</TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={
-                              Number(item.jumlahPO) % 1 === 0
-                                ? parseInt(item.jumlahPO)
-                                : item.jumlahPO
-                            }
-                            min={0}
-                            max={item.jumlahAsli}
-                            onChange={(e) =>
-                              handleQtyChange(
-                                item.prId,
-                                item.id,
-                                e.target.value
-                              )
-                            }
-                            className="w-20"
-                          />
-                          <span className="text-xs text-muted-foreground ml-2">
-                            /{" "}
-                            {Number(item.jumlahAsli) % 1 === 0
-                              ? parseInt(item.jumlahAsli)
-                              : item.jumlahAsli}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {/* Pastikan satuan tetap tampil */}
-                          {getSatuanLabel(item.id_satuan) ||
-                            item.satuanLabel ||
-                            item.satuan}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            value={formatRupiahInput(item.hargaSatuan)}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(
-                                /[^\d]/g,
-                                ""
-                              );
-                              handleHargaSatuanChange(
-                                item.prId,
-                                item.id,
-                                raw
-                              );
-                            }}
-                            className="w-24 text-right"
-                            placeholder="0"
-                            autoComplete="off"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          Rp{" "}
-                          {(item.hargaSatuan * item.jumlahPO).toLocaleString(
-                            "id-ID"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div
-                            className="text-sm text-muted-foreground max-w-xs truncate"
-                            title={item.keterangan}
-                          >
-                            {item.keterangan}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              {/* Pagination for items table */}
-              <Pagination className="mt-2">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        setCurrentPage(Math.max(1, currentPage - 1))
-                      }
-                      className={
-                        currentPage === 1
-                          ? "pointer-events-none opacity-50"
-                          : ""
-                      }
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage(Math.min(totalPages, currentPage + 1))
-                      }
-                      className={
-                        currentPage === totalPages
-                          ? "pointer-events-none opacity-50"
-                          : ""
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-
-            {/* Diskon dan PPN (%) */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label
-                  htmlFor="diskon"
-                  className="text-sm font-medium text-muted-foreground"
-                >
-                  Diskon (contoh: 10%+5000+15%)
-                </Label>
-                <Input
-                  id="diskon"
-                  value={poFormData.diskon}
-                  onChange={(e) =>
-                    setPoFormData({
-                      ...poFormData,
-                      diskon: e.target.value,
-                    })
-                  }
-                  placeholder="10%+5000+15%"
-                  className="border-border focus:border-primary/50"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="ppn"
-                  className="text-sm font-medium text-muted-foreground"
-                >
-                  PPN (%)
-                </Label>
-                <Input
-                  id="ppn"
-                  type="number"
-                  value={poFormData.ppn}
-                  onChange={(e) =>
-                    setPoFormData({ ...poFormData, ppn: e.target.value })
-                  }
-                  placeholder="11"
-                  className="border-border focus:border-primary/50"
-                />
-              </div>
-            </div>
-
-            {/* Ringkasan Perhitungan */}
-            <div>
-              <h3 className="text-lg font-semibold mb-3">
-                Ringkasan Perhitungan
-              </h3>
-              <div className="border rounded-lg p-4 space-y-3">
-                {(() => {
-                  const calculations = calculateTotal();
-                  return (
-                    <>
-                      <div className="flex justify-between">
-                        <span>Subtotal:</span>
-                        <span>
-                          Rp {calculations.subtotal.toLocaleString("id-ID")}
-                        </span>
-                      </div>
-
-                      {discountBreakdown.length > 0 && (
-                        <div className="space-y-1">
-                          <span>Diskon:</span>
-                          {discountBreakdown.map((discount, index) => (
-                            <div
-                              key={index}
-                              className="flex justify-between text-sm text-destructive"
+                        {showAddStatusPengiriman && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Input
+                              placeholder="Status pengiriman baru"
+                              value={newStatusPengiriman}
+                              onChange={(e) =>
+                                setNewStatusPengiriman(e.target.value)
+                              }
+                              className="w-[140px]"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddStatusPengiriman}
+                              className="bg-primary text-white"
                             >
-                              <span>
-                                - {discount.label} ({discount.value}):
-                              </span>
-                              <span>
-                                -Rp {discount.amount.toLocaleString("id-ID")}
-                              </span>
+                              Simpan
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setShowAddStatusPengiriman(false);
+                                setNewStatusPengiriman("");
+                              }}
+                            >
+                              Batal
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                      {statusPengirimanOptions.length === 0 ? (
+                        <SelectItem value="__loading" disabled>
+                          Memuat...
+                        </SelectItem>
+                      ) : (
+                        statusPengirimanOptions
+                          .filter((opt: any) =>
+                            opt.status_pengiriman
+                              .toLowerCase()
+                              .includes(statusPengirimanSearch.toLowerCase())
+                          )
+                          .map((opt: any) => (
+                            <div
+                              key={opt.id_statusPengiriman}
+                              className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
+                            >
+                              {editStatusPengirimanId ===
+                              String(opt.id_statusPengiriman) ? (
+                                <>
+                                  <Input
+                                    value={editStatusPengirimanValue}
+                                    onChange={(e) =>
+                                      setEditStatusPengirimanValue(
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-[90px] h-7 text-xs"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    className="px-2 py-1 text-xs bg-primary text-white"
+                                    onClick={() =>
+                                      handleEditStatusPengiriman(
+                                        String(opt.id_statusPengiriman)
+                                      )
+                                    }
+                                  >
+                                    Simpan
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    className="px-2 py-1 text-xs"
+                                    onClick={() => {
+                                      setEditStatusPengirimanId(null);
+                                      setEditStatusPengirimanValue("");
+                                    }}
+                                  >
+                                    Batal
+                                  </Button>
+                                </>
+                              ) : (
+                                <>
+                                  <SelectItem
+                                    key={opt.id_statusPengiriman}
+                                    value={String(opt.id_statusPengiriman)}
+                                    className="flex-1"
+                                  >
+                                    {opt.status_pengiriman}
+                                  </SelectItem>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    className="text-xs text-blue-600 px-1 py-0.5"
+                                    onClick={() => {
+                                      setEditStatusPengirimanId(
+                                        String(opt.id_statusPengiriman)
+                                      );
+                                      setEditStatusPengirimanValue(
+                                        opt.status_pengiriman
+                                      );
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="ghost"
+                                    className="text-xs text-red-600 px-1 py-0.5"
+                                    onClick={() =>
+                                      handleDeleteStatusPengiriman(
+                                        String(opt.id_statusPengiriman)
+                                      )
+                                    }
+                                  >
+                                    Hapus
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          ))
+                      )}
+                      {statusPengirimanOptions.length > 0 &&
+                        statusPengirimanOptions.filter((opt: any) =>
+                          opt.status_pengiriman
+                            .toLowerCase()
+                            .includes(statusPengirimanSearch.toLowerCase())
+                        ).length === 0 && (
+                          <SelectItem value="__notfound" disabled>
+                            Data tidak ditemukan
+                          </SelectItem>
+                        )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Skema */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="skema"
+                    className="text-sm font-medium text-muted-foreground"
+                  >
+                    Skema
+                  </Label>
+                  <Input
+                    id="skema"
+                    value={poFormData.skema}
+                    readOnly
+                    className="border-border focus:border-primary/50 bg-gray-100"
+                  />
+                </div>
+              </div>
+
+              {/* Baris 3: Detail Barang dari PR */}
+              <div>
+                <h3 className="text-lg font-semibold mb-3">
+                  Detail Barang dari PR
+                </h3>
+                <div className="border rounded-lg overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>No. PR</TableHead>
+                        <TableHead>Nama Barang</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Satuan</TableHead>
+                        <TableHead>Harga Satuan</TableHead>
+                        <TableHead>Diskon</TableHead>
+                        <TableHead>PPN (%)</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Keterangan</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagedItems.map((item, idx) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.noPR}</TableCell>
+                          <TableCell>{item.namaBarang}</TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={
+                                Number(item.jumlahPO) % 1 === 0
+                                  ? parseInt(item.jumlahPO)
+                                  : item.jumlahPO
+                              }
+                              min={0}
+                              max={item.jumlahAsli}
+                              onChange={(e) =>
+                                handleQtyChange(
+                                  item.prId,
+                                  item.id,
+                                  e.target.value
+                                )
+                              }
+                              className="w-20"
+                            />
+                            <span className="text-xs text-muted-foreground ml-2">
+                              /{" "}
+                              {Number(item.jumlahAsli) % 1 === 0
+                                ? parseInt(item.jumlahAsli)
+                                : item.jumlahAsli}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {/* Pastikan satuan tetap tampil */}
+                            {getSatuanLabel(item.id_satuan) ||
+                              item.satuanLabel ||
+                              item.satuan}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              value={formatRupiahInput(item.hargaSatuan)}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              onChange={(e) => {
+                                const raw = e.target.value.replace(
+                                  /[^\d]/g,
+                                  ""
+                                );
+                                handleHargaSatuanChange(
+                                  item.prId,
+                                  item.id,
+                                  raw
+                                );
+                              }}
+                              className="w-24 text-right"
+                              placeholder="0"
+                              autoComplete="off"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="text"
+                              value={item.diskonItem ?? ""}
+                              onChange={(e) =>
+                                handleDiskonItemChange(
+                                  item.prId,
+                                  item.id,
+                                  e.target.value
+                                )
+                              }
+                              className="w-24 text-right"
+                              placeholder="10%+5000+2%"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={item.ppnItem ?? ""}
+                              min={0}
+                              max={100}
+                              onChange={(e) =>
+                                handlePPNItemChange(
+                                  item.prId,
+                                  item.id,
+                                  e.target.value
+                                )
+                              }
+                              className="w-16 text-right"
+                              placeholder="11"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {(() => {
+                              const harga = Number(item.hargaSatuan) || 0;
+                              const qty = Number(item.jumlahPO) || 0;
+                              const ppn = Number(item.ppnItem) || 0;
+                              const itemSubtotal = harga * qty;
+                              // Diskon bertingkat
+                              let currentAmount = itemSubtotal;
+                              let diskonAmount = 0;
+                              const parsedDiscounts = parseDiscounts(
+                                item.diskonItem || ""
+                              );
+                              parsedDiscounts.forEach((discount) => {
+                                let amount = 0;
+                                if (discount.type === "percentage") {
+                                  amount =
+                                    currentAmount * (discount.value / 100);
+                                } else {
+                                  amount = Math.min(
+                                    discount.value,
+                                    currentAmount
+                                  );
+                                }
+                                diskonAmount += amount;
+                                currentAmount -= amount;
+                              });
+                              const afterDiskon = itemSubtotal - diskonAmount;
+                              const ppnAmount =
+                                ppn > 0 ? afterDiskon * (ppn / 100) : 0;
+                              const total = afterDiskon + ppnAmount;
+                              return (
+                                <span>Rp {total.toLocaleString("id-ID")}</span>
+                              );
+                            })()}
+                          </TableCell>
+                          <TableCell>
+                            <div
+                              className="text-sm text-muted-foreground max-w-xs truncate"
+                              title={item.keterangan}
+                            >
+                              {item.keterangan}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                {/* Pagination for items table */}
+                <Pagination className="mt-2">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious
+                        onClick={() =>
+                          setCurrentPage(Math.max(1, currentPage - 1))
+                        }
+                        className={
+                          currentPage === 1
+                            ? "pointer-events-none opacity-50"
+                            : ""
+                        }
+                      />
+                    </PaginationItem>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => (
+                        <PaginationItem key={page}>
+                          <PaginationLink
+                            onClick={() => setCurrentPage(page)}
+                            isActive={currentPage === page}
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
+                      )
+                    )}
+                    <PaginationItem>
+                      <PaginationNext
+                        onClick={() =>
+                          setCurrentPage(Math.min(totalPages, currentPage + 1))
+                        }
+                        className={
+                          currentPage === totalPages
+                            ? "pointer-events-none opacity-50"
+                            : ""
+                        }
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+
+              {/* Baris 4: PPN Checkbox */}
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="ppn-included"
+                  checked={ppnIncluded}
+                  onCheckedChange={(checked) => setPpnIncluded(!!checked)}
+                />
+                <Label htmlFor="ppn-included" className="cursor-pointer">
+                  Harga sudah termasuk PPN
+                </Label>
+              </div>
+
+              {/* Baris 5: Ringkasan Perhitungan */}
+              <div className="mt-4">
+                <h3 className="text-lg font-semibold mb-3">
+                  Ringkasan Perhitungan
+                </h3>
+                <div className="border rounded-lg p-4 space-y-3">
+                  {(() => {
+                    const calculations = calculateTotal();
+                    return (
+                      <>
+                        <div className="flex justify-between">
+                          <span>Subtotal:</span>
+                          <span>
+                            Rp {calculations.subtotal.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {calculations.breakdown.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex flex-col text-xs mb-1"
+                            >
+                              <div className="flex justify-between">
+                                <span>
+                                  {item.namaBarang} ({item.jumlahPO} x Rp{" "}
+                                  {item.hargaSatuan.toLocaleString("id-ID")})
+                                </span>
+                                <span>
+                                  Subtotal: Rp{" "}
+                                  {item.subtotal.toLocaleString("id-ID")}
+                                </span>
+                              </div>
+                              {item.diskonBreakdown.length > 0 && (
+                                <div className="flex flex-col ml-4">
+                                  {item.diskonBreakdown.map((d, i) => (
+                                    <div
+                                      key={i}
+                                      className="flex justify-between"
+                                    >
+                                      <span>
+                                        - {d.label} ({d.value}):
+                                      </span>
+                                      <span>
+                                        -Rp {d.amount.toLocaleString("id-ID")}
+                                      </span>
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-between font-medium">
+                                    <span>Total Diskon:</span>
+                                    <span className="text-destructive">
+                                      -Rp{" "}
+                                      {item.diskonAmount.toLocaleString(
+                                        "id-ID"
+                                      )}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex justify-between">
+                                <span>
+                                  PPN ({item.ppnItem}%)
+                                  {ppnIncluded
+                                    ? " (sudah termasuk di subtotal)"
+                                    : ""}
+                                  :
+                                </span>
+                                <span className="text-success">
+                                  {ppnIncluded
+                                    ? "Rp " + item.ppnAmount.toLocaleString("id-ID")
+                                    : "+Rp " + item.ppnAmount.toLocaleString("id-ID")}
+                                </span>
+                              </div>
+                              <div className="flex justify-between font-bold">
+                                <span>Total:</span>
+                                <span>
+                                  Rp {item.total.toLocaleString("id-ID")}
+                                </span>
+                              </div>
+                              <hr className="my-1" />
                             </div>
                           ))}
-                          <div className="flex justify-between font-medium">
-                            <span>Total Diskon:</span>
-                            <span className="text-destructive">
-                              -Rp{" "}
-                              {calculations.totalDiscount.toLocaleString(
-                                "id-ID"
-                              )}
-                            </span>
-                          </div>
                         </div>
-                      )}
-
-                      <div className="flex justify-between">
-                        <span>PPN ({poFormData.ppn}%):</span>
-                        <span className="text-success">
-                          +Rp {calculations.ppnAmount.toLocaleString("id-ID")}
-                        </span>
-                      </div>
-
-                      {/* Tambahkan baris PPN (Rp) */}
-                      <div className="flex justify-between">
-                        <span>PPN (Rp):</span>
-                        <span>
-                          Rp {calculations.ppnAmount.toLocaleString("id-ID")}
-                        </span>
-                      </div>
-
-                      <hr className="my-2" />
-
-                      <div className="flex justify-between text-lg font-bold">
-                        <span>Total Pembayaran:</span>
-                        <span className="text-primary">
-                          Rp{" "}
-                          {calculations.totalPayment.toLocaleString("id-ID")}
-                        </span>
-                      </div>
-                    </>
-                  );
-                })()}
+                        <div className="flex justify-between font-medium">
+                          <span>Total Diskon:</span>
+                          <span className="text-destructive">
+                            -Rp{" "}
+                            {calculations.totalDiskon.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>
+                            Total PPN
+                            {ppnIncluded ? " (sudah termasuk di subtotal)" : ""}
+                            :
+                          </span>
+                          <span className="text-success">
+                            {ppnIncluded
+                              ? "Rp " + calculations.totalPPN.toLocaleString("id-ID")
+                              : "+Rp " + calculations.totalPPN.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                        <hr className="my-2" />
+                        <div className="flex justify-between text-lg font-bold">
+                          <span>Total Pembayaran:</span>
+                          <span className="text-primary">
+                            Rp{" "}
+                            {calculations.totalPayment.toLocaleString("id-ID")}
+                          </span>
+                        </div>
+                        {ppnIncluded && (
+                          <div className="text-xs text-muted-foreground mt-2">
+                            <b>Catatan:</b> Total pembayaran sudah termasuk PPN.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
+
+              {/* Baris 6: Tombol Buat PO */}
+              <Button
+                onClick={handleCreatePO}
+                className="w-full bg-primary text-white hover:bg-primary/90 mt-4"
+              >
+                Buat PO
+              </Button>
             </div>
-
-            <Button
-              onClick={handleCreatePO}
-              className="w-full bg-primary text-white hover:bg-primary/90"
-            >
-              Buat PO
-            </Button>
-
-            </div>
-
           </CardContent>
-      </Card>
-    </div>
-  </MainLayout>
-);
+        </Card>
+      </div>
+    </MainLayout>
+  );
 }
-

@@ -76,7 +76,7 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-xl font-semibold text-foreground">
-                  Sistem Monitoring Store
+                  Sistem Monitoring Purchasing dan Store
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Skema: {skemaLabel} | Role: {peranLabel}

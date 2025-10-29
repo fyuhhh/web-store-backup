@@ -100,6 +100,6 @@ ensureSuperadmin().catch((err) => {
 
 // jalankan server
 app.listen(5000, () => {
-  console.log("Server berjalan di http://192.168.10.10:5000");
-  console.log("Debug routes: http://192.168.10.10:5000/api/debug/routes");
+  console.log("Server berjalan di http://localhost:5000");
+  console.log("Debug routes: http://localhost:5000/api/debug/routes");
 });
