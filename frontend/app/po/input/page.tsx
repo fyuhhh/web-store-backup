@@ -216,22 +216,25 @@ export default function InputPOPage() {
     prCurrentPage * prItemsPerPage
   );
 
-  // Fungsi parsing diskon per item (stacked, persen/nominal)
-  function parseDiscounts(discountText: string) {
-    if (!discountText || typeof discountText !== "string") return [];
-    const discounts = discountText.split("+").map((d) => d.trim());
-    return discounts
-      .map((discount) => {
-        if (discount.endsWith("%")) {
-          const percentage = parseFloat(discount.replace("%", ""));
-          return { type: "percentage", value: percentage, original: discount };
-        } else if (discount !== "") {
-          const nominal = parseFloat(discount);
-          return { type: "nominal", value: nominal, original: discount };
-        }
-        return null;
+  // Fungsi parsing diskon persen (stacked, e.g. "10%+5%")
+  function parseDiscountPersen(diskonPersen: string) {
+    if (!diskonPersen || typeof diskonPersen !== "string") return [];
+    return diskonPersen
+      .split("+")
+      .map((d) => d.trim())
+      .filter((d) => d.endsWith("%"))
+      .map((d) => {
+        const val = parseFloat(d.replace("%", ""));
+        return isNaN(val) ? null : val;
       })
-      .filter((d) => d && !isNaN(d.value));
+      .filter((v) => v !== null) as number[];
+  }
+
+  // Fungsi parsing diskon nominal (tidak di-stack, hanya satu, e.g. "5000")
+  function parseDiskonNominal(diskonNominal: string) {
+    if (!diskonNominal || typeof diskonNominal !== "string") return 0;
+    const val = parseFloat(diskonNominal.replace(/[^\d]/g, ""));
+    return isNaN(val) ? 0 : val;
   }
 
   // Calculation functions
@@ -244,7 +247,8 @@ export default function InputPOPage() {
       namaBarang: string;
       hargaSatuan: number;
       jumlahPO: number;
-      diskonItem: string;
+      diskonPersen: string;
+      diskonNominal: string;
       ppnItem: number;
       subtotal: number;
       diskonAmount: number;
@@ -260,7 +264,7 @@ export default function InputPOPage() {
         const ppn = Number(item.ppnItem) || 0;
         const itemSubtotal = harga * qty;
 
-        // Diskon bertingkat
+        // Diskon persen (stacked)
         let currentAmount = itemSubtotal;
         let diskonAmount = 0;
         const diskonBreakdown: Array<{
@@ -268,24 +272,31 @@ export default function InputPOPage() {
           value: string;
           amount: number;
         }> = [];
-        const parsedDiscounts = parseDiscounts(item.diskonItem || "");
-        parsedDiscounts.forEach((discount, idx) => {
-          let amount = 0;
-          if (discount.type === "percentage") {
-            amount = currentAmount * (discount.value / 100);
-          } else {
-            amount = Math.min(discount.value, currentAmount);
-          }
+        const diskonPersenArr = parseDiscountPersen(item.diskonPersen || "");
+        diskonPersenArr.forEach((persen, idx) => {
+          const amount = currentAmount * (persen / 100);
           diskonAmount += amount;
           currentAmount -= amount;
           diskonBreakdown.push({
-            label: `Diskon ${idx + 1}`,
-            value: discount.original,
+            label: `Diskon % ke-${idx + 1}`,
+            value: persen + "%",
             amount,
           });
         });
 
-        let afterDiskon = itemSubtotal - diskonAmount;
+        // Diskon nominal (tidak di-stack, hanya satu)
+        const diskonNominal = parseDiskonNominal(item.diskonNominal || "");
+        diskonAmount += diskonNominal;
+        currentAmount -= diskonNominal;
+        if (diskonNominal > 0) {
+          diskonBreakdown.push({
+            label: "Diskon Rp.",
+            value: diskonNominal.toLocaleString("id-ID"),
+            amount: diskonNominal,
+          });
+        }
+
+        let afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
         let ppnAmount = afterDiskon * (ppn / 100);
         let subtotalItem = afterDiskon;
         let total = 0;
@@ -307,7 +318,8 @@ export default function InputPOPage() {
           namaBarang: item.namaBarang,
           hargaSatuan: harga,
           jumlahPO: qty,
-          diskonItem: item.diskonItem,
+          diskonPersen: item.diskonPersen || "",
+          diskonNominal: item.diskonNominal || "",
           ppnItem: ppn,
           subtotal: subtotalItem,
           diskonAmount,
@@ -1584,151 +1596,215 @@ export default function InputPOPage() {
                       <TableRow>
                         <TableHead>No. PR</TableHead>
                         <TableHead>Nama Barang</TableHead>
-                        <TableHead>Qty</TableHead>
+                        <TableHead>Quantity</TableHead>
                         <TableHead>Satuan</TableHead>
                         <TableHead>Harga Satuan</TableHead>
-                        <TableHead>Diskon</TableHead>
+                        <TableHead>Diskon (%)</TableHead>
+                        <TableHead>Diskon (Rp.)</TableHead>
+                        <TableHead>SUB (Setelah Diskon)</TableHead>
                         <TableHead>PPN (%)</TableHead>
+                        <TableHead>PPN (Rp.)</TableHead>
                         <TableHead>Total</TableHead>
                         <TableHead>Keterangan</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pagedItems.map((item, idx) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{item.noPR}</TableCell>
-                          <TableCell>{item.namaBarang}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={
-                                Number(item.jumlahPO) % 1 === 0
-                                  ? parseInt(item.jumlahPO)
-                                  : item.jumlahPO
-                              }
-                              min={0}
-                              max={item.jumlahAsli}
-                              onChange={(e) =>
-                                handleQtyChange(
-                                  item.prId,
-                                  item.id,
-                                  e.target.value
-                                )
-                              }
-                              className="w-20"
-                            />
-                            <span className="text-xs text-muted-foreground ml-2">
-                              /{" "}
-                              {Number(item.jumlahAsli) % 1 === 0
-                                ? parseInt(item.jumlahAsli)
-                                : item.jumlahAsli}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            {/* Pastikan satuan tetap tampil */}
-                            {getSatuanLabel(item.id_satuan) ||
-                              item.satuanLabel ||
-                              item.satuan}
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              value={formatRupiahInput(item.hargaSatuan)}
-                              onWheel={(e) => e.currentTarget.blur()}
-                              onChange={(e) => {
-                                const raw = e.target.value.replace(
-                                  /[^\d]/g,
-                                  ""
-                                );
-                                handleHargaSatuanChange(
-                                  item.prId,
-                                  item.id,
-                                  raw
-                                );
-                              }}
-                              className="w-24 text-right"
-                              placeholder="0"
-                              autoComplete="off"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="text"
-                              value={item.diskonItem ?? ""}
-                              onChange={(e) =>
-                                handleDiskonItemChange(
-                                  item.prId,
-                                  item.id,
-                                  e.target.value
-                                )
-                              }
-                              className="w-24 text-right"
-                              placeholder="10%+5000+2%"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={item.ppnItem ?? ""}
-                              min={0}
-                              max={100}
-                              onChange={(e) =>
-                                handlePPNItemChange(
-                                  item.prId,
-                                  item.id,
-                                  e.target.value
-                                )
-                              }
-                              className="w-16 text-right"
-                              placeholder="11"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {(() => {
-                              const harga = Number(item.hargaSatuan) || 0;
-                              const qty = Number(item.jumlahPO) || 0;
-                              const ppn = Number(item.ppnItem) || 0;
-                              const itemSubtotal = harga * qty;
-                              // Diskon bertingkat
-                              let currentAmount = itemSubtotal;
-                              let diskonAmount = 0;
-                              const parsedDiscounts = parseDiscounts(
-                                item.diskonItem || ""
-                              );
-                              parsedDiscounts.forEach((discount) => {
-                                let amount = 0;
-                                if (discount.type === "percentage") {
-                                  amount =
-                                    currentAmount * (discount.value / 100);
-                                } else {
-                                  amount = Math.min(
-                                    discount.value,
-                                    currentAmount
-                                  );
+                      {pagedItems.map((item, idx) => {
+                        // Perhitungan diskon dan PPN per item
+                        const harga = Number(item.hargaSatuan) || 0;
+                        const qty = Number(item.jumlahPO) || 0;
+                        const ppn = Number(item.ppnItem) || 0;
+                        const itemSubtotal = harga * qty;
+                        // Diskon persen (stacked)
+                        let currentAmount = itemSubtotal;
+                        let diskonAmount = 0;
+                        const diskonPersenArr = parseDiscountPersen(
+                          item.diskonPersen || ""
+                        );
+                        diskonPersenArr.forEach((persen) => {
+                          const amount = currentAmount * (persen / 100);
+                          diskonAmount += amount;
+                          currentAmount -= amount;
+                        });
+                        // Diskon nominal (tidak di-stack)
+                        const diskonNominal = parseDiskonNominal(
+                          item.diskonNominal || ""
+                        );
+                        diskonAmount += diskonNominal;
+                        currentAmount -= diskonNominal;
+                        const afterDiskon = Math.max(
+                          0,
+                          itemSubtotal - diskonAmount
+                        );
+                        const ppnAmount = afterDiskon * (ppn / 100);
+                        const total = afterDiskon + ppnAmount;
+
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>{item.noPR}</TableCell>
+                            <TableCell>{item.namaBarang}</TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={
+                                  Number(item.jumlahPO) % 1 === 0
+                                    ? parseInt(item.jumlahPO)
+                                    : item.jumlahPO
                                 }
-                                diskonAmount += amount;
-                                currentAmount -= amount;
-                              });
-                              const afterDiskon = itemSubtotal - diskonAmount;
-                              const ppnAmount =
-                                ppn > 0 ? afterDiskon * (ppn / 100) : 0;
-                              const total = afterDiskon + ppnAmount;
-                              return (
-                                <span>Rp {total.toLocaleString("id-ID")}</span>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell>
-                            <div
-                              className="text-sm text-muted-foreground max-w-xs truncate"
-                              title={item.keterangan}
-                            >
-                              {item.keterangan}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                                min={0}
+                                max={item.jumlahAsli}
+                                onChange={(e) =>
+                                  handleQtyChange(
+                                    item.prId,
+                                    item.id,
+                                    e.target.value
+                                  )
+                                }
+                                className="w-20"
+                              />
+                              <span className="text-xs text-muted-foreground ml-2">
+                                /{" "}
+                                {Number(item.jumlahAsli) % 1 === 0
+                                  ? parseInt(item.jumlahAsli)
+                                  : item.jumlahAsli}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              {getSatuanLabel(item.id_satuan) ||
+                                item.satuanLabel ||
+                                item.satuan}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  item.hargaSatuan
+                                    ? `Rp. ${Number(
+                                        item.hargaSatuan
+                                      ).toLocaleString("id-ID")}`
+                                    : ""
+                                }
+                                onWheel={(e) => e.currentTarget.blur()}
+                                onChange={(e) => {
+                                  const raw = e.target.value.replace(
+                                    /[^\d]/g,
+                                    ""
+                                  );
+                                  handleHargaSatuanChange(
+                                    item.prId,
+                                    item.id,
+                                    raw
+                                  );
+                                }}
+                                className="w-24 text-right"
+                                placeholder="Rp. 0"
+                                autoComplete="off"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={item.diskonPersen ?? ""}
+                                onChange={(e) =>
+                                  setPoItems((prevPoItems) =>
+                                    prevPoItems.map((pItem) =>
+                                      pItem.prId === item.prId
+                                        ? {
+                                            ...pItem,
+                                            items: pItem.items.map((i) =>
+                                              i.id === item.id
+                                                ? {
+                                                    ...i,
+                                                    diskonPersen:
+                                                      e.target.value,
+                                                  }
+                                                : i
+                                            ),
+                                          }
+                                        : pItem
+                                    )
+                                  )
+                                }
+                                className="w-20 text-right"
+                                placeholder="10%+5%"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="text"
+                                value={
+                                  item.diskonNominal
+                                    ? `Rp. ${Number(
+                                        item.diskonNominal
+                                      ).toLocaleString("id-ID")}`
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  // Only allow numeric input, strip "Rp." and non-digits
+                                  const raw = e.target.value.replace(
+                                    /[^\d]/g,
+                                    ""
+                                  );
+                                  setPoItems((prevPoItems) =>
+                                    prevPoItems.map((pItem) =>
+                                      pItem.prId === item.prId
+                                        ? {
+                                            ...pItem,
+                                            items: pItem.items.map((i) =>
+                                              i.id === item.id
+                                                ? {
+                                                    ...i,
+                                                    diskonNominal: raw,
+                                                  }
+                                                : i
+                                            ),
+                                          }
+                                        : pItem
+                                    )
+                                  );
+                                }}
+                                className="w-24 text-right"
+                                placeholder="Rp. 0"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              Rp {afterDiskon.toLocaleString("id-ID")}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={item.ppnItem ?? ""}
+                                min={0}
+                                max={100}
+                                onChange={(e) =>
+                                  handlePPNItemChange(
+                                    item.prId,
+                                    item.id,
+                                    e.target.value
+                                  )
+                                }
+                                className="w-16 text-right"
+                                placeholder="11"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              Rp {ppnAmount.toLocaleString("id-ID")}
+                            </TableCell>
+                            <TableCell>
+                              Rp {total.toLocaleString("id-ID")}
+                            </TableCell>
+                            <TableCell>
+                              <div
+                                className="text-sm text-muted-foreground max-w-xs truncate"
+                                title={item.keterangan}
+                              >
+                                {item.keterangan}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </div>
@@ -1803,72 +1879,6 @@ export default function InputPOPage() {
                             Rp {calculations.subtotal.toLocaleString("id-ID")}
                           </span>
                         </div>
-                        <div className="space-y-1">
-                          {calculations.breakdown.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className="flex flex-col text-xs mb-1"
-                            >
-                              <div className="flex justify-between">
-                                <span>
-                                  {item.namaBarang} ({item.jumlahPO} x Rp{" "}
-                                  {item.hargaSatuan.toLocaleString("id-ID")})
-                                </span>
-                                <span>
-                                  Subtotal: Rp{" "}
-                                  {item.subtotal.toLocaleString("id-ID")}
-                                </span>
-                              </div>
-                              {item.diskonBreakdown.length > 0 && (
-                                <div className="flex flex-col ml-4">
-                                  {item.diskonBreakdown.map((d, i) => (
-                                    <div
-                                      key={i}
-                                      className="flex justify-between"
-                                    >
-                                      <span>
-                                        - {d.label} ({d.value}):
-                                      </span>
-                                      <span>
-                                        -Rp {d.amount.toLocaleString("id-ID")}
-                                      </span>
-                                    </div>
-                                  ))}
-                                  <div className="flex justify-between font-medium">
-                                    <span>Total Diskon:</span>
-                                    <span className="text-destructive">
-                                      -Rp{" "}
-                                      {item.diskonAmount.toLocaleString(
-                                        "id-ID"
-                                      )}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                              <div className="flex justify-between">
-                                <span>
-                                  PPN ({item.ppnItem}%)
-                                  {ppnIncluded
-                                    ? " (sudah termasuk di subtotal)"
-                                    : ""}
-                                  :
-                                </span>
-                                <span className="text-success">
-                                  {ppnIncluded
-                                    ? "Rp " + item.ppnAmount.toLocaleString("id-ID")
-                                    : "+Rp " + item.ppnAmount.toLocaleString("id-ID")}
-                                </span>
-                              </div>
-                              <div className="flex justify-between font-bold">
-                                <span>Total:</span>
-                                <span>
-                                  Rp {item.total.toLocaleString("id-ID")}
-                                </span>
-                              </div>
-                              <hr className="my-1" />
-                            </div>
-                          ))}
-                        </div>
                         <div className="flex justify-between font-medium">
                           <span>Total Diskon:</span>
                           <span className="text-destructive">
@@ -1879,13 +1889,14 @@ export default function InputPOPage() {
                         <div className="flex justify-between">
                           <span>
                             Total PPN
-                            {ppnIncluded ? " (sudah termasuk di subtotal)" : ""}
-                            :
+                            {ppnIncluded ? "" : ""}:
                           </span>
                           <span className="text-success">
                             {ppnIncluded
-                              ? "Rp " + calculations.totalPPN.toLocaleString("id-ID")
-                              : "+Rp " + calculations.totalPPN.toLocaleString("id-ID")}
+                              ? "Rp " +
+                                calculations.totalPPN.toLocaleString("id-ID")
+                              : "+Rp " +
+                                calculations.totalPPN.toLocaleString("id-ID")}
                           </span>
                         </div>
                         <hr className="my-2" />
