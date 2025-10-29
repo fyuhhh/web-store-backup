@@ -455,11 +455,11 @@ export default function InputBaruPRPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/divisi/${id}`, {
+      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://localhost:5000/api/divisi")
+        fetch("http://192.168.10.10:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -472,13 +472,13 @@ export default function InputBaruPRPage() {
   const handleEditDivisi = async (id: string) => {
     if (!editDivisiValue.trim()) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/divisi/${id}`, {
+      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: editDivisiValue }),
       });
       if (res.ok) {
-        fetch("http://localhost:5000/api/divisi")
+        fetch("http://192.168.10.10:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
