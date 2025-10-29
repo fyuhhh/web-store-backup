@@ -159,16 +159,16 @@ export default function MonitoringPRPage() {
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((res) => res.json())
       .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -211,9 +211,9 @@ export default function MonitoringPRPage() {
   ]);
 
   const loadPRData = async () => {
-    const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+    const prRes = await fetch("http://localhost:5000/api/pr");
     const prList = await prRes.json();
-    const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+    const prItemRes = await fetch("http://localhost:5000/api/pr-item");
     const prItemList = await prItemRes.json();
 
     // LOG: Tampilkan tanggalPR yang diterima dari backend
@@ -341,7 +341,7 @@ export default function MonitoringPRPage() {
         }
         console.log("Deleting PR Item id_PRItem:", idToDelete);
         const resp = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/${idToDelete}`,
+          `http://localhost:5000/api/pr-item/${idToDelete}`,
           {
             method: "DELETE",
           }
@@ -365,8 +365,8 @@ export default function MonitoringPRPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
-        await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
+        await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
+        await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
           method: "DELETE",
         });
       }
@@ -431,11 +431,8 @@ export default function MonitoringPRPage() {
   // Filter data: hanya tampilkan PR dengan id_skema sesuai user login
   const filteredPRData = prData
     .filter((pr) => (userSkemaId ? String(pr.skema) === userSkemaId : true))
-    .map((pr) => {
-      // Status default "Diproses" jika belum ada status, atau gunakan status yang sudah ada
-      let status = pr.status || "Diproses";
-      return { ...pr, status };
-    })
+    // HAPUS logika .map((pr) => { ... }) yang mengubah status
+    // Gunakan status dari backend langsung
     .filter((pr) => {
       const matchesSearch =
         (pr.items &&
@@ -532,7 +529,6 @@ export default function MonitoringPRPage() {
     .filter(
       (pr) => filterSkemaId === "all" || String(pr.skema) === filterSkemaId
     );
-  //.filter((pr) => pr.items?.some((item) => item.jumlah > 0));
 
   // Pagination logic
   const totalPages = Math.ceil(filteredPRData.length / itemsPerPage);
@@ -1946,3 +1942,29 @@ function DeleteItemModal({
     document.body
   );
 }
+
+// --- Saat update status PR ke backend (PUT/POST), pastikan logika status sama ---
+// Contoh di fungsi update PR (misal confirmDelete, confirmDeleteItems, atau proses PO):
+const updatePRStatusToBackend = async (prId: string) => {
+  // Ambil semua item PR dari backend
+  const prItemsRes = await fetch(
+    `http://localhost:5000/api/pr-item/pr/${prId}`
+  );
+  const prItems = prItemsRes.ok ? await prItemsRes.json() : [];
+  // Jika ada item jumlah > 0, status = "Gantung", jika semua 0, status = "Telah Selesai"
+  const adaItem = prItems.some((item: any) => Number(item.jumlah) > 0);
+  const newStatus = adaItem ? "Gantung" : "Telah Selesai";
+  // Ambil data PR lama
+  const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
+  if (prRes.ok) {
+    const prData = await prRes.json();
+    await fetch(`http://localhost:5000/api/pr/${prId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...prData,
+        status: newStatus,
+      }),
+    });
+  }
+};

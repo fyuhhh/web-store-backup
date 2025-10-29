@@ -171,15 +171,15 @@ export default function MonitoringPOPage() {
           skemaRes,
           userRes, // <-- tambahkan fetch user
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"), // <-- fetch user
         ]);
 
         const [
@@ -517,18 +517,89 @@ export default function MonitoringPOPage() {
   };
 
   // --- Fungsi hapus item PO yang dipilih ---
-  const confirmDeleteItems = async () => {
+  // Tambahkan parameter mode: "permanent" | "restore"
+  const confirmDeleteItems = async (mode: "permanent" | "restore") => {
     setDeleteItemModalOpen(false);
     try {
-      // Hapus item PO satu per satu berdasarkan id_POItem yang valid
       for (const itemId of selectedItemIdsToDelete) {
-        if (itemId) {
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+        if (!itemId) continue;
+        if (mode === "permanent") {
+          // Hapus item PO secara permanen
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
+        } else if (mode === "restore") {
+          // --- RESTORE: Kembalikan item ke PR ---
+          // Ambil data PO item
+          const poItemRes = await fetch(
+            `http://localhost:5000/api/po-item/${itemId}`
+          );
+          const poItem = await poItemRes.json();
+          // Hapus item PO
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
+            method: "DELETE",
+          });
+          // Ambil PR id dan PRItem id
+          const prId = poItem.id_PR;
+          const prItemId = poItem.id_PRItem;
+          // Cek apakah PRItem masih ada
+          const prItemRes = await fetch(
+            `http://localhost:5000/api/pr-item/${prItemId}`
+          );
+          let prItem = null;
+          if (prItemRes.ok) {
+            prItem = await prItemRes.json();
+          }
+          if (prItem && prItem.id_PRItem) {
+            // PRItem masih ada, tambahkan quantity
+            const newJumlah = Number(prItem.jumlah) + Number(poItem.jumlahPO);
+            await fetch(`http://localhost:5000/api/pr-item/${prItemId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...prItem,
+                jumlah: newJumlah,
+              }),
+            });
+          } else {
+            // PRItem sudah tidak ada, buat ulang
+            await fetch(`http://localhost:5000/api/pr-item`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id_PR: prId,
+                namaBarang: poItem.namaBarang,
+                jumlah: poItem.jumlahPO,
+                originalJumlah: poItem.jumlahPO,
+                quantityAwalPR: poItem.jumlahPO,
+                id_satuan: poItem.id_satuan,
+                keterangan: poItem.keterangan || "",
+              }),
+            });
+          }
+          // --- Update status PR ke "Gantung" di backend ---
+          // Ambil data PR lama
+          const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
+          if (prRes.ok) {
+            const prData = await prRes.json();
+            // Kirim semua field PR lama + status baru "Gantung"
+            // Pastikan field status dikirim dan tidak kosong
+            await fetch(`http://localhost:5000/api/pr/${prId}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...prData,
+                status: "Gantung", // <-- ini yang penting, pastikan field status dikirim
+              }),
+            });
+          }
         }
       }
-      setToastMsg("Item PO berhasil dihapus.");
+      setToastMsg(
+        mode === "permanent"
+          ? "Item PO berhasil dihapus permanen."
+          : "Item PO berhasil dikembalikan ke PR."
+      );
       setToastOpen(true);
       setTimeout(() => window.location.reload(), 800);
     } catch (err) {
@@ -940,7 +1011,9 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        await fetch(`http://192.168.10.10:5000/api/po/${id}`, { method: "DELETE" });
+        await fetch(`http://localhost:5000/api/po/${id}`, {
+          method: "DELETE",
+        });
       }
       setPoData((prev) => prev.filter((po) => !deleteIds.includes(po.id)));
       setSelectedPOs((prev) => prev.filter((id) => !deleteIds.includes(id)));
@@ -1924,6 +1997,7 @@ function DeleteChoiceModal({ open, onClose, onChoose }: any) {
 }
 
 // --- Modal pilih item PO yang mau dihapus ---
+// Fix: use onConfirm prop instead of direct confirmDeleteItems call
 function DeleteItemModal({
   open,
   poItems,
@@ -1953,11 +2027,10 @@ function DeleteItemModal({
               ) : (
                 <div className="space-y-1">
                   {items.map((item: any, idx: number) => {
-                    // Gunakan id_POItem sebagai value checkbox
                     const keyId = item.poItemId
                       ? String(item.poItemId)
                       : `${item.namaBarang}-${item.jumlahPO}-${idx}`;
-                    const valueId = item.poItemId ? String(item.poItemId) : ""; // hanya id_POItem yang valid
+                    const valueId = item.poItemId ? String(item.poItemId) : "";
                     const jumlahDisplay =
                       parseFloat(item.jumlahPO) % 1 === 0
                         ? parseInt(item.jumlahPO)
@@ -2002,10 +2075,17 @@ function DeleteItemModal({
           </Button>
           <Button
             variant="destructive"
-            onClick={onConfirm}
+            onClick={() => onConfirm("permanent")}
             disabled={selectedIds.length === 0}
           >
-            Hapus Item Terpilih ({selectedIds.length})
+            Hapus Permanen ({selectedIds.length})
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => onConfirm("restore")}
+            disabled={selectedIds.length === 0}
+          >
+            Kembalikan ke PR ({selectedIds.length})
           </Button>
         </div>
       </div>

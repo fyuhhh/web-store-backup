@@ -104,35 +104,35 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT PR
+// PUT PR (update sebagian field saja)
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const {
-    noPR,
-    tanggalPR,
-    id_divisi,
-    id_urgensi, // ganti dari urgensi ke id_urgensi
-    status,
-    dibuatOleh,
-    id_skema,
-    createdAt,
-  } = req.body;
+  const payload = req.body;
+
   try {
-    await db.query(
-      "UPDATE pr SET noPR=?, tanggalPR=?, id_divisi=?, id_urgensi=?, status=?, dibuatOleh=?, id_skema=?, createdAt=? WHERE id_PR=?",
-      [
-        noPR,
-        tanggalPR,
-        id_divisi,
-        id_urgensi,
-        status,
-        dibuatOleh,
-        id_skema,
-        createdAt,
-        id,
-      ]
-    );
-    res.json({ message: "PR berhasil diupdate" });
+    // Kalau tidak ada data dikirim
+    if (!payload || Object.keys(payload).length === 0) {
+      return res.status(400).json({ message: "Tidak ada data untuk diupdate" });
+    }
+
+    // Buat query dinamis
+    const fields = Object.keys(payload);
+    const values = Object.values(payload);
+
+    const sql = `
+      UPDATE pr
+      SET ${fields.map((f) => `${f} = ?`).join(", ")}
+      WHERE id_PR = ?
+    `;
+
+    await db.query(sql, [...values, id]);
+
+    // Ambil ulang data setelah update
+    const [[updated]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [
+      id,
+    ]);
+
+    res.json(updated || { message: "PR berhasil diupdate" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

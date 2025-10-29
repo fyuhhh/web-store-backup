@@ -189,10 +189,10 @@ export default function BTBInputPage() {
     setUserSchema(userData.skema || "");
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
     // Ambil supplier dan skema dari backend
-    fetch("http://192.168.10.10:5000/api/supplier")
+    fetch("http://localhost:5000/api/supplier")
       .then((r) => r.json())
       .then((data) => setSupplierList(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((r) => r.json())
       .then((data) => {
         setSkemaList(data);
@@ -244,15 +244,15 @@ export default function BTBInputPage() {
           skemaRes,
           userRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"),
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"),
         ]);
         const [
           poList,
@@ -528,7 +528,7 @@ export default function BTBInputPage() {
       const id_skema = selectedPOsForBTB[0]?.skema ?? null;
 
       // Pastikan yang dikirim ke backend adalah nama_supplier: formData.supplier
-      const btbHeaderRes = await fetch("http://192.168.10.10:5000/api/btb", {
+      const btbHeaderRes = await fetch("http://localhost:5000/api/btb", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -554,7 +554,7 @@ export default function BTBInputPage() {
       // Setelah insert header BTB dan dapat id_btb
       // Ambil data PO Item dari backend (pastikan sudah ada di database)
       const poItemsRes = await fetch(
-        "http://192.168.10.10:5000/api/po-item?po=" + id_po
+        "http://localhost:5000/api/po-item?po=" + id_po
       );
       const poItems = await poItemsRes.json();
 
@@ -607,7 +607,7 @@ export default function BTBInputPage() {
         }
 
         // POST ke btb_item (ubah endpoint)
-        const res = await fetch("http://192.168.10.10:5000/api/btb-item", {
+        const res = await fetch("http://localhost:5000/api/btb-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -628,7 +628,7 @@ export default function BTBInputPage() {
         // 3. Update jumlahPO di po_item (PUT)
         // Ambil data po_item lama
         const poItemRes = await fetch(
-          `http://192.168.10.10:5000/api/po-item/${item.id_POItem}`
+          `http://localhost:5000/api/po-item/${item.id_POItem}`
         );
         const poItemData = await poItemRes.json();
         const sisa =
@@ -648,7 +648,7 @@ export default function BTBInputPage() {
           // jumlahPO: diupdate
         } = poItemData;
 
-        await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+        await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

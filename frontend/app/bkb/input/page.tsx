@@ -131,11 +131,11 @@ export default function BKBInputPage() {
       try {
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -401,7 +401,7 @@ export default function BKBInputPage() {
     };
 
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/bkb/full", {
+      const res = await fetch("http://localhost:5000/api/bkb/full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

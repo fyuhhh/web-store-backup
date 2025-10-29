@@ -236,7 +236,7 @@ export default function BTBMonitoringPage() {
     try {
       for (const id_btb of deleteIds) {
         // Hapus BTB di backend (beserta item, ON DELETE CASCADE)
-        await fetch(`http://192.168.10.10:5000/api/btb/${id_btb}`, {
+        await fetch(`http://localhost:5000/api/btb/${id_btb}`, {
           method: "DELETE",
         });
       }
@@ -288,11 +288,11 @@ export default function BTBMonitoringPage() {
         // Ambil semua BTB, BTB Item, User, Skema, Satuan
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
