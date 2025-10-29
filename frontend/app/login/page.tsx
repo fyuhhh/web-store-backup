@@ -31,7 +31,7 @@ export default function LoginPage() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/user/login", {
+      const res = await fetch("http://192.168.10.10:5000/api/user/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nama_pengguna: username, password }),

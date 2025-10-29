@@ -74,7 +74,7 @@ export default function InputBaruPRPage() {
     const userId = userDataLocal.id_user || userDataLocal.id || null;
 
     if (userId) {
-      fetch(`http://localhost:5000/api/user`)
+      fetch(`http://192.168.10.10:5000/api/user`)
         .then((res) => res.json())
         .then((users) => {
           const user = users.find((u: any) => u.id_user === userId);
@@ -99,7 +99,7 @@ export default function InputBaruPRPage() {
     }
 
     // Fetch divisi dari backend
-    fetch("http://localhost:5000/api/divisi")
+    fetch("http://192.168.10.10:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setDivisiOptions(data);
@@ -107,7 +107,7 @@ export default function InputBaruPRPage() {
       .catch(() => setDivisiOptions([]));
 
     // Fetch urgensi dari backend
-    fetch("http://localhost:5000/api/urgensi")
+    fetch("http://192.168.10.10:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setUrgensiOptions(data);
@@ -115,7 +115,7 @@ export default function InputBaruPRPage() {
       .catch(() => setUrgensiOptions([]));
 
     // Fetch satuan dari backend
-    fetch("http://localhost:5000/api/satuan")
+    fetch("http://192.168.10.10:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSatuanOptions(data);
@@ -123,7 +123,7 @@ export default function InputBaruPRPage() {
       .catch(() => setSatuanOptions([]));
 
     // Fetch skema dari backend
-    fetch("http://localhost:5000/api/skema")
+    fetch("http://192.168.10.10:5000/api/skema")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSkemaOptions(data);
@@ -256,7 +256,7 @@ export default function InputBaruPRPage() {
 
     try {
       // 1. POST PR utama ke backend
-      const prRes = await fetch("http://localhost:5000/api/pr", {
+      const prRes = await fetch("http://192.168.10.10:5000/api/pr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -279,7 +279,7 @@ export default function InputBaruPRPage() {
       // 2. POST setiap item ke pr_item dengan handling decimal
       for (const item of formData.items) {
         const jumlah = parseFloat(item.jumlah);
-        await fetch("http://localhost:5000/api/pr-item", {
+        await fetch("http://192.168.10.10:5000/api/pr-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -367,14 +367,14 @@ export default function InputBaruPRPage() {
   const handleAddDivisi = async () => {
     if (!newDivisi.trim()) return;
     try {
-      const res = await fetch("http://localhost:5000/api/divisi", {
+      const res = await fetch("http://192.168.10.10:5000/api/divisi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: newDivisi }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://localhost:5000/api/divisi")
+        fetch("http://192.168.10.10:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -389,14 +389,14 @@ export default function InputBaruPRPage() {
   const handleAddSatuan = async () => {
     if (!newSatuan.trim()) return;
     try {
-      const res = await fetch("http://localhost:5000/api/satuan", {
+      const res = await fetch("http://192.168.10.10:5000/api/satuan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ satuan: newSatuan }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://localhost:5000/api/satuan")
+        fetch("http://192.168.10.10:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -412,11 +412,11 @@ export default function InputBaruPRPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus satuan ini?")) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/satuan/${id}`, {
+      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://localhost:5000/api/satuan")
+        fetch("http://192.168.10.10:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -429,13 +429,13 @@ export default function InputBaruPRPage() {
   const handleEditSatuan = async (id: string) => {
     if (!editSatuanValue.trim()) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/satuan/${id}`, {
+      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ satuan: editSatuanValue }),
       });
       if (res.ok) {
-        fetch("http://localhost:5000/api/satuan")
+        fetch("http://192.168.10.10s:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);

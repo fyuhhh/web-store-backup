@@ -89,15 +89,15 @@ export default function StatusPOPage() {
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
     const fetchPRData = async () => {
-      const prRes = await fetch("http://localhost:5000/api/pr");
+      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
       const prList = await prRes.json();
-      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
+      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
       const prItemList = await prItemRes.json();
-      const satuanRes = await fetch("http://localhost:5000/api/satuan");
+      const satuanRes = await fetch("http://192.168.10.10:5000/api/satuan");
       const satuanList = await satuanRes.json();
-      const divisiRes = await fetch("http://localhost:5000/api/divisi");
+      const divisiRes = await fetch("http://192.168.10.10:5000/api/divisi");
       const divisiList = await divisiRes.json();
-      const urgensiRes = await fetch("http://localhost:5000/api/urgensi");
+      const urgensiRes = await fetch("http://192.168.10.10:5000/api/urgensi");
       const urgensiList = await urgensiRes.json();
       setPrData(prList);
       setPrItemData(prItemList);
@@ -1290,45 +1290,77 @@ export default function StatusPOPage() {
 
         {/* Pagination */}
         <Pagination>
-          <PaginationPrevious className="cursor-pointer">
-            Sebelumnya
-          </PaginationPrevious>
-          <PaginationItem
-            className="cursor-pointer"
-            onClick={() => setCurrentPage(1)}
-          >
-            1
-          </PaginationItem>
-          {totalPages > 2 && (
-            <PaginationItem className="cursor-pointer" disabled>
-              ...
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+              />
             </PaginationItem>
-          )}
-          {totalPages > 1 &&
-            Array.from({ length: totalPages - 2 }, (_, i) => i + 2)
+            {/* Show first page */}
+            <PaginationItem>
+              <PaginationLink
+                onClick={() => setCurrentPage(1)}
+                isActive={currentPage === 1}
+                className={currentPage === 1 ? "bg-primary text-white" : ""}
+              >
+                1
+              </PaginationLink>
+            </PaginationItem>
+            {/* Show ellipsis if needed */}
+            {totalPages > 4 && currentPage > 3 && (
+              <PaginationItem>
+                <PaginationEllipsis />
+              </PaginationItem>
+            )}
+            {/* Show middle pages */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
               .filter(
-                (page) => page >= currentPage - 1 && page <= currentPage + 1
+                (page) =>
+                  page !== 1 &&
+                  page !== totalPages &&
+                  (page >= currentPage - 1 && page <= currentPage + 1)
               )
               .map((page) => (
-                <PaginationItem
-                  key={page}
-                  className="cursor-pointer"
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    onClick={() => setCurrentPage(page)}
+                    isActive={currentPage === page}
+                    className={currentPage === page ? "bg-primary text-white" : ""}
+                  >
+                    {page}
+                  </PaginationLink>
                 </PaginationItem>
               ))}
-          {totalPages > 1 && (
-            <PaginationItem
-              className="cursor-pointer"
-              onClick={() => setCurrentPage(totalPages)}
-            >
-              {totalPages}
+            {/* Show ellipsis before last page if needed */}
+            {totalPages > 4 && currentPage < totalPages - 2 && (
+              <PaginationItem>
+                <PaginationEllipsis />
+              </PaginationItem>
+            )}
+            {/* Show last page if more than one page */}
+            {totalPages > 1 && (
+              <PaginationItem>
+                <PaginationLink
+                  onClick={() => setCurrentPage(totalPages)}
+                  isActive={currentPage === totalPages}
+                  className={currentPage === totalPages ? "bg-primary text-white" : ""}
+                >
+                  {totalPages}
+                </PaginationLink>
+              </PaginationItem>
+            )}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() =>
+                  setCurrentPage(Math.min(totalPages, currentPage + 1))
+                }
+                className={
+                  currentPage === totalPages ? "pointer-events-none opacity-50" : ""
+                }
+              />
             </PaginationItem>
-          )}
-          <PaginationNext className="cursor-pointer">
-            Selanjutnya
-          </PaginationNext>
+          </PaginationContent>
         </Pagination>
       </div>
     </MainLayout>
