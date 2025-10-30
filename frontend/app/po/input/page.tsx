@@ -122,8 +122,8 @@ export default function InputPOPage() {
   const [filterKeterangan, setFilterKeterangan] = useState("");
 
   // Pagination states
-  const itemsPerPage = 10;
-  const [currentPage, setCurrentPage] = useState(1);
+  // const itemsPerPage = 10;
+  // const [currentPage, setCurrentPage] = useState(1);
 
   // Tambahkan pagination untuk tabel PR Siap Proses ke PO
   const prItemsPerPage = 10;
@@ -187,19 +187,19 @@ export default function InputPOPage() {
     .filter((poItem) => poItem.items.length > 0);
 
   // Flatten all items for pagination
-  const allFilteredItems = filteredPOItems.flatMap((poItem) =>
-    poItem.items.map((item) => ({
-      ...item,
-      noPR: poItem.noPR,
-      prId: poItem.prId,
-    }))
-  );
+  // const allFilteredItems = filteredPOItems.flatMap((poItem) =>
+  //   poItem.items.map((item) => ({
+  //     ...item,
+  //     noPR: poItem.noPR,
+  //     prId: poItem.prId,
+  //   }))
+  // );
 
-  const totalPages = Math.ceil(allFilteredItems.length / itemsPerPage);
-  const pagedItems = allFilteredItems.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // const totalPages = Math.ceil(allFilteredItems.length / itemsPerPage);
+  // const pagedItems = allFilteredItems.slice(
+  //   (currentPage - 1) * itemsPerPage,
+  //   currentPage * itemsPerPage
+  // );
 
   // Flatten semua item PR siap proses ke PO
   const allPRItems = filteredPOItems.flatMap((poItem) =>
@@ -1609,207 +1609,215 @@ export default function InputPOPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {pagedItems.map((item, idx) => {
-                        // Perhitungan diskon dan PPN per item
-                        const harga = Number(item.hargaSatuan) || 0;
-                        const qty = Number(item.jumlahPO) || 0;
-                        const ppn = Number(item.ppnItem) || 0;
-                        const itemSubtotal = harga * qty;
-                        // Diskon persen (stacked)
-                        let currentAmount = itemSubtotal;
-                        let diskonAmount = 0;
-                        const diskonPersenArr = parseDiscountPersen(
-                          item.diskonPersen || ""
-                        );
-                        diskonPersenArr.forEach((persen) => {
-                          const amount = currentAmount * (persen / 100);
-                          diskonAmount += amount;
-                          currentAmount -= amount;
-                        });
-                        // Diskon nominal (tidak di-stack)
-                        const diskonNominal = parseDiskonNominal(
-                          item.diskonNominal || ""
-                        );
-                        diskonAmount += diskonNominal;
-                        currentAmount -= diskonNominal;
-                        const afterDiskon = Math.max(
-                          0,
-                          itemSubtotal - diskonAmount
-                        );
-                        const ppnAmount = afterDiskon * (ppn / 100);
-                        const total = afterDiskon + ppnAmount;
+                      {filteredPOItems
+                        .flatMap((poItem) =>
+                          poItem.items.map((item) => ({
+                            ...item,
+                            noPR: poItem.noPR,
+                            prId: poItem.prId,
+                          }))
+                        )
+                        .map((item, idx) => {
+                          // Perhitungan diskon dan PPN per item
+                          const harga = Number(item.hargaSatuan) || 0;
+                          const qty = Number(item.jumlahPO) || 0;
+                          const ppn = Number(item.ppnItem) || 0;
+                          const itemSubtotal = harga * qty;
+                          // Diskon persen (stacked)
+                          let currentAmount = itemSubtotal;
+                          let diskonAmount = 0;
+                          const diskonPersenArr = parseDiscountPersen(
+                            item.diskonPersen || ""
+                          );
+                          diskonPersenArr.forEach((persen) => {
+                            const amount = currentAmount * (persen / 100);
+                            diskonAmount += amount;
+                            currentAmount -= amount;
+                          });
+                          // Diskon nominal (tidak di-stack)
+                          const diskonNominal = parseDiskonNominal(
+                            item.diskonNominal || ""
+                          );
+                          diskonAmount += diskonNominal;
+                          currentAmount -= diskonNominal;
+                          const afterDiskon = Math.max(
+                            0,
+                            itemSubtotal - diskonAmount
+                          );
+                          const ppnAmount = afterDiskon * (ppn / 100);
+                          const total = afterDiskon + ppnAmount;
 
-                        return (
-                          <TableRow key={item.id}>
-                            <TableCell>{item.noPR}</TableCell>
-                            <TableCell>{item.namaBarang}</TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                value={
-                                  Number(item.jumlahPO) % 1 === 0
-                                    ? parseInt(item.jumlahPO)
-                                    : item.jumlahPO
-                                }
-                                min={0}
-                                max={item.jumlahAsli}
-                                onChange={(e) =>
-                                  handleQtyChange(
-                                    item.prId,
-                                    item.id,
-                                    e.target.value
-                                  )
-                                }
-                                className="w-20"
-                              />
-                              <span className="text-xs text-muted-foreground ml-2">
-                                /{" "}
-                                {Number(item.jumlahAsli) % 1 === 0
-                                  ? parseInt(item.jumlahAsli)
-                                  : item.jumlahAsli}
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              {getSatuanLabel(item.id_satuan) ||
-                                item.satuanLabel ||
-                                item.satuan}
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                inputMode="numeric"
-                                value={
-                                  item.hargaSatuan
-                                    ? `Rp. ${Number(
-                                        item.hargaSatuan
-                                      ).toLocaleString("id-ID")}`
-                                    : ""
-                                }
-                                onWheel={(e) => e.currentTarget.blur()}
-                                onChange={(e) => {
-                                  const raw = e.target.value.replace(
-                                    /[^\d]/g,
-                                    ""
-                                  );
-                                  handleHargaSatuanChange(
-                                    item.prId,
-                                    item.id,
-                                    raw
-                                  );
-                                }}
-                                className="w-24 text-right"
-                                placeholder="Rp. 0"
-                                autoComplete="off"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                value={item.diskonPersen ?? ""}
-                                onChange={(e) =>
-                                  setPoItems((prevPoItems) =>
-                                    prevPoItems.map((pItem) =>
-                                      pItem.prId === item.prId
-                                        ? {
-                                            ...pItem,
-                                            items: pItem.items.map((i) =>
-                                              i.id === item.id
-                                                ? {
-                                                    ...i,
-                                                    diskonPersen:
-                                                      e.target.value,
-                                                  }
-                                                : i
-                                            ),
-                                          }
-                                        : pItem
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell>{item.noPR}</TableCell>
+                              <TableCell>{item.namaBarang}</TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  value={
+                                    Number(item.jumlahPO) % 1 === 0
+                                      ? parseInt(item.jumlahPO)
+                                      : item.jumlahPO
+                                  }
+                                  min={0}
+                                  max={item.jumlahAsli}
+                                  onChange={(e) =>
+                                    handleQtyChange(
+                                      item.prId,
+                                      item.id,
+                                      e.target.value
                                     )
-                                  )
-                                }
-                                className="w-20 text-right"
-                                placeholder="10%+5%"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                value={
-                                  item.diskonNominal
-                                    ? `Rp. ${Number(
-                                        item.diskonNominal
-                                      ).toLocaleString("id-ID")}`
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  // Only allow numeric input, strip "Rp." and non-digits
-                                  const raw = e.target.value.replace(
-                                    /[^\d]/g,
-                                    ""
-                                  );
-                                  setPoItems((prevPoItems) =>
-                                    prevPoItems.map((pItem) =>
-                                      pItem.prId === item.prId
-                                        ? {
-                                            ...pItem,
-                                            items: pItem.items.map((i) =>
-                                              i.id === item.id
-                                                ? {
-                                                    ...i,
-                                                    diskonNominal: raw,
-                                                  }
-                                                : i
-                                            ),
-                                          }
-                                        : pItem
+                                  }
+                                  className="w-20"
+                                />
+                                <span className="text-xs text-muted-foreground ml-2">
+                                  /{" "}
+                                  {Number(item.jumlahAsli) % 1 === 0
+                                    ? parseInt(item.jumlahAsli)
+                                    : item.jumlahAsli}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {getSatuanLabel(item.id_satuan) ||
+                                  item.satuanLabel ||
+                                  item.satuan}
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={
+                                    item.hargaSatuan
+                                      ? `Rp. ${Number(
+                                          item.hargaSatuan
+                                        ).toLocaleString("id-ID")}`
+                                      : ""
+                                  }
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(
+                                      /[^\d]/g,
+                                      ""
+                                    );
+                                    handleHargaSatuanChange(
+                                      item.prId,
+                                      item.id,
+                                      raw
+                                    );
+                                  }}
+                                  className="w-24 text-right"
+                                  placeholder="Rp. 0"
+                                  autoComplete="off"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  value={item.diskonPersen ?? ""}
+                                  onChange={(e) =>
+                                    setPoItems((prevPoItems) =>
+                                      prevPoItems.map((pItem) =>
+                                        pItem.prId === item.prId
+                                          ? {
+                                              ...pItem,
+                                              items: pItem.items.map((i) =>
+                                                i.id === item.id
+                                                  ? {
+                                                      ...i,
+                                                      diskonPersen:
+                                                        e.target.value,
+                                                    }
+                                                  : i
+                                              ),
+                                            }
+                                          : pItem
+                                      )
                                     )
-                                  );
-                                }}
-                                className="w-24 text-right"
-                                placeholder="Rp. 0"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              Rp {afterDiskon.toLocaleString("id-ID")}
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                value={item.ppnItem ?? ""}
-                                min={0}
-                                max={100}
-                                onChange={(e) =>
-                                  handlePPNItemChange(
-                                    item.prId,
-                                    item.id,
-                                    e.target.value
-                                  )
-                                }
-                                className="w-16 text-right"
-                                placeholder="11"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              Rp {ppnAmount.toLocaleString("id-ID")}
-                            </TableCell>
-                            <TableCell>
-                              Rp {total.toLocaleString("id-ID")}
-                            </TableCell>
-                            <TableCell>
-                              <div
-                                className="text-sm text-muted-foreground max-w-xs truncate"
-                                title={item.keterangan}
-                              >
-                                {item.keterangan}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
+                                  }
+                                  className="w-20 text-right"
+                                  placeholder="10%+5%"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="text"
+                                  value={
+                                    item.diskonNominal
+                                      ? `Rp. ${Number(
+                                          item.diskonNominal
+                                        ).toLocaleString("id-ID")}`
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    // Only allow numeric input, strip "Rp." and non-digits
+                                    const raw = e.target.value.replace(
+                                      /[^\d]/g,
+                                      ""
+                                    );
+                                    setPoItems((prevPoItems) =>
+                                      prevPoItems.map((pItem) =>
+                                        pItem.prId === item.prId
+                                          ? {
+                                              ...pItem,
+                                              items: pItem.items.map((i) =>
+                                                i.id === item.id
+                                                  ? {
+                                                      ...i,
+                                                      diskonNominal: raw,
+                                                    }
+                                                  : i
+                                              ),
+                                            }
+                                          : pItem
+                                      )
+                                    );
+                                  }}
+                                  className="w-24 text-right"
+                                  placeholder="Rp. 0"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                Rp {afterDiskon.toLocaleString("id-ID")}
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  value={item.ppnItem ?? ""}
+                                  min={0}
+                                  max={100}
+                                  onChange={(e) =>
+                                    handlePPNItemChange(
+                                      item.prId,
+                                      item.id,
+                                      e.target.value
+                                    )
+                                  }
+                                  className="w-16 text-right"
+                                  placeholder="11"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                Rp {ppnAmount.toLocaleString("id-ID")}
+                              </TableCell>
+                              <TableCell>
+                                Rp {total.toLocaleString("id-ID")}
+                              </TableCell>
+                              <TableCell>
+                                <div
+                                  className="text-sm text-muted-foreground max-w-xs truncate"
+                                  title={item.keterangan}
+                                >
+                                  {item.keterangan}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                     </TableBody>
                   </Table>
                 </div>
                 {/* Pagination for items table */}
-                <Pagination className="mt-2">
+                {/* <Pagination className="mt-2">
                   <PaginationContent>
                     <PaginationItem>
                       <PaginationPrevious
@@ -1848,7 +1856,7 @@ export default function InputPOPage() {
                       />
                     </PaginationItem>
                   </PaginationContent>
-                </Pagination>
+                </Pagination> */}
               </div>
 
               {/* Baris 4: PPN Checkbox */}

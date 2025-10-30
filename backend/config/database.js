@@ -5,7 +5,7 @@ const db = mysql.createPool({
   user: "root", // ganti dengan user MySQL Anda
   password: "", // isi password MySQL Anda
   database: "web_store_db", // nama database Anda
-  connectionLimit: 10, // Tambahkan connectionLimit jika perlu
+  connectionLimit: 50, // Tambahkan connectionLimit jika perlu
 });
 
 export default db;

@@ -115,9 +115,64 @@ router.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "Tidak ada data untuk diupdate" });
     }
 
+    // --- Normalisasi dan validasi field tanggalPR agar selalu YYYY-MM-DD ---
+    if (payload.tanggalPR && typeof payload.tanggalPR === "string") {
+      // Jika format ISO (ada T), ambil hanya tanggalnya
+      if (payload.tanggalPR.includes("T")) {
+        payload.tanggalPR = payload.tanggalPR.split("T")[0];
+      }
+      // Jika format dd-mm-yyyy, ubah ke yyyy-mm-dd
+      else if (/^\d{2}-\d{2}-\d{4}$/.test(payload.tanggalPR)) {
+        const [d, m, y] = payload.tanggalPR.split("-");
+        payload.tanggalPR = `${y}-${m}-${d}`;
+      }
+      // Jika format yyyy-mm-dd, biarkan
+    }
+
+    // --- Normalisasi id_divisi, id_urgensi, id_skema ke integer jika string ---
+    if (payload.id_divisi && typeof payload.id_divisi === "string") {
+      payload.id_divisi = parseInt(payload.id_divisi);
+    }
+    if (payload.id_urgensi && typeof payload.id_urgensi === "string") {
+      payload.id_urgensi = parseInt(payload.id_urgensi);
+    }
+    if (payload.id_skema && typeof payload.id_skema === "string") {
+      payload.id_skema = parseInt(payload.id_skema);
+    }
+
+    // --- Validasi status agar hanya enum yang valid ---
+    const allowedStatus = ["Draft", "Menunggu", "Gantung", "Diproses"];
+    if (payload.status && !allowedStatus.includes(payload.status)) {
+      // fallback ke "Menunggu" jika status tidak valid
+      payload.status = "Menunggu";
+    }
+
+    // --- Hapus field yang tidak ada di tabel PR ---
+    const allowedFields = [
+      "noPR",
+      "tanggalPR",
+      "id_divisi",
+      "id_urgensi",
+      "status",
+      "dibuatOleh",
+      "id_skema",
+      "createdAt",
+    ];
+    for (const key of Object.keys(payload)) {
+      if (!allowedFields.includes(key)) {
+        delete payload[key];
+      }
+    }
+
     // Buat query dinamis
     const fields = Object.keys(payload);
     const values = Object.values(payload);
+
+    if (fields.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Tidak ada field valid untuk update" });
+    }
 
     const sql = `
       UPDATE pr
@@ -131,6 +186,10 @@ router.put("/:id", async (req, res) => {
     const [[updated]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [
       id,
     ]);
+
+    if (!updated) {
+      return res.status(404).json({ message: "PR tidak ditemukan" });
+    }
 
     res.json(updated || { message: "PR berhasil diupdate" });
   } catch (err) {
