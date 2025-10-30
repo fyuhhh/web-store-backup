@@ -264,40 +264,49 @@ export default function InputPOPage() {
         const ppn = Number(item.ppnItem) || 0;
         const itemSubtotal = harga * qty;
 
-        // Diskon persen (stacked)
-        let currentAmount = itemSubtotal;
+        // Gunakan hanya salah satu diskon (yang terakhir diubah user)
+        const diskonKey = poItem.prId + "-" + item.id;
         let diskonAmount = 0;
-        const diskonBreakdown: Array<{
+        let diskonBreakdown: Array<{
           label: string;
           value: string;
           amount: number;
         }> = [];
-        const diskonPersenArr = parseDiscountPersen(item.diskonPersen || "");
-        diskonPersenArr.forEach((persen, idx) => {
-          const amount = currentAmount * (persen / 100);
-          diskonAmount += amount;
-          currentAmount -= amount;
-          diskonBreakdown.push({
-            label: `Diskon % ke-${idx + 1}`,
-            value: persen + "%",
-            amount,
-          });
-        });
 
-        // Diskon nominal (tidak di-stack, hanya satu)
-        const diskonNominal = parseDiskonNominal(item.diskonNominal || "");
-        diskonAmount += diskonNominal;
-        currentAmount -= diskonNominal;
-        if (diskonNominal > 0) {
-          diskonBreakdown.push({
-            label: "Diskon Rp.",
-            value: diskonNominal.toLocaleString("id-ID"),
-            amount: diskonNominal,
+        if (lastDiskonChanged[diskonKey] === "persen") {
+          // Hitung dari persen (stacked)
+          let currentAmount = itemSubtotal;
+          const diskonPersenArr = (item.diskonPersen || "")
+            .split("+")
+            .map((d) => d.trim())
+            .filter((d) => d.endsWith("%"))
+            .map((d) => parseFloat(d.replace("%", "")))
+            .filter((v) => !isNaN(v));
+          diskonPersenArr.forEach((persen, idx) => {
+            const amount = currentAmount * (persen / 100);
+            diskonAmount += amount;
+            currentAmount -= amount;
+            diskonBreakdown.push({
+              label: `Diskon % ke-${idx + 1}`,
+              value: persen + "%",
+              amount,
+            });
           });
+        } else if (lastDiskonChanged[diskonKey] === "nominal") {
+          diskonAmount = parseFloat(item.diskonNominal) || 0;
+          if (diskonAmount > 0) {
+            diskonBreakdown.push({
+              label: "Diskon Rp.",
+              value: diskonAmount.toLocaleString("id-ID"),
+              amount: diskonAmount,
+            });
+          }
+        } else {
+          diskonAmount = 0;
         }
 
-        let afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
-        let ppnAmount = afterDiskon * (ppn / 100);
+        const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
+        const ppnAmount = afterDiskon * (ppn / 100);
         let subtotalItem = afterDiskon;
         let total = 0;
 
@@ -955,25 +964,107 @@ export default function InputPOPage() {
     );
   }
 
-  // Handler untuk perubahan diskon per item
-  function handleDiskonItemChange(prId: string, itemId: string, value: string) {
+  // Tambahkan state untuk tracking field diskon mana yang terakhir diubah
+  const [lastDiskonChanged, setLastDiskonChanged] = useState<{
+    [key: string]: "persen" | "nominal";
+  }>({
+    // Contoh inisialisasi, jika perlu
+    // "prId-itemId": "persen",
+  });
+
+  // Handler perubahan diskon persen per item
+  function handleDiskonPersenChange(
+    prId: string,
+    itemId: string,
+    value: string
+  ) {
     setPoItems((prevPoItems) =>
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
               ...pItem,
-              items: pItem.items.map((i) =>
-                i.id === itemId
-                  ? {
-                      ...i,
-                      diskonItem: value,
-                    }
-                  : i
-              ),
+              items: pItem.items.map((i) => {
+                if (i.id === itemId) {
+                  // Hitung total diskon nominal dari persen
+                  const harga = Number(i.hargaSatuan) || 0;
+                  const qty = Number(i.jumlahPO) || 0;
+                  const itemSubtotal = harga * qty;
+                  // Stack diskon persen
+                  let currentAmount = itemSubtotal;
+                  let diskonAmount = 0;
+                  const diskonPersenArr = value
+                    .split("+")
+                    .map((d) => d.trim())
+                    .filter((d) => d.endsWith("%"))
+                    .map((d) => parseFloat(d.replace("%", "")))
+                    .filter((v) => !isNaN(v));
+                  diskonPersenArr.forEach((persen) => {
+                    const amount = currentAmount * (persen / 100);
+                    diskonAmount += amount;
+                    currentAmount -= amount;
+                  });
+                  // Update diskonNominal (Rp) hasil konversi
+                  return {
+                    ...i,
+                    diskonPersen: value,
+                    diskonNominal: diskonAmount
+                      ? Math.round(diskonAmount).toString()
+                      : "",
+                  };
+                }
+                return i;
+              }),
             }
           : pItem
       )
     );
+    setLastDiskonChanged((prev) => ({
+      ...prev,
+      [prId + "-" + itemId]: "persen",
+    }));
+  }
+
+  // Handler perubahan diskon nominal per item
+  function handleDiskonNominalChange(
+    prId: string,
+    itemId: string,
+    value: string
+  ) {
+    setPoItems((prevPoItems) =>
+      prevPoItems.map((pItem) =>
+        pItem.prId === prId
+          ? {
+              ...pItem,
+              items: pItem.items.map((i) => {
+                if (i.id === itemId) {
+                  // Hitung diskon persen hasil konversi dari nominal
+                  const harga = Number(i.hargaSatuan) || 0;
+                  const qty = Number(i.jumlahPO) || 0;
+                  const itemSubtotal = harga * qty;
+                  const diskonNominal = parseFloat(value) || 0;
+                  let diskonPersen = "";
+                  if (itemSubtotal > 0 && diskonNominal > 0) {
+                    const persen = (diskonNominal / itemSubtotal) * 100;
+                    // Jika persen bulat, tampilkan tanpa koma. Jika ada koma, tampilkan aslinya (misal 17.5%)
+                    diskonPersen =
+                      persen % 1 === 0 ? `${persen.toFixed(0)}%` : `${persen}%`;
+                  }
+                  return {
+                    ...i,
+                    diskonNominal: value,
+                    diskonPersen: diskonPersen,
+                  };
+                }
+                return i;
+              }),
+            }
+          : pItem
+      )
+    );
+    setLastDiskonChanged((prev) => ({
+      ...prev,
+      [prId + "-" + itemId]: "nominal",
+    }));
   }
 
   // Handler untuk perubahan ppn per item
@@ -1623,29 +1714,49 @@ export default function InputPOPage() {
                           const qty = Number(item.jumlahPO) || 0;
                           const ppn = Number(item.ppnItem) || 0;
                           const itemSubtotal = harga * qty;
-                          // Diskon persen (stacked)
-                          let currentAmount = itemSubtotal;
+
+                          // Gunakan hanya salah satu diskon (yang terakhir diubah user)
+                          const diskonKey = item.prId + "-" + item.id;
                           let diskonAmount = 0;
-                          const diskonPersenArr = parseDiscountPersen(
-                            item.diskonPersen || ""
-                          );
-                          diskonPersenArr.forEach((persen) => {
-                            const amount = currentAmount * (persen / 100);
-                            diskonAmount += amount;
-                            currentAmount -= amount;
-                          });
-                          // Diskon nominal (tidak di-stack)
-                          const diskonNominal = parseDiskonNominal(
-                            item.diskonNominal || ""
-                          );
-                          diskonAmount += diskonNominal;
-                          currentAmount -= diskonNominal;
+                          if (lastDiskonChanged[diskonKey] === "persen") {
+                            // Hitung dari persen (stacked)
+                            let currentAmount = itemSubtotal;
+                            const diskonPersenArr = (item.diskonPersen || "")
+                              .split("+")
+                              .map((d) => d.trim())
+                              .filter((d) => d.endsWith("%"))
+                              .map((d) => parseFloat(d.replace("%", "")))
+                              .filter((v) => !isNaN(v));
+                            diskonPersenArr.forEach((persen) => {
+                              const amount = currentAmount * (persen / 100);
+                              diskonAmount += amount;
+                              currentAmount -= amount;
+                            });
+                          } else if (
+                            lastDiskonChanged[diskonKey] === "nominal"
+                          ) {
+                            diskonAmount = parseFloat(item.diskonNominal) || 0;
+                          } else {
+                            // Default: tidak ada diskon
+                            diskonAmount = 0;
+                          }
+                          // Hanya deklarasi afterDiskon SEKALI di sini
                           const afterDiskon = Math.max(
                             0,
                             itemSubtotal - diskonAmount
                           );
-                          const ppnAmount = afterDiskon * (ppn / 100);
-                          const total = afterDiskon + ppnAmount;
+
+                          let ppnAmount = afterDiskon * (ppn / 100);
+                          let subtotalItem = afterDiskon;
+                          let total = 0;
+
+                          if (ppnIncluded) {
+                            subtotalItem = afterDiskon + ppnAmount;
+                            total = afterDiskon + ppnAmount;
+                          } else {
+                            subtotalItem = afterDiskon;
+                            total = afterDiskon + ppnAmount;
+                          }
 
                           return (
                             <TableRow key={item.id}>
@@ -1715,23 +1826,10 @@ export default function InputPOPage() {
                                   type="text"
                                   value={item.diskonPersen ?? ""}
                                   onChange={(e) =>
-                                    setPoItems((prevPoItems) =>
-                                      prevPoItems.map((pItem) =>
-                                        pItem.prId === item.prId
-                                          ? {
-                                              ...pItem,
-                                              items: pItem.items.map((i) =>
-                                                i.id === item.id
-                                                  ? {
-                                                      ...i,
-                                                      diskonPersen:
-                                                        e.target.value,
-                                                    }
-                                                  : i
-                                              ),
-                                            }
-                                          : pItem
-                                      )
+                                    handleDiskonPersenChange(
+                                      item.prId,
+                                      item.id,
+                                      e.target.value
                                     )
                                   }
                                   className="w-20 text-right"
@@ -1754,22 +1852,10 @@ export default function InputPOPage() {
                                       /[^\d]/g,
                                       ""
                                     );
-                                    setPoItems((prevPoItems) =>
-                                      prevPoItems.map((pItem) =>
-                                        pItem.prId === item.prId
-                                          ? {
-                                              ...pItem,
-                                              items: pItem.items.map((i) =>
-                                                i.id === item.id
-                                                  ? {
-                                                      ...i,
-                                                      diskonNominal: raw,
-                                                    }
-                                                  : i
-                                              ),
-                                            }
-                                          : pItem
-                                      )
+                                    handleDiskonNominalChange(
+                                      item.prId,
+                                      item.id,
+                                      raw
                                     );
                                   }}
                                   className="w-24 text-right"
