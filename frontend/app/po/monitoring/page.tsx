@@ -157,30 +157,32 @@ export default function MonitoringPOPage() {
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Fetch PO / related data from backend dan mapping seperti biasa
-    const fetchAll = async () => {
-      try {
-        const [
-          poRes,
-          poItemRes,
-          prItemRes,
-          prRes,
-          supRes,
-          statusPermintaanRes,
-          statusPengirimanRes,
-          skemaRes,
-          userRes, // <-- tambahkan fetch user
-        ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
-        ]);
+    fetchAll();
+  }, []);
+
+  const fetchAll = async () => {
+    try {
+      const [
+        poRes,
+        poItemRes,
+        prItemRes,
+        prRes,
+        supRes,
+        statusPermintaanRes,
+        statusPengirimanRes,
+        skemaRes,
+        userRes, // <-- tambahkan fetch user
+      ] = await Promise.all([
+        fetch("http://192.168.10.10:5000/api/po"),
+        fetch("http://192.168.10.10:5000/api/po-item"),
+        fetch("http://192.168.10.10:5000/api/pr-item"),
+        fetch("http://192.168.10.10:5000/api/pr"),
+        fetch("http://192.168.10.10:5000/api/supplier"),
+        fetch("http://192.168.10.10:5000/api/status-permintaan"),
+        fetch("http://192.168.10.10:5000/api/status-pengiriman"),
+        fetch("http://192.168.10.10:5000/api/skema"),
+        fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+      ]);
 
       const [
         poList,
@@ -396,10 +398,6 @@ export default function MonitoringPOPage() {
       setPoData([]); // fallback
     }
   };
-
-  useEffect(() => {
-    fetchAll();
-  }, []);
 
   const handleEdit = (po: POData) => {
     // Redirect to input page for editing
@@ -846,8 +844,8 @@ export default function MonitoringPOPage() {
       )
     )
   )
-    .filter((s) => s.trim() !== "")
-    .sort();
+      .filter((s) => s.trim() !== "")
+      .sort();
 
   const uniqueSuppliers = Array.from(
     new Set(poData.map((po) => String(po.supplier ?? "")))
@@ -1955,11 +1953,10 @@ export default function MonitoringPOPage() {
                     <PaginationLink
                       onClick={() => setCurrentPage(page)}
                       isActive={currentPage === page}
-                      className={`min-w-[32px] text-center rounded ${
-                        currentPage === page
+                      className={`min-w-[32px] text-center rounded ${currentPage === page
                           ? "bg-primary text-white font-bold"
                           : "bg-white text-black"
-                      }`}
+                        }`}
                       style={{
                         display: "inline-block",
                         margin: "0 2px",
