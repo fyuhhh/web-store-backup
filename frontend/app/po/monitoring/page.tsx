@@ -171,43 +171,122 @@ export default function MonitoringPOPage() {
           skemaRes,
           userRes, // <-- tambahkan fetch user
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"), // <-- fetch user
         ]);
 
-        const [
-          poList,
-          poItemList,
-          prItemList,
-          prList,
-          supplierList,
-          statusPermintaanList,
-          statusPengirimanList,
-          skemaList,
-          userList, // <-- userList
-        ] = await Promise.all([
-          poRes.json(),
-          poItemRes.json(),
-          prItemRes.json(),
-          prRes.json(),
-          supRes.json(),
-          statusPermintaanRes.json(),
-          statusPengirimanRes.json(),
-          skemaRes.json(),
-          userRes.json(), // <-- userList
-        ]);
+      const [
+        poList,
+        poItemList,
+        prItemList,
+        prList,
+        supplierList,
+        statusPermintaanList,
+        statusPengirimanList,
+        skemaList,
+        userList, // <-- userList
+      ] = await Promise.all([
+        poRes.json(),
+        poItemRes.json(),
+        prItemRes.json(),
+        prRes.json(),
+        supRes.json(),
+        statusPermintaanRes.json(),
+        statusPengirimanRes.json(),
+        skemaRes.json(),
+        userRes.json(), // <-- userList
+      ]);
 
-        // LOG: Data PO raw dari backend
-        console.log("PO RAW dari backend:", poList);
+      // LOG: Data PO raw dari backend
+      console.log("PO RAW dari backend:", poList);
 
-        // Build helper maps
+      // Build helper maps
+      const prMap = Object.fromEntries(
+        prList.map((p: any) => [String(p.id_PR), p.noPR])
+      );
+      const prItemMap = Object.fromEntries(
+        prItemList.map((pi: any) => [String(pi.id_PRItem), pi])
+      );
+      const supplierMap = Object.fromEntries(
+        supplierList.map((s: any) => [String(s.id_supplier), s.namaSupplier])
+      );
+      const statusPermintaanMap = Object.fromEntries(
+        statusPermintaanList.map((s: any) => [
+          String(s.id_statusPermintaan),
+          s.status_permintaan,
+        ])
+      );
+      const statusPengirimanMap = Object.fromEntries(
+        statusPengirimanList.map((s: any) => [
+          String(s.id_statusPengiriman),
+          s.status_pengiriman,
+        ])
+      );
+      const skemaMapObj = Object.fromEntries(
+        skemaList.map((s: any) => [String(s.id_skema), s.skema])
+      );
+      setSkemaMap(skemaMapObj);
+      const userMap = Object.fromEntries(
+        userList.map((u: any) => [String(u.id_user), u.nama_pengguna])
+      );
+
+      const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+      const userSkemaVal = userData.skema || "";
+      const userSkemaIdVal = String(userData.id_skema ?? userData.skema ?? "");
+      setUserSkema(userSkemaVal);
+      setUserSkemaId(userSkemaIdVal);
+
+      // Helper to normalize dates:
+      const toISOFromPossibleDDMMYYYY = (val: any) => {
+        if (!val) return "";
+        if (typeof val !== "string") return String(val);
+        const parts = val.split("-");
+        if (parts.length === 3 && parts[0].length === 2) {
+          // dd-mm-yyyy -> yyyy-mm-dd
+          return `${parts[2]}-${parts[1].padStart(2, "0")}-${parts[0].padStart(
+            2,
+            "0"
+          )}`;
+        }
+        return val;
+      };
+
+      // Map each PO
+      const mappedPOs = (poList || []).map((po: any) => {
+        // --- LOG: tipe dan isi tanggal dari backend ---
+        console.log(
+          `[MONITORING PO] typeof tanggalPO:`,
+          typeof po.tanggalPO,
+          "| value:",
+          po.tanggalPO,
+          "| typeof estimasiTanggalTerima:",
+          typeof po.estimasiTanggalTerima,
+          "| value:",
+          po.estimasiTanggalTerima
+        );
+        // --- LOG: tanggal raw dari backend ---
+        console.log(
+          `[MONITORING PO] Tanggal PO raw:`,
+          po.tanggalPO,
+          "| Estimasi Diterima raw:",
+          po.estimasiTanggalTerima
+        );
+        // --- LOG: tanggal yang akan ditampilkan di frontend ---
+        console.log(
+          `[MONITORING PO] Tanggal PO tampil:`,
+          formatTanggal(po.tanggalPO),
+          "| Estimasi Diterima tampil:",
+          formatTanggal(po.estimasiTanggalTerima)
+        );
+
+        // ISO for range filtering
         const prMap = Object.fromEntries(
           prList.map((p: any) => [String(p.id_PR), p.noPR])
         );
@@ -229,182 +308,96 @@ export default function MonitoringPOPage() {
             s.status_pengiriman,
           ])
         );
-        const skemaMapObj = Object.fromEntries(
+        const skemaMap = Object.fromEntries(
           skemaList.map((s: any) => [String(s.id_skema), s.skema])
         );
-        setSkemaMap(skemaMapObj);
-        const userMap = Object.fromEntries(
-          userList.map((u: any) => [String(u.id_user), u.nama_pengguna])
+
+        // Group items by PR (noPR)
+        const itemsForPO = (poItemList || []).filter(
+          (pi: any) => String(pi.id_PO) === String(po.id_PO || po.id)
         );
+        const poItemsGrouped: any[] = [];
+        const groupMap: Record<string, number> = {};
 
-        const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-        const userSkemaVal = userData.skema || "";
-        const userSkemaIdVal = String(
-          userData.id_skema ?? userData.skema ?? ""
-        );
-        setUserSkema(userSkemaVal);
-        setUserSkemaId(userSkemaIdVal);
-
-        // Helper to normalize dates:
-        const toISOFromPossibleDDMMYYYY = (val: any) => {
-          if (!val) return "";
-          if (typeof val !== "string") return String(val);
-          const parts = val.split("-");
-          if (parts.length === 3 && parts[0].length === 2) {
-            // dd-mm-yyyy -> yyyy-mm-dd
-            return `${parts[2]}-${parts[1].padStart(
-              2,
-              "0"
-            )}-${parts[0].padStart(2, "0")}`;
-          }
-          return val;
-        };
-
-        // Map each PO
-        const mappedPOs = (poList || []).map((po: any) => {
-          // --- LOG: tipe dan isi tanggal dari backend ---
-          console.log(
-            `[MONITORING PO] typeof tanggalPO:`,
-            typeof po.tanggalPO,
-            "| value:",
-            po.tanggalPO,
-            "| typeof estimasiTanggalTerima:",
-            typeof po.estimasiTanggalTerima,
-            "| value:",
-            po.estimasiTanggalTerima
-          );
-          // --- LOG: tanggal raw dari backend ---
-          console.log(
-            `[MONITORING PO] Tanggal PO raw:`,
-            po.tanggalPO,
-            "| Estimasi Diterima raw:",
-            po.estimasiTanggalTerima
-          );
-          // --- LOG: tanggal yang akan ditampilkan di frontend ---
-          console.log(
-            `[MONITORING PO] Tanggal PO tampil:`,
-            formatTanggal(po.tanggalPO),
-            "| Estimasi Diterima tampil:",
-            formatTanggal(po.estimasiTanggalTerima)
-          );
-
-          // ISO for range filtering
-          const prMap = Object.fromEntries(
-            prList.map((p: any) => [String(p.id_PR), p.noPR])
-          );
-          const prItemMap = Object.fromEntries(
-            prItemList.map((pi: any) => [String(pi.id_PRItem), pi])
-          );
-          const supplierMap = Object.fromEntries(
-            supplierList.map((s: any) => [
-              String(s.id_supplier),
-              s.namaSupplier,
-            ])
-          );
-          const statusPermintaanMap = Object.fromEntries(
-            statusPermintaanList.map((s: any) => [
-              String(s.id_statusPermintaan),
-              s.status_permintaan,
-            ])
-          );
-          const statusPengirimanMap = Object.fromEntries(
-            statusPengirimanList.map((s: any) => [
-              String(s.id_statusPengiriman),
-              s.status_pengiriman,
-            ])
-          );
-          const skemaMap = Object.fromEntries(
-            skemaList.map((s: any) => [String(s.id_skema), s.skema])
-          );
-
-          // Group items by PR (noPR)
-          const itemsForPO = (poItemList || []).filter(
-            (pi: any) => String(pi.id_PO) === String(po.id_PO || po.id)
-          );
-          const poItemsGrouped: any[] = [];
-          const groupMap: Record<string, number> = {};
-
-          itemsForPO.forEach((pi: any) => {
-            const prItem = prItemMap[String(pi.id_PRItem)] || {};
-            const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
-            const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
-            const item = {
-              // --- mapping id_POItem asli dari backend ---
-              id_POItem: pi.id_POItem, // <-- ini id yang dipakai untuk hapus
-              id_PRItem: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
-              namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
-              jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
-              jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
-              satuan:
-                prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
-              hargaSatuan: Number(pi.hargaSatuan) || 0,
-              keterangan: pi.keterangan || prItem.keterangan || "",
-            };
-            const key = String(noPR || prId || "__noPR__");
-            if (groupMap[key] === undefined) {
-              groupMap[key] = poItemsGrouped.length;
-              poItemsGrouped.push({
-                prId: prId || "",
-                noPR: key,
-                items: [item],
-              });
-            } else {
-              poItemsGrouped[groupMap[key]].items.push(item);
-            }
-          });
-
-          // Build labels using maps (prefer label maps, fallback to existing fields)
-          const statusPermintaanLabel =
-            statusPermintaanMap[String(po.id_statusPermintaan)] ||
-            po.statusPermintaan ||
-            String(po.id_statusPermintaan || "");
-          const statusPengirimanLabel =
-            statusPengirimanMap[String(po.id_statusPengiriman)] ||
-            po.statusPengiriman ||
-            String(po.id_statusPengiriman || "");
-
-          // Ambil nama user dari userMap berdasarkan orderedBy (id_user)
-          const orderedByName =
-            userMap[String(po.orderedBy)] ||
-            po.orderedBy ||
-            po.dipesanOleh ||
-            "";
-
-          return {
-            id: po.id_PO ?? po.id,
-            noPO: po.noPO ?? "",
-            tanggalPO: po.tanggalPO ?? "", // simpan mentah dari backend
-            estimasiTanggalTerima: po.estimasiTanggalTerima ?? "",
-            supplier:
-              supplierMap[String(po.id_supplier)] ||
-              po.supplier ||
-              String(po.id_supplier || ""),
-            poItems: poItemsGrouped,
-            totalPembayaran: Number(po.totalPembayaran) || 0,
-            statusPermintaan: statusPermintaanLabel,
-            statusPengiriman: statusPengirimanLabel,
-            status: po.status ?? "Menunggu",
-            orderedBy: orderedByName, // <-- tampilkan nama user
-            skema: po.id_skema ?? "", // <-- simpan id_skema, bukan label
-            rawSkemaId: po.id_skema ?? null, // <-- id_skema untuk filter
+        itemsForPO.forEach((pi: any) => {
+          const prItem = prItemMap[String(pi.id_PRItem)] || {};
+          const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
+          const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
+          const item = {
+            // --- mapping id_POItem asli dari backend ---
+            id_POItem: pi.id_POItem, // <-- ini id yang dipakai untuk hapus
+            id_PRItem: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
+            namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
+            jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
+            jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
+            satuan:
+              prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
+            hargaSatuan: Number(pi.hargaSatuan) || 0,
+            keterangan: pi.keterangan || prItem.keterangan || "",
           };
+          const key = String(noPR || prId || "__noPR__");
+          if (groupMap[key] === undefined) {
+            groupMap[key] = poItemsGrouped.length;
+            poItemsGrouped.push({
+              prId: prId || "",
+              noPR: key,
+              items: [item],
+            });
+          } else {
+            poItemsGrouped[groupMap[key]].items.push(item);
+          }
         });
 
-        // Filter by user skema (id_skema, bukan label)
-        const validated = mappedPOs.filter(
-          (p: any) =>
-            !userSkemaVal || String(p.rawSkemaId) === String(userSkemaVal)
-        );
-        // LOG: Data PO hasil mapping sebelum ditampilkan
-        console.log("PO hasil mapping (frontend):", validated);
+        // Build labels using maps (prefer label maps, fallback to existing fields)
+        const statusPermintaanLabel =
+          statusPermintaanMap[String(po.id_statusPermintaan)] ||
+          po.statusPermintaan ||
+          String(po.id_statusPermintaan || "");
+        const statusPengirimanLabel =
+          statusPengirimanMap[String(po.id_statusPengiriman)] ||
+          po.statusPengiriman ||
+          String(po.id_statusPengiriman || "");
 
-        setPoData(validated);
-      } catch (err) {
-        console.error("Gagal memuat data PO:", err);
-        setPoData([]); // fallback
-      }
-    };
+        // Ambil nama user dari userMap berdasarkan orderedBy (id_user)
+        const orderedByName =
+          userMap[String(po.orderedBy)] || po.orderedBy || po.dipesanOleh || "";
 
+        return {
+          id: po.id_PO ?? po.id,
+          noPO: po.noPO ?? "",
+          tanggalPO: po.tanggalPO ?? "", // simpan mentah dari backend
+          estimasiTanggalTerima: po.estimasiTanggalTerima ?? "",
+          supplier:
+            supplierMap[String(po.id_supplier)] ||
+            po.supplier ||
+            String(po.id_supplier || ""),
+          poItems: poItemsGrouped,
+          totalPembayaran: Number(po.totalPembayaran) || 0,
+          statusPermintaan: statusPermintaanLabel,
+          statusPengiriman: statusPengirimanLabel,
+          status: po.status ?? "Menunggu",
+          orderedBy: orderedByName, // <-- tampilkan nama user
+          skema: po.id_skema ?? "", // <-- simpan id_skema, bukan label
+          rawSkemaId: po.id_skema ?? null, // <-- id_skema untuk filter
+        };
+      });
+
+      // Filter by user skema (id_skema, bukan label)
+      const validated = mappedPOs.filter(
+        (p: any) =>
+          !userSkemaVal || String(p.rawSkemaId) === String(userSkemaVal)
+      );
+      // LOG: Data PO hasil mapping sebelum ditampilkan
+      console.log("PO hasil mapping (frontend):", validated);
+
+      setPoData(validated);
+    } catch (err) {
+      console.error("Gagal memuat data PO:", err);
+      setPoData([]); // fallback
+    }
+  };
+
+  useEffect(() => {
     fetchAll();
   }, []);
 
@@ -521,26 +514,69 @@ export default function MonitoringPOPage() {
   const confirmDeleteItems = async (mode: "permanent" | "restore") => {
     setDeleteItemModalOpen(false);
     try {
+      // --- Kumpulkan id_PR sebelum proses hapus ---
+      const prIdsToUpdate = new Set<string>();
+      const poItemsData: Record<string, any> = {};
+
+      for (const itemId of selectedItemIdsToDelete) {
+        if (!itemId) continue;
+        if (mode === "restore") {
+          // Ambil data PO item sebelum dihapus
+          const poItemRes = await fetch(
+            `http://localhost:5000/api/po-item/${itemId}`
+          );
+          if (!poItemRes.ok) continue;
+          const poItem = await poItemRes.json();
+          poItemsData[itemId] = poItem;
+          // --- Ambil id_PR dari id_PRItem (mapping ke prItem) ---
+          let prId = null;
+          if (poItem.id_PR) {
+            prId = String(poItem.id_PR);
+          } else if (poItem.id_PRItem) {
+            // Fetch PR Item untuk dapatkan id_PR
+            const prItemRes = await fetch(
+              `http://localhost:5000/api/pr-item/${poItem.id_PRItem}`
+            );
+            if (prItemRes.ok) {
+              const prItem = await prItemRes.json();
+              if (prItem && prItem.id_PR) {
+                prId = String(prItem.id_PR);
+              }
+            }
+          }
+          // --- Log hasil mapping id_PR ---
+          console.log(
+            "[DEBUG] POItem fetched for restore:",
+            poItem,
+            "-> id_PR:",
+            prId
+          );
+          if (prId) prIdsToUpdate.add(prId);
+          // Simpan id_PR ke poItemsData untuk dipakai di bawah
+          poItemsData[itemId].__id_PR = prId;
+        }
+      }
+
+      // Proses hapus/restore
       for (const itemId of selectedItemIdsToDelete) {
         if (!itemId) continue;
         if (mode === "permanent") {
           // Hapus item PO secara permanen
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
         } else if (mode === "restore") {
           // --- RESTORE: Kembalikan item ke PR ---
           // Ambil data PO item
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `http://localhost:5000/api/po-item/${itemId}`
           );
           const poItem = await poItemRes.json();
           // Hapus item PO
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
-          // Ambil PR id dan PRItem id
-          const prId = poItem.id_PR;
+          const prId = poItem.__id_PR;
           const prItemId = poItem.id_PRItem;
           // Cek apakah PRItem masih ada
           const prItemRes = await fetch(
@@ -551,7 +587,6 @@ export default function MonitoringPOPage() {
             prItem = await prItemRes.json();
           }
           if (prItem && prItem.id_PRItem) {
-            // PRItem masih ada, tambahkan quantity
             const newJumlah = Number(prItem.jumlah) + Number(poItem.jumlahPO);
             await fetch(`http://192.168.10.10:5000/api/pr-item/${prItemId}`, {
               method: "PUT",
@@ -563,7 +598,7 @@ export default function MonitoringPOPage() {
             });
           } else {
             // PRItem sudah tidak ada, buat ulang
-            await fetch(`http://192.168.10.10:5000/api/pr-item`, {
+            await fetch(`http://localhost:5000/api/pr-item`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -577,34 +612,52 @@ export default function MonitoringPOPage() {
               }),
             });
           }
-          // --- Update status PR ke "Gantung" di backend ---
+          // --- JANGAN update status PR di sini, lakukan di bawah setelah semua selesai ---
+        }
+      }
+
+      // --- Setelah semua proses, update status PR ke "Gantung" ---
+      if (mode === "restore") {
+        for (const prId of prIdsToUpdate) {
+          if (!prId || prId === "undefined") continue;
+          // --- Tambahkan log sebelum fetch ---
+          console.log("[DEBUG] Akan fetch PR untuk update status:", prId);
           // Ambil data PR lama
           const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
           if (prRes.ok) {
             const prData = await prRes.json();
             // Kirim semua field PR lama + status baru "Gantung"
             // Pastikan field status dikirim dan tidak kosong
-            await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+            await fetch(`http://localhost:5000/api/pr/${prId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 ...prData,
-                status: "Gantung", // <-- ini yang penting, pastikan field status dikirim
+                status: "Gantung",
               }),
             });
+          } else {
+            setToastMsg(
+              `PR id ${prId} tidak ditemukan. Tidak dapat mengubah status.`
+            );
+            setToastOpen(true);
           }
         }
       }
+
       setToastMsg(
         mode === "permanent"
           ? "Item PO berhasil dihapus permanen."
           : "Item PO berhasil dikembalikan ke PR."
       );
       setToastOpen(true);
-      setTimeout(() => window.location.reload(), 800);
+      // --- Tambahkan auto refresh data PO setelah update ---
+      await fetchAll();
     } catch (err) {
       setToastMsg("Gagal menghapus item PO.");
       setToastOpen(true);
+      // --- Tambahkan auto refresh data PO setelah error juga ---
+      await fetchAll();
     }
     setSelectedItemIdsToDelete([]);
   };
