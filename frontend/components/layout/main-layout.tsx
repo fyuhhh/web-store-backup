@@ -76,11 +76,11 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-xl font-semibold text-foreground">
-                  Sistem Monitoring Purchasing dan Store
+                  Sistem Monitoring Purchasing dan Store | {skemaLabel}
                 </h1>
-                <p className="text-sm text-muted-foreground">
+                {/* <p className="text-sm text-muted-foreground">
                   Skema: {skemaLabel} | Role: {peranLabel}
-                </p>
+                </p> */}
               </div>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2 text-sm text-muted-foreground">
