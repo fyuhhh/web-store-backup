@@ -1693,10 +1693,10 @@ export default function InputPOPage() {
                         <TableHead>Satuan</TableHead>
                         <TableHead>Harga Satuan</TableHead>
                         <TableHead>Diskon (%)</TableHead>
-                        <TableHead>Diskon (Rp.)</TableHead>
+                        <TableHead>Diskon (Rp)</TableHead>
                         <TableHead>SUB (Setelah Diskon)</TableHead>
                         <TableHead>PPN (%)</TableHead>
-                        <TableHead>PPN (Rp.)</TableHead>
+                        <TableHead>PPN (Rp)</TableHead>
                         <TableHead>Total</TableHead>
                         <TableHead>Keterangan</TableHead>
                       </TableRow>

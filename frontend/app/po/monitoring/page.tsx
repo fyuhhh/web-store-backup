@@ -1234,7 +1234,7 @@ export default function MonitoringPOPage() {
                       <Popover>
                         <PopoverTrigger asChild>
                           <button className="inline-flex items-center gap-1">
-                            Daftar Barang <ChevronDown className="w-4 h-4" />
+                            Nama Barang <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
