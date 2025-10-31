@@ -281,7 +281,7 @@ export default function InputPOPage() {
             .map((d) => d.trim())
             .filter((d) => d.endsWith("%"))
             .map((d) => parseFloat(d.replace("%", "")))
-            .filter((v) => !isNaN(v));
+            .filter((v) => v !== null && !isNaN(v));
           diskonPersenArr.forEach((persen, idx) => {
             const amount = currentAmount * (persen / 100);
             diskonAmount += amount;
@@ -305,14 +305,16 @@ export default function InputPOPage() {
           diskonAmount = 0;
         }
 
+        // --- LOGIKA BARU: jika ppnIncluded, total = subtotal, ppn dihitung dari subtotal ---
         const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
-        const ppnAmount = afterDiskon * (ppn / 100);
+        let ppnAmount = afterDiskon * (ppn / 100);
         let subtotalItem = afterDiskon;
         let total = 0;
 
         if (ppnIncluded) {
-          subtotalItem = afterDiskon + ppnAmount;
-          total = afterDiskon + ppnAmount;
+          // Total = subtotal, PPN tetap dihitung dari subtotal
+          subtotalItem = afterDiskon;
+          total = afterDiskon;
         } else {
           subtotalItem = afterDiskon;
           total = afterDiskon + ppnAmount;
@@ -1682,7 +1684,7 @@ export default function InputPOPage() {
                   Detail Barang dari PR
                 </h3>
                 <div className="border rounded-lg overflow-x-auto">
-                  <Table>
+                  <Table className="text-xs">
                     <TableHeader>
                       <TableRow>
                         <TableHead>No. PR</TableHead>
@@ -1726,7 +1728,7 @@ export default function InputPOPage() {
                               .map((d) => d.trim())
                               .filter((d) => d.endsWith("%"))
                               .map((d) => parseFloat(d.replace("%", "")))
-                              .filter((v) => !isNaN(v));
+                              .filter((v) => v !== null && !isNaN(v));
                             diskonPersenArr.forEach((persen) => {
                               const amount = currentAmount * (persen / 100);
                               diskonAmount += amount;
@@ -1751,8 +1753,8 @@ export default function InputPOPage() {
                           let total = 0;
 
                           if (ppnIncluded) {
-                            subtotalItem = afterDiskon + ppnAmount;
-                            total = afterDiskon + ppnAmount;
+                            subtotalItem = afterDiskon;
+                            total = afterDiskon;
                           } else {
                             subtotalItem = afterDiskon;
                             total = afterDiskon + ppnAmount;
@@ -1816,7 +1818,7 @@ export default function InputPOPage() {
                                       raw
                                     );
                                   }}
-                                  className="w-24 text-right"
+                                  className="w-40 text-right" // <-- ubah dari w-24 ke w-40
                                   placeholder="Rp. 0"
                                   autoComplete="off"
                                 />
