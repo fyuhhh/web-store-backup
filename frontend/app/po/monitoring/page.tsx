@@ -334,6 +334,11 @@ export default function MonitoringPOPage() {
               prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
             hargaSatuan: Number(pi.hargaSatuan) || 0,
             keterangan: pi.keterangan || prItem.keterangan || "",
+            // --- Ambil field diskon/ppn dari kolom baru backend ---
+            diskonPersen: pi.diskonPersen ?? 0, // Diskon (%) dari po_item
+            diskonNominal: pi.diskonRupiah ?? 0, // Diskon (Rp) dari po_item
+            ppnItem: pi.ppnPersen ?? 0, // PPN (%) dari po_item
+            ppnAmount: pi.ppnRupiah ?? 0, // PPN (Rp) dari po_item
           };
           const key = String(noPR || prId || "__noPR__");
           if (groupMap[key] === undefined) {
@@ -919,6 +924,10 @@ export default function MonitoringPOPage() {
       "Satuan",
       "Keterangan",
       "Harga Satuan",
+      "Diskon (%)",
+      "Diskon (Rp)",
+      "PPN (%)",
+      "PPN (Rp)",
       "Total",
       "Tanggal PO",
       "Estimasi Diterima",
@@ -985,7 +994,15 @@ export default function MonitoringPOPage() {
           item.satuan,
           item.keterangan || "",
           formatRupiah(item.hargaSatuan),
-          formatRupiah(item.hargaSatuan * item.jumlahPO),
+          // Tambahan kolom baru
+          item.diskonPersen ?? "",
+          item.diskonNominal
+            ? `Rp ${Number(item.diskonNominal).toLocaleString("id-ID")}`
+            : "",
+          item.ppnItem ?? "",
+          item.ppnAmount
+            ? `Rp ${Number(item.ppnAmount).toLocaleString("id-ID")}`
+            : "",
           index === 0 ? formatTanggalExcel(po.tanggalPO) : "",
           index === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
           index === 0 ? po.supplier : "",
@@ -1078,6 +1095,15 @@ export default function MonitoringPOPage() {
     }
     setDeleteIds([]);
   };
+
+  // Tambahkan helper untuk format persen
+  function formatPersen(val: any) {
+    if (val === undefined || val === null || val === "") return "";
+    const num = Number(val);
+    if (isNaN(num)) return "";
+    // Jika bulat, tampilkan tanpa koma, jika ada koma, tampilkan 1 atau 2 digit
+    return num % 1 === 0 ? `${num}%` : `${parseFloat(num.toFixed(2))}%`;
+  }
 
   return (
     <MainLayout>
@@ -1385,6 +1411,11 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
+                    {/* Tambahan kolom baru untuk Diskon dan PPN */}
+                    <TableHead className="min-w-[90px]">Diskon (%)</TableHead>
+                    <TableHead className="min-w-[90px]">Diskon (Rp)</TableHead>
+                    <TableHead className="min-w-[90px]">PPN (%)</TableHead>
+                    <TableHead className="min-w-[90px]">PPN (Rp)</TableHead>
                     <TableHead className="min-w-[120px]">
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1845,7 +1876,31 @@ export default function MonitoringPOPage() {
                               </HoverCard>
                             </TableCell>
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px]">
-                              Rp {item.hargaSatuan.toLocaleString("id-ID")}
+                              Rp {item.hargaSatuan?.toLocaleString("id-ID")}
+                            </TableCell>
+                            {/* Kolom baru: Diskon (%) */}
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                              {formatPersen(item.diskonPersen)}
+                            </TableCell>
+                            {/* Kolom baru: Diskon (Rp) */}
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                              {item.diskonNominal
+                                ? `Rp ${Number(
+                                    item.diskonNominal
+                                  ).toLocaleString("id-ID")}`
+                                : ""}
+                            </TableCell>
+                            {/* Kolom baru: PPN (%) */}
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                              {formatPersen(item.ppnItem)}
+                            </TableCell>
+                            {/* Kolom baru: PPN (Rp) */}
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                              {item.ppnAmount
+                                ? `Rp ${Number(item.ppnAmount).toLocaleString(
+                                    "id-ID"
+                                  )}`
+                                : ""}
                             </TableCell>
                             {itemIndex === 0 ? (
                               <>

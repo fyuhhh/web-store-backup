@@ -135,6 +135,25 @@ export default function InputBaruPRPage() {
       .catch(() => setSkemaOptions([]));
   }, []);
 
+  // Tambahkan useEffect untuk set skema dari userData saat komponen pertama kali mount
+  useEffect(() => {
+    const userDataString = localStorage.getItem("userData");
+    if (userDataString) {
+      try {
+        const userData = JSON.parse(userDataString);
+        // Misal field skema: userData.skema atau userData.id_skema
+        const skemaValue = userData.id_skema || userData.skema || "";
+        // Set state skema di form PR (misal: setPrFormData)
+        setFormData((prev) => ({
+          ...prev,
+          id_skema: skemaValue,
+        }));
+      } catch (err) {
+        // ignore
+      }
+    }
+  }, []);
+
   const loadPRData = () => {
     const stored = localStorage.getItem("prData");
     if (stored) {
@@ -305,6 +324,13 @@ export default function InputBaruPRPage() {
         setNotif({ type: "success", message: "PR berhasil dibuat!" });
         notifTimeoutRef.current = setTimeout(() => setNotif(null), 2000);
       }, 0);
+      // Setelah semua proses berhasil:
+      // Reset form, tampilkan notif, dan auto-refresh halaman
+      setNotif({ type: "success", message: "PR berhasil dibuat!" });
+      setTimeout(() => {
+        setNotif(null);
+        window.location.reload(); // ⬅️ Auto refresh halaman setelah submit PR
+      }, 1500);
       return;
     } catch (err) {
       console.error("Error submitting PR:", err);
@@ -1062,65 +1088,21 @@ export default function InputBaruPRPage() {
 
               {/* Skema Section */}
               <div>
-                <Label htmlFor="id_skema">Skema</Label>
-                <Select
-                  value={formData.id_skema ? String(formData.id_skema) : ""}
-                  onValueChange={(value) => {
-                    const selected = skemaOptions.find(
-                      (s: any) => String(s.id_skema) === value
-                    );
-                    setFormData({
-                      ...formData,
-                      id_skema: Number(value), // simpan id_skema (FK)
-                      skemaLabel: selected ? selected.skema : "",
-                    });
-                  }}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Pilih skema" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                    {/* Search skema */}
-                    <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                      <Input
-                        placeholder="Cari skema..."
-                        value={skemaSearch}
-                        onChange={(e) => setSkemaSearch(e.target.value)}
-                        className="mb-2"
-                      />
-                    </div>
-                    {skemaOptions.length === 0 ? (
-                      <SelectItem value="__loading" disabled>
-                        Memuat...
-                      </SelectItem>
-                    ) : (
-                      skemaOptions
-                        .filter((sk: any) =>
-                          sk.skema
-                            .toLowerCase()
-                            .includes(skemaSearch.toLowerCase())
-                        )
-                        .map((sk: any) => (
-                          <SelectItem
-                            key={sk.id_skema}
-                            value={String(sk.id_skema)}
-                          >
-                            {sk.skema}
-                          </SelectItem>
-                        ))
-                    )}
-                    {skemaOptions.length > 0 &&
-                      skemaOptions.filter((sk: any) =>
-                        sk.skema
-                          .toLowerCase()
-                          .includes(skemaSearch.toLowerCase())
-                      ).length === 0 && (
-                        <SelectItem value="__notfound" disabled>
-                          Data tidak ditemukan
-                        </SelectItem>
-                      )}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="id_skema"></Label>
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="skema"
+                    className="text-sm font-medium text-muted-foreground"
+                  >
+                    Skema
+                  </Label>
+                  <Input
+                    id="skema"
+                    value={formData.skemaLabel}
+                    readOnly
+                    className="border-border focus:border-primary/50 bg-gray-100"
+                  />
+                </div>
               </div>
 
               <div className="flex space-x-2 justify-end">

@@ -71,12 +71,9 @@ export default function MonitoringPRPage() {
 
   // Filter states
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
-  // New state for Qty dropdown filter
-  const [filterQty, setFilterQty] = useState<number[]>([]);
-  const [filterQtySearchTerm, setFilterQtySearchTerm] = useState("");
-  // Remove old min/max Qty states
-  // const [filterQtyMin, setFilterQtyMin] = useState<number | "">("");
-  // const [filterQtyMax, setFilterQtyMax] = useState<number | "">("");
+  // Hapus state filterQty dan filterQtySearchTerm
+  // const [filterQty, setFilterQty] = useState<number[]>([]);
+  // const [filterQtySearchTerm, setFilterQtySearchTerm] = useState("");
   const [filterQtyPRAwalMin, setFilterQtyPRAwalMin] = useState<number | "">("");
   const [filterQtyPRAwalMax, setFilterQtyPRAwalMax] = useState<number | "">("");
   const [filterSatuan, setFilterSatuan] = useState<string[]>([]);
@@ -121,11 +118,6 @@ export default function MonitoringPRPage() {
   const uniqueSatuan = Array.from(
     new Set(prData.flatMap((pr) => pr.items?.map((item) => item.satuan) || []))
   ).sort();
-
-  // Compute unique quantities for Qty filter dropdown
-  const uniqueQty = Array.from(
-    new Set(prData.flatMap((pr) => pr.items?.map((item) => item.jumlah) || []))
-  ).sort((a, b) => a - b);
 
   const uniqueUrgensi = ["Low", "Medium", "High"];
   const uniqueStatus = ["Menunggu", "Gantung", "Diproses"];
@@ -196,7 +188,6 @@ export default function MonitoringPRPage() {
   }, [
     searchTerm,
     filterNamaBarang,
-    filterQty,
     filterQtyPRAwalMin,
     filterQtyPRAwalMax,
     filterSatuan,
@@ -431,8 +422,6 @@ export default function MonitoringPRPage() {
   // Filter data: hanya tampilkan PR dengan id_skema sesuai user login
   const filteredPRData = prData
     .filter((pr) => (userSkemaId ? String(pr.skema) === userSkemaId : true))
-    // HAPUS logika .map((pr) => { ... }) yang mengubah status
-    // Gunakan status dari backend langsung
     .filter((pr) => {
       const matchesSearch =
         (pr.items &&
@@ -454,10 +443,10 @@ export default function MonitoringPRPage() {
               .includes(filterNamaBarang.toLowerCase())
         );
 
-      // Updated matchesQty to check if item's jumlah is in filterQty array if filterQty is not empty
-      const matchesQty =
-        filterQty.length === 0 ||
-        pr.items?.some((item) => filterQty.includes(item.jumlah));
+      // Hapus matchesQty
+      // const matchesQty =
+      //   filterQty.length === 0 ||
+      //   pr.items?.some((item) => filterQty.includes(item.jumlah));
 
       const matchesQtyPRAwal =
         (filterQtyPRAwalMin === "" ||
@@ -512,7 +501,7 @@ export default function MonitoringPRPage() {
       return (
         matchesSearch &&
         matchesNamaBarang &&
-        matchesQty &&
+        // matchesQty, // HAPUS INI
         matchesQtyPRAwal &&
         matchesSatuan &&
         matchesKeterangan &&
@@ -616,7 +605,6 @@ export default function MonitoringPRPage() {
       "No. PR",
       "Tanggal PR",
       "Daftar Barang",
-      "Quantity",
       "Qty PR Awal",
       "Satuan",
       "Keterangan",
@@ -1055,7 +1043,7 @@ export default function MonitoringPRPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Tanggal PR
+                            Tanggal
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1140,70 +1128,6 @@ export default function MonitoringPRPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Qty */}
-                    <TableHead className="min-w-[90px]">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            Quantity PR
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                          <Label className="text-sm font-medium">
-                            Cari Qty
-                          </Label>
-                          <Input
-                            type="number"
-                            placeholder="Cari Qty..."
-                            value={filterQtySearchTerm}
-                            onChange={(e) =>
-                              setFilterQtySearchTerm(e.target.value)
-                            }
-                            className="mb-2"
-                          />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
-                            {uniqueQty
-                              .filter((qty) =>
-                                String(
-                                  Number(qty) % 1 === 0 ? Number(qty) : qty
-                                )
-                                  .toLowerCase()
-                                  .includes(filterQtySearchTerm.toLowerCase())
-                              )
-                              .map((qty) => (
-                                <div
-                                  key={qty}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    id={`qty-${qty}`}
-                                    checked={filterQty.includes(qty)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setFilterQty([...filterQty, qty]);
-                                      } else {
-                                        setFilterQty(
-                                          filterQty.filter((f) => f !== qty)
-                                        );
-                                      }
-                                    }}
-                                  />
-                                  <Label
-                                    htmlFor={`qty-${qty}`}
-                                    className="text-sm"
-                                  >
-                                    {Number(qty) % 1 === 0 ? Number(qty) : qty}
-                                  </Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
                     {/* Qty PR Awal */}
                     <TableHead className="min-w-[90px]">
                       <Popover>
@@ -1212,7 +1136,7 @@ export default function MonitoringPRPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Qty PR Awal
+                            Quantity
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1647,11 +1571,6 @@ export default function MonitoringPRPage() {
                           </TableCell>
                           <TableCell>{validItems[0]?.namaBarang}</TableCell>
                           <TableCell>
-                            {parseFloat(validItems[0]?.jumlah) % 1 === 0
-                              ? parseInt(validItems[0]?.jumlah)
-                              : validItems[0]?.jumlah}
-                          </TableCell>
-                          <TableCell>
                             {parseFloat(validItems[0]?.quantityAwalPR) % 1 === 0
                               ? parseInt(validItems[0]?.quantityAwalPR)
                               : validItems[0]?.quantityAwalPR}
@@ -1702,11 +1621,6 @@ export default function MonitoringPRPage() {
                         {validItems.slice(1).map((item, index) => (
                           <TableRow key={`${pr.id}-item-${index + 1}`}>
                             <TableCell>{item.namaBarang}</TableCell>
-                            <TableCell>
-                              {parseFloat(item.jumlah) % 1 === 0
-                                ? parseInt(item.jumlah)
-                                : item.jumlah}
-                            </TableCell>
                             <TableCell>
                               {parseFloat(item.quantityAwalPR) % 1 === 0
                                 ? parseInt(item.quantityAwalPR)

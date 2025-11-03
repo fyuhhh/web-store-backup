@@ -816,7 +816,7 @@ export default function StatusPOPage() {
                       <Popover>
                         <PopoverTrigger asChild>
                           <button className="inline-flex items-center gap-1">
-                            Qty <ChevronDown className="w-4 h-4" />
+                            Quantity PR <ChevronDown className="w-4 h-4" />
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
@@ -1246,7 +1246,14 @@ export default function StatusPOPage() {
                             {/* Satuan */}
                             <TableCell>{item.satuan}</TableCell>
                             {/* Keterangan */}
-                            <TableCell>{item.keterangan}</TableCell>
+                            <TableCell>
+                              <div
+                                className="max-w-[180px] truncate text-sm text-muted-foreground"
+                                title={item.keterangan}
+                              >
+                                {item.keterangan}
+                              </div>
+                            </TableCell>
                             {/* Urgensi hanya di baris pertama */}
                             {idx === 0 ? (
                               <TableCell rowSpan={filteredItems.length}>

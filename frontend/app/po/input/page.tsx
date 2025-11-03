@@ -518,13 +518,21 @@ export default function InputPOPage() {
 
     const calculations = calculateTotal();
 
+    // Helper to parse diskon persen string (e.g. "15%" or "15%+5%") to number (ambil yang pertama saja)
+    function parseDiskonPersenToNumber(diskonStr: string) {
+      if (!diskonStr) return 0;
+      // Ambil hanya angka pertama sebelum % (misal "15%+5%" => 15)
+      const match = diskonStr.match(/(\d+(\.\d+)?)%?/);
+      return match ? parseFloat(match[1]) : 0;
+    }
+
     // Get logged in user data
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     const orderedByUserId = userData.id_user || userData.id || null; // <-- ambil id_user
     const userSkema = userData.id_skema || null;
 
     try {
-      // 1. POST PO ke backend with correct field references
+      // 1. POST PO ke backend (tidak berubah)
       const poRes = await fetch("http://localhost:5000/api/po", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -534,18 +542,18 @@ export default function InputPOPage() {
             typeof poFormData.tanggalPO === "string"
               ? poFormData.tanggalPO
               : formatDateForBackend(poFormData.tanggalPO),
-          // gunakan format string YYYY-MM-DD
-          id_supplier: poFormData.supplier, // Use supplier ID from form data
-          diskon: poFormData.diskon,
-          originalDiskon: calculations.totalDiscount,
-          ppn: parseFloat(poFormData.ppn),
-          ppnAmount: calculations.ppnAmount,
+          id_supplier: poFormData.supplier,
+          // --- Perbaikan mapping field diskon/ppn ---
+          diskon: parseDiskonPersenToNumber(poFormData.diskon), // Diskon (%) dari input user, hanya angka
+          originalDiskon: calculations.totalDiskon, // Diskon (Rp) hasil perhitungan
+          ppn: parseFloat(poFormData.ppn), // PPN (%) dari input user
+          ppnAmount: calculations.totalPPN, // PPN (Rp) hasil perhitungan
           totalPembayaran: calculations.totalPayment,
-          orderedBy: orderedByUserId, // <-- kirim id_user, bukan nama
+          orderedBy: orderedByUserId,
           estimasiTanggalTerima: formatDateForBackend(
             poFormData.estimasiTanggalDiterima
-          ), // gunakan value dari input user, format YYYY-MM-DD
-          id_statusPengiriman: poFormData.statusPengiriman, // Use status IDs from form
+          ),
+          id_statusPengiriman: poFormData.statusPengiriman,
           status: "Menunggu",
           createdAt: new Date().toISOString(),
           id_skema: userSkema,
@@ -557,6 +565,41 @@ export default function InputPOPage() {
       // 2. POST setiap PO Item ke backend dan PUT PR Item untuk update jumlah
       for (const poItem of poItems) {
         for (const item of poItem.items) {
+          // --- Ambil nilai diskon dan ppn per item ---
+          // Diskon (%) hanya angka pertama dari item.diskonPersen
+          let diskonPersenValue = 0;
+          if (item.diskonPersen && typeof item.diskonPersen === "string") {
+            const match = item.diskonPersen.match(/(\d+(\.\d+)?)/);
+            diskonPersenValue = match ? parseFloat(match[1]) : 0;
+          }
+          // Diskon (Rp)
+          const diskonRupiahValue = Number(item.diskonNominal) || 0;
+          // PPN (%) dari item.ppnItem
+          const ppnPersenValue = Number(item.ppnItem) || 0;
+          // PPN (Rp): hitung dari afterDiskon * (ppnPersen/100)
+          const harga = Number(item.hargaSatuan) || 0;
+          const qty = Number(item.jumlahPO) || 0;
+          const itemSubtotal = harga * qty;
+          let diskonAmount = 0;
+          if (item.diskonPersen && typeof item.diskonPersen === "string") {
+            let currentAmount = itemSubtotal;
+            const diskonPersenArr = item.diskonPersen
+              .split("+")
+              .map((d) => d.trim())
+              .filter((d) => d.endsWith("%"))
+              .map((d) => parseFloat(d.replace("%", "")))
+              .filter((v) => !isNaN(v));
+            diskonPersenArr.forEach((persen) => {
+              const amount = currentAmount * (persen / 100);
+              diskonAmount += amount;
+              currentAmount -= amount;
+            });
+          } else if (item.diskonNominal) {
+            diskonAmount = Number(item.diskonNominal) || 0;
+          }
+          const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
+          const ppnRupiahValue = afterDiskon * (ppnPersenValue / 100);
+
           // A. Create PO Item
           await fetch("http://localhost:5000/api/po-item", {
             method: "POST",
@@ -567,8 +610,10 @@ export default function InputPOPage() {
               hargaSatuan: item.hargaSatuan,
               jumlahPO: item.jumlahPO,
               jumlahAsli: item.jumlahAsli,
-              diskonItem: item.diskonItem || 0, // per item
-              ppnItem: item.ppnItem || 0, // per item
+              diskonPersen: diskonPersenValue, // Diskon (%) masuk ke kolom diskonPersen
+              diskonRupiah: diskonRupiahValue, // Diskon (Rp) masuk ke kolom diskonRupiah
+              ppnPersen: ppnPersenValue, // PPN (%) masuk ke kolom ppnPersen
+              ppnRupiah: ppnRupiahValue, // PPN (Rp) masuk ke kolom ppnRupiah
               keterangan: item.keterangan,
               id_satuan: item.id_satuan,
             }),
