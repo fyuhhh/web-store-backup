@@ -40,24 +40,42 @@ router.post("/", async (req, res, next) => {
       hargaSatuan,
       jumlahPO,
       jumlahAsli,
-      diskonItem,
+      diskonPersen, // <-- diskon % dari frontend, simpan ke kolom diskonPersen
+      diskonRupiah, // <-- diskon nominal (Rp)
+      ppnPersen, // <-- PPN % per item
+      ppnRupiah, // <-- PPN nominal (Rp)
       keterangan,
-      id_satuan, // <-- must be sent from frontend
+      id_satuan,
     } = req.body;
 
-    // id_satuan is always stored, never set to null unless frontend sends null
+    // Pastikan diskonPersen hanya angka (tanpa %)
+    let diskonPersenValue = diskonPersen;
+    if (typeof diskonPersen === "string" && diskonPersen.includes("%")) {
+      const match = diskonPersen.match(/(\d+(\.\d+)?)/);
+      diskonPersenValue = match ? parseFloat(match[1]) : 0;
+    }
+
+    // Pastikan diskonRupiah, ppnPersen, ppnRupiah adalah angka
+    const diskonRupiahValue = Number(diskonRupiah) || 0;
+    const ppnPersenValue = Number(ppnPersen) || 0;
+    const ppnRupiahValue = Number(ppnRupiah) || 0;
+
     const [result] = await db.query(
-      `INSERT INTO po_item (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonItem, keterangan, id_satuan)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO po_item 
+        (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonPersen, diskonRupiah, ppnPersen, ppnRupiah, keterangan, id_satuan)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_PO || null,
         id_PRItem || null,
         hargaSatuan || 0,
         jumlahPO || 0,
         jumlahAsli || 0,
-        diskonItem || 0,
+        diskonPersenValue || 0,
+        diskonRupiahValue,
+        ppnPersenValue,
+        ppnRupiahValue,
         keterangan || "",
-        id_satuan || null, // <-- always save id_satuan
+        id_satuan || null,
       ]
     );
 
@@ -77,11 +95,25 @@ router.put("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
     const payload = req.body;
+    // Pastikan field baru bisa diupdate
     const fields = Object.keys(payload);
     if (fields.length === 0)
       return res.status(400).json({ message: "No data" });
 
-    // Pastikan id_satuan bisa diupdate
+    // Pastikan diskonPersen, diskonRupiah, ppnPersen, ppnRupiah adalah angka jika dikirim
+    if (
+      payload.diskonPersen &&
+      typeof payload.diskonPersen === "string" &&
+      payload.diskonPersen.includes("%")
+    ) {
+      const match = payload.diskonPersen.match(/(\d+(\.\d+)?)/);
+      payload.diskonPersen = match ? parseFloat(match[1]) : 0;
+    }
+    if (payload.diskonRupiah)
+      payload.diskonRupiah = Number(payload.diskonRupiah) || 0;
+    if (payload.ppnPersen) payload.ppnPersen = Number(payload.ppnPersen) || 0;
+    if (payload.ppnRupiah) payload.ppnRupiah = Number(payload.ppnRupiah) || 0;
+
     const sql =
       `UPDATE po_item SET ` +
       fields.map((f) => `${f} = ?`).join(", ") +
