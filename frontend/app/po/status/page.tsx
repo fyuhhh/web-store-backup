@@ -521,9 +521,14 @@ export default function StatusPOPage() {
         matchesSkema
       );
     })
+    // Tambahkan sort DESC (terbaru ke terlama)
     .sort((a, b) => {
-      const urgOrder = { High: 0, Medium: 1, Low: 2 };
-      return urgOrder[a.urgensi] - urgOrder[b.urgensi];
+      // Tanggal PR descending
+      if (a.tanggalPR !== b.tanggalPR) {
+        return String(b.tanggalPR).localeCompare(String(a.tanggalPR));
+      }
+      // Jika tanggal sama, No PR descending
+      return String(b.noPR).localeCompare(String(a.noPR));
     });
 
   // --- PAGINATION ---
