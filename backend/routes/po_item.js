@@ -40,10 +40,11 @@ router.post("/", async (req, res, next) => {
       hargaSatuan,
       jumlahPO,
       jumlahAsli,
-      diskonPersen, // <-- diskon % dari frontend, simpan ke kolom diskonPersen
-      diskonRupiah, // <-- diskon nominal (Rp)
-      ppnPersen, // <-- PPN % per item
-      ppnRupiah, // <-- PPN nominal (Rp)
+      diskonPersen,
+      diskonRupiah,
+      ppnPersen,
+      ppnRupiah,
+      totalPerItem,
       keterangan,
       id_satuan,
     } = req.body;
@@ -62,8 +63,8 @@ router.post("/", async (req, res, next) => {
 
     const [result] = await db.query(
       `INSERT INTO po_item 
-        (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonPersen, diskonRupiah, ppnPersen, ppnRupiah, keterangan, id_satuan)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonPersen, diskonRupiah, ppnPersen, ppnRupiah, totalPerItem, keterangan, id_satuan)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_PO || null,
         id_PRItem || null,
@@ -74,6 +75,7 @@ router.post("/", async (req, res, next) => {
         diskonRupiahValue,
         ppnPersenValue,
         ppnRupiahValue,
+        totalPerItem || 0,
         keterangan || "",
         id_satuan || null,
       ]
@@ -113,6 +115,10 @@ router.put("/:id", async (req, res, next) => {
       payload.diskonRupiah = Number(payload.diskonRupiah) || 0;
     if (payload.ppnPersen) payload.ppnPersen = Number(payload.ppnPersen) || 0;
     if (payload.ppnRupiah) payload.ppnRupiah = Number(payload.ppnRupiah) || 0;
+
+    // Pastikan totalPerItem bisa diupdate jika dikirim
+    if (payload.totalPerItem)
+      payload.totalPerItem = Number(payload.totalPerItem) || 0;
 
     const sql =
       `UPDATE po_item SET ` +

@@ -320,6 +320,9 @@ export default function InputPOPage() {
           total = afterDiskon + ppnAmount;
         }
 
+        // Tambahkan totalPerItem (setelah diskon + ppn)
+        const totalPerItem = subtotalItem + ppnAmount;
+
         subtotal += subtotalItem;
         totalDiskon += diskonAmount;
         totalPPN += ppnAmount;
@@ -599,6 +602,7 @@ export default function InputPOPage() {
           }
           const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
           const ppnRupiahValue = afterDiskon * (ppnPersenValue / 100);
+          const totalPerItem = afterDiskon + ppnRupiahValue;
 
           // A. Create PO Item
           await fetch("http://localhost:5000/api/po-item", {
@@ -614,6 +618,7 @@ export default function InputPOPage() {
               diskonRupiah: diskonRupiahValue, // Diskon (Rp) masuk ke kolom diskonRupiah
               ppnPersen: ppnPersenValue, // PPN (%) masuk ke kolom ppnPersen
               ppnRupiah: ppnRupiahValue, // PPN (Rp) masuk ke kolom ppnRupiah
+              totalPerItem, // <-- Tambahkan field baru
               keterangan: item.keterangan,
               id_satuan: item.id_satuan,
             }),
@@ -1742,6 +1747,7 @@ export default function InputPOPage() {
                         <TableHead>SUB (Setelah Diskon)</TableHead>
                         <TableHead>PPN (%)</TableHead>
                         <TableHead>PPN (Rp)</TableHead>
+                        <TableHead>Total Per Item</TableHead>
                         <TableHead>Total</TableHead>
                         <TableHead>Keterangan</TableHead>
                       </TableRow>
@@ -1804,6 +1810,9 @@ export default function InputPOPage() {
                             subtotalItem = afterDiskon;
                             total = afterDiskon + ppnAmount;
                           }
+
+                          // Tambahkan totalPerItem (setelah diskon + ppn)
+                          const totalPerItem = subtotalItem + ppnAmount;
 
                           return (
                             <TableRow key={item.id}>
@@ -1933,7 +1942,7 @@ export default function InputPOPage() {
                                 Rp {ppnAmount.toLocaleString("id-ID")}
                               </TableCell>
                               <TableCell>
-                                Rp {total.toLocaleString("id-ID")}
+                                Rp {totalPerItem.toLocaleString("id-ID")}
                               </TableCell>
                               <TableCell>
                                 <div
