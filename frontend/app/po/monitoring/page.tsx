@@ -812,14 +812,21 @@ export default function MonitoringPOPage() {
       // ...jangan filter berdasarkan jumlahPO...
     );
 
-  // Sort filteredPOData dari tanggalPO terbaru ke terlama, jika sama urutkan noPO terbaru ke terlama
+  // Sort filteredPOData dari tanggalPO terbaru ke terlama, jika sama urutkan noPO terbaru ke terlama berdasarkan angka di belakang
   const sortedPOData = [...filteredPOData].sort((a, b) => {
     // Tanggal PO descending (terbaru ke terlama)
     if (a.tanggalPO !== b.tanggalPO) {
       return String(b.tanggalPO).localeCompare(String(a.tanggalPO));
     }
-    // Jika tanggal sama, No PO descending
-    return String(b.noPO).localeCompare(String(a.noPO));
+    // Jika tanggal sama, urutkan berdasarkan angka di belakang noPO (template: PO/E-WALK/WBL/25/X/00000)
+    // Ambil angka di belakang (setelah / terakhir)
+    const getNoPOInt = (noPO: string) => {
+      const match = noPO.match(/(\d+)(?!.*\d)/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+    const numA = getNoPOInt(a.noPO);
+    const numB = getNoPOInt(b.noPO);
+    return numB - numA; // tertinggi ke terendah
   });
 
   // Pagination logic
