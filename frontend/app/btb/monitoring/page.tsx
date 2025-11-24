@@ -469,7 +469,6 @@ export default function BTBMonitoringPage() {
     const headers = [
       "No. BTB",
       "Tanggal BTB",
-      "Periode",
       "Nama Supplier",
       "Nama Barang",
       "Quantity",
@@ -517,7 +516,6 @@ export default function BTBMonitoringPage() {
       worksheet.addRow([
         btb.noBTB,
         formatTanggalLebihSehari(btb.tanggal), // <-- samakan dengan frontend
-        btb.periode,
         btb.nama_supplier ?? btb.supplier ?? "",
         btb.nama_barang ?? "",
         formatQtyExcel(btb.jumlah),
@@ -775,53 +773,6 @@ export default function BTBMonitoringPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Periode */}
-                    <TableHead className="text-left min-w-[120px]">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Periode <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari periode..."
-                            value={periodeSearchTerm}
-                            onChange={(e) =>
-                              setPeriodeSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniquePeriode
-                              .filter((p) =>
-                                p
-                                  .toLowerCase()
-                                  .includes(periodeSearchTerm.toLowerCase())
-                              )
-                              .map((p) => (
-                                <div
-                                  key={p}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    id={`periode-${p}`}
-                                    checked={filterPeriode === p}
-                                    onCheckedChange={(checked) => {
-                                      setFilterPeriode(checked ? p : "");
-                                    }}
-                                  />
-                                  <Label
-                                    htmlFor={`periode-${p}`}
-                                    className="text-sm"
-                                  >
-                                    {p}
-                                  </Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
                     {/* Nama Supplier */}
                     <TableHead className="text-left min-w-[160px]">
                       <Popover>
@@ -1058,7 +1009,7 @@ export default function BTBMonitoringPage() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={12}>Loading...</TableCell>
+                      <TableCell colSpan={11}>Loading...</TableCell>
                     </TableRow>
                   ) : (
                     filteredBTBData
@@ -1088,10 +1039,6 @@ export default function BTBMonitoringPage() {
                           {/* Tanggal BTB */}
                           <TableCell className="px-4 py-2 text-left">
                             {formatTanggalLebihSehari(row.tanggal)}
-                          </TableCell>
-                          {/* Periode */}
-                          <TableCell className="px-4 py-2 text-left">
-                            {row.periode}
                           </TableCell>
                           {/* Nama Supplier */}
                           <TableCell className="px-4 py-2 text-left">
