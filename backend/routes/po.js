@@ -68,6 +68,23 @@ router.post("/", async (req, res, next) => {
       id_skema,
     } = req.body;
 
+    // Normalize decimals for all numeric fields
+    const diskonVal = typeof diskon === "string"
+      ? parseFloat(diskon.replace(",", "."))
+      : Number(diskon) || 0;
+    const originalDiskonVal = typeof originalDiskon === "string"
+      ? parseFloat(originalDiskon.replace(/\./g, "").replace(",", "."))
+      : Number(originalDiskon) || 0;
+    const ppnVal = typeof ppn === "string"
+      ? parseFloat(ppn.replace(",", "."))
+      : Number(ppn) || 0;
+    const ppnAmountVal = typeof ppnAmount === "string"
+      ? parseFloat(ppnAmount.replace(/\./g, "").replace(",", "."))
+      : Number(ppnAmount) || 0;
+    const totalPembayaranVal = typeof totalPembayaran === "string"
+      ? parseFloat(totalPembayaran.replace(/\./g, "").replace(",", "."))
+      : Number(totalPembayaran) || 0;
+
     const [result] = await db.query(
       `INSERT INTO po
       (noPO, tanggalPO, id_supplier, diskon, originalDiskon, ppn, ppnAmount, totalPembayaran, orderedBy, estimasiTanggalTerima, id_statusPengiriman, id_statusPermintaan, status, createdAt, id_skema)
@@ -76,11 +93,11 @@ router.post("/", async (req, res, next) => {
         noPO || "",
         tanggalPO || null,
         id_supplier || null,
-        diskon || 0,
-        originalDiskon || "",
-        ppn || 0,
-        ppnAmount || 0,
-        totalPembayaran || 0,
+        diskonVal,
+        originalDiskonVal,
+        ppnVal,
+        ppnAmountVal,
+        totalPembayaranVal,
         orderedBy || null,
         estimasiTanggalTerima || null,
         id_statusPengiriman || null,
@@ -113,6 +130,28 @@ router.put("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
     const payload = req.body;
+
+    // Normalize decimals for all numeric fields
+    if (payload.diskon)
+      payload.diskon = typeof payload.diskon === "string"
+        ? parseFloat(payload.diskon.replace(",", "."))
+        : Number(payload.diskon) || 0;
+    if (payload.originalDiskon)
+      payload.originalDiskon = typeof payload.originalDiskon === "string"
+        ? parseFloat(payload.originalDiskon.replace(/\./g, "").replace(",", "."))
+        : Number(payload.originalDiskon) || 0;
+    if (payload.ppn)
+      payload.ppn = typeof payload.ppn === "string"
+        ? parseFloat(payload.ppn.replace(",", "."))
+        : Number(payload.ppn) || 0;
+    if (payload.ppnAmount)
+      payload.ppnAmount = typeof payload.ppnAmount === "string"
+        ? parseFloat(payload.ppnAmount.replace(/\./g, "").replace(",", "."))
+        : Number(payload.ppnAmount) || 0;
+    if (payload.totalPembayaran)
+      payload.totalPembayaran = typeof payload.totalPembayaran === "string"
+        ? parseFloat(payload.totalPembayaran.replace(/\./g, "").replace(",", "."))
+        : Number(payload.totalPembayaran) || 0;
 
     const fields = Object.keys(payload);
     if (fields.length === 0)
