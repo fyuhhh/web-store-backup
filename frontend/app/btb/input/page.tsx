@@ -1897,7 +1897,9 @@ export default function BTBInputPage() {
                 </div>
                 {/* Info No. PO dan Supplier, sejajar, tidak terlalu tebal/besar */}
                 <div className="mb-3 flex flex-row gap-2 items-center text-base font-normal text-foreground">
-                  <span>No. PO: {formData.poId}</span>
+                  <span>
+                    No. PO: {selectedPOsForBTB[0]?.noPO || "-"}
+                  </span>
                   <span className="mx-2">|</span>
                   <span>Supplier: {formData.supplierLabel}</span>
                 </div>
