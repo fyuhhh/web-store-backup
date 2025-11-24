@@ -379,6 +379,8 @@ export default function StatusPOPage() {
       ...pr,
       items: prItemData
         .filter((item) => String(item.id_PR) === String(pr.id_PR))
+        // --- Pastikan urutan item sesuai urutan input PR ---
+        .sort((a, b) => Number(a.id_PRItem) - Number(b.id_PRItem))
         .map((item) => ({
           namaBarang: item.namaBarang,
           jumlah: item.jumlah,
