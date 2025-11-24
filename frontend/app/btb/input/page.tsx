@@ -1807,14 +1807,6 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
-                                >
-                                  {po.statusPengiriman ?? ""}
-                                </TableCell>
-                              )}
-                              {itemIndex === 0 && (
-                                <TableCell
-                                  rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {getStatusBadge(po.status)}
@@ -1897,70 +1889,22 @@ export default function BTBInputPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Detail PO yang dipilih */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2">
-                  Detail PO yang dipilih
-                </h3>
-                <div className="border rounded-lg p-3 bg-muted/50">
-                  {selectedPOItems.map((po) => (
-                    <div key={po.poId} className="mb-3">
-                      <div className="font-medium">
-                        No. PO: {po.noPO} | Supplier: {po.supplier}
-                      </div>
-                      <ul className="list-disc ml-6 text-sm">
-                        {po.items
-                          .filter((item) => item.qtySisa > 0)
-                          .map((item, idx) => (
-                            <li key={item.poItemId}>
-                              {item.namaBarang} - Sisa: {item.qtySisa}{" "}
-                              {item.satuan}
-                              <div className="flex items-center gap-2 mt-1">
-                                <Label className="text-xs">Qty diterima:</Label>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  max={item.qtySisa}
-                                  value={
-                                    btbInputQty[item.poItemId] !== undefined
-                                      ? btbInputQty[item.poItemId]
-                                      : ""
-                                  }
-                                  onChange={(e) => {
-                                    let val = e.target.value.replace(
-                                      /^0+(\d)/,
-                                      "$1"
-                                    );
-                                    let parsedVal =
-                                      val === ""
-                                        ? ""
-                                        : Math.max(
-                                            0,
-                                            Math.min(Number(val), item.qtySisa)
-                                          );
-                                    setBtbInputQty((prev) => ({
-                                      ...prev,
-                                      [item.poItemId]: parsedVal,
-                                    }));
-                                  }}
-                                  className="w-20"
-                                />
-                                <span className="text-xs text-muted-foreground">
-                                  / {item.qtySisa} {item.satuan}
-                                </span>
-                              </div>
-                            </li>
-                          ))}
-                      </ul>
-                    </div>
-                  ))}
+              {/* Input Nomor BTB dan Tgl BTB sejajar */}
+              <div className="mb-4">
+                {/* Judul detail PO yang dipilih: warna hitam, besar */}
+                <div className="mb-2 text-2xl font-semibold text-black">
+                  Detail PO yang Dipilih
                 </div>
-              </div>
-              {/* Form */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="noBTB">No. BTB</Label>
+                {/* Info No. PO dan Supplier, sejajar, tidak terlalu tebal/besar */}
+                <div className="mb-3 flex flex-row gap-2 items-center text-base font-normal text-foreground">
+                  <span>No. PO: {formData.poId}</span>
+                  <span className="mx-2">|</span>
+                  <span>Supplier: {formData.supplierLabel}</span>
+                </div>
+                {/* Input Nomor BTB dan Tgl BTB sejajar */}
+                <div className="flex flex-row gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="noBTB">Nomor BTB</Label>
                     <Input
                       id="noBTB"
                       value={formData.noBTB}
@@ -1970,7 +1914,7 @@ export default function BTBInputPage() {
                       placeholder="Auto-generated"
                     />
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <Label htmlFor="tanggal">Tanggal BTB</Label>
                     <DatePicker
                       id="tanggal"
@@ -2010,112 +1954,79 @@ export default function BTBInputPage() {
                       }
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="periode">Periode</Label>
-                    <Input
-                      id="periode"
-                      value={formData.periode}
-                      onChange={(e) =>
-                        setFormData({ ...formData, periode: e.target.value })
-                      }
-                      placeholder="Contoh: Juni 2024"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="supplier">Supplier</Label>
-                    <div className="border rounded px-2 py-1 bg-muted/50 min-h-[40px] flex items-center">
-                      {/* Tampilkan label supplier */}
-                      {getSupplierLabel(formData.supplier)}
-                    </div>
-                    {/* Simpan id_supplier sebagai hidden input */}
-                    <input
-                      type="hidden"
-                      name="supplier"
-                      value={formData.supplier}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="barang">Nama Barang</Label>
-                    <div className="border rounded px-2 py-1 bg-muted/50 min-h-[40px]">
-                      {selectedPOItems.length > 0
-                        ? selectedPOItems
-                            .flatMap((po) =>
-                              po.items
-                                .filter(
-                                  (item) =>
-                                    (btbInputQty[item.poItemId] ?? 0) > 0
-                                )
-                                .map((item) => item.namaBarang)
-                            )
-                            .map((barang, idx) => <div key={idx}>{barang}</div>)
-                        : formData.barang}
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="jumlah">Quantity</Label>
-                    <div className="border rounded px-2 py-1 bg-muted/50 min-h-[40px]">
-                      {selectedPOItems.length > 0
-                        ? selectedPOItems
-                            .flatMap((po) =>
-                              po.items
-                                .filter(
-                                  (item) =>
-                                    (btbInputQty[item.poItemId] ?? 0) > 0
-                                )
-                                .map((item) => btbInputQty[item.poItemId] ?? 0)
-                            )
-                            .map((qty, idx) => <div key={idx}>{qty}</div>)
-                        : formData.jumlah}
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="satuan">Satuan</Label>
-                    <div className="border rounded px-2 py-1 bg-muted/50 min-h-[40px]">
-                      {selectedPOItems.length > 0
-                        ? selectedPOItems
-                            .flatMap((po) =>
-                              po.items
-                                .filter(
-                                  (item) =>
-                                    (btbInputQty[item.poItemId] ?? 0) > 0
-                                )
-                                .map((item) => item.satuan)
-                            )
-                            .map((satuan, idx) => <div key={idx}>{satuan}</div>)
-                        : formData.satuan}
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="biaya">Biaya</Label>
-                    <Input
-                      id="biaya"
-                      type="text"
-                      inputMode="numeric"
-                      value={
-                        formData.biaya === "" || formData.biaya === null
-                          ? ""
-                          : formatRupiahInput(formData.biaya)
-                      }
-                      onChange={(e) => {
-                        // Ambil hanya digit angka dari input
-                        const raw = e.target.value.replace(/[^\d]/g, "");
-                        setFormData({
-                          ...formData,
-                          biaya: raw === "" ? "" : Number(raw),
-                        });
-                      }}
-                      placeholder="Masukkan biaya (Rp)"
-                      required
-                      className="w-full"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="skema">Skema</Label>
-                    <div className="min-h-[40px] flex items-center text-base font-semibold text-muted-foreground">
-                      {formData.skema}
-                    </div>
-                  </div>
-                               </div>
+                </div>
+              </div>
+              {/* Tabel barang: Nama Barang, Quantity PO, Quantity Diterima, Satuan, Keterangan */}
+              <div className="border border-[#e5e7eb] rounded-lg overflow-x-auto mb-4">
+                <table className="w-full text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-white font-semibold text-center h-10 border-b border-[#e5e7eb]">
+                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Nama Barang</th>
+                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Quantity PO</th>
+                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Quantity Diterima</th>
+                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Satuan</th>
+                      <th className="px-4 py-2">Keterangan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedPOItems.flatMap((po) =>
+                      po.items
+                        .filter((item) => item.qtySisa > 0)
+                        .map((item, idx) => (
+                          <tr key={item.poItemId} className="border-b border-[#e5e7eb] text-center align-middle h-10">
+                            <td className="px-4 py-2 border-r border-[#e5e7eb]">{item.namaBarang}</td>
+                            <td className="px-4 py-2 border-r border-[#e5e7eb]">{item.qtySisa}</td>
+                            <td className="px-4 py-2 border-r border-[#e5e7eb] text-center flex justify-center items-center">
+                              <Input
+                                type="number"
+                                min={0}
+                                max={item.qtySisa}
+                                inputMode="numeric"
+                                value={
+                                  btbInputQty[item.poItemId] !== undefined
+                                    ? btbInputQty[item.poItemId]
+                                    : ""
+                                }
+                                onChange={(e) => {
+                                  let val = e.target.value.replace(/^0+(\d)/, "$1");
+                                  let parsedVal =
+                                    val === ""
+                                      ? ""
+                                      : Math.max(
+                                          0,
+                                          Math.min(Number(val), item.qtySisa)
+                                        );
+                                  setBtbInputQty((prev) => ({
+                                    ...prev,
+                                    [item.poItemId]: parsedVal,
+                                  }));
+                                }}
+                                className="w-16 h-9 text-center border border-[#e5e7eb] rounded bg-white appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                style={{
+                                  MozAppearance: "textfield"
+                                }}
+                                onWheel={e => {
+                                  e.target.blur();
+                                  e.preventDefault();
+                                }}
+                              />
+                            </td>
+                            <td className="px-4 py-2 border-r border-[#e5e7eb]">{item.satuan}</td>
+                            <td className="px-4 py-2 text-left">
+                              <div className="text-muted-foreground max-w-xs truncate" title={item.keterangan}>
+                                {item.keterangan}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              {/* Form bawah: Skema saja */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Skema di-hide, tetap dikirim */}
+                <input type="hidden" name="skema" value={formData.skema} />
                 <div className="flex space-x-2 justify-end">
                   <Button
                     type="submit"
