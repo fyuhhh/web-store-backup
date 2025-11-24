@@ -314,6 +314,7 @@ export default function BTBInputPage() {
             const prItem = prItemMap[String(pi.id_PRItem)] || {};
             const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
             const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
+            // --- Perubahan: urutkan item berdasarkan id_PRItem ASC ---
             const item = {
               id: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
               namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
@@ -321,7 +322,7 @@ export default function BTBInputPage() {
               jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
               satuan:
                 prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
-              id_satuan: prItem.id_satuan ?? pi.id_satuan ?? null, // <-- pastikan id_satuan ikut mapping
+              id_satuan: prItem.id_satuan ?? pi.id_satuan ?? null,
               hargaSatuan: Number(pi.hargaSatuan) || 0,
               keterangan: pi.keterangan || prItem.keterangan || "",
             };
@@ -336,6 +337,12 @@ export default function BTBInputPage() {
             } else {
               poItemsGrouped[groupMap[key]].items.push(item);
             }
+          });
+          // --- Pastikan urutan item di setiap poItems sesuai id ASC ---
+          poItemsGrouped.forEach((group) => {
+            group.items.sort(
+              (a: any, b: any) => Number(a.id ?? 0) - Number(b.id ?? 0)
+            );
           });
 
           // Build labels using maps
@@ -1084,7 +1091,7 @@ export default function BTBInputPage() {
                 <Table className="border border-gray-300">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">
+                      <TableHead className="w-12 border-r border-gray-300">
                         <Checkbox
                           checked={allPageSelected}
                           onCheckedChange={(checked) => {
@@ -1106,7 +1113,7 @@ export default function BTBInputPage() {
                           className="focus:ring-2 focus:ring-primary"
                         />
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1150,7 +1157,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1168,7 +1175,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1203,7 +1210,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1248,7 +1255,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1266,7 +1273,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1301,7 +1308,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1336,7 +1343,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1386,7 +1393,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1441,7 +1448,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1491,52 +1498,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Kode <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 bg-white">
-                            <Input
-                              placeholder="Cari kode..."
-                              value={kodeSearchTerm}
-                              onChange={(e) =>
-                                setKodeSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-40 overflow-y-auto mt-2">
-                              {uniqueKode
-                                .filter((k) =>
-                                  k
-                                    .toLowerCase()
-                                    .includes(kodeSearchTerm.toLowerCase())
-                                )
-                                .map((k) => (
-                                  <div
-                                    key={k}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      checked={filterKode.includes(k)}
-                                      onCheckedChange={(checked) => {
-                                        if (checked)
-                                          setFilterKode([...filterKode, k]);
-                                        else
-                                          setFilterKode(
-                                            filterKode.filter((x) => x !== k)
-                                          );
-                                      }}
-                                    />
-                                    <Label className="text-sm">{k}</Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1591,7 +1553,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1636,7 +1598,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1688,7 +1650,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead>
+                      <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1773,8 +1735,8 @@ export default function BTBInputPage() {
                                     />
                                   </TableCell>
                                   <TableCell
-                                    className="font-medium px-4 py-2 border-r border-gray-300 align-middle"
                                     rowSpan={allItems.length}
+                                    className="font-medium px-4 py-2 border-r border-gray-300 align-middle"
                                   >
                                     {po.noPO}
                                   </TableCell>
@@ -1845,14 +1807,6 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
-                                >
-                                  {po.statusPermintaan ?? ""}
-                                </TableCell>
-                              )}
-                              {itemIndex === 0 && (
-                                <TableCell
-                                  rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[140px]"
                                 >
                                   {po.statusPengiriman ?? ""}
@@ -1861,7 +1815,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-gray-300 align-middle min-w-[100px]"
+                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {getStatusBadge(po.status)}
                                 </TableCell>
@@ -1869,7 +1823,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-gray-300 align-middle min-w-[100px]"
+                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {po.orderedBy ?? ""}
                                 </TableCell>
@@ -1877,7 +1831,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-gray-300 align-middle min-w-[100px]"
+                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {skemaMap[String(po.skema)] ?? po.skema}
                                 </TableCell>
@@ -2161,7 +2115,7 @@ export default function BTBInputPage() {
                       {formData.skema}
                     </div>
                   </div>
-                </div>
+                               </div>
                 <div className="flex space-x-2 justify-end">
                   <Button
                     type="submit"

@@ -229,8 +229,15 @@ export default function MonitoringPRPage() {
     );
 
     const validatedData = prList.map((pr: any) => {
+      // --- Perubahan: urutkan items berdasarkan id_PRItem ASC ---
       const items = prItemList
         .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
+        .sort((a: any, b: any) => {
+          // Pastikan id_PRItem ada dan berupa angka
+          const idA = Number(a.id_PRItem ?? 0);
+          const idB = Number(b.id_PRItem ?? 0);
+          return idA - idB;
+        })
         .map((item: any) => ({
           id_PRItem: item.id_PRItem, // <-- Tambahkan ini!
           namaBarang: item.namaBarang,
