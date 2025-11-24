@@ -259,7 +259,15 @@ export default function InputPOPage() {
 
     poItems.forEach((poItem) => {
       poItem.items.forEach((item) => {
-        const harga = Number(item.hargaSatuan) || 0;
+        // Parse hargaSatuan as float, support comma/period
+        let harga = 0;
+        if (typeof item.hargaSatuan === "string") {
+          // Normalize decimal: remove thousands separator, replace ',' with '.'
+          const normalized = item.hargaSatuan.replace(/\./g, "").replace(",", ".");
+          harga = parseFloat(normalized) || 0;
+        } else {
+          harga = Number(item.hargaSatuan) || 0;
+        }
         const qty = Number(item.jumlahPO) || 0;
         const ppn = Number(item.ppnItem) || 0;
         const itemSubtotal = harga * qty;
@@ -280,8 +288,12 @@ export default function InputPOPage() {
             .split("+")
             .map((d) => d.trim())
             .filter((d) => d.endsWith("%"))
-            .map((d) => parseFloat(d.replace("%", "")))
-            .filter((v) => v !== null && !isNaN(v));
+            .map((d) => {
+              // Support decimal diskon: "2,5%" or "2.5%"
+              const val = parseFloat(d.replace("%", "").replace(",", "."));
+              return isNaN(val) ? null : val;
+            })
+            .filter((v) => v !== null) as number[];
           diskonPersenArr.forEach((persen, idx) => {
             const amount = currentAmount * (persen / 100);
             diskonAmount += amount;
@@ -293,7 +305,10 @@ export default function InputPOPage() {
             });
           });
         } else if (lastDiskonChanged[diskonKey] === "nominal") {
-          diskonAmount = parseFloat(item.diskonNominal) || 0;
+          // Support decimal nominal
+          diskonAmount = parseFloat(
+            String(item.diskonNominal).replace(",", ".")
+          ) || 0;
           if (diskonAmount > 0) {
             diskonBreakdown.push({
               label: "Diskon Rp.",
@@ -312,7 +327,6 @@ export default function InputPOPage() {
         let total = 0;
 
         if (ppnIncluded) {
-          // Total = subtotal, PPN tetap dihitung dari subtotal
           subtotalItem = afterDiskon;
           total = afterDiskon;
         } else {
@@ -590,7 +604,7 @@ export default function InputPOPage() {
               .split("+")
               .map((d) => d.trim())
               .filter((d) => d.endsWith("%"))
-              .map((d) => parseFloat(d.replace("%", "")))
+              .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
               .filter((v) => !isNaN(v));
             diskonPersenArr.forEach((persen) => {
               const amount = currentAmount * (persen / 100);
@@ -973,8 +987,11 @@ export default function InputPOPage() {
     itemId: string,
     value: string
   ) {
-    const cleanValue = value.replace(/[.,]/g, "");
-    const newPrice = Math.max(0, parseInt(cleanValue) || 0);
+    // Allow user to input numbers with comma or period for decimals
+    // Remove "Rp. " prefix if present
+    let cleanValue = value.replace(/^Rp\.?\s*/i, "");
+    // Only allow digits, comma, and period
+    cleanValue = cleanValue.replace(/[^\d.,]/g, "");
     setPoItems((prevPoItems) =>
       prevPoItems.map((pItem) =>
         pItem.prId === prId
@@ -984,7 +1001,7 @@ export default function InputPOPage() {
                 i.id === itemId
                   ? {
                       ...i,
-                      hargaSatuan: newPrice,
+                      hargaSatuan: cleanValue,
                     }
                   : i
               ),
@@ -1038,7 +1055,14 @@ export default function InputPOPage() {
               items: pItem.items.map((i) => {
                 if (i.id === itemId) {
                   // Hitung total diskon nominal dari persen
-                  const harga = Number(i.hargaSatuan) || 0;
+                  // Support decimal hargaSatuan
+                  let harga = 0;
+                  if (typeof i.hargaSatuan === "string") {
+                    const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                    harga = parseFloat(normalized) || 0;
+                  } else {
+                    harga = Number(i.hargaSatuan) || 0;
+                  }
                   const qty = Number(i.jumlahPO) || 0;
                   const itemSubtotal = harga * qty;
                   // Stack diskon persen
@@ -1048,7 +1072,7 @@ export default function InputPOPage() {
                     .split("+")
                     .map((d) => d.trim())
                     .filter((d) => d.endsWith("%"))
-                    .map((d) => parseFloat(d.replace("%", "")))
+                    .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
                     .filter((v) => !isNaN(v));
                   diskonPersenArr.forEach((persen) => {
                     const amount = currentAmount * (persen / 100);
@@ -1090,14 +1114,20 @@ export default function InputPOPage() {
               items: pItem.items.map((i) => {
                 if (i.id === itemId) {
                   // Hitung diskon persen hasil konversi dari nominal
-                  const harga = Number(i.hargaSatuan) || 0;
+                  let harga = 0;
+                  if (typeof i.hargaSatuan === "string") {
+                    const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                    harga = parseFloat(normalized) || 0;
+                  } else {
+                    harga = Number(i.hargaSatuan) || 0;
+                  }
                   const qty = Number(i.jumlahPO) || 0;
                   const itemSubtotal = harga * qty;
-                  const diskonNominal = parseFloat(value) || 0;
+                  // Support decimal diskonNominal
+                  const diskonNominal = parseFloat(value.replace(",", ".")) || 0;
                   let diskonPersen = "";
                   if (itemSubtotal > 0 && diskonNominal > 0) {
                     const persen = (diskonNominal / itemSubtotal) * 100;
-                    // Jika persen bulat, tampilkan tanpa koma. Jika ada koma, tampilkan aslinya (misal 17.5%)
                     diskonPersen =
                       persen % 1 === 0 ? `${persen.toFixed(0)}%` : `${persen}%`;
                   }
@@ -1763,7 +1793,9 @@ export default function InputPOPage() {
                         )
                         .map((item, idx) => {
                           // Perhitungan diskon dan PPN per item
-                          const harga = Number(item.hargaSatuan) || 0;
+                          const harga = typeof item.hargaSatuan === "string"
+                            ? parseFloat(item.hargaSatuan.replace(/\./g, "").replace(",", "."))
+                            : Number(item.hargaSatuan) || 0;
                           const qty = Number(item.jumlahPO) || 0;
                           const ppn = Number(item.ppnItem) || 0;
                           const itemSubtotal = harga * qty;
@@ -1778,17 +1810,15 @@ export default function InputPOPage() {
                               .split("+")
                               .map((d) => d.trim())
                               .filter((d) => d.endsWith("%"))
-                              .map((d) => parseFloat(d.replace("%", "")))
+                              .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
                               .filter((v) => v !== null && !isNaN(v));
                             diskonPersenArr.forEach((persen) => {
                               const amount = currentAmount * (persen / 100);
                               diskonAmount += amount;
                               currentAmount -= amount;
                             });
-                          } else if (
-                            lastDiskonChanged[diskonKey] === "nominal"
-                          ) {
-                            diskonAmount = parseFloat(item.diskonNominal) || 0;
+                          } else if (lastDiskonChanged[diskonKey] === "nominal") {
+                            diskonAmount = parseFloat(String(item.diskonNominal).replace(",", ".")) || 0;
                           } else {
                             // Default: tidak ada diskon
                             diskonAmount = 0;
@@ -1852,27 +1882,21 @@ export default function InputPOPage() {
                               <TableCell>
                                 <Input
                                   type="text"
-                                  inputMode="numeric"
+                                  inputMode="decimal"
                                   value={
                                     item.hargaSatuan
-                                      ? `Rp. ${Number(
-                                          item.hargaSatuan
-                                        ).toLocaleString("id-ID")}`
+                                      ? `Rp. ${item.hargaSatuan}`
                                       : ""
                                   }
                                   onWheel={(e) => e.currentTarget.blur()}
                                   onChange={(e) => {
-                                    const raw = e.target.value.replace(
-                                      /[^\d]/g,
-                                      ""
-                                    );
                                     handleHargaSatuanChange(
                                       item.prId,
                                       item.id,
-                                      raw
+                                      e.target.value
                                     );
                                   }}
-                                  className="w-40 text-right" // <-- ubah dari w-24 ke w-40
+                                  className="w-40 text-right"
                                   placeholder="Rp. 0"
                                   autoComplete="off"
                                 />
@@ -2040,7 +2064,7 @@ export default function InputPOPage() {
                           <span>
                             Total PPN
                             {ppnIncluded ? "" : ""}:
-                          </span>
+                                                   </span>
                           <span className="text-success">
                             {ppnIncluded
                               ? "Rp " +
