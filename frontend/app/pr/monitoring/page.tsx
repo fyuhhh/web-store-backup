@@ -519,10 +519,26 @@ export default function MonitoringPRPage() {
       (pr) => filterSkemaId === "all" || String(pr.skema) === filterSkemaId
     );
 
+  // --- SORTING: tanggal terbaru ke terlama, jika sama urutkan berdasarkan angka di belakang noPR (template: PR/E-WALK/25/x/037) ---
+  const sortedPRData = [...filteredPRData].sort((a, b) => {
+    // Tanggal PR descending (terbaru ke terlama)
+    if (a.tanggalPR !== b.tanggalPR) {
+      return String(b.tanggalPR).localeCompare(String(a.tanggalPR));
+    }
+    // Jika tanggal sama, urutkan berdasarkan angka di belakang noPR
+    const getNoPRInt = (noPR: string) => {
+      const match = noPR.match(/(\d+)(?!.*\d)/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+    const numA = getNoPRInt(a.noPR);
+    const numB = getNoPRInt(b.noPR);
+    return numB - numA; // tertinggi ke terendah
+  });
+
   // Pagination logic
-  const totalPages = Math.ceil(filteredPRData.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedPRData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filteredPRData.slice(
+  const paginatedData = sortedPRData.slice(
     startIndex,
     startIndex + itemsPerPage
   );
