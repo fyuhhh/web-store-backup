@@ -526,20 +526,12 @@ export default function MonitoringPRPage() {
       (pr) => filterSkemaId === "all" || String(pr.skema) === filterSkemaId
     );
 
-  // --- SORTING: tanggal terbaru ke terlama, jika sama urutkan berdasarkan angka di belakang noPR (template: PR/E-WALK/25/x/037) ---
+  // --- SORTING: id_PR tertinggi ke terendah ---
   const sortedPRData = [...filteredPRData].sort((a, b) => {
-    // Tanggal PR descending (terbaru ke terlama)
-    if (a.tanggalPR !== b.tanggalPR) {
-      return String(b.tanggalPR).localeCompare(String(a.tanggalPR));
-    }
-    // Jika tanggal sama, urutkan berdasarkan angka di belakang noPR
-    const getNoPRInt = (noPR: string) => {
-      const match = noPR.match(/(\d+)(?!.*\d)/);
-      return match ? parseInt(match[1], 10) : 0;
-    };
-    const numA = getNoPRInt(a.noPR);
-    const numB = getNoPRInt(b.noPR);
-    return numB - numA; // tertinggi ke terendah
+    // Pastikan id_PR berupa angka
+    const idA = Number(a.id);
+    const idB = Number(b.id);
+    return idB - idA; // tertinggi ke terendah
   });
 
   // Pagination logic
@@ -1132,7 +1124,7 @@ export default function MonitoringPRPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Nama Barang
+                            Daftar Barang
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>

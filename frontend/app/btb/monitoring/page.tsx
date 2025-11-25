@@ -57,7 +57,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 // Helper untuk format rupiah
 function formatRupiah(val: any) {
   if (val === undefined || val === "" || isNaN(val)) return "";
-  return "Rp " + Number(val).toLocaleString("id-ID");
+  return "Rp " + Math.round(Number(val)).toLocaleString("id-ID"); // <-- pastikan integer
 }
 
 // Helper untuk format tanggal DD-MM-YYYY
@@ -75,9 +75,7 @@ function formatInt(val: any) {
   const num = Number(val);
   return Number.isNaN(num)
     ? ""
-    : num % 1 === 0
-    ? num.toString()
-    : num.toFixed(2);
+    : Math.round(num).toString(); // <-- pastikan integer
 }
 
 function formatTanggalLebihSehari(tgl: string) {
@@ -134,6 +132,11 @@ export default function BTBMonitoringPage() {
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
 
+  // Tambah state/modal untuk restore item BTB
+  const [restoreItemModalOpen, setRestoreItemModalOpen] = useState(false);
+  const [selectedBTBItemsForRestore, setSelectedBTBItemsForRestore] = useState<{ btbId: string; items: any[] }[]>([]);
+  const [selectedItemIdsToRestore, setSelectedItemIdsToRestore] = useState<string[]>([]);
+
   // Auto-close toast
   useEffect(() => {
     if (toastOpen) {
@@ -187,76 +190,66 @@ export default function BTBMonitoringPage() {
 
   // Hapus BTB (multi/single) - hapus juga di backend
   const handleDelete = (ids: string[] | string) => {
-    // Ambil id_btb unik dari baris yang dipilih
     const idList = Array.isArray(ids) ? ids : [ids];
-    // Map id_btb_item ke id_btb (dari btbRows)
-    const idBtbList = Array.from(
-      new Set(
-        idList
-          .map((id) => {
-            const row = btbRows.find((r) => r.id === id);
-            // row.id_btb = id parent BTB
-            // row.id = id_btb_item
-            // row.noBTB = no_btb
-            // row.tanggal = tanggal_btb
-            // row.periode = periode
-            // row.id_supplier = id_supplier
-            // row.nama_supplier = nama_supplier
-            // row.supplier = id_supplier (legacy)
-            // row.nama_barang = nama_barang
-            // row.jumlah = jumlah_diterima
-            // row.satuan = satuan
-            // row.sisa = qty_sisa
-            // row.biaya = biaya
-            // row.diterimaOleh = id_user
-            // row.skema = id_skema
-            // row.id_btb = id_btb (parent)
-            // row.id = id_btb_item
-            // row.id_btb bisa undefined jika mapping belum ada
-            // fallback: cari id_btb dari btbRows yang sama noBTB dan tanggal
-            if (row?.id_btb) return row.id_btb;
-            // fallback: cari dari noBTB dan tanggal
-            const fallback = btbRows.find(
-              (r) =>
-                r.noBTB === row?.noBTB &&
-                r.tanggal === row?.tanggal &&
-                r.periode === row?.periode
-            );
-            return fallback?.id_btb;
-          })
-          .filter(Boolean)
-      )
-    );
-    setDeleteIds(idBtbList as string[]);
-    setConfirmDeleteOpen(true);
+    // Ambil data item dari BTB yang dipilih
+    const btbItems = btbRows
+      .filter((row) => idList.includes(row.id))
+      .map((row) => ({
+        btbId: row.id_btb,
+        items: [row],
+      }));
+    setSelectedBTBItemsForRestore(btbItems);
+    setSelectedItemIdsToRestore([]);
+    setRestoreItemModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-    setConfirmDeleteOpen(false);
+  // --- Fungsi restore item BTB ke PO ---
+  const confirmRestoreItems = async () => {
+    setRestoreItemModalOpen(false);
     try {
-      for (const id_btb of deleteIds) {
-        // Hapus BTB di backend (beserta item, ON DELETE CASCADE)
-        await fetch(`http://192.168.10.10:5000/api/btb/${id_btb}`, {
-          method: "DELETE",
-        });
+      const poIdsToCheck = new Set<string>();
+      for (const itemId of selectedItemIdsToRestore) {
+        // Ambil data item BTB
+        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`);
+        if (!btbItemRes.ok) continue;
+        const btbItem = await btbItemRes.json();
+        // Hapus item BTB
+        await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`, { method: "DELETE" });
+        // Update jumlahPO di po_item (tambah kembali jumlah_diterima)
+        const poItemRes = await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`);
+        if (poItemRes.ok) {
+          const poItem = await poItemRes.json();
+          const newJumlahPO = Number(poItem.jumlahPO) + Number(btbItem.jumlah_diterima);
+          // --- Hanya update jumlahPO, JANGAN kirim field lain ---
+          await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jumlahPO: newJumlahPO
+            }),
+          });
+          if (poItem.id_PO) poIdsToCheck.add(String(poItem.id_PO));
+        }
       }
-      // Hapus semua baris yang id_btb-nya ada di deleteIds
-      setBtbRows((prev) =>
-        prev.filter((row) => !deleteIds.includes(String(row.id_btb)))
-      );
-      setSelectedBTBIds((prev) =>
-        prev.filter((id) => {
-          const row = btbRows.find((r) => r.id === id);
-          return row && !deleteIds.includes(String(row.id_btb));
-        })
-      );
-      setToastMsg("BTB berhasil dihapus.");
+      // Hapus BTB parent jika semua item sudah dihapus
+      for (const { btbId } of selectedBTBItemsForRestore) {
+        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item?id_btb=${btbId}`);
+        if (btbItemRes.ok) {
+          const items = await btbItemRes.json();
+          if (!items || items.length === 0) {
+            await fetch(`http://192.168.10.10:5000/api/btb/${btbId}`, { method: "DELETE" });
+          }
+        }
+      }
+      setToastMsg("Item BTB berhasil dikembalikan ke PO.");
       setToastOpen(true);
-    } catch (error) {
-      setToastMsg("Terjadi kesalahan saat menghapus BTB.");
+      // Refresh data
+      window.location.reload();
+    } catch (err) {
+      setToastMsg("Gagal mengembalikan item BTB.");
       setToastOpen(true);
     }
-    setDeleteIds([]);
+    setSelectedItemIdsToRestore([]);
   };
 
   // Checkbox select all (per halaman)
@@ -508,7 +501,7 @@ export default function BTBMonitoringPage() {
     // Helper format rupiah
     function formatRupiahExcel(val: any) {
       if (val === undefined || val === "" || isNaN(val)) return "";
-      return "Rp " + Number(val).toLocaleString("id-ID");
+      return "Rp " + Math.round(Number(val)).toLocaleString("id-ID"); // <-- pastikan integer
     }
 
     // Add data rows persis seperti tampilan tabel
@@ -581,6 +574,88 @@ export default function BTBMonitoringPage() {
       events.forEach((ev) => window.removeEventListener(ev, resetTimer));
     };
   }, []);
+
+  // --- Modal restore item BTB ---
+  function RestoreItemModal({
+    open,
+    btbItems,
+    selectedIds,
+    setSelectedIds,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[420px] max-h-[80vh] overflow-y-auto">
+          <h2 className="text-lg font-semibold mb-2">
+            Pilih Item BTB yang akan dikembalikan ke PO
+          </h2>
+          <div className="space-y-4">
+            {btbItems.map(({ btbId, items }) => (
+              <div key={btbId}>
+                <div className="font-semibold mb-1">
+                  BTB: {btbId}
+                </div>
+                {items.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">
+                    Tidak ada item pada BTB ini.
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {items.map((item: any, idx: number) => {
+                      const keyId = item.id ? String(item.id) : `${item.nama_barang}-${item.jumlah}-${idx}`;
+                      const valueId = item.id ? String(item.id) : "";
+                      return (
+                        <label key={keyId} className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            value={valueId}
+                            checked={selectedIds.includes(valueId)}
+                            disabled={!valueId}
+                            onChange={(e) => {
+                              if (!valueId) return;
+                              if (e.target.checked) {
+                                setSelectedIds([...selectedIds, valueId]);
+                              } else {
+                                setSelectedIds(selectedIds.filter((x) => x !== valueId));
+                              }
+                            }}
+                          />
+                          <span>
+                            {item.nama_barang} ({item.jumlah} {item.satuan})
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={onConfirm}
+              disabled={selectedIds.length === 0}
+            >
+              Kembalikan ke PO ({selectedIds.length})
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Tambahkan definisi fungsi confirmDelete agar tidak error
+  function confirmDelete() {
+    setConfirmDeleteOpen(false);
+    // ...tambahkan logika hapus jika diperlukan...
+  }
 
   return (
     <MainLayout>
@@ -1154,6 +1229,14 @@ export default function BTBMonitoringPage() {
           open={toastOpen}
           message={toastMsg}
           onClose={() => setToastOpen(false)}
+        />
+        <RestoreItemModal
+          open={restoreItemModalOpen}
+          btbItems={selectedBTBItemsForRestore}
+          selectedIds={selectedItemIdsToRestore}
+          setSelectedIds={setSelectedItemIdsToRestore}
+          onConfirm={confirmRestoreItems}
+          onCancel={() => setRestoreItemModalOpen(false)}
         />
       </div>
     </MainLayout>

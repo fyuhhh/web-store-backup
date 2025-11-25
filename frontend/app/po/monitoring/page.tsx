@@ -811,21 +811,11 @@ export default function MonitoringPOPage() {
       // ...jangan filter berdasarkan jumlahPO...
     );
 
-  // Sort filteredPOData dari tanggalPO terbaru ke terlama, jika sama urutkan noPO terbaru ke terlama berdasarkan angka di belakang
+  // --- SORTING: id_PO tertinggi ke terendah ---
   const sortedPOData = [...filteredPOData].sort((a, b) => {
-    // Tanggal PO descending (terbaru ke terlama)
-    if (a.tanggalPO !== b.tanggalPO) {
-      return String(b.tanggalPO).localeCompare(String(a.tanggalPO));
-    }
-    // Jika tanggal sama, urutkan berdasarkan angka di belakang noPO (template: PO/E-WALK/WBL/25/X/00000)
-    // Ambil angka di belakang (setelah / terakhir)
-    const getNoPOInt = (noPO: string) => {
-      const match = noPO.match(/(\d+)(?!.*\d)/);
-      return match ? parseInt(match[1], 10) : 0;
-    };
-    const numA = getNoPOInt(a.noPO);
-    const numB = getNoPOInt(b.noPO);
-    return numB - numA; // tertinggi ke terendah
+    const idA = Number(a.id_PO ?? a.id);
+    const idB = Number(b.id_PO ?? b.id);
+    return idB - idA; // tertinggi ke terendah
   });
 
   // Pagination logic
@@ -2033,7 +2023,7 @@ export default function MonitoringPOPage() {
                           ? "bg-primary text-white font-bold"
                           : "bg-white text-black"
                         }`}
-                      style={{
+                      style={ {
                         display: "inline-block",
                         margin: "0 2px",
                         padding: "4px 0",

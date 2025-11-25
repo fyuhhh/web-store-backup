@@ -523,14 +523,11 @@ export default function StatusPOPage() {
         matchesSkema
       );
     })
-    // Tambahkan sort DESC (terbaru ke terlama)
+    // --- SORTING: id_PR tertinggi ke terendah ---
     .sort((a, b) => {
-      // Tanggal PR descending
-      if (a.tanggalPR !== b.tanggalPR) {
-        return String(b.tanggalPR).localeCompare(String(a.tanggalPR));
-      }
-      // Jika tanggal sama, No PR descending
-      return String(b.noPR).localeCompare(String(a.noPR));
+      const idA = Number(a.id_PR ?? a.id);
+      const idB = Number(b.id_PR ?? b.id);
+      return idB - idA; // tertinggi ke terendah
     });
 
   // --- PAGINATION ---
