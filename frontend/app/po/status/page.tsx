@@ -89,15 +89,15 @@ export default function StatusPOPage() {
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
     const fetchPRData = async () => {
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch("http://localhost:5000/api/pr");
       const prList = await prRes.json();
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
-      const satuanRes = await fetch("http://192.168.10.10:5000/api/satuan");
+      const satuanRes = await fetch("http://localhost:5000/api/satuan");
       const satuanList = await satuanRes.json();
-      const divisiRes = await fetch("http://192.168.10.10:5000/api/divisi");
+      const divisiRes = await fetch("http://localhost:5000/api/divisi");
       const divisiList = await divisiRes.json();
-      const urgensiRes = await fetch("http://192.168.10.10:5000/api/urgensi");
+      const urgensiRes = await fetch("http://localhost:5000/api/urgensi");
       const urgensiList = await urgensiRes.json();
       setPrData(prList);
       setPrItemData(prItemList);
@@ -523,14 +523,11 @@ export default function StatusPOPage() {
         matchesSkema
       );
     })
-    // Tambahkan sort DESC (terbaru ke terlama)
+    // --- SORTING: id_PR tertinggi ke terendah ---
     .sort((a, b) => {
-      // Tanggal PR descending
-      if (a.tanggalPR !== b.tanggalPR) {
-        return String(b.tanggalPR).localeCompare(String(a.tanggalPR));
-      }
-      // Jika tanggal sama, No PR descending
-      return String(b.noPR).localeCompare(String(a.noPR));
+      const idA = Number(a.id_PR ?? a.id);
+      const idB = Number(b.id_PR ?? b.id);
+      return idB - idA; // tertinggi ke terendah
     });
 
   // --- PAGINATION ---

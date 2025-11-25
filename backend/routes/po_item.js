@@ -9,7 +9,23 @@ router.get("/", async (req, res, next) => {
     const [rows] = await db.query(
       "SELECT * FROM po_item ORDER BY id_POItem DESC"
     );
-    res.json(rows);
+    // --- FIX: pastikan hargaSatuan, jumlahPO, jumlahAsli integer ---
+    const fixedRows = rows.map((row) => ({
+      ...row,
+      hargaSatuan:
+        row.hargaSatuan !== undefined && row.hargaSatuan !== null
+          ? Math.round(Number(row.hargaSatuan))
+          : 0,
+      jumlahPO:
+        row.jumlahPO !== undefined && row.jumlahPO !== null
+          ? Math.round(Number(row.jumlahPO))
+          : 0,
+      jumlahAsli:
+        row.jumlahAsli !== undefined && row.jumlahAsli !== null
+          ? Math.round(Number(row.jumlahAsli))
+          : 0,
+    }));
+    res.json(fixedRows);
   } catch (err) {
     next(err);
   }
@@ -25,6 +41,19 @@ router.get("/:id", async (req, res, next) => {
     );
     if (!row)
       return res.status(404).json({ message: "PO item tidak ditemukan" });
+    // --- FIX: pastikan hargaSatuan, jumlahPO, jumlahAsli integer ---
+    row.hargaSatuan =
+      row.hargaSatuan !== undefined && row.hargaSatuan !== null
+        ? Math.round(Number(row.hargaSatuan))
+        : 0;
+    row.jumlahPO =
+      row.jumlahPO !== undefined && row.jumlahPO !== null
+        ? Math.round(Number(row.jumlahPO))
+        : 0;
+    row.jumlahAsli =
+      row.jumlahAsli !== undefined && row.jumlahAsli !== null
+        ? Math.round(Number(row.jumlahAsli))
+        : 0;
     res.json(row);
   } catch (err) {
     next(err);
