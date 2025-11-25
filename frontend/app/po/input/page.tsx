@@ -582,6 +582,10 @@ export default function InputPOPage() {
       // 2. POST setiap PO Item ke backend dan PUT PR Item untuk update jumlah
       for (const poItem of poItems) {
         for (const item of poItem.items) {
+          // --- Pastikan jumlahPO dan jumlahAsli dikirim sebagai integer bulat ---
+          const jumlahPOInt = Math.floor(Number(item.jumlahPO)) || 0;
+          const jumlahAsliInt = Math.floor(Number(item.jumlahAsli)) || 0;
+
           // --- Ambil nilai diskon dan ppn per item ---
           // Diskon (%) hanya angka pertama dari item.diskonPersen
           let diskonPersenValue = 0;
@@ -626,8 +630,8 @@ export default function InputPOPage() {
               id_PO,
               id_PRItem: item.id_PRItem ?? item.id,
               hargaSatuan: item.hargaSatuan,
-              jumlahPO: item.jumlahPO,
-              jumlahAsli: item.jumlahAsli,
+              jumlahPO: jumlahPOInt,
+              jumlahAsli: jumlahAsliInt,
               diskonPersen: diskonPersenValue, // Diskon (%) masuk ke kolom diskonPersen
               diskonRupiah: diskonRupiahValue, // Diskon (Rp) masuk ke kolom diskonRupiah
               ppnPersen: ppnPersenValue, // PPN (%) masuk ke kolom ppnPersen
@@ -645,7 +649,7 @@ export default function InputPOPage() {
           const prItemData = await prItemRes.json();
 
           // Calculate new quantity
-          const newJumlah = Math.max(0, item.jumlahAsli - item.jumlahPO);
+          const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt);
 
           // C. Update PR Item with complete payload
           await fetch(`http://localhost:5000/api/pr-item/${item.id}`, {
@@ -655,9 +659,9 @@ export default function InputPOPage() {
               id_PR: poItem.prId,
               namaBarang: item.namaBarang,
               jumlah: newJumlah,
-              originalJumlah: prItemData.originalJumlah || item.jumlahAsli,
-              quantityAwalPR: prItemData.quantityAwalPR || item.jumlahAsli,
-              id_satuan: prItemData.id_satuan || item.id_satuan, // <-- always send id_satuan from PR item, fallback to PO item mapping
+              originalJumlah: prItemData.originalJumlah || jumlahAsliInt,
+              quantityAwalPR: prItemData.quantityAwalPR || jumlahAsliInt,
+              id_satuan: prItemData.id_satuan || item.id_satuan,
               keterangan: item.keterangan || "",
             }),
           });
@@ -1021,7 +1025,8 @@ export default function InputPOPage() {
               items: pItem.items.map((i) => {
                 if (i.id === itemId) {
                   const maxQty = Number(i.jumlahAsli);
-                  let newQty = Math.max(0, parseInt(value) || 0);
+                  // Pastikan hanya integer bulat, tidak ribuan/desimal
+                  let newQty = Math.max(0, Math.floor(Number(value)) || 0);
                   if (newQty > maxQty) newQty = maxQty;
                   return { ...i, jumlahPO: newQty };
                 }
