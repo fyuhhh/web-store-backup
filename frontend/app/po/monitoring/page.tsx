@@ -173,15 +173,15 @@ export default function MonitoringPOPage() {
         skemaRes,
         userRes, // <-- tambahkan fetch user
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/po"),
-        fetch("http://192.168.10.10:5000/api/po-item"),
-        fetch("http://192.168.10.10:5000/api/pr-item"),
-        fetch("http://192.168.10.10:5000/api/pr"),
-        fetch("http://192.168.10.10:5000/api/supplier"),
-        fetch("http://192.168.10.10:5000/api/status-permintaan"),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-        fetch("http://192.168.10.10:5000/api/skema"),
-        fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+        fetch("http://localhost:5000/api/po"),
+        fetch("http://localhost:5000/api/po-item"),
+        fetch("http://localhost:5000/api/pr-item"),
+        fetch("http://localhost:5000/api/pr"),
+        fetch("http://localhost:5000/api/supplier"),
+        fetch("http://localhost:5000/api/status-permintaan"),
+        fetch("http://localhost:5000/api/status-pengiriman"),
+        fetch("http://localhost:5000/api/skema"),
+        fetch("http://localhost:5000/api/user"), // <-- fetch user
       ]);
 
       const [
@@ -507,8 +507,9 @@ export default function MonitoringPOPage() {
   const confirmDeleteItems = async (mode: "permanent" | "restore") => {
     setDeleteItemModalOpen(false);
     try {
-      // --- Kumpulkan id_PR sebelum proses hapus ---
+      // --- Kumpulkan id_PR dan id_PO sebelum proses hapus ---
       const prIdsToUpdate = new Set<string>();
+      const poIdsToCheck = new Set<string>();
       const poItemsData: Record<string, any> = {};
 
       for (const itemId of selectedItemIdsToDelete) {
@@ -516,7 +517,7 @@ export default function MonitoringPOPage() {
         if (mode === "restore") {
           // Ambil data PO item sebelum dihapus
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `http://localhost:5000/api/po-item/${itemId}`
           );
           if (!poItemRes.ok) continue;
           const poItem = await poItemRes.json();
@@ -528,7 +529,7 @@ export default function MonitoringPOPage() {
           } else if (poItem.id_PRItem) {
             // Fetch PR Item untuk dapatkan id_PR
             const prItemRes = await fetch(
-              `http://192.168.10.10:5000/api/pr-item/${poItem.id_PRItem}`
+              `http://localhost:5000/api/pr-item/${poItem.id_PRItem}`
             );
             if (prItemRes.ok) {
               const prItem = await prItemRes.json();
@@ -537,16 +538,10 @@ export default function MonitoringPOPage() {
               }
             }
           }
-          // --- Log hasil mapping id_PR ---
-          console.log(
-            "[DEBUG] POItem fetched for restore:",
-            poItem,
-            "-> id_PR:",
-            prId
-          );
           if (prId) prIdsToUpdate.add(prId);
-          // Simpan id_PR ke poItemsData untuk dipakai di bawah
           poItemsData[itemId].__id_PR = prId;
+          // --- Simpan id_PO untuk pengecekan setelah restore ---
+          if (poItem.id_PO) poIdsToCheck.add(String(poItem.id_PO));
         }
       }
 
@@ -555,25 +550,25 @@ export default function MonitoringPOPage() {
         if (!itemId) continue;
         if (mode === "permanent") {
           // Hapus item PO secara permanen
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
         } else if (mode === "restore") {
           // --- RESTORE: Kembalikan item ke PR ---
           // Ambil data PO item
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `http://localhost:5000/api/po-item/${itemId}`
           );
           const poItem = await poItemRes.json();
           // Hapus item PO
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
           const prId = poItem.__id_PR;
           const prItemId = poItem.id_PRItem;
           // Cek apakah PRItem masih ada
           const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${prItemId}`
+            `http://localhost:5000/api/pr-item/${prItemId}`
           );
           let prItem = null;
           if (prItemRes.ok) {
@@ -581,7 +576,7 @@ export default function MonitoringPOPage() {
           }
           if (prItem && prItem.id_PRItem) {
             const newJumlah = Number(prItem.jumlah) + Number(poItem.jumlahPO);
-            await fetch(`http://192.168.10.10:5000/api/pr-item/${prItemId}`, {
+            await fetch(`http://localhost:5000/api/pr-item/${prItemId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -591,7 +586,7 @@ export default function MonitoringPOPage() {
             });
           } else {
             // PRItem sudah tidak ada, buat ulang
-            await fetch(`http://192.168.10.10:5000/api/pr-item`, {
+            await fetch(`http://localhost:5000/api/pr-item`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -605,7 +600,6 @@ export default function MonitoringPOPage() {
               }),
             });
           }
-          // --- JANGAN update status PR di sini, lakukan di bawah setelah semua selesai ---
         }
       }
 
@@ -616,12 +610,12 @@ export default function MonitoringPOPage() {
           // --- Tambahkan log sebelum fetch ---
           console.log("[DEBUG] Akan fetch PR untuk update status:", prId);
           // Ambil data PR lama
-          const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+          const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
           if (prRes.ok) {
             const prData = await prRes.json();
             // Kirim semua field PR lama + status baru "Gantung"
             // Pastikan field status dikirim dan tidak kosong
-            await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+            await fetch(`http://localhost:5000/api/pr/${prId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -634,6 +628,28 @@ export default function MonitoringPOPage() {
               `PR id ${prId} tidak ditemukan. Tidak dapat mengubah status.`
             );
             setToastOpen(true);
+          }
+        }
+        // --- Tambahkan: cek PO yang sudah tidak punya item, hapus PO ---
+        for (const poId of poIdsToCheck) {
+          // Fetch semua item PO dari backend
+          const poItemRes = await fetch(
+            `http://localhost:5000/api/po-item`
+          );
+          if (poItemRes.ok) {
+            const poItems = await poItemRes.json();
+            // Filter item PO dengan id_PO = poId dan jumlahPO > 0
+            const itemsMasihAda = poItems.filter(
+              (item: any) =>
+                String(item.id_PO) === String(poId) &&
+                Number(item.jumlahPO) > 0
+            );
+            if (itemsMasihAda.length === 0) {
+              // Hapus PO dari backend
+              await fetch(`http://localhost:5000/api/po/${poId}`, {
+                method: "DELETE",
+              });
+            }
           }
         }
       }
@@ -1081,7 +1097,7 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        await fetch(`http://192.168.10.10:5000/api/po/${id}`, {
+        await fetch(`http://localhost:5000/api/po/${id}`, {
           method: "DELETE",
         });
       }
