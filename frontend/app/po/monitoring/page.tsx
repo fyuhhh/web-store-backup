@@ -421,8 +421,6 @@ export default function MonitoringPOPage() {
   const [toastMsg, setToastMsg] = useState("");
 
   // --- Tambah state untuk modal hapus item PO ---
-  const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
-  const [deleteMode, setDeleteMode] = useState<"po" | "item" | null>(null);
   const [deleteItemModalOpen, setDeleteItemModalOpen] = useState(false);
   const [selectedPOItemsForDelete, setSelectedPOItemsForDelete] = useState<
     { poId: string; items: any[] }[]
@@ -485,36 +483,23 @@ export default function MonitoringPOPage() {
   // --- Perbaiki handleDelete agar bisa multi dan pakai modal ---
   const handleDelete = async (ids: string[] | string) => {
     const idList = Array.isArray(ids) ? ids : [ids];
-    setDeleteIds(idList);
-    setDeleteChoiceOpen(true);
-    setDeleteMode(null);
-  };
-
-  // --- Fungsi untuk handle pilihan hapus PO atau item ---
-  const handleDeleteChoice = (mode: "po" | "item") => {
-    setDeleteMode(mode);
-    setDeleteChoiceOpen(false);
-    if (mode === "po") {
-      setConfirmDeleteOpen(true);
-    } else if (mode === "item") {
-      // Siapkan data item dari PO yang dipilih
-      const poItems = poData
-        .filter((po) => deleteIds.includes(po.id))
-        .map((po) => ({
-          poId: po.id,
-          items:
-            po.poItems?.flatMap((poItem: any) =>
-              poItem.items.map((item: any) => ({
-                ...item,
-                poId: po.id,
-                poItemId: item.id_POItem, // <-- gunakan id_POItem asli dari backend
-              }))
-            ) ?? [],
-        }));
-      setSelectedPOItemsForDelete(poItems);
-      setSelectedItemIdsToDelete([]);
-      setDeleteItemModalOpen(true);
-    }
+    // Siapkan data item dari PO yang dipilih
+    const poItems = poData
+      .filter((po) => idList.includes(po.id))
+      .map((po) => ({
+        poId: po.id,
+        items:
+          po.poItems?.flatMap((poItem: any) =>
+            poItem.items.map((item: any) => ({
+              ...item,
+              poId: po.id,
+              poItemId: item.id_POItem,
+            }))
+          ) ?? [],
+      }));
+    setSelectedPOItemsForDelete(poItems);
+    setSelectedItemIdsToDelete([]);
+    setDeleteItemModalOpen(true);
   };
 
   // --- Fungsi hapus item PO yang dipilih ---
@@ -1219,6 +1204,11 @@ export default function MonitoringPOPage() {
                           selectedPOs.length === paginatedData.length &&
                           paginatedData.length > 0
                         }
+                        // Add indeterminate prop only if needed and supported by your Checkbox component
+                        // indeterminate={
+                        //   selectedPOs.length > 0 &&
+                        //   selectedPOs.length < paginatedData.length
+                        // }
                         onCheckedChange={handleSelectAll}
                         style={{
                           boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
@@ -2057,11 +2047,6 @@ export default function MonitoringPOPage() {
           </Pagination>
         </Card>
         {/* --- Add modal and toast to the layout --- */}
-        <DeleteChoiceModal
-          open={deleteChoiceOpen}
-          onClose={() => setDeleteChoiceOpen(false)}
-          onChoose={handleDeleteChoice}
-        />
         <ConfirmModal
           open={confirmDeleteOpen}
           title="Konfirmasi Hapus PO"
@@ -2088,36 +2073,7 @@ export default function MonitoringPOPage() {
   );
 }
 
-// --- Modal pilihan hapus PO atau item ---
-function DeleteChoiceModal({ open, onClose, onChoose }: any) {
-  if (!open) return null;
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
-        <h2 className="text-lg font-semibold mb-2">Pilih Jenis Hapus</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Anda ingin menghapus seluruh PO beserta semua item, atau hanya
-          menghapus item tertentu dari PO yang dipilih?
-        </p>
-        <div className="flex flex-col gap-2">
-          <Button variant="destructive" onClick={() => onChoose("po")}>
-            Hapus PO (beserta semua item)
-          </Button>
-          <Button variant="outline" onClick={() => onChoose("item")}>
-            Hapus Item pada PO
-          </Button>
-          <Button variant="ghost" onClick={onClose}>
-            Batal
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-// --- Modal pilih item PO yang mau dihapus ---
-// Fix: use onConfirm prop instead of direct confirmDeleteItems call
+// --- Modal pilih item PO yang mau dikembalikan ke PR ---
 function DeleteItemModal({
   open,
   poItems,
@@ -2132,7 +2088,7 @@ function DeleteItemModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div className="bg-white rounded-lg shadow-lg p-6 min-w-[420px] max-h-[80vh] overflow-y-auto">
         <h2 className="text-lg font-semibold mb-2">
-          Pilih Item PO yang akan dihapus
+          Pilih Item PO yang akan dikembalikan ke PR
         </h2>
         <div className="space-y-4">
           {poItems.map(({ poId, items }) => (
@@ -2195,13 +2151,6 @@ function DeleteItemModal({
           </Button>
           <Button
             variant="destructive"
-            onClick={() => onConfirm("permanent")}
-            disabled={selectedIds.length === 0}
-          >
-            Hapus Permanen ({selectedIds.length})
-          </Button>
-          <Button
-            variant="secondary"
             onClick={() => onConfirm("restore")}
             disabled={selectedIds.length === 0}
           >
