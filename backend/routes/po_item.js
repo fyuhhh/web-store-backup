@@ -49,17 +49,42 @@ router.post("/", async (req, res, next) => {
       id_satuan,
     } = req.body;
 
-    // Pastikan diskonPersen hanya angka (tanpa %)
+    // Normalize decimals for all numeric fields
+    const hargaSatuanVal =
+      typeof hargaSatuan === "string"
+        ? parseFloat(hargaSatuan.replace(/\./g, "").replace(",", "."))
+        : Number(hargaSatuan) || 0;
+    const jumlahPOVal =
+      typeof jumlahPO === "string"
+        ? parseFloat(jumlahPO.replace(/\./g, "").replace(",", "."))
+        : Number(jumlahPO) || 0;
+    const jumlahAsliVal =
+      typeof jumlahAsli === "string"
+        ? parseFloat(jumlahAsli.replace(/\./g, "").replace(",", "."))
+        : Number(jumlahAsli) || 0;
     let diskonPersenValue = diskonPersen;
     if (typeof diskonPersen === "string" && diskonPersen.includes("%")) {
       const match = diskonPersen.match(/(\d+(\.\d+)?)/);
-      diskonPersenValue = match ? parseFloat(match[1]) : 0;
+      diskonPersenValue = match ? parseFloat(match[1].replace(",", ".")) : 0;
+    } else if (typeof diskonPersen === "string") {
+      diskonPersenValue = parseFloat(diskonPersen.replace(",", ".")) || 0;
     }
-
-    // Pastikan diskonRupiah, ppnPersen, ppnRupiah adalah angka
-    const diskonRupiahValue = Number(diskonRupiah) || 0;
-    const ppnPersenValue = Number(ppnPersen) || 0;
-    const ppnRupiahValue = Number(ppnRupiah) || 0;
+    const diskonRupiahValue =
+      typeof diskonRupiah === "string"
+        ? parseFloat(diskonRupiah.replace(/\./g, "").replace(",", "."))
+        : Number(diskonRupiah) || 0;
+    const ppnPersenValue =
+      typeof ppnPersen === "string"
+        ? parseFloat(ppnPersen.replace(",", "."))
+        : Number(ppnPersen) || 0;
+    const ppnRupiahValue =
+      typeof ppnRupiah === "string"
+        ? parseFloat(ppnRupiah.replace(/\./g, "").replace(",", "."))
+        : Number(ppnRupiah) || 0;
+    const totalPerItemVal =
+      typeof totalPerItem === "string"
+        ? parseFloat(totalPerItem.replace(/\./g, "").replace(",", "."))
+        : Number(totalPerItem) || 0;
 
     const [result] = await db.query(
       `INSERT INTO po_item 
@@ -68,14 +93,14 @@ router.post("/", async (req, res, next) => {
       [
         id_PO || null,
         id_PRItem || null,
-        hargaSatuan || 0,
-        jumlahPO || 0,
-        jumlahAsli || 0,
-        diskonPersenValue || 0,
+        hargaSatuanVal,
+        jumlahPOVal,
+        jumlahAsliVal,
+        diskonPersenValue,
         diskonRupiahValue,
         ppnPersenValue,
         ppnRupiahValue,
-        totalPerItem || 0,
+        totalPerItemVal,
         keterangan || "",
         id_satuan || null,
       ]
@@ -97,28 +122,60 @@ router.put("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
     const payload = req.body;
-    // Pastikan field baru bisa diupdate
-    const fields = Object.keys(payload);
-    if (fields.length === 0)
-      return res.status(400).json({ message: "No data" });
-
-    // Pastikan diskonPersen, diskonRupiah, ppnPersen, ppnRupiah adalah angka jika dikirim
+    // Normalize decimals for all numeric fields
+    if (payload.hargaSatuan)
+      payload.hargaSatuan =
+        typeof payload.hargaSatuan === "string"
+          ? parseFloat(payload.hargaSatuan.replace(/\./g, "").replace(",", "."))
+          : Number(payload.hargaSatuan) || 0;
+    if (payload.jumlahPO)
+      payload.jumlahPO =
+        typeof payload.jumlahPO === "string"
+          ? parseFloat(payload.jumlahPO.replace(/\./g, "").replace(",", "."))
+          : Number(payload.jumlahPO) || 0;
+    if (payload.jumlahAsli)
+      payload.jumlahAsli =
+        typeof payload.jumlahAsli === "string"
+          ? parseFloat(payload.jumlahAsli.replace(/\./g, "").replace(",", "."))
+          : Number(payload.jumlahAsli) || 0;
     if (
       payload.diskonPersen &&
       typeof payload.diskonPersen === "string" &&
       payload.diskonPersen.includes("%")
     ) {
       const match = payload.diskonPersen.match(/(\d+(\.\d+)?)/);
-      payload.diskonPersen = match ? parseFloat(match[1]) : 0;
+      payload.diskonPersen = match ? parseFloat(match[1].replace(",", ".")) : 0;
+    } else if (
+      payload.diskonPersen &&
+      typeof payload.diskonPersen === "string"
+    ) {
+      payload.diskonPersen = parseFloat(payload.diskonPersen.replace(",", ".")) || 0;
     }
     if (payload.diskonRupiah)
-      payload.diskonRupiah = Number(payload.diskonRupiah) || 0;
-    if (payload.ppnPersen) payload.ppnPersen = Number(payload.ppnPersen) || 0;
-    if (payload.ppnRupiah) payload.ppnRupiah = Number(payload.ppnRupiah) || 0;
-
-    // Pastikan totalPerItem bisa diupdate jika dikirim
+      payload.diskonRupiah =
+        typeof payload.diskonRupiah === "string"
+          ? parseFloat(payload.diskonRupiah.replace(/\./g, "").replace(",", "."))
+          : Number(payload.diskonRupiah) || 0;
+    if (payload.ppnPersen)
+      payload.ppnPersen =
+        typeof payload.ppnPersen === "string"
+          ? parseFloat(payload.ppnPersen.replace(",", "."))
+          : Number(payload.ppnPersen) || 0;
+    if (payload.ppnRupiah)
+      payload.ppnRupiah =
+        typeof payload.ppnRupiah === "string"
+          ? parseFloat(payload.ppnRupiah.replace(/\./g, "").replace(",", "."))
+          : Number(payload.ppnRupiah) || 0;
     if (payload.totalPerItem)
-      payload.totalPerItem = Number(payload.totalPerItem) || 0;
+      payload.totalPerItem =
+        typeof payload.totalPerItem === "string"
+          ? parseFloat(payload.totalPerItem.replace(/\./g, "").replace(",", "."))
+          : Number(payload.totalPerItem) || 0;
+
+    // Pastikan field baru bisa diupdate
+    const fields = Object.keys(payload);
+    if (fields.length === 0)
+      return res.status(400).json({ message: "No data" });
 
     const sql =
       `UPDATE po_item SET ` +
