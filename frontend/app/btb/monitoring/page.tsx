@@ -592,46 +592,55 @@ export default function BTBMonitoringPage() {
             Pilih Item BTB yang akan dikembalikan ke PO
           </h2>
           <div className="space-y-4">
-            {btbItems.map(({ btbId, items }) => (
-              <div key={btbId}>
-                <div className="font-semibold mb-1">
-                  BTB: {btbId}
+            {btbItems.map(({ btbId, items }) => {
+              // Ambil noPO dari item pertama (jika ada)
+              const noPO =
+                items && items.length > 0 && items[0].noPO
+                  ? items[0].noPO
+                  : items && items.length > 0 && items[0].noBTB
+                  ? items[0].noBTB
+                  : "-";
+              return (
+                <div key={btbId}>
+                  <div className="font-semibold mb-1">
+                    BTB (No. PO): {noPO}
+                  </div>
+                  {items.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                      Tidak ada item pada BTB ini.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {items.map((item: any, idx: number) => {
+                        const keyId = item.id ? String(item.id) : `${item.nama_barang}-${item.jumlah}-${idx}`;
+                        const valueId = item.id ? String(item.id) : "";
+                        return (
+                          <label key={keyId} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              value={valueId}
+                              checked={selectedIds.includes(valueId)}
+                              disabled={!valueId}
+                              onChange={(e) => {
+                                if (!valueId) return;
+                                if (e.target.checked) {
+                                  setSelectedIds([...selectedIds, valueId]);
+                                } else {
+                                  setSelectedIds(selectedIds.filter((x) => x !== valueId));
+                                }
+                              }}
+                            />
+                            <span>
+                              {item.nama_barang} ({item.jumlah} {item.satuan})
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                {items.length === 0 ? (
-                  <div className="text-sm text-muted-foreground">
-                    Tidak ada item pada BTB ini.
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {items.map((item: any, idx: number) => {
-                      const keyId = item.id ? String(item.id) : `${item.nama_barang}-${item.jumlah}-${idx}`;
-                      const valueId = item.id ? String(item.id) : "";
-                      return (
-                        <label key={keyId} className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            value={valueId}
-                            checked={selectedIds.includes(valueId)}
-                            disabled={!valueId}
-                            onChange={(e) => {
-                              if (!valueId) return;
-                              if (e.target.checked) {
-                                setSelectedIds([...selectedIds, valueId]);
-                              } else {
-                                setSelectedIds(selectedIds.filter((x) => x !== valueId));
-                              }
-                            }}
-                          />
-                          <span>
-                            {item.nama_barang} ({item.jumlah} {item.satuan})
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={onCancel}>
