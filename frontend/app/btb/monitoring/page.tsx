@@ -91,6 +91,68 @@ function formatTanggalLebihSehari(tgl: string) {
   return dateObj.format("DD-MM-YYYY");
 }
 
+// ========================================
+// 1. PARSER No. BTB (E-WALK + PENTA)
+// ========================================
+function parseNoBTB(noBTB: string | null | undefined) {
+  if (!noBTB || typeof noBTB !== "string") return null;
+  const s = noBTB.trim().toUpperCase();
+
+  // --- FORMAT 1: E-WALK ---
+  // BTB/E-WALK/25/XI/001
+  const regexEwalk = /^BTB\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  // --- FORMAT 2: PENTACITY ---
+  // INV/BTB/25/XI/00001
+  const regexPenta = /^INV\/BTB\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  let match = s.match(regexEwalk);
+  let brand = "E-WALK";
+
+  if (!match) {
+    match = s.match(regexPenta);
+    brand = "PENTA";
+  }
+
+  if (!match) return null;
+
+  const [, tahun2, bulanRomawi, urutStr] = match;
+
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+
+  return { tahun, bulan, urut, brand };
+}
+
+// ========================================
+// 2. SORTING BTB TERBARU → TERLAMA
+// ========================================
+function sortBTBList(filteredBTBData: any[]) {
+  const allValid = filteredBTBData.every(
+    (x) => typeof x.noBTB === "string" && parseNoBTB(x.noBTB)
+  );
+
+  if (allValid) {
+    return [...filteredBTBData].sort((a, b) => {
+      const pa = parseNoBTB(a.noBTB)!;
+      const pb = parseNoBTB(b.noBTB)!;
+
+      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun; // DESC
+      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan; // DESC
+      return pb.urut - pa.urut; // DESC
+    });
+  }
+
+  // fallback
+  return [...filteredBTBData].sort((a, b) => Number(b.id) - Number(a.id));
+}
+
 export default function BTBMonitoringPage() {
   const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -666,6 +728,16 @@ export default function BTBMonitoringPage() {
     // ...tambahkan logika hapus jika diperlukan...
   }
 
+  // --- SORTING: BTB TERBARU → TERLAMA (PAKAI PARSER) ---
+  const sortedBTBDataFinal = sortBTBList(filteredBTBData);
+
+  // --- Pagination ---
+  const totalPages = Math.ceil(sortedBTBDataFinal.length / itemsPerPage);
+  const paginatedData = sortedBTBDataFinal.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -1096,11 +1168,7 @@ export default function BTBMonitoringPage() {
                       <TableCell colSpan={11}>Loading...</TableCell>
                     </TableRow>
                   ) : (
-                    filteredBTBData
-                      .slice(
-                        (currentPage - 1) * itemsPerPage,
-                        currentPage * itemsPerPage
-                      )
+                    paginatedData
                       .map((row, idx) => (
                         <TableRow key={row.id}>
                           {/* Checkbox cell agar jumlah kolom selalu sama */}

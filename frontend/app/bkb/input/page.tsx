@@ -131,11 +131,11 @@ export default function BKBInputPage() {
       try {
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -401,7 +401,7 @@ export default function BKBInputPage() {
     };
 
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/bkb/full", {
+      const res = await fetch("http://localhost:5000/api/bkb/full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -468,12 +468,77 @@ export default function BKBInputPage() {
   const [btbCurrentPage, setBtbCurrentPage] = useState(1);
   const btbItemsPerPage = 10;
 
-  // Pagination logic untuk daftar BTB
+  // ========================================
+  // 1. PARSER No. BTB (E-WALK + PENTA)
+  // ========================================
+  function parseNoBTB(noBTB: string | null | undefined) {
+    if (!noBTB || typeof noBTB !== "string") return null;
+    const s = noBTB.trim().toUpperCase();
+
+    // --- FORMAT 1: E-WALK ---
+    // BTB/E-WALK/25/XI/001
+    const regexEwalk = /^BTB\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+    // --- FORMAT 2: PENTACITY ---
+    // INV/BTB/25/XI/00001
+    const regexPenta = /^INV\/BTB\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+    let match = s.match(regexEwalk);
+    let brand = "E-WALK";
+
+    if (!match) {
+      match = s.match(regexPenta);
+      brand = "PENTA";
+    }
+
+    if (!match) return null;
+
+    const [, tahun2, bulanRomawi, urutStr] = match;
+
+    const bulanMap: Record<string, number> = {
+      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+    };
+
+    const bulan = bulanMap[bulanRomawi] ?? 0;
+    const tahun = 2000 + parseInt(tahun2, 10);
+    const urut = parseInt(urutStr, 10);
+
+    return { tahun, bulan, urut, brand };
+  }
+
+  // ========================================
+  // 2. SORTING BTB TERBARU → TERLAMA
+  // ========================================
+  function sortBTBList(filteredBTBData: any[]) {
+    const allValid = filteredBTBData.every(
+      (x) => typeof x.noBTB === "string" && parseNoBTB(x.noBTB)
+    );
+
+    if (allValid) {
+      return [...filteredBTBData].sort((a, b) => {
+        const pa = parseNoBTB(a.noBTB)!;
+        const pb = parseNoBTB(b.noBTB)!;
+
+        if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun; // DESC
+        if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan; // DESC
+        return pb.urut - pa.urut; // DESC
+      });
+    }
+
+    // fallback
+    return [...filteredBTBData].sort((a, b) => Number(b.id) - Number(a.id));
+  }
+
+  // --- SORTING: BTB TERBARU → TERLAMA (PAKAI PARSER) ---
+  const sortedBTBDataFinal = sortBTBList(filteredBTBData);
+
+  // --- Pagination logic untuk daftar BTB ---
   const btbTotalPages = Math.max(
     1,
-    Math.ceil(filteredBTBData.length / btbItemsPerPage)
+    Math.ceil(sortedBTBDataFinal.length / btbItemsPerPage)
   );
-  const paginatedBTBData = filteredBTBData.slice(
+  const paginatedBTBData = sortedBTBDataFinal.slice(
     (btbCurrentPage - 1) * btbItemsPerPage,
     btbCurrentPage * btbItemsPerPage
   );

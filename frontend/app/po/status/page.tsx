@@ -523,59 +523,116 @@ export default function StatusPOPage() {
         matchesSkema
       );
     })
-    // --- SORTING: id_PR tertinggi ke terendah ---
-    .sort((a, b) => {
-      const idA = Number(a.id_PR ?? a.id);
-      const idB = Number(b.id_PR ?? b.id);
-      return idB - idA; // tertinggi ke terendah
-    });
+    // --- SORTING: PR TERBARU → TERLAMA (PAKAI PARSER) ---
+    filteredPRs = sortPRList(filteredPRs);
 
-  // --- PAGINATION ---
-  const totalPages = Math.ceil(filteredPRs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filteredPRs.slice(
-    startIndex,
-    startIndex + itemsPerPage
+// --- PAGINATION ---
+const totalPages = Math.ceil(filteredPRs.length / itemsPerPage);
+const startIndex = (currentPage - 1) * itemsPerPage;
+const paginatedData = filteredPRs.slice(
+  startIndex,
+  startIndex + itemsPerPage
+);
+
+// Auto-logout logic (testing: 5 detik idle)
+useEffect(() => {
+  let timer: NodeJS.Timeout;
+  const resetTimer = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      localStorage.removeItem("userData");
+      window.location.href = "/login";
+    }, 600000); // 5 detik idle
+  };
+
+  const events = ["mousemove", "keydown", "mousedown", "touchstart"];
+  events.forEach((ev) => window.addEventListener(ev, resetTimer));
+  resetTimer();
+
+  return () => {
+    clearTimeout(timer);
+    events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+  };
+}, []);
+
+// Tambahkan helper untuk cek semua/some item selected
+function isAllItemsSelected(pr: any) {
+  const itemIds = (pr.items || [])
+    .filter((item: any) => item.jumlah > 0)
+    .map((item: any) => String(item.id));
+  const selected = selectedItemsMap[String(pr.id_PR)] || [];
+  return (
+    itemIds.length > 0 && itemIds.every((id: string) => selected.includes(id))
+  );
+}
+function isSomeItemsSelected(pr: any) {
+  const itemIds = (pr.items || [])
+    .filter((item: any) => item.jumlah > 0)
+    .map((item: any) => String(item.id));
+  const selected = selectedItemsMap[String(pr.id_PR)] || [];
+  return selected.length > 0 && selected.length < itemIds.length;
+}
+
+// =====================================
+// 1. PARSER No. PR (E-WALK + PENTACITY)
+// =====================================
+function parseNoPR(noPR: string | null | undefined) {
+  if (!noPR || typeof noPR !== "string") return null;
+
+  const s = noPR.trim().toUpperCase();
+
+  // FORMAT DITERIMA:
+  // PR/E-WALK/25/XI/001
+  // PR/PRQ/25/XI/00001
+  //
+  // Bagian kedua bisa E-WALK atau PRQ
+  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  const match = s.match(regex);
+  if (!match) return null;
+
+  const [, brand, tahun2, bulanRomawi, urutStr] = match;
+
+  // Konversi bulan Romawi
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+
+  return { tahun, bulan, urut, brand };
+}
+
+// =====================================
+// 2. SORTING PR TERBARU → TERLAMA
+// =====================================
+function sortPRList(filteredPRData: any[]) {
+  const allValid = filteredPRData.every(
+    (pr) => typeof pr.noPR === "string" && parseNoPR(pr.noPR)
   );
 
-  // Auto-logout logic (testing: 5 detik idle)
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        localStorage.removeItem("userData");
-        window.location.href = "/login";
-      }, 600000); // 5 detik idle
-    };
+  if (allValid) {
+    return [...filteredPRData].sort((a, b) => {
+      const pa = parseNoPR(a.noPR)!;
+      const pb = parseNoPR(b.noPR)!;
 
-    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
-    events.forEach((ev) => window.addEventListener(ev, resetTimer));
-    resetTimer();
+      // Tahun DESC → terbaru
+      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
 
-    return () => {
-      clearTimeout(timer);
-      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
-    };
-  }, []);
+      // Bulan DESC
+      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
 
-  // Tambahkan helper untuk cek semua/some item selected
-  function isAllItemsSelected(pr: any) {
-    const itemIds = (pr.items || [])
-      .filter((item: any) => item.jumlah > 0)
-      .map((item: any) => String(item.id));
-    const selected = selectedItemsMap[String(pr.id_PR)] || [];
-    return (
-      itemIds.length > 0 && itemIds.every((id: string) => selected.includes(id))
-    );
+      // Nomor urut DESC
+      return pb.urut - pa.urut;
+    });
   }
-  function isSomeItemsSelected(pr: any) {
-    const itemIds = (pr.items || [])
-      .filter((item: any) => item.jumlah > 0)
-      .map((item: any) => String(item.id));
-    const selected = selectedItemsMap[String(pr.id_PR)] || [];
-    return selected.length > 0 && selected.length < itemIds.length;
-  }
+
+  // Fallback jika format tidak valid
+  return [...filteredPRData].sort((a, b) => Number(b.id_PR ?? b.id) - Number(a.id_PR ?? a.id));
+}
 
   return (
     <MainLayout>
@@ -707,6 +764,8 @@ export default function StatusPOPage() {
                         <PopoverTrigger asChild>
                           <button className="inline-flex items-center gap-1">
                             No. PR <ChevronDown className="w-4 h-4" />
+                            {/* Tambahkan info urutan */}
+                            <span className="ml-1 text-xs text-muted-foreground">(Terbaru di atas)</span>
                           </button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
