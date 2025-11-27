@@ -305,14 +305,15 @@ export default function BKBMonitoringPage() {
       "Skema",
     ];
 
-    // Add header row
+    // tambahkan menu header
+  
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper format tanggal ke dd-mm-yyyy
+    // helper untuk tanggal dd-mm-yyyy
     function formatTanggalExcel(tgl: string | null | undefined) {
       if (!tgl) return "";
       const [date] = tgl.split("T");
@@ -343,7 +344,7 @@ export default function BKBMonitoringPage() {
       ]);
     });
 
-    // Auto-fit columns based on max length of cell values
+    // auto fit kolom untuk best value
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
       column.eachCell({ includeEmpty: true }, (cell) => {
