@@ -228,7 +228,7 @@ export default function MonitoringPRPage() {
       urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
     );
 
-    let validatedData = prList.map((pr: any) => {
+    const validatedData = prList.map((pr: any) => {
       // --- Perubahan: urutkan items berdasarkan id_PRItem ASC ---
       const items = prItemList
         .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
@@ -247,38 +247,6 @@ export default function MonitoringPRPage() {
           keterangan: item.keterangan,
         }));
 
-      // --- Penentuan status otomatis ---
-      // Semua quantity 0 → Telah Selesai
-      // Ada yang < quantityAwalPR dan > 0 → Gantung
-      // Semua quantity == quantityAwalPR → Menunggu
-      let newStatus = pr.status;
-      if (items.length > 0) {
-        const allZero = items.every((item: any) => Number(item.jumlah) === 0);
-        const allAwal = items.every(
-          (item: any) =>
-            Number(item.jumlah) === Number(item.quantityAwalPR)
-        );
-        if (allZero) {
-          newStatus = "Telah Selesai";
-        } else if (!allAwal) {
-          newStatus = "Gantung";
-        } else {
-          newStatus = "Menunggu";
-        }
-      }
-
-      // Jika status backend tidak sama dengan newStatus, update ke backend
-      if (pr.status !== newStatus && pr.id_PR) {
-        fetch(`http://localhost:5000/api/pr/${pr.id_PR}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...pr,
-            status: newStatus,
-          }),
-        });
-      }
-
       return {
         id: pr.id_PR,
         noPR: pr.noPR,
@@ -286,7 +254,7 @@ export default function MonitoringPRPage() {
         items,
         urgensi: urgensiMap[String(pr.id_urgensi)] || pr.id_urgensi,
         divisi: divisiMap[String(pr.id_divisi)] || pr.id_divisi,
-        status: newStatus,
+        status: pr.status,
         dibuatOleh: pr.dibuatOleh,
         skema: pr.id_skema,
         skemaLabel: pr.skemaLabel ?? "",
@@ -302,6 +270,39 @@ export default function MonitoringPRPage() {
     });
 
     setPrData(validatedData);
+
+    // --- Tambahan: update status PR jika semua item jumlah = 0 tapi status masih "Menunggu" ---
+    for (const pr of validatedData) {
+      if (
+        pr.status === "Menunggu" &&
+        pr.items &&
+        pr.items.length > 0 &&
+        pr.items.every((item: any) => Number(item.jumlah) === 0)
+      ) {
+        // Update status ke "Diproses"
+        await fetch(`http://localhost:5000/api/pr/${pr.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...pr,
+            status: "Diproses",
+          }),
+        });
+      }
+    }
+    // Setelah update status, reload data agar tampilan sesuai
+    // (hindari infinite loop, reload hanya jika ada perubahan)
+    // Cek jika ada PR yang statusnya berubah
+    const needReload = validatedData.some(
+      (pr) =>
+        pr.status === "Menunggu" &&
+        pr.items &&
+        pr.items.length > 0 &&
+        pr.items.every((item: any) => Number(item.jumlah) === 0)
+    );
+    if (needReload) {
+      setTimeout(loadPRData, 300); // reload data setelah update status
+    }
   };
 
   const savePRData = (data: PRData[]) => {
@@ -378,6 +379,10 @@ export default function MonitoringPRPage() {
         );
         const respJson = await resp.json().catch(() => ({}));
         console.log("Delete response:", resp.status, respJson);
+      }
+      // Setelah hapus, update status PR terkait
+      for (const pr of selectedPRItemsForDelete) {
+        await updatePRStatusToBackend(pr.prId);
       }
       // Setelah hapus, reload data dari backend
       await loadPRData();
@@ -951,9 +956,34 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
     };
   }, []);
 
+  // Hitung summary status
+  const totalPR = prData.length;
+  const selesaiCount = prData.filter((pr) => pr.status === "Diproses").length;
+  const gantungCount = prData.filter((pr) => pr.status === "Gantung").length;
+  const menungguCount = prData.filter((pr) => pr.status === "Menunggu").length;
+
   return (
     <MainLayout>
       <div className="space-y-6">
+        {/* Status Overview */}
+        <div className="flex gap-6 mb-2">
+          <div className="flex flex-col items-center">
+            <span className="text-lg font-bold">{totalPR}</span>
+            <span className="text-xs text-muted-foreground">Total PR</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-lg font-bold">{selesaiCount}</span>
+            <span className="text-xs text-green-700">Selesai</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-lg font-bold">{gantungCount}</span>
+            <span className="text-xs text-red-700">Gantung</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="text-lg font-bold">{menungguCount}</span>
+            <span className="text-xs text-orange-700">Menunggu</span>
+          </div>
+        </div>
         {/* Header */}
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
@@ -1972,9 +2002,32 @@ const updatePRStatusToBackend = async (prId: string) => {
     `http://localhost:5000/api/pr-item/pr/${prId}`
   );
   const prItems = prItemsRes.ok ? await prItemsRes.json() : [];
-  // Jika ada item jumlah > 0, status = "Gantung", jika semua 0, status = "Telah Selesai"
-  const adaItem = prItems.some((item: any) => Number(item.jumlah) > 0);
-  const newStatus = adaItem ? "Gantung" : "Telah Selesai";
+
+  // Helper untuk dapatkan originalJumlah (fallback ke quantityAwalPR atau jumlah)
+  const getOriginalJumlah = (item: any) =>
+    item.originalJumlah ??
+    item.quantityAwalPR ??
+    item.jumlah_awal ??
+    item.jumlah;
+
+  // Status logic:
+  // - Semua jumlah = 0 → Diproses
+  // - Semua jumlah = originalJumlah → Menunggu
+  // - Selain itu → Gantung
+  let newStatus = "Gantung";
+  if (prItems.length > 0) {
+    if (prItems.every((item: any) => Number(item.jumlah) === 0)) {
+      newStatus = "Diproses";
+    } else if (
+      prItems.every(
+        (item: any) =>
+          Number(item.jumlah) === Number(getOriginalJumlah(item))
+      )
+    ) {
+      newStatus = "Menunggu";
+    }
+  }
+
   // Ambil data PR lama
   const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
   if (prRes.ok) {
