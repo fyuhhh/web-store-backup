@@ -2095,7 +2095,7 @@ export default function BTBInputPage() {
                   </tbody>
                 </table>
               </div>
-              {/* Form bawah: Skema saja */}
+              {/* Form bawah: Skema saja ini */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Skema di-hide, tetap dikirim */}
                 <input type="hidden" name="skema" value={formData.skema} />
