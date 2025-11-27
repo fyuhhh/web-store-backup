@@ -189,10 +189,10 @@ export default function BTBInputPage() {
     setUserSchema(userData.skema || "");
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
     // Ambil supplier dan skema dari backend
-    fetch("http://localhost:5000/api/supplier")
+    fetch("http://192.168.10.10:5000/api/supplier")
       .then((r) => r.json())
       .then((data) => setSupplierList(data));
-    fetch("http://localhost:5000/api/skema")
+    fetch("http://192.168.10.10:5000/api/skema")
       .then((r) => r.json())
       .then((data) => {
         setSkemaList(data);
@@ -244,15 +244,15 @@ export default function BTBInputPage() {
           skemaRes,
           userRes,
         ] = await Promise.all([
-          fetch("http://localhost:5000/api/po"),
-          fetch("http://localhost:5000/api/po-item"),
-          fetch("http://localhost:5000/api/pr-item"),
-          fetch("http://localhost:5000/api/pr"),
-          fetch("http://localhost:5000/api/supplier"),
-          fetch("http://localhost:5000/api/status-permintaan"),
-          fetch("http://localhost:5000/api/status-pengiriman"),
-          fetch("http://localhost:5000/api/skema"),
-          fetch("http://localhost:5000/api/user"),
+          fetch("http://192.168.10.10:5000/api/po"),
+          fetch("http://192.168.10.10:5000/api/po-item"),
+          fetch("http://192.168.10.10:5000/api/pr-item"),
+          fetch("http://192.168.10.10:5000/api/pr"),
+          fetch("http://192.168.10.10:5000/api/supplier"),
+          fetch("http://192.168.10.10:5000/api/status-permintaan"),
+          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
+          fetch("http://192.168.10.10:5000/api/skema"),
+          fetch("http://192.168.10.10:5000/api/user"),
         ]);
         const [
           poList,
@@ -386,93 +386,6 @@ export default function BTBInputPage() {
       }
     }
     fetchPOBackend();
-  }, []);
-
-  // Handler edit supplier
-  const handleEditSupplier = async (id: string) => {
-    if (!editSupplierValue.trim()) return;
-    try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ namaSupplier: editSupplierValue }),
-      });
-      if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
-          .then((res) => res.json())
-          .then((data) => setSupplierOptions(data));
-        setEditSupplierId(null);
-        setEditSupplierValue("");
-      }
-    } catch {}
-  };
-
-  // Handler hapus supplier
-  const handleDeleteSupplier = async (id: string) => {
-    if (!id) return;
-    if (!window.confirm("Yakin ingin menghapus supplier ini?")) return;
-    try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
-          .then((res) => res.json())
-          .then((data) => setSupplierOptions(data));
-      }
-    } catch {}
-  };
-
-  // Handler edit status pengiriman
-  const handleEditStatusPengiriman = async (id: string) => {
-    if (!editStatusPengirimanValue.trim()) return;
-    try {
-      const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status_pengiriman: editStatusPengirimanValue,
-          }),
-        }
-      );
-      if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
-          .then((res) => res.json())
-          .then((data) => setStatusPengirimanOptions(data));
-        setEditStatusPengirimanId(null);
-        setEditStatusPengirimanValue("");
-      }
-    } catch {}
-  };
-
-  // Handler hapus status pengiriman
-  const handleDeleteStatusPengiriman = async (id: string) => {
-    if (!id) return;
-    if (!window.confirm("Yakin ingin menghapus status pengiriman ini?")) return;
-    try {
-      const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
-        {
-          method: "DELETE",
-        }
-      );
-      if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
-          .then((res) => res.json())
-          .then((data) => setStatusPengirimanOptions(data));
-      }
-    } catch {}
-  };
-
-  // Handler submit PO
-  const handleCreatePO = async () => {
-    if (!poFormData.supplier.trim()) {
-      setNotif({ type: "error", message: "Supplier harus diisi!" });
-      setTimeout(() => setNotif(null), 2500);
-      return;
-    }
     // ...existing code...
   }, []);
 
@@ -502,55 +415,91 @@ export default function BTBInputPage() {
     const storedPO = localStorage.getItem("poData");
     const storedBTB = localStorage.getItem("btbData");
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const orderedByUserId = userData.id_user || userData.id || null;
-    const userSkema = userData.id_skema || null;
+    const userSkema = userData.skema || "";
 
-    try {
-      // 1. POST PO ke backend with correct field references
-      const poRes = await fetch("http://192.168.10.10:5000/api/po", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          noPO: poFormData.noPO,
-          tanggalPO:
-            typeof poFormData.tanggalPO === "string"
-              ? poFormData.tanggalPO
-              : formatDateForBackend(poFormData.tanggalPO),
-          id_supplier: poFormData.supplier,
-          diskon: parseDiskonPersenToNumber(poFormData.diskon),
-          originalDiskon: calculations.totalDiskon,
-          ppn: parseFloat(poFormData.ppn),
-          ppnAmount: calculations.totalPPN,
-          totalPembayaran: calculations.totalPayment,
-          orderedBy: orderedByUserId,
-          estimasiTanggalTerima: formatDateForBackend(
-            poFormData.estimasiTanggalDiterima
-          ),
-          id_statusPengiriman: poFormData.statusPengiriman,
-          status: "Menunggu",
+    if (storedPO) {
+      // Filter PO sesuai skema user
+      setPoData(
+        JSON.parse(storedPO).filter(
+          (po: any) => !userSkema || po.skema === userSkema
+        )
+      );
+    }
+    if (storedBTB) {
+      // Filter BTB sesuai skema user
+      const btbArr = JSON.parse(storedBTB)
+        .filter((btb: any) => !userSkema || btb.skema === userSkema)
+        .map((btb: any) => ({
+          ...btb,
+          skema: btb.skema ?? "pentacity",
+        }));
+      setBtbData(btbArr);
+    } else {
+      // Initialize with dummy BTB data
+      const dummyBTB: BTBData[] = [
+        {
+          id: "BTB-001",
+          noBTB: "BTB/2024/001",
+          tanggal: "2024-06-20",
+          periode: "Juni 2024",
+          supplier: "PT. Supplier A",
+          kodeSupplier: "SUP-001",
+          barang: "Laptop Dell Latitude",
+          jumlah: 5,
+          satuan: "unit",
+          biaya: 75000000,
+          diterimaOleh: "Admin",
+          poId: "PO-001",
+          status: "Received",
           createdAt: new Date().toISOString(),
-          id_skema: userSkema,
-        }),
-      });
-      if (!poRes.ok) throw new Error("Gagal menyimpan PO");
-
-      // 2. Ambil ulang data PO terbaru setelah disimpan
-      const updatedPORes = await fetch("http://192.168.10.10:5000/api/po");
-      const updatedPOData = await updatedPORes.json();
-      setPoData(updatedPOData);
-
-      setNotif({ type: "success", message: "PO berhasil disimpan!" });
-      setTimeout(() => {
-        setNotif(null);
-        // Redirect atau aksi lain setelah sukses
-      }, 1800);
-    } catch (err) {
-      setNotif({ type: "error", message: "Gagal menyimpan PO ke backend." });
-      setTimeout(() => setNotif(null), 3000);
+          skema: "pentacity", // <-- tambah skema di dummy
+        },
+      ];
+      localStorage.setItem("btbData", JSON.stringify(dummyBTB));
+      setBtbData(dummyBTB);
     }
   };
 
-  // Handler submit BTB
+  const saveBTBData = (data: BTBData[]) => {
+    localStorage.setItem("btbData", JSON.stringify(data));
+    setBtbData(data);
+  };
+
+  // Helper format tanggal ke yyyy-mm-dd untuk backend
+  function formatDateForBackend(date: Date | null) {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatTanggalLebihSehari(tgl: string) {
+    if (!tgl) return "";
+    let dateObj;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+      dateObj = dayjs(tgl).add(1, "day");
+    } else if (tgl.includes("T")) {
+      dateObj = dayjs.utc(tgl).add(1, "day");
+    } else {
+      dateObj = dayjs(tgl).add(1, "day");
+    }
+    return dateObj.format("DD-MM-YYYY");
+  }
+
+  function formatTanggalPlus2(tgl: string) {
+    if (!tgl) return "";
+    let dateObj;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+      dateObj = dayjs(tgl).add(2, "day");
+    } else if (tgl.includes("T")) {
+      dateObj = dayjs.utc(tgl).add(2, "day");
+    } else {
+      dateObj = dayjs(tgl).add(2, "day");
+    }
+    return dateObj.format("DD-MM-YYYY");
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -586,7 +535,7 @@ export default function BTBInputPage() {
       const id_skema = selectedPOsForBTB[0]?.skema ?? null;
 
       // Pastikan yang dikirim ke backend adalah nama_supplier: formData.supplier
-      const btbHeaderRes = await fetch("http://localhost:5000/api/btb", {
+      const btbHeaderRes = await fetch("http://192.168.10.10:5000/api/btb", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -608,83 +557,123 @@ export default function BTBInputPage() {
       const btbHeaderData = await btbHeaderRes.json();
       const id_btb = btbHeaderData.id;
 
-      // 2. POST setiap PO Item ke backend dan PUT PR Item untuk update jumlah
-      for (const poItem of poItems) {
-        for (const item of poItem.items) {
-          const jumlahPOInt = Math.floor(Number(item.jumlahPO)) || 0;
-          const jumlahAsliInt = Math.floor(Number(item.jumlahAsli)) || 0;
+      // 2. POST setiap item ke /api/btb-item
+      // Setelah insert header BTB dan dapat id_btb
+      // Ambil data PO Item dari backend (pastikan sudah ada di database)
+      const poItemsRes = await fetch(
+        "http://192.168.10.10:5000/api/po-item?po=" + id_po
+      );
+      const poItems = await poItemsRes.json();
 
-          let diskonPersenValue = 0;
-          if (item.diskonPersen && typeof item.diskonPersen === "string") {
-            const match = item.diskonPersen.match(/(\d+(\.\d+)?)/);
-            diskonPersenValue = match ? parseFloat(match[1]) : 0;
-          }
-          const diskonRupiahValue = Number(item.diskonNominal) || 0;
-          const ppnPersenValue = Number(item.ppnItem) || 0;
-          const harga = Number(item.hargaSatuan) || 0;
-          const qty = Number(item.jumlahPO) || 0;
-          const itemSubtotal = harga * qty;
-          let diskonAmount = 0;
-          if (item.diskonPersen && typeof item.diskonPersen === "string") {
-            let currentAmount = itemSubtotal;
-            const diskonPersenArr = item.diskonPersen
-              .split("+")
-              .map((d) => d.trim())
-              .filter((d) => d.endsWith("%"))
-              .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-              .filter((v) => !isNaN(v));
-            diskonPersenArr.forEach((persen) => {
-              const amount = currentAmount * (persen / 100);
-              diskonAmount += amount;
-              currentAmount -= amount;
-            });
-          } else if (item.diskonNominal) {
-            diskonAmount = Number(item.diskonNominal) || 0;
-          }
-          const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
-          const ppnRupiahValue = afterDiskon * (ppnPersenValue / 100);
-          const totalPerItem = afterDiskon + ppnRupiahValue;
+      // Mapping item BTB dengan id_POItem dan id_satuan yang benar
+      const items = selectedPOItems.flatMap((po) =>
+        po.items
+          .filter((item) => (btbInputQty[item.poItemId] ?? 0) > 0)
+          .map((item) => {
+            // Cari poItem dari poItems (ambil id_POItem dan id_satuan)
+            const poItem = poItems.find(
+              (p) =>
+                String(p.id_PRItem) === String(item.id) ||
+                p.namaBarang === item.namaBarang
+            );
+            // --- FIX: pastikan hargaSatuan integer ---
+            const hargaSatuanInt = poItem?.hargaSatuan
+              ? Math.round(Number(poItem.hargaSatuan))
+              : 0;
+            return {
+              id_POItem: poItem?.id_POItem,
+              nama_barang: item.namaBarang,
+              jumlah_diterima: Math.round(btbInputQty[item.poItemId] ?? 0), // integer
+              id_satuan: item.id_satuan ?? poItem?.id_satuan ?? null,
+              keterangan: item.keterangan ?? "",
+              hargaSatuan: hargaSatuanInt, // <-- tambahkan jika ingin kirim ke backend
+            };
+          })
+          .filter((item) => !!item.id_POItem)
+      );
 
-          await fetch("http://192.168.10.10:5000/api/po-item", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id_PO,
-              id_PRItem: item.id_PRItem ?? item.id,
-              hargaSatuan: item.hargaSatuan,
-              jumlahPO: jumlahPOInt,
-              jumlahAsli: jumlahAsliInt,
-              diskonPersen: diskonPersenValue,
-              diskonRupiah: diskonRupiahValue,
-              ppnPersen: ppnPersenValue,
-              ppnRupiah: ppnRupiahValue,
-              totalPerItem,
-              keterangan: item.keterangan,
-              id_satuan: item.id_satuan,
-            }),
+      // LOG: dikirim frontend ke btb (header dan items)
+      console.log("DIKIRIM FRONTEND KE BTB HEADER:", {
+        no_btb: formData.noBTB,
+        tanggal_btb: formData.tanggal,
+        periode: formData.periode,
+        id_po,
+        id_supplier: formData.supplier,
+        nama_supplier: getSupplierLabel(formData.supplier),
+        id_user: userData.id_user || userData.id,
+        id_skema,
+        biaya: Math.round(formData.biaya),
+        diterima_oleh: userData.id_user || userData.id,
+        tanggal_diterima: formData.tanggal,
+      });
+      console.log("DIKIRIM FRONTEND KE BTB ITEMS:", items);
+
+      for (const item of items) {
+        // Validasi field
+        if (!id_btb || !item.id_POItem || !item.nama_barang) {
+          console.error("Field wajib kosong saat POST btb-item:", {
+            id_btb,
+            item,
           });
-
-          // Update PR Item
-          const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${item.id}`
-          );
-          const prItemData = await prItemRes.json();
-          const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt);
-
-          await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id_PR: poItem.prId,
-              namaBarang: item.namaBarang,
-              jumlah: newJumlah,
-              originalJumlah: prItemData.originalJumlah || jumlahAsliInt,
-              quantityAwalPR: prItemData.quantityAwalPR || jumlahAsliInt,
-              id_satuan: prItemData.id_satuan || item.id_satuan,
-              keterangan: item.keterangan || "",
-            }),
-          });
+          continue; // skip jika field penting kosong
         }
+
+        // POST ke btb_item (ubah endpoint)
+        const res = await fetch("http://192.168.10.10:5000/api/btb-item", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id_btb,
+            id_POItem: item.id_POItem,
+            nama_barang: item.nama_barang,
+            jumlah_diterima: Math.round(item.jumlah_diterima), // integer
+            id_satuan: item.id_satuan,
+            keterangan: item.keterangan,
+            qty_sisa: Math.round(item.jumlah_diterima), // integer
+            // hargaSatuan: item.hargaSatuan, // opsional, jika backend ingin simpan
+          }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("Gagal insert btb_item:", errText);
+        }
+        // 3. Update jumlahPO di po_item (PUT)
+        // Ambil data po_item lama
+        const poItemRes = await fetch(
+          `http://192.168.10.10:5000/api/po-item/${item.id_POItem}`
+        );
+        const poItemData = await poItemRes.json();
+        const sisa =
+          Math.max(
+            0,
+            Number(poItemData.jumlahPO || 0) - Number(item.jumlah_diterima)
+          ) || 0;
+
+        // Hanya kirim field yang valid untuk update po_item
+        const {
+          id_PO,
+          id_PRItem,
+          hargaSatuan,
+          jumlahAsli,
+          diskonItem,
+          keterangan,
+          // jumlahPO: diupdate
+        } = poItemData;
+
+        await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id_PO,
+            id_PRItem,
+            hargaSatuan,
+            jumlahPO: sisa,
+            jumlahAsli,
+            diskonItem,
+            keterangan,
+          }),
+        });
       }
 
       setNotif({ type: "success", message: "BTB berhasil disimpan!" });
@@ -722,6 +711,112 @@ export default function BTBInputPage() {
     setSelectedPOs([]);
     setCurrentPage(1);
     setSearchTerm("");
+  };
+
+  const handleSelectPO = (poId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedPOs([...selectedPOs, poId]);
+    } else {
+      setSelectedPOs(selectedPOs.filter((id) => id !== poId));
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedPOs(filteredPOData.map((po) => po.id));
+    } else {
+      setSelectedPOs([]);
+    }
+  };
+
+  const handleBuatBTB = () => {
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    const selectedPOObjects = filteredPOData.filter((po) =>
+      selectedPOs.includes(po.id)
+    );
+    if (selectedPOObjects.length === 0) {
+      alert("Pilih minimal satu PO untuk dibuat BTB.");
+      return;
+    }
+    setSelectedPOsForBTB(selectedPOObjects);
+    setShowForm(true);
+
+    setSelectedPOItems(
+      selectedPOObjects.map((po) => ({
+        poId: po.id,
+        noPO: po.noPO,
+        supplier: po.supplier,
+        items: getPOItemsWithSisa(po),
+      }))
+    );
+    // LOG: diterima frontend dari PO (pastikan id_supplier adalah id PO, bukan label)
+    console.log(
+      "DITERIMA FRONTEND DARI PO:",
+      selectedPOObjects.map((po) => ({
+        id_PO: po.id,
+        id_supplier: po.id_supplier ?? po.id_supplier, // pastikan ini id_supplier (number/integer)
+        supplier: po.supplier,
+        noPO: po.noPO,
+        items: getPOItemsWithSisa(po).map((item) => ({
+          namaBarang: item.namaBarang,
+          id_satuan: item.id_satuan,
+          satuan: item.satuan,
+          qtySisa: item.qtySisa,
+          poItemId: item.poItemId,
+        })),
+      }))
+    );
+    // Set initial BTB input qty to qtySisa for each item (bisa diubah user)
+    const qtyObj: Record<string, number> = {};
+    selectedPOObjects.forEach((po) => {
+      getPOItemsWithSisa(po).forEach((item) => {
+        qtyObj[item.poItemId] = item.qtySisa;
+      });
+    });
+    setBtbInputQty(qtyObj);
+
+    // Perbaiki error split: pastikan id string
+    const firstPO = selectedPOObjects[0];
+    let kodeSupplier = "";
+    if (typeof firstPO.kodeSupplier === "string" && firstPO.kodeSupplier) {
+      kodeSupplier = firstPO.kodeSupplier;
+    } else if (firstPO.id !== undefined && firstPO.id !== null) {
+      const idStr = String(firstPO.id);
+      const idParts = idStr.split("-");
+      kodeSupplier = idParts.length > 1 ? `SUP-${idParts[1]}` : "";
+    }
+
+    setFormData({
+      noBTB: "",
+      tanggal: null, // <-- pastikan tanggal kosong/null, tidak auto-isi
+      periode: "",
+      supplier: firstPO.id_supplier ?? "",
+      supplierLabel: firstPO.supplier ?? "",
+      noPO: firstPO.noPO ?? "", // <-- tambahkan ini
+      barang: "",
+      jumlah: "",
+      satuan: "",
+      biaya: firstPO.totalPembayaran?.toString() ?? "",
+      diterimaOleh: "",
+      poId: firstPO.id, // tetap simpan id untuk backend
+      tanggalDiterima: "",
+      skema: userData.skema || "pentacity",
+    });
+
+    // LOG: Daftar PO yang diterima oleh frontend (beserta id_supplier dan id_satuan tiap item)
+    console.log("DAFTAR PO YANG DITERIMA OLEH FRONTEND:");
+    selectedPOObjects.forEach((po, idx) => {
+      console.log(
+        `[${idx}] id_PO: ${po.id}, id_supplier: ${po.id_supplier}, supplier: ${po.supplier}, noPO: ${po.noPO}`
+      );
+      po.poItems.forEach((poItem, i) => {
+        poItem.items.forEach((item, j) => {
+          console.log(
+            `  [item ${i}-${j}] namaBarang: ${item.namaBarang}, id_satuan: ${item.id_satuan}, satuan: ${item.satuan}, qtySisa: ${item.qtySisa}, poItemId: ${item.poItemId}`
+          );
+        });
+      });
+    });
   };
 
   // Compute unique values for filters
@@ -824,180 +919,6 @@ export default function BTBInputPage() {
     return found ? found.namaSupplier : id;
   }
 
-  // Handler untuk perubahan Qty
-  function handleQtyChange(prId: string, itemId: string, value: string) {
-    setPoItems((prevPoItems) =>
-      prevPoItems.map((pItem) =>
-        pItem.prId === prId
-          ? {
-              ...pItem,
-              items: pItem.items.map((i) => {
-                if (i.id === itemId) {
-                  const maxQty = Number(i.jumlahAsli);
-                  // Pastikan hanya integer bulat, tidak ribuan/desimal
-                  let newQty = Math.max(0, Math.floor(Number(value)) || 0);
-                  if (newQty > maxQty) newQty = maxQty;
-                  return { ...i, jumlahPO: newQty };
-                }
-                return i;
-              }),
-            }
-          : pItem
-      )
-    );
-  }
-
-  // Tambahkan state untuk tracking field diskon mana yang terakhir diubah
-  const [lastDiskonChanged, setLastDiskonChanged] = useState<{
-    [key: string]: "persen" | "nominal";
-  }>({
-    // Contoh inisialisasi, jika perlu
-    // "prId-itemId": "persen",
-  });
-
-  // Handler perubahan diskon persen per item
-  function handleDiskonPersenChange(
-    prId: string,
-    itemId: string,
-    value: string
-  ) {
-    setPoItems((prevPoItems) =>
-      prevPoItems.map((pItem) =>
-        pItem.prId === prId
-          ? {
-              ...pItem,
-              items: pItem.items.map((i) => {
-                if (i.id === itemId) {
-                  // Hitung total diskon nominal dari persen
-                  // Support decimal hargaSatuan
-                  let harga = 0;
-                  if (typeof i.hargaSatuan === "string") {
-                    const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
-                    harga = parseFloat(normalized) || 0;
-                  } else {
-                    harga = Number(i.hargaSatuan) || 0;
-                  }
-                  const qty = Number(i.jumlahPO) || 0;
-                  const itemSubtotal = harga * qty;
-                  // Stack diskon persen
-                  let currentAmount = itemSubtotal;
-                  let diskonAmount = 0;
-                  const diskonPersenArr = value
-                    .split("+")
-                    .map((d) => d.trim())
-                    .filter((d) => d.endsWith("%"))
-                    .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-                    .filter((v) => v !== null && !isNaN(v));
-                  diskonPersenArr.forEach((persen) => {
-                    const amount = currentAmount * (persen / 100);
-                    diskonAmount += amount;
-                    currentAmount -= amount;
-                  });
-                  // Update diskonNominal (Rp) hasil konversi
-                  return {
-                    ...i,
-                    diskonPersen: value,
-                    diskonNominal: diskonAmount
-                      ? Math.round(diskonAmount).toString()
-                      : "",
-                  };
-                }
-                return i;
-              }),
-            }
-          : pItem
-      )
-    );
-    setLastDiskonChanged((prev) => ({
-      ...prev,
-      [prId + "-" + itemId]: "persen",
-    }));
-  }
-
-  // Handler perubahan diskon nominal per item
-  function handleDiskonNominalChange(
-    prId: string,
-    itemId: string,
-    value: string
-  ) {
-    setPoItems((prevPoItems) =>
-      prevPoItems.map((pItem) =>
-        pItem.prId === prId
-          ? {
-              ...pItem,
-              items: pItem.items.map((i) => {
-                if (i.id === itemId) {
-                  // Hitung diskon persen hasil konversi dari nominal
-                  let harga = 0;
-                  if (typeof i.hargaSatuan === "string") {
-                    const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
-                    harga = parseFloat(normalized) || 0;
-                  } else {
-                    harga = Number(i.hargaSatuan) || 0;
-                  }
-                  const qty = Number(i.jumlahPO) || 0;
-                  const itemSubtotal = harga * qty;
-                  // Support decimal diskonNominal
-                  const diskonNominal = parseFloat(value.replace(",", ".")) || 0;
-                  let diskonPersen = "";
-                  if (itemSubtotal > 0 && diskonNominal > 0) {
-                    const persen = (diskonNominal / itemSubtotal) * 100;
-                    diskonPersen =
-                      persen % 1 === 0 ? `${persen.toFixed(0)}%` : `${persen}%`;
-                  }
-                  return {
-                    ...i,
-                    diskonNominal: value,
-                    diskonPersen: diskonPersen,
-                  };
-                }
-                return i;
-              }),
-            }
-          : pItem
-      )
-    );
-    setLastDiskonChanged((prev) => ({
-      ...prev,
-      [prId + "-" + itemId]: "nominal",
-    }));
-  }
-
-  // Handler untuk perubahan ppn per item
-  function handlePPNItemChange(prId: string, itemId: string, value: string) {
-    setPoItems((prevPoItems) =>
-      prevPoItems.map((pItem) =>
-        pItem.prId === prId
-          ? {
-              ...pItem,
-              items: pItem.items.map((i) =>
-                i.id === itemId
-                  ? {
-                      ...i,
-                      ppnItem: value === "" ? "" : Number(value),
-                    }
-                  : i
-              ),
-            }
-          : pItem
-      )
-    );
-  }
-
-  // Helper untuk label satuan dari satuanOptions
-  function getSatuanLabel(satuanValue: string) {
-    const found = satuanOptions.find(
-      (s: any) => String(s.id_satuan) === String(satuanValue)
-    );
-    return found ? found.satuan : satuanValue;
-  }
-
-  // Helper format tanggal ke yyyy-mm-dd untuk backend
-  function formatDateForBackend(date: Date | string | null) {
-    if (!date) return "";
-    return dayjs(date).utc().format("YYYY-MM-DD");
-  }
-  // Fungsi untuk memberi class pada weekend
   function highlightWeekends(date: Date) {
     const day = date.getDay();
     if (day === 0 || day === 6) return "datepicker-red";
@@ -1226,297 +1147,6 @@ export default function BTBInputPage() {
             />
           </div>
         )}
-
-        {/* PO Form */}
-        <Card className="bg-card border-border shadow-md rounded-md">
-          <CardHeader>
-            <CardTitle>Buat Purchase Order</CardTitle>
-            <CardDescription>
-              Isi form di bawah untuk menambahkan Purchase Order
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {/* Baris 1: No PO, Tanggal PO, Estimasi Tanggal Terima */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                {/* No PO */}
-                <div className="space-y-2">
-                  <Label htmlFor="noPO">No. PO</Label>
-                  <Input
-                    id="noPO"
-                    value={poFormData.noPO}
-                    onChange={(e) =>
-                      setPoFormData({ ...poFormData, noPO: e.target.value })
-                    }
-                    placeholder="Auto-generated"
-                    className="border-border focus:border-primary/50"
-                  />
-                </div>
-                {/* Tanggal PO */}
-                <div className="space-y-2">
-                  <Label htmlFor="tanggalPO">Tanggal PO</Label>
-                  <DatePicker
-                    id="tanggalPO"
-                    selected={poFormData.tanggalPO}
-                    onChange={(date) =>
-                      setPoFormData({ ...poFormData, tanggalPO: date })
-                    }
-                    dateFormat="dd-MM-yyyy"
-                    placeholderText="Pilih tanggal"
-                    className="w-full px-3 py-2 border rounded-md bg-white"
-                    showMonthDropdown
-                    showYearDropdown
-                    dropdownMode="select"
-                    dayClassName={highlightWeekends}
-                    customInput={
-                      <Input
-                        value={
-                          poFormData.tanggalPO
-                            ? typeof poFormData.tanggalPO === "string"
-                              ? poFormData.tanggalPO
-                              : `${String(
-                                  poFormData.tanggalPO.getDate()
-                                ).padStart(2, "0")}-${String(
-                                  poFormData.tanggalPO.getMonth() + 1
-                                ).padStart(
-                                  2,
-                                  "0"
-                                )}-${poFormData.tanggalPO.getFullYear()}`
-                            : ""
-                        }
-                        readOnly
-                        className="w-full px-3 py-2 border rounded-md bg-white"
-                      />
-                    }
-                  />
-                </div>
-                {/* Estimasi Tanggal Terima */}
-                <div className="space-y-2">
-                  <Label htmlFor="estimasiTanggalTerima">
-                    Estimasi Tanggal Diterima
-                  </Label>
-                  <DatePicker
-                    id="estimasiTanggalTerima"
-                    selected={poFormData.estimasiTanggalDiterima}
-                    onChange={(date) =>
-                      setPoFormData({
-                        ...poFormData,
-                        estimasiTanggalDiterima: date,
-                      })
-                    }
-                    dateFormat="dd-MM-yyyy"
-                    placeholderText="Pilih tanggal"
-                    className="w-full px-3 py-2 border rounded-md bg-white"
-                    showMonthDropdown
-                    showYearDropdown
-                    dropdownMode="select"
-                    dayClassName={highlightWeekends}
-                    customInput={
-                      <Input
-                        value={
-                          poFormData.estimasiTanggalDiterima
-                            ? `${String(
-                                poFormData.estimasiTanggalDiterima.getDate()
-                              ).padStart(2, "0")}-${String(
-                                poFormData.estimasiTanggalDiterima.getMonth() +
-                                  1
-                              ).padStart(
-                                2,
-                                "0"
-                              )}-${poFormData.estimasiTanggalDiterima.getFullYear()}`
-                            : ""
-                        }
-                        readOnly
-                        className="w-full px-3 py-2 border rounded-md bg-white"
-                      />
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Baris 2: Supplier, Status Pengiriman, Skema */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                {/* Supplier */}
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="supplier"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
-                    Supplier
-                  </Label>
-                  <Select
-                    value={String(poFormData.supplier)}
-                    onValueChange={(value) =>
-                      setPoFormData({ ...poFormData, supplier: value })
-                    }
-                  >
-                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
-                      <SelectValue placeholder="Pilih supplier" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                        <Input
-                          placeholder="Cari supplier..."
-                          value={supplierSearch}
-                          onChange={(e) => setSupplierSearch(e.target.value)}
-                          className="mb-2"
-                        />
-                      </div>
-                      {supplierOptions.length === 0 && (
-                        <div className="px-4 py-2 text-sm text-muted-foreground">
-                          Tidak ada supplier ditemukan.
-                        </div>
-                      )}
-                      {supplierOptions.map((supplier) => (
-                        <SelectItem key={supplier.id_supplier} value={supplier.id_supplier}>
-                          {supplier.namaSupplier}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {/* Status Pengiriman */}
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="statusPengiriman"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
-                    Status Pengiriman
-                  </Label>
-                  <Select
-                    value={String(poFormData.statusPengiriman)}
-                    onValueChange={(value) =>
-                      setPoFormData({ ...poFormData, statusPengiriman: value })
-                    }
-                  >
-                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
-                      <SelectValue placeholder="Pilih status pengiriman" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                        <Input
-                          placeholder="Cari status pengiriman..."
-                          value={statusPengirimanSearch}
-                          onChange={(e) => setStatusPengirimanSearch(e.target.value)}
-                          className="mb-2"
-                        />
-                      </div>
-                      {statusPengirimanOptions.length === 0 && (
-                        <div className="px-4 py-2 text-sm text-muted-foreground">
-                          Tidak ada status pengiriman ditemukan.
-                        </div>
-                      )}
-                      {statusPengirimanOptions.map((status) => (
-                        <SelectItem key={status.id_statusPengiriman} value={status.id_statusPengiriman}>
-                          {status.status_pengiriman}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {/* Skema */}
-                <div className="space-y-2">
-                  <Label
-                    htmlFor="skema"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
-                    Skema
-                  </Label>
-                  <Select
-                    value={String(poFormData.skema)}
-                    onValueChange={(value) =>
-                      setPoFormData({ ...poFormData, skema: value })
-                    }
-                  >
-                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
-                      <SelectValue placeholder="Pilih skema" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                        <Input
-                          placeholder="Cari skema..."
-                          value={skemaSearch}
-                          onChange={(e) => setSkemaSearch(e.target.value)}
-                          className="mb-2"
-                        />
-                      </div>
-                      {skemaOptions.length === 0 && (
-                        <div className="px-4 py-2 text-sm text-muted-foreground">
-                          Tidak ada skema ditemukan.
-                        </div>
-                      )}
-                      {skemaOptions.map((skema) => (
-                        <SelectItem key={skema.id_skema} value={skema.id_skema}>
-                          {skema.skema}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Baris 3: Diskon, PPN, Total Pembayaran */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                {/* Diskon */}
-                <div className="space-y-2">
-                  <Label htmlFor="diskon">Diskon (%)</Label>
-                  <Input
-                    id="diskon"
-                    type="number"
-                    value={poFormData.diskon}
-                    onChange={(e) =>
-                      setPoFormData({ ...poFormData, diskon: e.target.value })
-                    }
-                    placeholder="0"
-                    className="border-border focus:border-primary/50"
-                  />
-                </div>
-                {/* PPN */}
-                <div className="space-y-2">
-                  <Label htmlFor="ppn">PPN (%)</Label>
-                  <Input
-                    id="ppn"
-                    type="number"
-                    value={poFormData.ppn}
-                    onChange={(e) =>
-                      setPoFormData({ ...poFormData, ppn: e.target.value })
-                    }
-                    placeholder="0"
-                    className="border-border focus:border-primary/50"
-                  />
-                </div>
-                {/* Total Pembayaran */}
-                <div className="space-y-2">
-                  <Label htmlFor="totalPembayaran">Total Pembayaran</Label>
-                  <Input
-                    id="totalPembayaran"
-                    value={calculations.totalPayment}
-                    readOnly
-                    className="bg-muted text-muted-foreground border-border"
-                  />
-                </div>
-              </div>
-
-              {/* Tombol Simpan dan Batal */}
-              <div className="flex justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2"
-                >
-                  Batal
-                </Button>
-                <Button
-                  type="submit"
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  Simpan PO
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Tabel PO dari Monitoring PO */}
         {!showForm && (
@@ -2071,7 +1701,7 @@ export default function BTBInputPage() {
                                   >
                                     <Checkbox
                                       checked={filterDiorderOleh.includes(o)}
-                                                                           onCheckedChange={(checked) => {
+                                      onCheckedChange={(checked) => {
                                         if (checked)
                                           setFilterDiorderOleh([
                                             ...filterDiorderOleh,
