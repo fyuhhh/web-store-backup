@@ -228,7 +228,7 @@ export default function MonitoringPRPage() {
       urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
     );
 
-    const validatedData = prList.map((pr: any) => {
+    let validatedData = prList.map((pr: any) => {
       // --- Perubahan: urutkan items berdasarkan id_PRItem ASC ---
       const items = prItemList
         .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
@@ -247,6 +247,38 @@ export default function MonitoringPRPage() {
           keterangan: item.keterangan,
         }));
 
+      // --- Penentuan status otomatis ---
+      // Semua quantity 0 → Telah Selesai
+      // Ada yang < quantityAwalPR dan > 0 → Gantung
+      // Semua quantity == quantityAwalPR → Menunggu
+      let newStatus = pr.status;
+      if (items.length > 0) {
+        const allZero = items.every((item: any) => Number(item.jumlah) === 0);
+        const allAwal = items.every(
+          (item: any) =>
+            Number(item.jumlah) === Number(item.quantityAwalPR)
+        );
+        if (allZero) {
+          newStatus = "Telah Selesai";
+        } else if (!allAwal) {
+          newStatus = "Gantung";
+        } else {
+          newStatus = "Menunggu";
+        }
+      }
+
+      // Jika status backend tidak sama dengan newStatus, update ke backend
+      if (pr.status !== newStatus && pr.id_PR) {
+        fetch(`http://localhost:5000/api/pr/${pr.id_PR}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...pr,
+            status: newStatus,
+          }),
+        });
+      }
+
       return {
         id: pr.id_PR,
         noPR: pr.noPR,
@@ -254,7 +286,7 @@ export default function MonitoringPRPage() {
         items,
         urgensi: urgensiMap[String(pr.id_urgensi)] || pr.id_urgensi,
         divisi: divisiMap[String(pr.id_divisi)] || pr.id_divisi,
-        status: pr.status,
+        status: newStatus,
         dibuatOleh: pr.dibuatOleh,
         skema: pr.id_skema,
         skemaLabel: pr.skemaLabel ?? "",
