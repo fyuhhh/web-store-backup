@@ -182,61 +182,6 @@ export default function BTBInputPage() {
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
-<<<<<<< HEAD
-    // Pastikan tidak ada merge conflict marker dan gunakan hanya satu versi
-    // Jika loadData/setSelectedPOsForBTB/setUserSchema/setUserSkemaId/setSupplierList/setSkemaList/setSkemaMap tidak ada, hapus pemanggilannya
-    // ...panggil API yang diperlukan saja...
-    // Ambil skema user dari localStorage
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    setUserSkema(userData.skema || "");
-    // Ambil supplier dan status pengiriman dari backend
-    fetch("http://192.168.10.10:5000/api/supplier")
-      .then((res) => res.json())
-      .then((data) => setSupplierOptions(data));
-    fetch("http://192.168.10.10:5000/api/status-pengiriman")
-      .then((res) => res.json())
-      .then((data) => setStatusPengirimanOptions(data));
-  }, []);
-
-  // Handler tambah supplier
-  const handleAddSupplier = async () => {
-    if (!newSupplier.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/supplier", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ namaSupplier: newSupplier }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setSupplierOptions((prev) => [...prev, data]);
-      setPoFormData((prev) => ({ ...prev, supplier: data.id_supplier }));
-      setShowAddSupplier(false);
-      setNewSupplier("");
-    }
-  };
-
-  // Handler tambah status pengiriman
-  const handleAddStatusPengiriman = async () => {
-    if (!newStatusPengiriman.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/status-pengiriman", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status_pengiriman: newStatusPengiriman }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setStatusPengirimanOptions((prev) => [...prev, data]);
-      setPoFormData((prev) => ({
-        ...prev,
-        statusPengiriman: data.id_statusPengiriman,
-      }));
-      setShowAddStatusPengiriman(false);
-      setNewStatusPengiriman("");
-    }
-  };
-
-
-=======
     loadData();
     setSelectedPOsForBTB([]);
     // Ambil skema user dari localStorage
@@ -284,7 +229,6 @@ export default function BTBInputPage() {
   // Tambahkan state untuk data PO dari backend
   const [backendPOData, setBackendPOData] = useState<any[]>([]);
 
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
   // Ambil data PO dari backend dan mapping seperti monitoring PO
   useEffect(() => {
     async function fetchPOBackend() {
@@ -300,17 +244,6 @@ export default function BTBInputPage() {
           skemaRes,
           userRes,
         ] = await Promise.all([
-<<<<<<< HEAD
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"),
-=======
           fetch("http://localhost:5000/api/po"),
           fetch("http://localhost:5000/api/po-item"),
           fetch("http://localhost:5000/api/pr-item"),
@@ -320,7 +253,6 @@ export default function BTBInputPage() {
           fetch("http://localhost:5000/api/status-pengiriman"),
           fetch("http://localhost:5000/api/skema"),
           fetch("http://localhost:5000/api/user"),
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
         ]);
         const [
           poList,
@@ -450,15 +382,7 @@ export default function BTBInputPage() {
 
         setBackendPOData(mappedPOs);
       } catch (err) {
-<<<<<<< HEAD
-        // Hindari error jika setBackendPOData tidak ada, atau jika tidak digunakan, hapus saja
-        // Jika memang tidak ada state/setter bernama setBackendPOData, hapus baris ini:
-        // setBackendPOData([]);
-        // Jika ada, tetap panggil untuk reset data:
-        if (typeof setBackendPOData === "function") {
-          setBackendPOData([]);
-        }
-        // Atau cukup diamkan jika tidak perlu reset state
+        setBackendPOData([]);
       }
     }
     fetchPOBackend();
@@ -548,12 +472,7 @@ export default function BTBInputPage() {
       setNotif({ type: "error", message: "Supplier harus diisi!" });
       setTimeout(() => setNotif(null), 2500);
       return;
-=======
-        setBackendPOData([]);
-      }
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
     }
-    fetchPOBackend();
     // ...existing code...
   }, []);
 
@@ -583,7 +502,6 @@ export default function BTBInputPage() {
     const storedPO = localStorage.getItem("poData");
     const storedBTB = localStorage.getItem("btbData");
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-<<<<<<< HEAD
     const orderedByUserId = userData.id_user || userData.id || null;
     const userSkema = userData.id_skema || null;
 
@@ -612,92 +530,27 @@ export default function BTBInputPage() {
           status: "Menunggu",
           createdAt: new Date().toISOString(),
           id_skema: userSkema,
-=======
-    const userSkema = userData.skema || "";
+        }),
+      });
+      if (!poRes.ok) throw new Error("Gagal menyimpan PO");
 
-    if (storedPO) {
-      // Filter PO sesuai skema user
-      setPoData(
-        JSON.parse(storedPO).filter(
-          (po: any) => !userSkema || po.skema === userSkema
-        )
-      );
-    }
-    if (storedBTB) {
-      // Filter BTB sesuai skema user
-      const btbArr = JSON.parse(storedBTB)
-        .filter((btb: any) => !userSkema || btb.skema === userSkema)
-        .map((btb: any) => ({
-          ...btb,
-          skema: btb.skema ?? "pentacity",
-        }));
-      setBtbData(btbArr);
-    } else {
-      // Initialize with dummy BTB data
-      const dummyBTB: BTBData[] = [
-        {
-          id: "BTB-001",
-          noBTB: "BTB/2024/001",
-          tanggal: "2024-06-20",
-          periode: "Juni 2024",
-          supplier: "PT. Supplier A",
-          kodeSupplier: "SUP-001",
-          barang: "Laptop Dell Latitude",
-          jumlah: 5,
-          satuan: "unit",
-          biaya: 75000000,
-          diterimaOleh: "Admin",
-          poId: "PO-001",
-          status: "Received",
-          createdAt: new Date().toISOString(),
-          skema: "pentacity", // <-- tambah skema di dummy
-        },
-      ];
-      localStorage.setItem("btbData", JSON.stringify(dummyBTB));
-      setBtbData(dummyBTB);
+      // 2. Ambil ulang data PO terbaru setelah disimpan
+      const updatedPORes = await fetch("http://192.168.10.10:5000/api/po");
+      const updatedPOData = await updatedPORes.json();
+      setPoData(updatedPOData);
+
+      setNotif({ type: "success", message: "PO berhasil disimpan!" });
+      setTimeout(() => {
+        setNotif(null);
+        // Redirect atau aksi lain setelah sukses
+      }, 1800);
+    } catch (err) {
+      setNotif({ type: "error", message: "Gagal menyimpan PO ke backend." });
+      setTimeout(() => setNotif(null), 3000);
     }
   };
 
-  const saveBTBData = (data: BTBData[]) => {
-    localStorage.setItem("btbData", JSON.stringify(data));
-    setBtbData(data);
-  };
-
-  // Helper format tanggal ke yyyy-mm-dd untuk backend
-  function formatDateForBackend(date: Date | null) {
-    if (!date) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
-
-  function formatTanggalLebihSehari(tgl: string) {
-    if (!tgl) return "";
-    let dateObj;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-      dateObj = dayjs(tgl).add(1, "day");
-    } else if (tgl.includes("T")) {
-      dateObj = dayjs.utc(tgl).add(1, "day");
-    } else {
-      dateObj = dayjs(tgl).add(1, "day");
-    }
-    return dateObj.format("DD-MM-YYYY");
-  }
-
-  function formatTanggalPlus2(tgl: string) {
-    if (!tgl) return "";
-    let dateObj;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-      dateObj = dayjs(tgl).add(2, "day");
-    } else if (tgl.includes("T")) {
-      dateObj = dayjs.utc(tgl).add(2, "day");
-    } else {
-      dateObj = dayjs(tgl).add(2, "day");
-    }
-    return dateObj.format("DD-MM-YYYY");
-  }
-
+  // Handler submit BTB
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -749,14 +602,12 @@ export default function BTBInputPage() {
           diterima_oleh: userData.id_user || userData.id,
           tanggal_diterima: formatDateForBackend(formData.tanggalDiterima),
           // status dan created_at otomatis di backend
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
         }),
       });
       if (!btbHeaderRes.ok) throw new Error("Gagal menyimpan header BTB");
       const btbHeaderData = await btbHeaderRes.json();
       const id_btb = btbHeaderData.id;
 
-<<<<<<< HEAD
       // 2. POST setiap PO Item ke backend dan PUT PR Item untuk update jumlah
       for (const poItem of poItems) {
         for (const item of poItem.items) {
@@ -832,150 +683,8 @@ export default function BTBInputPage() {
               id_satuan: prItemData.id_satuan || item.id_satuan,
               keterangan: item.keterangan || "",
             }),
-=======
-      // 2. POST setiap item ke /api/btb-item
-      // Setelah insert header BTB dan dapat id_btb
-      // Ambil data PO Item dari backend (pastikan sudah ada di database)
-      const poItemsRes = await fetch(
-        "http://localhost:5000/api/po-item?po=" + id_po
-      );
-      const poItems = await poItemsRes.json();
-
-      // Mapping item BTB dengan id_POItem dan id_satuan yang benar
-      const items = selectedPOItems.flatMap((po) =>
-        po.items
-          .filter((item) => (btbInputQty[item.poItemId] ?? 0) > 0)
-          .map((item) => {
-            // Cari poItem dari poItems (ambil id_POItem dan id_satuan)
-            const poItem = poItems.find(
-              (p) =>
-                String(p.id_PRItem) === String(item.id) ||
-                p.namaBarang === item.namaBarang
-            );
-            // --- FIX: pastikan hargaSatuan integer ---
-            const hargaSatuanInt = poItem?.hargaSatuan
-              ? Math.round(Number(poItem.hargaSatuan))
-              : 0;
-            return {
-              id_POItem: poItem?.id_POItem,
-              nama_barang: item.namaBarang,
-              jumlah_diterima: Math.round(btbInputQty[item.poItemId] ?? 0), // integer
-              id_satuan: item.id_satuan ?? poItem?.id_satuan ?? null,
-              keterangan: item.keterangan ?? "",
-              hargaSatuan: hargaSatuanInt, // <-- tambahkan jika ingin kirim ke backend
-            };
-          })
-          .filter((item) => !!item.id_POItem)
-      );
-
-      // LOG: dikirim frontend ke btb (header dan items)
-      console.log("DIKIRIM FRONTEND KE BTB HEADER:", {
-        no_btb: formData.noBTB,
-        tanggal_btb: formData.tanggal,
-        periode: formData.periode,
-        id_po,
-        id_supplier: formData.supplier,
-        nama_supplier: getSupplierLabel(formData.supplier),
-        id_user: userData.id_user || userData.id,
-        id_skema,
-        biaya: Math.round(formData.biaya),
-        diterima_oleh: userData.id_user || userData.id,
-        tanggal_diterima: formData.tanggal,
-      });
-      console.log("DIKIRIM FRONTEND KE BTB ITEMS:", items);
-
-      for (const item of items) {
-        // Validasi field
-        if (!id_btb || !item.id_POItem || !item.nama_barang) {
-          console.error("Field wajib kosong saat POST btb-item:", {
-            id_btb,
-            item,
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
           });
-          continue; // skip jika field penting kosong
         }
-
-<<<<<<< HEAD
-      // Update status PR (Gantung/Telah Selesai)
-      const prIds = Array.from(new Set(poItems.map((poItem) => poItem.prId)));
-      for (const prId of prIds) {
-        const prItemRes = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
-        );
-        const prItems = await prItemRes.json();
-        const allZero = prItems.every((item: any) => Number(item.jumlah) === 0);
-        const newStatus = allZero ? "Telah Selesai" : "Gantung";
-        const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
-        const prData = await prRes.json();
-        const payload = {
-          noPR: prData.noPR,
-          tanggalPR: normalizeToDateString(prData.tanggalPR),
-          id_divisi: prData.id_divisi,
-          id_urgensi: prData.id_urgensi,
-          status: newStatus,
-          dibuatOleh: prData.dibuatOleh,
-          id_skema: prData.id_skema,
-          createdAt: prData.createdAt,
-        };
-        await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
-=======
-        // POST ke btb_item (ubah endpoint)
-        const res = await fetch("http://localhost:5000/api/btb-item", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id_btb,
-            id_POItem: item.id_POItem,
-            nama_barang: item.nama_barang,
-            jumlah_diterima: Math.round(item.jumlah_diterima), // integer
-            id_satuan: item.id_satuan,
-            keterangan: item.keterangan,
-            qty_sisa: Math.round(item.jumlah_diterima), // integer
-            // hargaSatuan: item.hargaSatuan, // opsional, jika backend ingin simpan
-          }),
-        });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error("Gagal insert btb_item:", errText);
-        }
-        // 3. Update jumlahPO di po_item (PUT)
-        // Ambil data po_item lama
-        const poItemRes = await fetch(
-          `http://localhost:5000/api/po-item/${item.id_POItem}`
-        );
-        const poItemData = await poItemRes.json();
-        const sisa =
-          Math.max(
-            0,
-            Number(poItemData.jumlahPO || 0) - Number(item.jumlah_diterima)
-          ) || 0;
-
-        // Hanya kirim field yang valid untuk update po_item
-        const {
-          id_PO,
-          id_PRItem,
-          hargaSatuan,
-          jumlahAsli,
-          diskonItem,
-          keterangan,
-          // jumlahPO: diupdate
-        } = poItemData;
-
-        await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id_PO,
-            id_PRItem,
-            hargaSatuan,
-            jumlahPO: sisa,
-            jumlahAsli,
-            diskonItem,
-            keterangan,
-          }),
-        });
       }
 
       setNotif({ type: "success", message: "BTB berhasil disimpan!" });
@@ -990,18 +699,6 @@ export default function BTBInputPage() {
     }
   };
 
-<<<<<<< HEAD
-  useEffect(() => {
-    // Ganti loadData dengan fetch dari backend
-    const fetchPRData = async () => {
-      // Fetch referensi satuan/divisi/urgensi jika perlu (optional)
-      // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
-      const prList = await prRes.json();
-      // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
-      const prItemList = await prItemRes.json();
-=======
   const resetForm = () => {
     setFormData({
       noBTB: "",
@@ -1025,251 +722,6 @@ export default function BTBInputPage() {
     setSelectedPOs([]);
     setCurrentPage(1);
     setSearchTerm("");
-  };
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
-
-  const handleSelectPO = (poId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedPOs([...selectedPOs, poId]);
-    } else {
-      setSelectedPOs(selectedPOs.filter((id) => id !== poId));
-    }
-  };
-
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedPOs(filteredPOData.map((po) => po.id));
-    } else {
-      setSelectedPOs([]);
-    }
-  };
-
-  const handleBuatBTB = () => {
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-<<<<<<< HEAD
-    const userSkemaVal = userData.skema || "";
-    setUserSkema(userSkemaVal);
-    setPoFormData((prev) => ({
-      ...prev,
-      skema: userSkemaVal,
-    }));
-  }, []);
-
-  const savePOData = (data: POData[]) => {
-    localStorage.setItem("poData", JSON.stringify(data));
-    setPoData(data);
-  };
-
-  // Update discount breakdown when discount changes
-  useEffect(() => {
-    const calculations = calculateTotal();
-    setDiscountBreakdown(calculations.breakdown);
-  }, [poFormData.diskon, poItems]);
-
-  // Dummy state for selectedPRsForPO to satisfy TypeScript
-  // const [selectedPRsForPO, setSelectedPRsForPO] = useState<any[]>([]); // HAPUS BARIS INI
-
-  // Tambahkan state untuk referensi urgensi/divisi/satuan
-  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
-  const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
-  const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Fetch referensi dari backend
-    fetch("http://192.168.10.10:5000/api/divisi")
-      .then((res) => res.json())
-      .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
-      .then((res) => res.json())
-      .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
-      .then((res) => res.json())
-      .then((data) => setSatuanOptions(data));
-  }, []);
-
-  useEffect(() => {
-    const fetchPRData = async () => {
-      // Tunggu referensi sudah didapat
-      if (
-        divisiOptions.length === 0 ||
-        urgensiOptions.length === 0 ||
-        satuanOptions.length === 0
-      )
-        return;
-
-      // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
-      const prList = await prRes.json();
-      // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
-      const prItemList = await prItemRes.json();
-
-      // Helper mapping dari id ke label
-      const satuanMap = Object.fromEntries(
-        satuanOptions.map((s: any) => [String(s.id_satuan), s.satuan])
-      );
-      const divisiMap = Object.fromEntries(
-        divisiOptions.map((d: any) => [String(d.id_divisi), d.divisi])
-      );
-      const urgensiMap = Object.fromEntries(
-        urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
-      );
-
-      // Mapping PR dan item (sama seperti monitoring PR)
-      const prDataMapped = prList.map((pr: any) => {
-        const items = prItemList
-          .filter((item: any) => String(item.id_PR) === String(pr.id_PR))
-          .map((item: any) => ({
-            namaBarang: item.namaBarang,
-            jumlah: item.jumlah,
-            quantityAwalPR:
-              item.quantityAwalPR ?? item.originalJumlah ?? item.jumlah,
-            satuan:
-              satuanMap[String(item.id_satuan)] ||
-              item.satuanLabel ||
-              item.id_satuan,
-            satuanLabel:
-              item.satuanLabel || satuanMap[String(item.id_satuan)] || "", // <-- keep label
-            id_satuan: item.id_satuan, // <-- keep id_satuan from backend
-            keterangan: item.keterangan,
-            id: item.id_PRItem,
-            status: item.status || "",
-          }));
-
-        return {
-          id: pr.id_PR,
-          noPR: pr.noPR,
-          tanggalPR: pr.tanggalPR,
-          items,
-          urgensi:
-            urgensiMap[String(pr.id_urgensi)] ||
-            pr.urgensiLabel ||
-            pr.id_urgensi,
-          divisi:
-            divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
-          status: pr.status,
-          dibuatOleh: pr.dibuatOleh,
-          skema: pr.id_skema,
-          skemaLabel: pr.skemaLabel ?? "",
-        };
-      });
-      setPrData(prDataMapped);
-    };
-
-    fetchPRData();
-  }, [divisiOptions, urgensiOptions, satuanOptions]);
-
-  // Badge untuk urgensi
-  const getUrgensiBadge = (urgensi: string) => {
-    if (urgensi === "Low") {
-      return (
-        <Badge className="bg-green-100 text-green-700 border-green-300">
-          Low
-        </Badge>
-      );
-    }
-    if (urgensi === "Medium") {
-      return (
-        <Badge className="bg-orange-100 text-orange-700 border-orange-300">
-          Medium
-        </Badge>
-      );
-    }
-    if (urgensi === "High") {
-      return (
-        <Badge className="bg-red-100 text-red-700 border-red-300">High</Badge>
-      );
-    }
-    return (
-      <Badge className="bg-muted/50 text-muted-foreground">{urgensi}</Badge>
-=======
-    const selectedPOObjects = filteredPOData.filter((po) =>
-      selectedPOs.includes(po.id)
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
-    );
-    if (selectedPOObjects.length === 0) {
-      alert("Pilih minimal satu PO untuk dibuat BTB.");
-      return;
-    }
-    setSelectedPOsForBTB(selectedPOObjects);
-    setShowForm(true);
-
-    setSelectedPOItems(
-      selectedPOObjects.map((po) => ({
-        poId: po.id,
-        noPO: po.noPO,
-        supplier: po.supplier,
-        items: getPOItemsWithSisa(po),
-      }))
-    );
-    // LOG: diterima frontend dari PO (pastikan id_supplier adalah id PO, bukan label)
-    console.log(
-      "DITERIMA FRONTEND DARI PO:",
-      selectedPOObjects.map((po) => ({
-        id_PO: po.id,
-        id_supplier: po.id_supplier ?? po.id_supplier, // pastikan ini id_supplier (number/integer)
-        supplier: po.supplier,
-        noPO: po.noPO,
-        items: getPOItemsWithSisa(po).map((item) => ({
-          namaBarang: item.namaBarang,
-          id_satuan: item.id_satuan,
-          satuan: item.satuan,
-          qtySisa: item.qtySisa,
-          poItemId: item.poItemId,
-        })),
-      }))
-    );
-    // Set initial BTB input qty to qtySisa for each item (bisa diubah user)
-    const qtyObj: Record<string, number> = {};
-    selectedPOObjects.forEach((po) => {
-      getPOItemsWithSisa(po).forEach((item) => {
-        qtyObj[item.poItemId] = item.qtySisa;
-      });
-    });
-    setBtbInputQty(qtyObj);
-
-    // Perbaiki error split: pastikan id string
-    const firstPO = selectedPOObjects[0];
-    let kodeSupplier = "";
-    if (typeof firstPO.kodeSupplier === "string" && firstPO.kodeSupplier) {
-      kodeSupplier = firstPO.kodeSupplier;
-    } else if (firstPO.id !== undefined && firstPO.id !== null) {
-      const idStr = String(firstPO.id);
-      const idParts = idStr.split("-");
-      kodeSupplier = idParts.length > 1 ? `SUP-${idParts[1]}` : "";
-    }
-
-    setFormData({
-      noBTB: "",
-      tanggal: null, // <-- pastikan tanggal kosong/null, tidak auto-isi
-      periode: "",
-      supplier: firstPO.id_supplier ?? "",
-      supplierLabel: firstPO.supplier ?? "",
-      noPO: firstPO.noPO ?? "", // <-- tambahkan ini
-      barang: "",
-      jumlah: "",
-      satuan: "",
-      biaya: firstPO.totalPembayaran?.toString() ?? "",
-      diterimaOleh: "",
-      poId: firstPO.id, // tetap simpan id untuk backend
-      tanggalDiterima: "",
-      skema: userData.skema || "pentacity",
-    });
-
-    // LOG: Daftar PO yang diterima oleh frontend (beserta id_supplier dan id_satuan tiap item)
-    console.log("DAFTAR PO YANG DITERIMA OLEH FRONTEND:");
-    selectedPOObjects.forEach((po, idx) => {
-      console.log(
-        `[${idx}] id_PO: ${po.id}, id_supplier: ${po.id_supplier}, supplier: ${po.supplier}, noPO: ${po.noPO}`
-      );
-      po.poItems.forEach((poItem, i) => {
-        poItem.items.forEach((item, j) => {
-          console.log(
-            `  [item ${i}-${j}] namaBarang: ${item.namaBarang}, id_satuan: ${item.id_satuan}, satuan: ${item.satuan}, qtySisa: ${item.qtySisa}, poItemId: ${item.poItemId}`
-          );
-        });
-      });
-    });
   };
 
   // Compute unique values for filters
@@ -1372,7 +824,6 @@ export default function BTBInputPage() {
     return found ? found.namaSupplier : id;
   }
 
-<<<<<<< HEAD
   // Handler untuk perubahan Qty
   function handleQtyChange(prId: string, itemId: string, value: string) {
     setPoItems((prevPoItems) =>
@@ -1547,8 +998,6 @@ export default function BTBInputPage() {
     return dayjs(date).utc().format("YYYY-MM-DD");
   }
   // Fungsi untuk memberi class pada weekend
-=======
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
   function highlightWeekends(date: Date) {
     const day = date.getDay();
     if (day === 0 || day === 6) return "datepicker-red";
@@ -1778,7 +1227,6 @@ export default function BTBInputPage() {
           </div>
         )}
 
-<<<<<<< HEAD
         {/* PO Form */}
         <Card className="bg-card border-border shadow-md rounded-md">
           <CardHeader>
@@ -1820,8 +1268,6 @@ export default function BTBInputPage() {
                     showYearDropdown
                     dropdownMode="select"
                     dayClassName={highlightWeekends}
-                    popperClassName="z-[9999]"
-                    popperPlacement="right" // <-- Tambahkan ini agar popper muncul di kanan
                     customInput={
                       <Input
                         value={
@@ -1865,8 +1311,6 @@ export default function BTBInputPage() {
                     showYearDropdown
                     dropdownMode="select"
                     dayClassName={highlightWeekends}
-                    popperClassName="z-[9999]"
-                    popperPlacement="right" // <-- Tambahkan ini agar popper muncul di kanan
                     customInput={
                       <Input
                         value={
@@ -1916,7 +1360,164 @@ export default function BTBInputPage() {
                           value={supplierSearch}
                           onChange={(e) => setSupplierSearch(e.target.value)}
                           className="mb-2"
-=======
+                        />
+                      </div>
+                      {supplierOptions.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-muted-foreground">
+                          Tidak ada supplier ditemukan.
+                        </div>
+                      )}
+                      {supplierOptions.map((supplier) => (
+                        <SelectItem key={supplier.id_supplier} value={supplier.id_supplier}>
+                          {supplier.namaSupplier}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Status Pengiriman */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="statusPengiriman"
+                    className="text-sm font-medium text-muted-foreground"
+                  >
+                    Status Pengiriman
+                  </Label>
+                  <Select
+                    value={String(poFormData.statusPengiriman)}
+                    onValueChange={(value) =>
+                      setPoFormData({ ...poFormData, statusPengiriman: value })
+                    }
+                  >
+                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
+                      <SelectValue placeholder="Pilih status pengiriman" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                        <Input
+                          placeholder="Cari status pengiriman..."
+                          value={statusPengirimanSearch}
+                          onChange={(e) => setStatusPengirimanSearch(e.target.value)}
+                          className="mb-2"
+                        />
+                      </div>
+                      {statusPengirimanOptions.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-muted-foreground">
+                          Tidak ada status pengiriman ditemukan.
+                        </div>
+                      )}
+                      {statusPengirimanOptions.map((status) => (
+                        <SelectItem key={status.id_statusPengiriman} value={status.id_statusPengiriman}>
+                          {status.status_pengiriman}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Skema */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="skema"
+                    className="text-sm font-medium text-muted-foreground"
+                  >
+                    Skema
+                  </Label>
+                  <Select
+                    value={String(poFormData.skema)}
+                    onValueChange={(value) =>
+                      setPoFormData({ ...poFormData, skema: value })
+                    }
+                  >
+                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
+                      <SelectValue placeholder="Pilih skema" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                        <Input
+                          placeholder="Cari skema..."
+                          value={skemaSearch}
+                          onChange={(e) => setSkemaSearch(e.target.value)}
+                          className="mb-2"
+                        />
+                      </div>
+                      {skemaOptions.length === 0 && (
+                        <div className="px-4 py-2 text-sm text-muted-foreground">
+                          Tidak ada skema ditemukan.
+                        </div>
+                      )}
+                      {skemaOptions.map((skema) => (
+                        <SelectItem key={skema.id_skema} value={skema.id_skema}>
+                          {skema.skema}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Baris 3: Diskon, PPN, Total Pembayaran */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                {/* Diskon */}
+                <div className="space-y-2">
+                  <Label htmlFor="diskon">Diskon (%)</Label>
+                  <Input
+                    id="diskon"
+                    type="number"
+                    value={poFormData.diskon}
+                    onChange={(e) =>
+                      setPoFormData({ ...poFormData, diskon: e.target.value })
+                    }
+                    placeholder="0"
+                    className="border-border focus:border-primary/50"
+                  />
+                </div>
+                {/* PPN */}
+                <div className="space-y-2">
+                  <Label htmlFor="ppn">PPN (%)</Label>
+                  <Input
+                    id="ppn"
+                    type="number"
+                    value={poFormData.ppn}
+                    onChange={(e) =>
+                      setPoFormData({ ...poFormData, ppn: e.target.value })
+                    }
+                    placeholder="0"
+                    className="border-border focus:border-primary/50"
+                  />
+                </div>
+                {/* Total Pembayaran */}
+                <div className="space-y-2">
+                  <Label htmlFor="totalPembayaran">Total Pembayaran</Label>
+                  <Input
+                    id="totalPembayaran"
+                    value={calculations.totalPayment}
+                    readOnly
+                    className="bg-muted text-muted-foreground border-border"
+                  />
+                </div>
+              </div>
+
+              {/* Tombol Simpan dan Batal */}
+              <div className="flex justify-end gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  Simpan PO
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Tabel PO dari Monitoring PO */}
         {!showForm && (
           <Card className="bg-card border-border">
@@ -1952,7 +1553,6 @@ export default function BTBInputPage() {
                             borderRadius: 4,
                           }}
                           className="focus:ring-2 focus:ring-primary"
->>>>>>> 3e1e178dc16ce262ae83d76241f3500a56e79817
                         />
                       </TableHead>
                       <TableHead className="border-r border-gray-300">
@@ -2471,7 +2071,7 @@ export default function BTBInputPage() {
                                   >
                                     <Checkbox
                                       checked={filterDiorderOleh.includes(o)}
-                                      onCheckedChange={(checked) => {
+                                                                           onCheckedChange={(checked) => {
                                         if (checked)
                                           setFilterDiorderOleh([
                                             ...filterDiorderOleh,
@@ -2865,7 +2465,7 @@ export default function BTBInputPage() {
                   </tbody>
                 </table>
               </div>
-              {/* Form bawah: Skema saja */}
+              {/* Form bawah: Skema saja ini */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Skema di-hide, tetap dikirim */}
                 <input type="hidden" name="skema" value={formData.skema} />
