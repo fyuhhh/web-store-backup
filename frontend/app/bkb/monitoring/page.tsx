@@ -83,6 +83,68 @@ function formatInt(val: any) {
     : num.toFixed(2);
 }
 
+// ========================================
+// 1. PARSER No. BKB (E-WALK + PENTA)
+// ========================================
+function parseNoBKB(noBKB: string | null | undefined) {
+  if (!noBKB || typeof noBKB !== "string") return null;
+  const s = noBKB.trim().toUpperCase();
+
+  // --- FORMAT E-WALK ---
+  // BKB/E-WALK/25/XI/0001
+  const regexEwalk = /^BKB\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  // --- FORMAT PENTACITY ---
+  // INV/BKB/25/XI/00001
+  const regexPenta = /^INV\/BKB\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  let match = s.match(regexEwalk);
+  let brand = "E-WALK";
+
+  if (!match) {
+    match = s.match(regexPenta);
+    brand = "PENTA";
+  }
+
+  if (!match) return null;
+
+  const [, tahun2, bulanRomawi, urutStr] = match;
+
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+
+  return { tahun, bulan, urut, brand };
+}
+
+// ========================================
+// 2. SORTING BKB TERBARU → TERLAMA
+// ========================================
+function sortBKBList(filteredBKBData: any[]) {
+  const allValid = filteredBKBData.every(
+    (x) => typeof x.noBKB === "string" && parseNoBKB(x.noBKB)
+  );
+
+  if (allValid) {
+    return [...filteredBKBData].sort((a, b) => {
+      const pa = parseNoBKB(a.noBKB)!;
+      const pb = parseNoBKB(b.noBKB)!;
+
+      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun; // DESC
+      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan; // DESC
+      return pb.urut - pa.urut; // DESC
+    });
+  }
+
+  // fallback
+  return [...filteredBKBData].sort((a, b) => Number(b.id) - Number(a.id));
+}
+
 export default function BKBMonitoringPage() {
   const [bkbRows, setBkbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -204,7 +266,7 @@ export default function BKBMonitoringPage() {
   }, []);
 
   // Filter data
-  const filteredBKBData = bkbRows
+  const filteredBKBDataRaw = bkbRows
     // Filter hanya BKB dengan id_skema sesuai user login
     .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
     .filter((row) => {
@@ -215,19 +277,15 @@ export default function BKBMonitoringPage() {
       return matchesSearch;
     });
 
-  // Data untuk export sesuai mode
-  const getExportBKBData = () => {
-    if (exportMode === "selected") {
-      return filteredBKBData.filter((row) => selectedBKBIds.includes(row.id));
-    }
-    if (exportMode === "range" && exportStartDate && exportEndDate) {
-      return filteredBKBData.filter(
-        (row) =>
-          row.tanggalBKB >= exportStartDate && row.tanggalBKB <= exportEndDate
-      );
-    }
-    return filteredBKBData;
-  };
+  // --- SORTING: BKB TERBARU → TERLAMA (PAKAI PARSER) ---
+  const filteredBKBData = sortBKBList(filteredBKBDataRaw);
+
+  // --- Pagination logic ---
+  const totalPages = Math.ceil(filteredBKBData.length / itemsPerPage);
+  const paginatedData = filteredBKBData.slice(
+    (currentPage - 1) * itemsPerPage,
+    (currentPage) * itemsPerPage
+  );
 
   // Export Excel function
   const handleExport = async () => {
@@ -318,13 +376,6 @@ export default function BKBMonitoringPage() {
     a.click();
     window.URL.revokeObjectURL(url);
   };
-
-  // Pagination logic
-  const totalPages = Math.ceil(filteredBKBData.length / itemsPerPage);
-  const paginatedData = filteredBKBData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
 
   // Auto-close toast
   useEffect(() => {

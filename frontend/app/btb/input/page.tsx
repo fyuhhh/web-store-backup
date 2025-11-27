@@ -941,7 +941,7 @@ export default function BTBInputPage() {
 
   // Tambahkan filteredPOData dan paginatedData sebelum return
 
-  // Tabel PO: gunakan backendPOData dan filter skema sesuai user login
+  // --- Tabel PO: gunakan backendPOData dan filter skema sesuai user login ---
   const filteredPOData = backendPOData
     .filter((po) => !userSkemaId || String(po.skema) === userSkemaId)
     .filter((po) => {
@@ -997,12 +997,9 @@ export default function BTBInputPage() {
       );
     });
 
-  // --- SORTING: id_PO tertinggi ke terendah ---
-  const sortedPOData = [...filteredPOData].sort((a, b) => {
-    const idA = Number(a.id_PO ?? a.id);
-    const idB = Number(b.id_PO ?? b.id);
-    return idB - idA; // tertinggi ke terendah
-  });
+  // --- SORTING: PO TERBARU → TERLAMA (PAKAI PARSER) ---
+  const sortedPOData = sortPOList(filteredPOData);
+
   const totalPages = Math.max(
     1,
     Math.ceil(sortedPOData.length / itemsPerPage)
@@ -1037,6 +1034,68 @@ export default function BTBInputPage() {
       events.forEach((ev) => window.removeEventListener(ev, resetTimer));
     };
   }, []);
+
+  // ========================================
+  // 1. PARSER No. PO (E-WALK + PENTACITY)
+  // ========================================
+  function parseNoPO(noPO: string | null | undefined) {
+    if (!noPO || typeof noPO !== "string") return null;
+
+    const s = noPO.trim().toUpperCase();
+
+    // FORMAT:
+    // PO/E-WALK/WBL/25/XI/00001
+    // PO/PSV/WBL/25/XI/00001
+    //
+    // BRAND = E-WALK atau PSV
+    // STORE = WBL atau lainnya
+    const regex = /^PO\/(E-?WALK|PSV)\/([A-Z0-9]+)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+    const match = s.match(regex);
+    if (!match) return null;
+
+    const [, brand, store, tahun2, bulanRomawi, urutStr] = match;
+
+    // Konversi bulan romawi
+    const bulanMap: Record<string, number> = {
+      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+    };
+
+    const bulan = bulanMap[bulanRomawi] ?? 0;
+    const tahun = 2000 + parseInt(tahun2, 10);
+    const urut = parseInt(urutStr, 10);
+
+    return { tahun, bulan, urut, brand, store };
+  }
+
+  // ========================================
+  // 2. SORTING PO TERBARU → TERLAMA
+  // ========================================
+  function sortPOList(filteredPOData: any[]) {
+    const allValid = filteredPOData.every(
+      (po) => typeof po.noPO === "string" && parseNoPO(po.noPO)
+    );
+
+    if (allValid) {
+      return [...filteredPOData].sort((a, b) => {
+        const pa = parseNoPO(a.noPO)!;
+        const pb = parseNoPO(b.noPO)!;
+
+        // Tahun DESC
+        if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
+
+        // Bulan DESC
+        if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
+
+        // Urut DESC
+        return pb.urut - pa.urut;
+      });
+    }
+
+    // fallback jika format tidak valid
+    return [...filteredPOData].sort((a, b) => Number(b.id_PO ?? b.id) - Number(a.id_PO ?? a.id));
+  }
 
   return (
     <MainLayout>

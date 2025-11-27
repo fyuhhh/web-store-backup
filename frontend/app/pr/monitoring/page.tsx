@@ -526,18 +526,78 @@ export default function MonitoringPRPage() {
       (pr) => filterSkemaId === "all" || String(pr.skema) === filterSkemaId
     );
 
-  // --- SORTING: id_PR tertinggi ke terendah ---
-  const sortedPRData = [...filteredPRData].sort((a, b) => {
-    // Pastikan id_PR berupa angka
-    const idA = Number(a.id);
-    const idB = Number(b.id);
-    return idB - idA; // tertinggi ke terendah
-  });
+ // =====================================
+// 1. PARSER No. PR (E-WALK + PENTACITY)
+// =====================================
+function parseNoPR(noPR: string | null | undefined) {
+  if (!noPR || typeof noPR !== "string") return null;
+
+  const s = noPR.trim().toUpperCase();
+
+  // FORMAT DITERIMA:
+  // PR/E-WALK/25/XI/001
+  // PR/PRQ/25/XI/00001
+  //
+  // Bagian kedua bisa E-WALK atau PRQ
+  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  const match = s.match(regex);
+  if (!match) return null;
+
+  const [, brand, tahun2, bulanRomawi, urutStr] = match;
+
+  // Konversi bulan Romawi
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+
+  return { tahun, bulan, urut, brand };
+}
+
+// =====================================
+// 2. SORTING PR TERBARU → TERLAMA
+// =====================================
+function sortPRList(filteredPRData: any[]) {
+  const allValid = filteredPRData.every(
+    (pr) => typeof pr.noPR === "string" && parseNoPR(pr.noPR)
+  );
+
+  if (allValid) {
+    return [...filteredPRData].sort((a, b) => {
+      const pa = parseNoPR(a.noPR)!;
+      const pb = parseNoPR(b.noPR)!;
+
+      // Tahun DESC → terbaru
+      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
+
+      // Bulan DESC
+      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
+
+      // Nomor urut DESC
+      return pb.urut - pa.urut;
+    });
+  }
+
+  // Fallback jika format tidak valid
+  return [...filteredPRData].sort((a, b) => Number(b.id) - Number(a.id));
+}
+
+// =====================================
+// 3. PEMAKAIAN
+// =====================================
+const sortedPRDataFinal = sortPRList(filteredPRData);
+
+
 
   // Pagination logic
-  const totalPages = Math.ceil(sortedPRData.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedPRDataFinal.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = sortedPRData.slice(
+  const paginatedData = sortedPRDataFinal.slice(
     startIndex,
     startIndex + itemsPerPage
   );
