@@ -280,7 +280,7 @@ export default function MonitoringPRPage() {
         pr.items.every((item: any) => Number(item.jumlah) === 0)
       ) {
         // Update status ke "Diproses"
-        await fetch(`http://localhost:5000/api/pr/${pr.id}`, {
+        await fetch(`http://192.168.10.10:5000/api/pr/${pr.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
