@@ -31,17 +31,17 @@ export function MainLayout({ children }: MainLayoutProps) {
 
     // Fetch user detail dari backend
     if (parsed?.id_user) {
-      fetch(`http://192.168.10.10:5000/api/user/${parsed.id_user}`)
+      fetch(`http://192.168.10.10:500/api/user/${parsed.id_user}`)
         .then((r) => r.json())
         .then((data) => setUserDetail(data))
         .catch(() => setUserDetail(null));
     }
 
     // Fetch semua skema dan peran dari backend
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://192.168.10.10:500/api/skema")
       .then((r) => r.json())
       .then((data) => setSkemaList(data));
-    fetch("http://192.168.10.10:5000/api/peran")
+    fetch("http://192.168.10.10:500/api/peran")
       .then((r) => r.json())
       .then((data) => setPeranList(data));
   }, [router]);

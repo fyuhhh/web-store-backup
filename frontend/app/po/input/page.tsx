@@ -89,7 +89,7 @@ export default function InputPOPage() {
           hargaSatuan: number;
           jumlahPO: number;
           jumlahAsli: number;
-          diskonItem: string; // now string, e.g. "10%+5000+2%"
+          diskonItem: string; // now string, e.g. "10%+500+2%"
           ppnItem: number | ""; // per item
           skema: string;
           dibuatOleh: string;

@@ -103,24 +103,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch total PR item
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
     // Fetch total PO item
-    fetch("http://192.168.10.10:5000/api/po")
+    fetch("http://localhost:5000/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BTB item
-    fetch("http://192.168.10.10:5000/api/btb")
+    fetch("http://localhost:5000/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BKB item
-    fetch("http://192.168.10.10:5000/api/bkb")
+    fetch("http://localhost:5000/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
     // Fetch status PR dari backend
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         let selesai = 0,
@@ -128,14 +128,8 @@ export default function DashboardPage() {
           menunggu = 0;
         if (Array.isArray(data)) {
           data.forEach((pr) => {
-            // Jika status null/undefined/kosong, anggap telah selesai
-            if (
-              pr.status === "Telah Selesai" ||
-              pr.status === null ||
-              pr.status === undefined ||
-              pr.status === ""
-            )
-              selesai++;
+            // Selesai = status === "Diproses"
+            if (pr.status === "Diproses") selesai++;
             else if (pr.status === "Gantung") gantung++;
             else if (pr.status === "Menunggu") menunggu++;
           });
@@ -178,24 +172,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Fetch total PR item
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
     // Fetch total PO item
-    fetch("http://192.168.10.10:5000/api/po")
+    fetch("http://localhost:5000/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BTB item
-    fetch("http://192.168.10.10:5000/api/btb")
+    fetch("http://localhost:5000/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
     // Fetch total BKB item
-    fetch("http://192.168.10.10:5000/api/bkb")
+    fetch("http://localhost:5000/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
     // Fetch status PR dari backend
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         let selesai = 0,
@@ -203,14 +197,8 @@ export default function DashboardPage() {
           menunggu = 0;
         if (Array.isArray(data)) {
           data.forEach((pr) => {
-            // Jika status null/undefined/kosong, anggap telah selesai
-            if (
-              pr.status === "Telah Selesai" ||
-              pr.status === null ||
-              pr.status === undefined ||
-              pr.status === ""
-            )
-              selesai++;
+            // Selesai = status === "Diproses"
+            if (pr.status === "Diproses") selesai++;
             else if (pr.status === "Gantung") gantung++;
             else if (pr.status === "Menunggu") menunggu++;
           });
@@ -219,7 +207,7 @@ export default function DashboardPage() {
       });
 
     // Fetch status PR untuk distribusi status dan trend bulanan
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
         // Distribusi Status
@@ -228,13 +216,8 @@ export default function DashboardPage() {
           menunggu = 0;
         if (Array.isArray(data)) {
           data.forEach((pr) => {
-            if (
-              pr.status === "Telah Selesai" ||
-              pr.status === null ||
-              pr.status === undefined ||
-              pr.status === ""
-            )
-              selesai++;
+            // Selesai = status === "Diproses"
+            if (pr.status === "Diproses") selesai++;
             else if (pr.status === "Gantung") gantung++;
             else if (pr.status === "Menunggu") menunggu++;
           });
@@ -258,13 +241,8 @@ export default function DashboardPage() {
                 menunggu: 0,
               };
             }
-            if (
-              pr.status === "Telah Selesai" ||
-              pr.status === null ||
-              pr.status === undefined ||
-              pr.status === ""
-            )
-              grouped[year][month].selesai++;
+            // Selesai = status === "Diproses"
+            if (pr.status === "Diproses") grouped[year][month].selesai++;
             else if (pr.status === "Gantung") grouped[year][month].gantung++;
             else if (pr.status === "Menunggu") grouped[year][month].menunggu++;
           });
