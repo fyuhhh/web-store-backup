@@ -61,10 +61,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
 import { type PRData } from "@/lib/dummy-data";
 
 export default function MonitoringPRPage() {
@@ -155,7 +151,6 @@ export default function MonitoringPRPage() {
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
-<<<<<<< HEAD
     fetch("http://192.168.10.10:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
@@ -166,18 +161,6 @@ export default function MonitoringPRPage() {
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
     fetch("http://192.168.10.10:5000/api/skema")
-=======
-    fetch("http://192.168.10.10:5000/api/divisi")
-      .then((res) => res.json())
-      .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
-      .then((res) => res.json())
-      .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
-      .then((res) => res.json())
-      .then((data) => setSatuanOptions(data));
-    fetch("http://192.168.10.10:5000/api/skema")
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
       .then((res) => res.json())
       .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -219,15 +202,9 @@ export default function MonitoringPRPage() {
   ]);
 
   const loadPRData = async () => {
-<<<<<<< HEAD
     const prRes = await fetch("http://192.168.10.10:5000/api/pr");
     const prList = await prRes.json();
     const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
-=======
-    const prRes = await fetch("http://192.168.10.10:5000/api/pr");
-    const prList = await prRes.json();
-    const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
     const prItemList = await prItemRes.json();
 
     // LOG: Tampilkan tanggalPR yang diterima dari backend
@@ -303,11 +280,7 @@ export default function MonitoringPRPage() {
         pr.items.every((item: any) => Number(item.jumlah) === 0)
       ) {
         // Update status ke "Diproses"
-<<<<<<< HEAD
         await fetch(`http://192.168.10.10:5000/api/pr/${pr.id}`, {
-=======
-        await fetch(`http://192.168.10.10:5000/api/pr/${pr.id}`, {
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -399,11 +372,7 @@ export default function MonitoringPRPage() {
         }
         console.log("Deleting PR Item id_PRItem:", idToDelete);
         const resp = await fetch(
-<<<<<<< HEAD
           `http://192.168.10.10:5000/api/pr-item/${idToDelete}`,
-=======
-          `http://192.168.10.10:5000/api/pr-item/${idToDelete}`,
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
           {
             method: "DELETE",
           }
@@ -431,13 +400,8 @@ export default function MonitoringPRPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-<<<<<<< HEAD
         await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
         await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
-=======
-        await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
-        await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
           method: "DELETE",
         });
       }
@@ -497,21 +461,6 @@ export default function MonitoringPRPage() {
   function formatTanggal(tgl: string) {
     if (!tgl) return "";
     return dayjs(tgl).local().format("DD-MM-YYYY");
-<<<<<<< HEAD
-=======
-import { type POData, type PRData } from "@/lib/dummy-data";
-import { truncateText } from "@/lib/utils";
-function formatTanggal(tgl: string) {
-  if (!tgl) return "";
-  // Pastikan tgl adalah string tanggal valid
-  let dateObj = dayjs(tgl);
-  // Jika tidak valid, coba parse manual (misal dari DD-MM-YYYY)
-  if (!dateObj.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
-    const [d, m, y] = tgl.split("-");
-    dateObj = dayjs(`${y}-${m}-${d}`);
->>>>>>> 0c3bb19ba92e37b51076f3e5260967351651bfe8
-=======
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
   }
 
   // Filter data: hanya tampilkan PR dengan id_skema sesuai user login
@@ -2044,21 +1993,13 @@ function DeleteItemModal({
     document.body
   );
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
 
 // --- Saat update status PR ke backend (PUT/POST), pastikan logika status sama ---
 // Contoh di fungsi update PR (misal confirmDelete, confirmDeleteItems, atau proses PO):
 const updatePRStatusToBackend = async (prId: string) => {
   // Ambil semua item PR dari backend
   const prItemsRes = await fetch(
-<<<<<<< HEAD
     `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
-=======
-    `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
   );
   const prItems = prItemsRes.ok ? await prItemsRes.json() : [];
 
@@ -2088,17 +2029,10 @@ const updatePRStatusToBackend = async (prId: string) => {
   }
 
   // Ambil data PR lama
-<<<<<<< HEAD
   const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
   if (prRes.ok) {
     const prData = await prRes.json();
     await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
-=======
-  const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
-  if (prRes.ok) {
-    const prData = await prRes.json();
-    await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2108,8 +2042,3 @@ const updatePRStatusToBackend = async (prId: string) => {
     });
   }
 };
-<<<<<<< HEAD
-=======
->>>>>>> 0c3bb19ba92e37b51076f3e5260967351651bfe8
-=======
->>>>>>> e55b1f9286e5bdd1f5f556ef0df4cd0a7369503a
