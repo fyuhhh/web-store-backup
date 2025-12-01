@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 28 Nov 2025 pada 10.04
--- Versi server: 10.4.32-MariaDB
--- Versi PHP: 8.2.12
+-- Generation Time: Dec 01, 2025 at 02:59 AM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -24,7 +24,7 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `bkb`
+-- Table structure for table `bkb`
 --
 
 CREATE TABLE `bkb` (
@@ -42,7 +42,7 @@ CREATE TABLE `bkb` (
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `bkb_item`
+-- Table structure for table `bkb_item`
 --
 
 CREATE TABLE `bkb_item` (
@@ -61,7 +61,7 @@ CREATE TABLE `bkb_item` (
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `btb`
+-- Table structure for table `btb`
 --
 
 CREATE TABLE `btb` (
@@ -84,7 +84,7 @@ CREATE TABLE `btb` (
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `btb_item`
+-- Table structure for table `btb_item`
 --
 
 CREATE TABLE `btb_item` (
@@ -102,7 +102,7 @@ CREATE TABLE `btb_item` (
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `divisi`
+-- Table structure for table `divisi`
 --
 
 CREATE TABLE `divisi` (
@@ -111,7 +111,7 @@ CREATE TABLE `divisi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `divisi`
+-- Dumping data for table `divisi`
 --
 
 INSERT INTO `divisi` (`id_divisi`, `divisi`) VALUES
@@ -149,7 +149,7 @@ INSERT INTO `divisi` (`id_divisi`, `divisi`) VALUES
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `peran`
+-- Table structure for table `peran`
 --
 
 CREATE TABLE `peran` (
@@ -158,7 +158,7 @@ CREATE TABLE `peran` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `peran`
+-- Dumping data for table `peran`
 --
 
 INSERT INTO `peran` (`id_peran`, `peran`) VALUES
@@ -171,7 +171,7 @@ INSERT INTO `peran` (`id_peran`, `peran`) VALUES
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `po`
+-- Table structure for table `po`
 --
 
 CREATE TABLE `po` (
@@ -194,17 +194,18 @@ CREATE TABLE `po` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `po`
+-- Dumping data for table `po`
 --
 
 INSERT INTO `po` (`id_PO`, `noPO`, `tanggalPO`, `id_supplier`, `diskon`, `originalDiskon`, `ppn`, `ppnAmount`, `totalPembayaran`, `orderedBy`, `estimasiTanggalTerima`, `id_statusPengiriman`, `id_statusPermintaan`, `status`, `createdAt`, `id_skema`) VALUES
 (177, 'PO/2024/001', '2025-11-26', 1, 0.00, 0.00, 11.00, 24750.00, 249750.00, 89, '2025-11-18', 1, NULL, 'Menunggu', '2025-11-27 03:42:05', 2),
-(178, 'PO/2024/001', '2025-11-26', 1, 0.00, 0.00, 11.00, 1650.00, 16650.00, 89, '2025-10-19', 1, NULL, 'Menunggu', '2025-11-27 03:45:57', 2);
+(178, 'PO/2024/001', '2025-11-26', 1, 0.00, 0.00, 11.00, 1650.00, 16650.00, 89, '2025-10-19', 1, NULL, 'Menunggu', '2025-11-27 03:45:57', 2),
+(179, 'PO/2024/001', '2025-10-27', 1, 0.00, 0.00, 11.00, 1210.00, 12210.00, 89, '2025-10-19', 1, NULL, 'Menunggu', '2025-12-01 01:58:16', 2);
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `po_item`
+-- Table structure for table `po_item`
 --
 
 CREATE TABLE `po_item` (
@@ -224,17 +225,18 @@ CREATE TABLE `po_item` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `po_item`
+-- Dumping data for table `po_item`
 --
 
 INSERT INTO `po_item` (`id_POItem`, `id_PO`, `id_PRItem`, `hargaSatuan`, `jumlahPO`, `jumlahAsli`, `diskonPersen`, `diskonRupiah`, `ppnPersen`, `ppnRupiah`, `totalPerItem`, `keterangan`, `id_satuan`) VALUES
 (257, 177, 294, 15000.00, 15, 15, 0.00, 0.00, 11.00, 24750.00, 249750.00, 'aaaa', NULL),
-(258, 178, 293, 1000.00, 15, 15, 0.00, 0.00, 11.00, 1650.00, 16650.00, 'aaaa', NULL);
+(258, 178, 293, 1000.00, 15, 15, 0.00, 0.00, 11.00, 1650.00, 16650.00, 'aaaa', NULL),
+(259, 179, 295, 1000.00, 11, 11, 0.00, 0.00, 11.00, 1210.00, 12210.00, '', NULL);
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `pr`
+-- Table structure for table `pr`
 --
 
 CREATE TABLE `pr` (
@@ -250,17 +252,18 @@ CREATE TABLE `pr` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `pr`
+-- Dumping data for table `pr`
 --
 
 INSERT INTO `pr` (`id_PR`, `noPR`, `tanggalPR`, `id_divisi`, `id_urgensi`, `status`, `dibuatOleh`, `id_skema`, `createdAt`) VALUES
 (229, '1', '2025-10-27', 1, 1, 'Diproses', 'ewalk', 2, '2025-11-25 19:38:48'),
-(230, 'PR', '2025-10-29', 1, 2, 'Diproses', 'ewalk', 2, '2025-11-26 11:41:48');
+(230, 'PR', '2025-10-29', 1, 2, 'Diproses', 'ewalk', 2, '2025-11-26 11:41:48'),
+(231, 'PR/testing', '2025-10-07', 1, 2, 'Menunggu', 'ewalk', 2, '2025-11-30 09:57:55');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `pr_item`
+-- Table structure for table `pr_item`
 --
 
 CREATE TABLE `pr_item` (
@@ -275,17 +278,18 @@ CREATE TABLE `pr_item` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `pr_item`
+-- Dumping data for table `pr_item`
 --
 
 INSERT INTO `pr_item` (`id_PRItem`, `id_PR`, `namaBarang`, `jumlah`, `originalJumlah`, `quantityAwalPR`, `id_satuan`, `keterangan`) VALUES
 (293, 229, 'Barang', 0.00, 15.00, 15.00, 1, 'aaaa'),
-(294, 230, 'Barang', 0.00, 15.00, 15.00, 1, 'aaaa');
+(294, 230, 'Barang', 0.00, 15.00, 15.00, 1, 'aaaa'),
+(295, 231, 'Kamera', 0.00, 11.00, 11.00, 1, '');
 
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `satuan`
+-- Table structure for table `satuan`
 --
 
 CREATE TABLE `satuan` (
@@ -294,7 +298,7 @@ CREATE TABLE `satuan` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `satuan`
+-- Dumping data for table `satuan`
 --
 
 INSERT INTO `satuan` (`id_satuan`, `satuan`) VALUES
@@ -340,7 +344,7 @@ INSERT INTO `satuan` (`id_satuan`, `satuan`) VALUES
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `skema`
+-- Table structure for table `skema`
 --
 
 CREATE TABLE `skema` (
@@ -349,7 +353,7 @@ CREATE TABLE `skema` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `skema`
+-- Dumping data for table `skema`
 --
 
 INSERT INTO `skema` (`id_skema`, `skema`) VALUES
@@ -359,7 +363,7 @@ INSERT INTO `skema` (`id_skema`, `skema`) VALUES
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `status_pengiriman`
+-- Table structure for table `status_pengiriman`
 --
 
 CREATE TABLE `status_pengiriman` (
@@ -368,7 +372,7 @@ CREATE TABLE `status_pengiriman` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `status_pengiriman`
+-- Dumping data for table `status_pengiriman`
 --
 
 INSERT INTO `status_pengiriman` (`id_statusPengiriman`, `status_pengiriman`) VALUES
@@ -381,7 +385,7 @@ INSERT INTO `status_pengiriman` (`id_statusPengiriman`, `status_pengiriman`) VAL
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `status_permintaan`
+-- Table structure for table `status_permintaan`
 --
 
 CREATE TABLE `status_permintaan` (
@@ -390,7 +394,7 @@ CREATE TABLE `status_permintaan` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `status_permintaan`
+-- Dumping data for table `status_permintaan`
 --
 
 INSERT INTO `status_permintaan` (`id_statusPermintaan`, `status_permintaan`) VALUES
@@ -403,7 +407,7 @@ INSERT INTO `status_permintaan` (`id_statusPermintaan`, `status_permintaan`) VAL
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `supplier`
+-- Table structure for table `supplier`
 --
 
 CREATE TABLE `supplier` (
@@ -412,7 +416,7 @@ CREATE TABLE `supplier` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `supplier`
+-- Dumping data for table `supplier`
 --
 
 INSERT INTO `supplier` (`id_supplier`, `namaSupplier`) VALUES
@@ -421,7 +425,7 @@ INSERT INTO `supplier` (`id_supplier`, `namaSupplier`) VALUES
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `urgensi`
+-- Table structure for table `urgensi`
 --
 
 CREATE TABLE `urgensi` (
@@ -430,7 +434,7 @@ CREATE TABLE `urgensi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `urgensi`
+-- Dumping data for table `urgensi`
 --
 
 INSERT INTO `urgensi` (`id_urgensi`, `urgensi`) VALUES
@@ -441,7 +445,7 @@ INSERT INTO `urgensi` (`id_urgensi`, `urgensi`) VALUES
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `user`
+-- Table structure for table `user`
 --
 
 CREATE TABLE `user` (
@@ -455,7 +459,7 @@ CREATE TABLE `user` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data untuk tabel `user`
+-- Dumping data for table `user`
 --
 
 INSERT INTO `user` (`id_user`, `nama_pengguna`, `password`, `id_peran`, `id_divisi`, `id_skema`, `created_at`) VALUES
@@ -473,7 +477,7 @@ INSERT INTO `user` (`id_user`, `nama_pengguna`, `password`, `id_peran`, `id_divi
 --
 
 --
--- Indeks untuk tabel `bkb`
+-- Indexes for table `bkb`
 --
 ALTER TABLE `bkb`
   ADD PRIMARY KEY (`id_bkb`),
@@ -483,7 +487,7 @@ ALTER TABLE `bkb`
   ADD KEY `fk_btb_id_skema` (`id_skema`);
 
 --
--- Indeks untuk tabel `bkb_item`
+-- Indexes for table `bkb_item`
 --
 ALTER TABLE `bkb_item`
   ADD PRIMARY KEY (`id_bkb_item`),
@@ -493,7 +497,7 @@ ALTER TABLE `bkb_item`
   ADD KEY `fk_bkb_item_id_satuan` (`id_satuan`);
 
 --
--- Indeks untuk tabel `btb`
+-- Indexes for table `btb`
 --
 ALTER TABLE `btb`
   ADD PRIMARY KEY (`id_btb`),
@@ -503,7 +507,7 @@ ALTER TABLE `btb`
   ADD KEY `fk_btb_skema` (`id_skema`);
 
 --
--- Indeks untuk tabel `btb_item`
+-- Indexes for table `btb_item`
 --
 ALTER TABLE `btb_item`
   ADD PRIMARY KEY (`id_btb_item`),
@@ -512,19 +516,19 @@ ALTER TABLE `btb_item`
   ADD KEY `fk_btb_item_satuan` (`id_satuan`);
 
 --
--- Indeks untuk tabel `divisi`
+-- Indexes for table `divisi`
 --
 ALTER TABLE `divisi`
   ADD PRIMARY KEY (`id_divisi`);
 
 --
--- Indeks untuk tabel `peran`
+-- Indexes for table `peran`
 --
 ALTER TABLE `peran`
   ADD PRIMARY KEY (`id_peran`);
 
 --
--- Indeks untuk tabel `po`
+-- Indexes for table `po`
 --
 ALTER TABLE `po`
   ADD PRIMARY KEY (`id_PO`),
@@ -533,7 +537,7 @@ ALTER TABLE `po`
   ADD KEY `fk_po_status_permintaan` (`id_statusPermintaan`);
 
 --
--- Indeks untuk tabel `po_item`
+-- Indexes for table `po_item`
 --
 ALTER TABLE `po_item`
   ADD PRIMARY KEY (`id_POItem`),
@@ -542,7 +546,7 @@ ALTER TABLE `po_item`
   ADD KEY `fk_po_item_satuan` (`id_satuan`);
 
 --
--- Indeks untuk tabel `pr`
+-- Indexes for table `pr`
 --
 ALTER TABLE `pr`
   ADD PRIMARY KEY (`id_PR`),
@@ -551,7 +555,7 @@ ALTER TABLE `pr`
   ADD KEY `fk_pr_skema` (`id_skema`);
 
 --
--- Indeks untuk tabel `pr_item`
+-- Indexes for table `pr_item`
 --
 ALTER TABLE `pr_item`
   ADD PRIMARY KEY (`id_PRItem`),
@@ -559,43 +563,43 @@ ALTER TABLE `pr_item`
   ADD KEY `fk_pritem_satuan` (`id_satuan`);
 
 --
--- Indeks untuk tabel `satuan`
+-- Indexes for table `satuan`
 --
 ALTER TABLE `satuan`
   ADD PRIMARY KEY (`id_satuan`);
 
 --
--- Indeks untuk tabel `skema`
+-- Indexes for table `skema`
 --
 ALTER TABLE `skema`
   ADD PRIMARY KEY (`id_skema`);
 
 --
--- Indeks untuk tabel `status_pengiriman`
+-- Indexes for table `status_pengiriman`
 --
 ALTER TABLE `status_pengiriman`
   ADD PRIMARY KEY (`id_statusPengiriman`);
 
 --
--- Indeks untuk tabel `status_permintaan`
+-- Indexes for table `status_permintaan`
 --
 ALTER TABLE `status_permintaan`
   ADD PRIMARY KEY (`id_statusPermintaan`);
 
 --
--- Indeks untuk tabel `supplier`
+-- Indexes for table `supplier`
 --
 ALTER TABLE `supplier`
   ADD PRIMARY KEY (`id_supplier`);
 
 --
--- Indeks untuk tabel `urgensi`
+-- Indexes for table `urgensi`
 --
 ALTER TABLE `urgensi`
   ADD PRIMARY KEY (`id_urgensi`);
 
 --
--- Indeks untuk tabel `user`
+-- Indexes for table `user`
 --
 ALTER TABLE `user`
   ADD PRIMARY KEY (`id_user`),
@@ -604,117 +608,117 @@ ALTER TABLE `user`
   ADD KEY `id_skema` (`id_skema`);
 
 --
--- AUTO_INCREMENT untuk tabel yang dibuang
+-- AUTO_INCREMENT for dumped tables
 --
 
 --
--- AUTO_INCREMENT untuk tabel `bkb`
+-- AUTO_INCREMENT for table `bkb`
 --
 ALTER TABLE `bkb`
   MODIFY `id_bkb` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
--- AUTO_INCREMENT untuk tabel `bkb_item`
+-- AUTO_INCREMENT for table `bkb_item`
 --
 ALTER TABLE `bkb_item`
   MODIFY `id_bkb_item` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
--- AUTO_INCREMENT untuk tabel `btb`
+-- AUTO_INCREMENT for table `btb`
 --
 ALTER TABLE `btb`
   MODIFY `id_btb` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=89;
 
 --
--- AUTO_INCREMENT untuk tabel `btb_item`
+-- AUTO_INCREMENT for table `btb_item`
 --
 ALTER TABLE `btb_item`
   MODIFY `id_btb_item` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=110;
 
 --
--- AUTO_INCREMENT untuk tabel `divisi`
+-- AUTO_INCREMENT for table `divisi`
 --
 ALTER TABLE `divisi`
   MODIFY `id_divisi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
 
 --
--- AUTO_INCREMENT untuk tabel `peran`
+-- AUTO_INCREMENT for table `peran`
 --
 ALTER TABLE `peran`
   MODIFY `id_peran` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT untuk tabel `po`
+-- AUTO_INCREMENT for table `po`
 --
 ALTER TABLE `po`
-  MODIFY `id_PO` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=179;
+  MODIFY `id_PO` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=180;
 
 --
--- AUTO_INCREMENT untuk tabel `po_item`
+-- AUTO_INCREMENT for table `po_item`
 --
 ALTER TABLE `po_item`
-  MODIFY `id_POItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=259;
+  MODIFY `id_POItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=260;
 
 --
--- AUTO_INCREMENT untuk tabel `pr`
+-- AUTO_INCREMENT for table `pr`
 --
 ALTER TABLE `pr`
-  MODIFY `id_PR` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=231;
+  MODIFY `id_PR` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=232;
 
 --
--- AUTO_INCREMENT untuk tabel `pr_item`
+-- AUTO_INCREMENT for table `pr_item`
 --
 ALTER TABLE `pr_item`
-  MODIFY `id_PRItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=295;
+  MODIFY `id_PRItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=296;
 
 --
--- AUTO_INCREMENT untuk tabel `satuan`
+-- AUTO_INCREMENT for table `satuan`
 --
 ALTER TABLE `satuan`
   MODIFY `id_satuan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
--- AUTO_INCREMENT untuk tabel `skema`
+-- AUTO_INCREMENT for table `skema`
 --
 ALTER TABLE `skema`
   MODIFY `id_skema` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT untuk tabel `status_pengiriman`
+-- AUTO_INCREMENT for table `status_pengiriman`
 --
 ALTER TABLE `status_pengiriman`
   MODIFY `id_statusPengiriman` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT untuk tabel `status_permintaan`
+-- AUTO_INCREMENT for table `status_permintaan`
 --
 ALTER TABLE `status_permintaan`
   MODIFY `id_statusPermintaan` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
--- AUTO_INCREMENT untuk tabel `supplier`
+-- AUTO_INCREMENT for table `supplier`
 --
 ALTER TABLE `supplier`
   MODIFY `id_supplier` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
--- AUTO_INCREMENT untuk tabel `urgensi`
+-- AUTO_INCREMENT for table `urgensi`
 --
 ALTER TABLE `urgensi`
   MODIFY `id_urgensi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT untuk tabel `user`
+-- AUTO_INCREMENT for table `user`
 --
 ALTER TABLE `user`
   MODIFY `id_user` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=93;
 
 --
--- Ketidakleluasaan untuk tabel pelimpahan (Dumped Tables)
+-- Constraints for dumped tables
 --
 
 --
--- Ketidakleluasaan untuk tabel `bkb`
+-- Constraints for table `bkb`
 --
 ALTER TABLE `bkb`
   ADD CONSTRAINT `fk_bkb_dibuat_oleh` FOREIGN KEY (`dibuat_oleh`) REFERENCES `user` (`id_user`) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -723,7 +727,7 @@ ALTER TABLE `bkb`
   ADD CONSTRAINT `fk_btb_id_skema` FOREIGN KEY (`id_skema`) REFERENCES `skema` (`id_skema`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `bkb_item`
+-- Constraints for table `bkb_item`
 --
 ALTER TABLE `bkb_item`
   ADD CONSTRAINT `fk_bkb_item_bkb` FOREIGN KEY (`id_bkb`) REFERENCES `bkb` (`id_bkb`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -732,7 +736,7 @@ ALTER TABLE `bkb_item`
   ADD CONSTRAINT `fk_bkb_item_satuan` FOREIGN KEY (`satuan`) REFERENCES `satuan` (`id_satuan`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `btb`
+-- Constraints for table `btb`
 --
 ALTER TABLE `btb`
   ADD CONSTRAINT `fk_btb_po` FOREIGN KEY (`id_po`) REFERENCES `po` (`id_PO`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -741,7 +745,7 @@ ALTER TABLE `btb`
   ADD CONSTRAINT `fk_btb_user` FOREIGN KEY (`id_user`) REFERENCES `user` (`id_user`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `btb_item`
+-- Constraints for table `btb_item`
 --
 ALTER TABLE `btb_item`
   ADD CONSTRAINT `fk_btb_item_btb` FOREIGN KEY (`id_btb`) REFERENCES `btb` (`id_btb`) ON DELETE CASCADE ON UPDATE CASCADE,
@@ -749,7 +753,7 @@ ALTER TABLE `btb_item`
   ADD CONSTRAINT `fk_btb_item_satuan` FOREIGN KEY (`id_satuan`) REFERENCES `satuan` (`id_satuan`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `po`
+-- Constraints for table `po`
 --
 ALTER TABLE `po`
   ADD CONSTRAINT `fk_po_status_pengiriman` FOREIGN KEY (`id_statusPengiriman`) REFERENCES `status_pengiriman` (`id_statusPengiriman`) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -757,7 +761,7 @@ ALTER TABLE `po`
   ADD CONSTRAINT `fk_po_supplier` FOREIGN KEY (`id_supplier`) REFERENCES `supplier` (`id_supplier`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `po_item`
+-- Constraints for table `po_item`
 --
 ALTER TABLE `po_item`
   ADD CONSTRAINT `fk_po_item_satuan` FOREIGN KEY (`id_satuan`) REFERENCES `satuan` (`id_satuan`) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -765,7 +769,7 @@ ALTER TABLE `po_item`
   ADD CONSTRAINT `fk_poitem_pritem` FOREIGN KEY (`id_PRItem`) REFERENCES `pr_item` (`id_PRItem`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `pr`
+-- Constraints for table `pr`
 --
 ALTER TABLE `pr`
   ADD CONSTRAINT `fk_pr_divisi` FOREIGN KEY (`id_divisi`) REFERENCES `divisi` (`id_divisi`) ON DELETE SET NULL ON UPDATE CASCADE,
@@ -773,14 +777,14 @@ ALTER TABLE `pr`
   ADD CONSTRAINT `fk_pr_urgensi` FOREIGN KEY (`id_urgensi`) REFERENCES `urgensi` (`id_urgensi`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `pr_item`
+-- Constraints for table `pr_item`
 --
 ALTER TABLE `pr_item`
   ADD CONSTRAINT `fk_pritem_pr` FOREIGN KEY (`id_PR`) REFERENCES `pr` (`id_PR`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `fk_pritem_satuan` FOREIGN KEY (`id_satuan`) REFERENCES `satuan` (`id_satuan`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `user`
+-- Constraints for table `user`
 --
 ALTER TABLE `user`
   ADD CONSTRAINT `user_ibfk_1` FOREIGN KEY (`id_peran`) REFERENCES `peran` (`id_peran`),
