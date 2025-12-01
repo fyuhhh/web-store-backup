@@ -930,7 +930,6 @@ export default function MonitoringPOPage() {
       )
     )
   )
-  )
       .filter((s) => s.trim() !== "")
       .sort();
 
