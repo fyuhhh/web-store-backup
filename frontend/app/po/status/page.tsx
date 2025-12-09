@@ -711,11 +711,11 @@ function sortPRList(filteredPRData: any[]) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto min-w-[1200px]">
-              <Table className="min-w-[1200px]">
+            <div className="overflow-x-auto">
+              <Table className="border border-gray-300">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="w-16 border border-gray-300 px-4 py-3 text-center align-middle">
                       <Checkbox
                         checked={
                           paginatedData.every((pr) => {
@@ -732,7 +732,6 @@ function sortPRList(filteredPRData: any[]) {
                             );
                           }) && paginatedData.length > 0
                         }
-                        // FIX: Only spread indeterminate if true, do not send prop at all if false
                         {...(paginatedData.some((pr) => {
                           const itemIds = (pr.items || [])
                             .filter((item: any) => item.jumlah > 0)
@@ -759,14 +758,13 @@ function sortPRList(filteredPRData: any[]) {
                       />
                     </TableHead>
                     {/* No. PR */}
-                    <TableHead className="min-w-[140px]">
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            No. PR <ChevronDown className="w-4 h-4" />
-                            {/* Tambahkan info urutan */}
-                            <span className="ml-1 text-xs text-muted-foreground">(Terbaru di atas)</span>
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            No. PR
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -803,14 +801,16 @@ function sortPRList(filteredPRData: any[]) {
                           </div>
                         </PopoverContent>
                       </Popover>
+                      <div className="text-xs text-muted-foreground mt-1">(Terbaru di atas)</div>
                     </TableHead>
                     {/* Tanggal PR */}
-                    <TableHead className="min-w-[140px]">
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Tanggal PR <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Tanggal PR
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -855,13 +855,14 @@ function sortPRList(filteredPRData: any[]) {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Daftar Barang */}
-                    <TableHead className="min-w-[180px]">
+                    {/* Nama Barang */}
+                    <TableHead className="min-w-[180px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Nama Barang <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Nama Barang
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -875,12 +876,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Qty */}
-                    <TableHead className="min-w-[90px]">
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Quantity PR <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Quantity PR
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -921,12 +923,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Satuan */}
-                    <TableHead className="min-w-[90px]">
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Satuan <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Satuan
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -967,12 +970,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Keterangan */}
-                    <TableHead className="min-w-[160px]">
+                    <TableHead className="min-w-[160px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Keterangan <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Keterangan
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -986,12 +990,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Urgensi */}
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Urgensi <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Urgensi
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -1032,12 +1037,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Divisi */}
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Divisi <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Divisi
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -1078,12 +1084,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Status */}
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Status <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Status
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -1124,12 +1131,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Dibuat Oleh */}
-                    <TableHead className="min-w-[120px]">
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Dibuat Oleh <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Dibuat Oleh
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -1175,12 +1183,13 @@ function sortPRList(filteredPRData: any[]) {
                       </Popover>
                     </TableHead>
                     {/* Skema */}
-                    <TableHead className="min-w-[120px]">
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Skema <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button variant="ghost" className="h-auto p-0 font-medium">
+                            Skema
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-48 p-2 bg-white">
                           <Input
@@ -1230,10 +1239,10 @@ function sortPRList(filteredPRData: any[]) {
                     return (
                       <React.Fragment key={prId}>
                         {filteredItems.map((item, idx) => (
-                          <TableRow key={`${prId}-item-${item.id}`}>
+                          <TableRow key={`${prId}-item-${item.id}`} className="hover:bg-gray-50 transition-colors">
                             {/* Checkbox PR-level hanya di baris pertama PR */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
                                 <Checkbox
                                   checked={isAllItemsSelected(pr)}
                                   {...(isSomeItemsSelected(pr)
@@ -1260,18 +1269,18 @@ function sortPRList(filteredPRData: any[]) {
                             ) : null}
                             {/* No. PR hanya di baris pertama */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                                 {pr.noPR}
                               </TableCell>
                             ) : null}
                             {/* Tanggal PR hanya di baris pertama */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                                 {formatTanggal(pr.tanggalPR)}
                               </TableCell>
                             ) : null}
                             {/* Nama Barang */}
-                            <TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
                               <Checkbox
                                 checked={selectedItemIds.includes(
                                   String(item.id)
@@ -1299,19 +1308,19 @@ function sortPRList(filteredPRData: any[]) {
                                 }}
                               />
                               <span className="ml-2">{item.namaBarang}</span>
-                            </TableCell>
+                              </TableCell>
                             {/* Qty */}
-                            <TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
                               {Number(item.jumlah) % 1 === 0
                                 ? parseInt(item.jumlah)
                                 : item.jumlah}
                             </TableCell>
                             {/* Satuan */}
-                            <TableCell>{item.satuan}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{item.satuan}</TableCell>
                             {/* Keterangan */}
-                            <TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center">
                               <div
-                                className="max-w-[180px] truncate text-sm text-muted-foreground"
+                                className="max-w-xs truncate text-sm text-muted-foreground"
                                 title={item.keterangan}
                               >
                                 {item.keterangan}
@@ -1319,31 +1328,31 @@ function sortPRList(filteredPRData: any[]) {
                             </TableCell>
                             {/* Urgensi hanya di baris pertama */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                                 {getUrgensiBadge(pr.urgensi)}
                               </TableCell>
                             ) : null}
                             {/* Divisi hanya di baris pertama */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                                 {pr.divisi}
                               </TableCell>
                             ) : null}
                             {/* Status hanya di baris pertama */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                                 {getStatusBadge(pr.status)}
                               </TableCell>
                             ) : null}
-                            {/* Dibuat Oleh hanya di baris pertama */}
+                  {/* Dibuat Oleh hanya di baris pertama */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                                 {pr.dibuatOleh}
                               </TableCell>
                             ) : null}
                             {/* Skema hanya di baris pertama */}
                             {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length}>
+                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                                 {pr.skemaLabel || pr.skema}
                               </TableCell>
                             ) : null}

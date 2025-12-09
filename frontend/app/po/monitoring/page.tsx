@@ -402,7 +402,8 @@ export default function MonitoringPOPage() {
             id_POItem: pi.id_POItem, // <-- ini id yang dipakai untuk hapus
             id_PRItem: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
             namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
-            jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
+            // --- Ubah: Quantity PO ambil dari jumlahAsli ---
+            jumlahPO: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
             jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
             satuan:
               prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
@@ -418,6 +419,8 @@ export default function MonitoringPOPage() {
               typeof pi.totalPerItem !== "undefined" && pi.totalPerItem !== null
                 ? Number(pi.totalPerItem)
                 : undefined,
+            // --- TAMBAHAN: mapping namaPembeli dari po_item ---
+            namaPembeli: pi.namaPembeli ?? "",
           };
           const key = String(noPR || prId || "__noPR__");
           if (groupMap[key] === undefined) {
@@ -491,6 +494,7 @@ export default function MonitoringPOPage() {
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
+  const [toastError, setToastError] = useState(false); // <-- Tambahkan state warna toast
 
   // --- Tambah state untuk modal hapus item PO ---
   const [deleteItemModalOpen, setDeleteItemModalOpen] = useState(false);
@@ -541,8 +545,14 @@ export default function MonitoringPOPage() {
     if (!open) return null;
     return createPortal(
       <div className="fixed bottom-6 right-6 z-50">
-        <div className="bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in">
-          <span className="text-green-600 font-medium">{message}</span>
+        <div
+          className={`border shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in ${
+            toastError
+              ? "bg-red-600 text-white border-red-600"
+              : "bg-white border-gray-200 text-green-600"
+          }`}
+        >
+          <span className="font-medium">{message}</span>
           <Button size="sm" variant="ghost" onClick={onClose}>
             ×
           </Button>
@@ -578,6 +588,7 @@ export default function MonitoringPOPage() {
   // Tambahkan parameter mode: "permanent" | "restore"
   const confirmDeleteItems = async (mode: "permanent" | "restore") => {
     setDeleteItemModalOpen(false);
+    let restoreError = false;
     try {
       // --- Kumpulkan id_PR dan id_PO sebelum proses hapus ---
       const prIdsToUpdate = new Set<string>();
@@ -632,10 +643,32 @@ export default function MonitoringPOPage() {
             `http://localhost:5000/api/po-item/${itemId}`
           );
           const poItem = await poItemRes.json();
-          // Hapus item PO
-          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
+
+          // Hapus item PO (cek error BTB)
+          const delRes = await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
+          if (!delRes.ok) {
+            const err = await delRes.json();
+            if (
+              err.message &&
+              err.message.includes("Item PO tidak bisa dikembalikan ke PR karena sudah diproses menjadi BTB")
+            ) {
+              restoreError = true;
+              setToastMsg(
+                "Item PO tidak bisa dikembalikan ke PR karena sudah diproses menjadi BTB. Silakan kembalikan/dihapus BTB terlebih dahulu."
+              );
+              setToastError(true); // <-- warna merah
+              setToastOpen(true);
+              continue;
+            } else {
+              restoreError = true;
+              setToastMsg("Gagal menghapus item PO.");
+              setToastError(true);
+              setToastOpen(true);
+              continue;
+            }
+          }
           const prId = poItem.__id_PR;
           const prItemId = poItem.id_PRItem;
           // Cek apakah PRItem masih ada
@@ -726,16 +759,20 @@ export default function MonitoringPOPage() {
         }
       }
 
-      setToastMsg(
-        mode === "permanent"
-          ? "Item PO berhasil dihapus permanen."
-          : "Item PO berhasil dikembalikan ke PR."
-      );
-      setToastOpen(true);
+      if (!restoreError) {
+        setToastMsg(
+          mode === "permanent"
+            ? "Item PO berhasil dihapus permanen."
+            : "Item PO berhasil dikembalikan ke PR."
+        );
+        setToastError(false); // <-- warna hijau
+        setToastOpen(true);
+      }
       // --- Tambahkan auto refresh data PO setelah update ---
       await fetchAll();
     } catch (err) {
       setToastMsg("Gagal menghapus item PO.");
+      setToastError(true);
       setToastOpen(true);
       // --- Tambahkan auto refresh data PO setelah error juga ---
       await fetchAll();
@@ -929,7 +966,7 @@ export default function MonitoringPOPage() {
         )
       )
     )
-  )
+    )
       .filter((s) => s.trim() !== "")
       .sort();
 
@@ -1009,6 +1046,7 @@ export default function MonitoringPOPage() {
       "Total Per Item",
       "Grand Total",
       "Ordered By",
+      "Nama Pembeli",
       "Estimasi Diterima",
       "Status Pengiriman",
       "Status",
@@ -1021,6 +1059,14 @@ export default function MonitoringPOPage() {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
+
+    // --- HELPER: format persen ---
+    function formatPersen(val: any) {
+      if (val === undefined || val === null || val === "") return "";
+      const num = Number(val);
+      if (isNaN(num)) return "";
+      return num % 1 === 0 ? `${num}%` : `${parseFloat(num.toFixed(2))}%`;
+    }
 
     // Helper: format tanggal persis seperti frontend (tambah 2 hari, fallback jika gagal)
     function formatTanggalExcel(tgl: string) {
@@ -1046,15 +1092,7 @@ export default function MonitoringPOPage() {
       return "Rp " + Number(val).toLocaleString("id-ID");
     }
 
-    // Helper format persen (tanpa .00 jika bulat)
-    function formatPersenExcel(val: any) {
-      if (val === undefined || val === null || val === "") return "";
-      const num = Number(val);
-      if (isNaN(num)) return "";
-      return num % 1 === 0 ? `${num}%` : `${num}%`;
-    }
-
-    // Prepare and add data rows sesuai urutan kolom tabel
+    // Prepare and add data rows
     exportPOData.forEach((po) => {
       const allItems = po.poItems.flatMap((poItem) =>
         poItem.items.map((item) => ({
@@ -1068,7 +1106,7 @@ export default function MonitoringPOPage() {
         worksheet.addRow([
           index === 0 ? po.noPO : "",
           item.namaBarang,
-          formatQtyExcel(item.jumlahPO),
+          formatQtyExcel(item.jumlahAsli),
           item.satuan,
           item.keterangan || "",
           formatRupiah(item.hargaSatuan),
@@ -1080,11 +1118,14 @@ export default function MonitoringPOPage() {
           item.ppnAmount
             ? `Rp ${Number(item.ppnAmount).toLocaleString("id-ID")}`
             : "",
-          typeof item.totalPerItem !== "undefined" && item.totalPerItem !== null
+          typeof item.totalPerItem !== "undefined" &&
+          item.totalPerItem !== null
             ? `Rp ${Number(item.totalPerItem).toLocaleString("id-ID")}`
             : "",
           index === 0 ? formatRupiah(po.totalPembayaran) : "",
           index === 0 ? po.orderedBy ?? "" : "",
+          // --- TAMBAHAN: Nama Pembeli (ambil dari item pertama saja) ---
+          index === 0 ? allItems[0]?.namaPembeli ?? "" : "",
           index === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
           index === 0 ? po.statusPengiriman ?? "" : "",
           index === 0 ? po.status ?? "" : "",
@@ -1155,12 +1196,31 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        await fetch(`http://localhost:5000/api/po/${id}`, {
+        const res = await fetch(`http://localhost:5000/api/po/${id}`, {
           method: "DELETE",
         });
+        if (!res.ok) {
+          const err = await res.json();
+          // --- Jika error karena sudah diproses BTB, tampilkan pesan khusus ---
+          if (
+            err.message &&
+            err.message.includes("PO tidak bisa dihapus karena sudah diproses menjadi BTB")
+          ) {
+            setToastMsg(
+              "PO tidak bisa dihapus karena sudah diproses menjadi BTB. Silakan kembalikan semua item BTB ke PO terlebih dahulu."
+            );
+            setToastOpen(true);
+            continue;
+          } else {
+            setToastMsg("Terjadi kesalahan saat menghapus PO.");
+            setToastOpen(true);
+            continue;
+          }
+        }
+        setPoData((prev) => prev.filter((po) => po.id !== id));
+        setSelectedPOs((prev) => prev.filter((x) => x !== id));
       }
-      setPoData((prev) => prev.filter((po) => !deleteIds.includes(po.id)));
-      setSelectedPOs((prev) => prev.filter((id) => !deleteIds.includes(id)));
+      // --- Jika semua berhasil dihapus, tampilkan toast sukses ---
       setToastMsg("PO berhasil dihapus.");
       setToastOpen(true);
     } catch (error) {
@@ -1267,22 +1327,17 @@ export default function MonitoringPOPage() {
             )}
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto min-w-[1400px]">
-              <Table className="min-w-[1400px] border border-gray-300">
+            <div className="overflow-x-auto">
+              <Table className="border border-gray-300">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="w-16 border border-gray-300 px-4 py-3 text-center align-middle">
                       {/* Checkbox Select All */}
                       <Checkbox
                         checked={
                           selectedPOs.length === paginatedData.length &&
                           paginatedData.length > 0
                         }
-                        // Add indeterminate prop only if needed and supported by your Checkbox component
-                        // indeterminate={
-                        //   selectedPOs.length > 0 &&
-                        //   selectedPOs.length < paginatedData.length
-                        // }
                         onCheckedChange={handleSelectAll}
                         style={{
                           boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
@@ -1292,21 +1347,29 @@ export default function MonitoringPOPage() {
                         className="focus:ring-2 focus:ring-primary"
                       />
                     </TableHead>
-                    <TableHead className="min-w-[140px]">
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       {/* No. PO */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            No. PO <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            No. PO
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari No. PO
+                          </Label>
                           <Input
                             placeholder="Cari No. PO..."
                             value={kodeSearchTerm}
                             onChange={(e) => setKodeSearchTerm(e.target.value)}
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueKode
                               .filter((k) =>
                                 k
@@ -1319,6 +1382,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`kode-${k}`}
                                     checked={filterKode.includes(k)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1329,30 +1393,38 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{k}</Label>
+                                  <Label htmlFor={`kode-${k}`} className="text-sm">{k}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[120px]">
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
                       {/* Tanggal PO */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Tanggal PO <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Tanggal PO
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Tanggal PO
+                          </Label>
                           <Input
                             placeholder="Cari tanggal..."
                             value={tanggalPOSearchTerm}
                             onChange={(e) =>
                               setTanggalPOSearchTerm(e.target.value)
                             }
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueTanggalPO
                               .filter((tgl) =>
                                 tgl
@@ -1365,6 +1437,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`tglPO-${tgl}`}
                                     checked={filterTanggalPO.includes(tgl)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1380,30 +1453,38 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm"></Label>
+                                  <Label htmlFor={`tglPO-${tgl}`} className="text-sm">{formatTanggalPlus2(tgl)}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[140px]">
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       {/* Supplier */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Supplier <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Supplier
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Supplier
+                          </Label>
                           <Input
                             placeholder="Cari supplier..."
                             value={supplierSearchTerm}
                             onChange={(e) =>
                               setSupplierSearchTerm(e.target.value)
                             }
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueSuppliers
                               .filter((s) =>
                                 s
@@ -1416,6 +1497,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`supplier-${s}`}
                                     checked={filterSupplier.includes(s)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1429,41 +1511,56 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{s}</Label>
+                                  <Label htmlFor={`supplier-${s}`} className="text-sm">{s}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[180px]">
+                    <TableHead className="min-w-[180px] border border-gray-300 px-4 py-3 text-center">
                       {/* Nama Barang */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Nama Barang <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Daftar Barang
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Nama Barang
+                          </Label>
                           <Input
                             placeholder="Cari barang..."
                             value={filterNamaBarang}
                             onChange={(e) =>
                               setFilterNamaBarang(e.target.value)
                             }
+                            className="mb-2"
                           />
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[90px]">
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
                       {/* Quantity PO */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Quantity PO <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Quantity PO
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Min Qty
+                          </Label>
                           <Input
                             placeholder="Min Qty"
                             type="number"
@@ -1475,7 +1572,11 @@ export default function MonitoringPOPage() {
                                   : Number(e.target.value)
                               )
                             }
+                            className="mb-2"
                           />
+                          <Label className="text-sm font-medium">
+                            Max Qty
+                          </Label>
                           <Input
                             placeholder="Max Qty"
                             type="number"
@@ -1491,24 +1592,31 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* HAPUS: <TableHead className="min-w-[90px]">Quantity Awal PO</TableHead> */}
-                    <TableHead className="min-w-[90px]">
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
                       {/* Satuan */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Satuan <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Satuan
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Satuan
+                          </Label>
                           <Input
                             placeholder="Cari satuan..."
                             value={satuanSearchTerm}
                             onChange={(e) =>
                               setSatuanSearchTerm(e.target.value)
                             }
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueSatuan
                               .filter((s) =>
                                 s
@@ -1521,6 +1629,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`satuan-${s}`}
                                     checked={filterSatuan.includes(s)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1531,41 +1640,56 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{s}</Label>
+                                  <Label htmlFor={`satuan-${s}`} className="text-sm">{s}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[160px]">
+                    <TableHead className="min-w-[160px] border border-gray-300 px-4 py-3 text-center">
                       {/* Keterangan */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Keterangan <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Keterangan
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Keterangan
+                          </Label>
                           <Input
                             placeholder="Cari keterangan..."
                             value={filterKeterangan}
                             onChange={(e) =>
                               setFilterKeterangan(e.target.value)
                             }
+                            className="mb-2"
                           />
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[120px]">
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
                       {/* Harga Satuan */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Harga Satuan <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Harga Satuan
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Min Harga
+                          </Label>
                           <Input
                             placeholder="Min Harga"
                             type="number"
@@ -1577,7 +1701,11 @@ export default function MonitoringPOPage() {
                                   : Number(e.target.value)
                               )
                             }
+                            className="mb-2"
                           />
+                          <Label className="text-sm font-medium">
+                            Max Harga
+                          </Label>
                           <Input
                             placeholder="Max Harga"
                             type="number"
@@ -1594,22 +1722,27 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     {/* Tambahan kolom baru untuk Diskon dan PPN */}
-                    <TableHead className="min-w-[90px]">Diskon (%)</TableHead>
-                    <TableHead className="min-w-[90px]">Diskon (Rp)</TableHead>
-                    <TableHead className="min-w-[90px]">PPN (%)</TableHead>
-                    {/* Tambah kolom baru: Total Per Item */}
-                    <TableHead className="min-w-[90px]">PPN (Rp)</TableHead>
-                    {/* Pindahkan kolom Total Per Item ke sebelah kanan PPN (Rp) */}
-                    <TableHead className="min-w-[110px]">Total</TableHead>
-                    <TableHead className="min-w-[120px]">
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">Diskon (%)</TableHead>
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">Diskon (Rp)</TableHead>
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">PPN (%)</TableHead>
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">PPN (Rp)</TableHead>
+                    <TableHead className="min-w-[110px] border border-gray-300 px-4 py-3 text-center">Total</TableHead>
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
                       {/* Total */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Grand Total <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Grand Total
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Min Total
+                          </Label>
                           <Input
                             placeholder="Min Total"
                             type="number"
@@ -1621,7 +1754,11 @@ export default function MonitoringPOPage() {
                                   : Number(e.target.value)
                               )
                             }
+                            className="mb-2"
                           />
+                          <Label className="text-sm font-medium">
+                            Max Total
+                          </Label>
                           <Input
                             placeholder="Max Total"
                             type="number"
@@ -1637,23 +1774,31 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       {/* Diorder oleh */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Ordered By <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Ordered By
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari User
+                          </Label>
                           <Input
                             placeholder="Cari user..."
                             value={diorderOlehSearchTerm}
                             onChange={(e) =>
                               setDiorderOlehSearchTerm(e.target.value)
                             }
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueDiorderOleh
                               .filter((o) =>
                                 o
@@ -1666,6 +1811,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`diorder-${o}`}
                                     checked={filterDiorderOleh.includes(o)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1681,31 +1827,42 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{o}</Label>
+                                  <Label htmlFor={`diorder-${o}`} className="text-sm">{o}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[140px]">
+                    {/* --- KOLOM BARU: Nama Pembeli --- */}
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
+                      Nama Pembeli
+                    </TableHead>
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       {/* Estimasi Diterima */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Estimasi Diterima{" "}
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Estimasi Diterima
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Estimasi
+                          </Label>
                           <Input
                             placeholder="Cari estimasi..."
                             value={estimasiDiterimaSearchTerm}
                             onChange={(e) =>
                               setEstimasiDiterimaSearchTerm(e.target.value)
                             }
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueEstimasiDiterima
                               .filter((tgl) =>
                                 tgl
@@ -1720,6 +1877,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`estimasi-${tgl}`}
                                     checked={filterEstimasiDiterima.includes(
                                       tgl
                                     )}
@@ -1737,31 +1895,38 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{tgl}</Label>
+                                  <Label htmlFor={`estimasi-${tgl}`} className="text-sm">{formatTanggalPlus2(tgl)}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[140px]">
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       {/* Status Pengiriman */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Status Pengiriman{" "}
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Status Pengiriman
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Status Pengiriman
+                          </Label>
                           <Input
                             placeholder="Cari status pengiriman..."
                             value={statusPengirimanSearchTerm}
                             onChange={(e) =>
                               setStatusPengirimanSearchTerm(e.target.value)
                             }
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueStatusPengiriman
                               .filter((s) =>
                                 s
@@ -1776,6 +1941,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`statusPengiriman-${s}`}
                                     checked={filterStatusPengiriman.includes(s)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1791,30 +1957,38 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{s}</Label>
+                                  <Label htmlFor={`statusPengiriman-${s}`} className="text-sm">{s}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       {/* Status */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Status <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Status
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Status
+                          </Label>
                           <Input
                             placeholder="Cari status..."
                             value={statusSearchTerm}
                             onChange={(e) =>
                               setStatusSearchTerm(e.target.value)
                             }
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueStatus
                               .filter((s) =>
                                 s
@@ -1827,6 +2001,7 @@ export default function MonitoringPOPage() {
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`status-${s}`}
                                     checked={filterStatus.includes(s)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1837,40 +2012,49 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{s}</Label>
+                                  <Label htmlFor={`status-${s}`} className="text-sm">{s}</Label>
                                 </div>
                               ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       {/* Skema */}
                       <Popover>
                         <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Skema <ChevronDown className="w-4 h-4" />
-                          </button>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            Skema
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari Skema
+                          </Label>
                           <Input
                             placeholder="Cari skema..."
                             value={skemaSearchTerm}
                             onChange={(e) => setSkemaSearchTerm(e.target.value)}
+                            className="mb-2"
                           />
-                          <div className="max-h-40 overflow-y-auto mt-2">
+                          <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueKode
-                              .filter((s) =>
+                              .filter(( s) =>
                                 String(s)
                                   .toLowerCase()
                                   .includes(skemaSearchTerm.toLowerCase())
-                              )
+                                                           )
                               .map((s) => (
                                 <div
                                   key={s}
                                   className="flex items-center space-x-2"
                                 >
                                   <Checkbox
+                                    id={`skema-${s}`}
                                     checked={filterSkema.includes(s)}
                                     onCheckedChange={(checked) => {
                                       if (checked)
@@ -1881,19 +2065,18 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label className="text-sm">{s}</Label>
+                                  <Label htmlFor={`skema-${s}`} className="text-sm">{s}</Label>
                                 </div>
-                              ))}
+                                                           ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* HAPUS: <TableHead className="min-w-[120px]">Aksi</TableHead> */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((po) => {
-                    // Flatten all items from all poItems ~ REMOVE jumlahPO > 0 filter
+                    // Flatten all items from all poItems
                     const allItems = po.poItems.flatMap((poItem) =>
                       poItem.items.map((item) => ({
                         ...item,
@@ -1906,14 +2089,14 @@ export default function MonitoringPOPage() {
                         {allItems.map((item, itemIndex) => (
                           <TableRow
                             key={`${po.id}-item-${itemIndex}`}
-                            className="border-b border-gray-300 align-middle"
+                            className="hover:bg-gray-50 transition-colors"
                           >
                             {itemIndex === 0 ? (
                               <>
                                 <TableCell
                                   key="checkbox"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle"
+                                  className="border border-gray-300 px-4 py-3 text-center align-middle"
                                 >
                                   <Checkbox
                                     checked={selectedPOs.includes(po.id)}
@@ -1956,7 +2139,8 @@ export default function MonitoringPOPage() {
                               {item.namaBarang}
                             </TableCell>
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
-                              {item.jumlahPO}
+                              {/* --- Ubah: Quantity PO ambil dari jumlahAsli --- */}
+                              {item.jumlahAsli}
                             </TableCell>
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
                               {item.satuan}
@@ -1992,12 +2176,12 @@ export default function MonitoringPOPage() {
                                     item.diskonNominal
                                   ).toLocaleString("id-ID")}`
                                 : ""}
+
                             </TableCell>
                             {/* Kolom baru: PPN (%) */}
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
                               {formatPersen(item.ppnItem)}
                             </TableCell>
-                            {/* Kolom baru: PPN (Rp) */}
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
                               {item.ppnAmount
                                 ? `Rp ${Number(item.ppnAmount).toLocaleString(
@@ -2005,7 +2189,6 @@ export default function MonitoringPOPage() {
                                   )}`
                                 : ""}
                             </TableCell>
-                            {/* Pindahkan Kolom baru: Total Per Item ke sini */}
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[110px]">
                               {typeof item.totalPerItem !== "undefined" &&
                               item.totalPerItem !== null
@@ -2019,7 +2202,7 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="totalPembayaran"
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[120px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px]"
                                 >
                                   Rp{" "}
                                   {po.totalPembayaran.toLocaleString("id-ID")}
@@ -2027,39 +2210,46 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="orderedBy"
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px]"
                                 >
                                   {po.orderedBy ?? ""}
+                                </TableCell>
+                                {/* --- KOLOM BARU: Nama Pembeli (display dari item pertama) --- */}
+                                <TableCell
+                                  key="namaPembeli"
+                                  rowSpan={allItems.length}
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px]"
+                                >
+                                  {allItems[0]?.namaPembeli ?? ""}
                                 </TableCell>
                                 <TableCell
                                   key="estimasiTanggalDiterima"
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px]"
                                 >
                                   {formatTanggalPlus2(po.estimasiTanggalTerima)}
                                 </TableCell>
                                 <TableCell
                                   key="statusPengiriman"
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px]"
                                 >
                                   {po.statusPengiriman ?? ""}
                                 </TableCell>
                                 <TableCell
                                   key="statusBadge"
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px]"
                                 >
                                   {getStatusBadge(po.status || "")}
                                 </TableCell>
                                 <TableCell
                                   key="skema"
                                   rowSpan={allItems.length}
-                                  className="text-left border-gray-300 align-middle min-w-[100px]"
+                                  className="px-4 py-2 border border-gray-300 align-middle text-center min-w-[100px]"
                                 >
                                   {skemaMap[String(po.skema)] ?? po.skema ?? ""}
                                 </TableCell>
-                                {/* HAPUS: <TableCell key="actions" ...> ...button edit/hapus... </TableCell> */}
                               </>
                             ) : null}
                           </TableRow>

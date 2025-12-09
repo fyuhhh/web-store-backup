@@ -399,20 +399,34 @@ export default function MonitoringPRPage() {
   const confirmDelete = async () => {
     setConfirmDeleteOpen(false);
     try {
+      let anyError = false;
       for (const id of deleteIds) {
-        await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
+        const resp = await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
+        const respJson = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          // Show backend error message if PR cannot be deleted
+          setToastMsg(respJson.message || "Gagal menghapus karena PR sudah di proses");
+          setToastType("error");
+          setToastOpen(true);
+          anyError = true;
+          continue;
+        }
         await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
           method: "DELETE",
         });
       }
+      if (!anyError) {
+        setToastMsg("PR dan item berhasil dihapus.");
+        setToastType("success");
+        setToastOpen(true);
+      }
       const updatedData = prData.filter((pr) => !deleteIds.includes(pr.id));
       setPrData(updatedData);
       setSelectedPRs(selectedPRs.filter((prId) => !deleteIds.includes(prId)));
-      setToastMsg("PR dan item berhasil dihapus.");
-      setToastOpen(true);
       loadPRData();
     } catch (error) {
       setToastMsg("Terjadi kesalahan saat menghapus PR.");
+      setToastType("error");
       setToastOpen(true);
     }
     setDeleteIds([]);
@@ -899,8 +913,18 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
     if (!open) return null;
     return createPortal(
       <div className="fixed bottom-6 right-6 z-50">
-        <div className="bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in">
-          <span className="text-green-600 font-medium">{message}</span>
+        <div
+          className={`bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in ${
+            toastType === "error" ? "border-red-400" : "border-green-200"
+          }`}
+        >
+          <span
+            className={`font-medium ${
+              toastType === "error" ? "text-red-600" : "text-green-600"
+            }`}
+          >
+            {message}
+          </span>
           <Button size="sm" variant="ghost" onClick={onClose}>
             ×
           </Button>
@@ -915,6 +939,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
+  const [toastType, setToastType] = useState<"success" | "error">("success");
 
   // Tambahkan state untuk modal pilihan hapus
   const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
@@ -1093,12 +1118,11 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
             )}
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto min-w-[1200px]">
-              <Table className="min-w-[1200px]">
+           <div className="overflow-x-auto">
+              <Table className="border border-gray-300">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-16">
-                      {/* Checkbox Select All */}
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="w-16 border border-gray-300 px-4 py-3 text-center align-middle">
                       <Checkbox
                         checked={
                           selectedPRs.length === paginatedData.length &&
@@ -1113,8 +1137,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         className="focus:ring-2 focus:ring-primary"
                       />
                     </TableHead>
-                    {/* No. PR */}
-                    <TableHead className="min-w-[140px]">
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1172,8 +1195,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Tanggal PR */}
-                    <TableHead className="min-w-[140px]">
+                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1238,8 +1260,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Daftar Barang */}
-                    <TableHead className="min-w-[180px]">
+                    <TableHead className="min-w-[180px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1265,8 +1286,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Qty PR Awal */}
-                    <TableHead className="min-w-[90px]">
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1312,8 +1332,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Satuan */}
-                    <TableHead className="min-w-[90px]">
+                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1353,6 +1372,10 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                                     checked={filterSatuan.includes(satuan)}
                                     onCheckedChange={(checked) => {
                                       if (checked) {
+                                        setFilterSatuan([
+                                          ...filterSatuan,
+                                          satuan,
+                                        ]);
                                       } else {
                                         setFilterSatuan(
                                           filterSatuan.filter(
@@ -1374,8 +1397,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Keterangan */}
-                    <TableHead className="min-w-[160px]">
+                    <TableHead className="min-w-[160px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1401,8 +1423,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Urgensi */}
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1467,8 +1488,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Divisi */}
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1533,8 +1553,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Status */}
-                    <TableHead className="min-w-[100px]">
+                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1599,8 +1618,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Dibuat Oleh */}
-                    <TableHead className="min-w-[120px]">
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1665,9 +1683,8 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    {/* Skema */}
-                    <TableHead className="min-w-[120px]">Skema</TableHead>
-                    <TableHead className="min-w-[120px]">Aksi</TableHead>
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">Skema</TableHead>
+                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1681,9 +1698,8 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
 
                     return (
                       <React.Fragment key={pr.id}>
-                        <TableRow>
-                          <TableCell rowSpan={validItems.length}>
-                            {/* Checkbox per baris */}
+                        <TableRow className="hover:bg-gray-50 transition-colors">
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
                             <Checkbox
                               checked={selectedPRs.includes(pr.id)}
                               onCheckedChange={(checked) =>
@@ -1698,22 +1714,22 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                             />
                           </TableCell>
                           <TableCell
-                            className="font-medium"
+                            className="font-medium border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap"
                             rowSpan={validItems.length}
                           >
                             {pr.noPR}
                           </TableCell>
-                          <TableCell rowSpan={validItems.length}>
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                             {formatTanggal(pr.tanggalPR)}
                           </TableCell>
-                          <TableCell>{validItems[0]?.namaBarang}</TableCell>
-                          <TableCell>
+                          <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{validItems[0]?.namaBarang}</TableCell>
+                          <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
                             {parseFloat(validItems[0]?.quantityAwalPR) % 1 === 0
                               ? parseInt(validItems[0]?.quantityAwalPR)
                               : validItems[0]?.quantityAwalPR}
                           </TableCell>
-                          <TableCell>{validItems[0]?.satuan}</TableCell>
-                          <TableCell>
+                          <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{validItems[0]?.satuan}</TableCell>
+                          <TableCell className="border border-gray-300 px-4 py-3 text-center">
                             <div
                               className="text-sm text-muted-foreground max-w-xs truncate"
                               title={validItems[0]?.keterangan}
@@ -1721,20 +1737,19 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                               {validItems[0]?.keterangan}
                             </div>
                           </TableCell>
-                          <TableCell rowSpan={validItems.length}>
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                             {getUrgensiBadge(pr.urgensi)}
                           </TableCell>
-                          <TableCell rowSpan={validItems.length}>
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                             {pr.divisi}
                           </TableCell>
-                          <TableCell rowSpan={validItems.length}>
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                             {getStatusBadge(pr.status)}
                           </TableCell>
-                          <TableCell rowSpan={validItems.length}>
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                             {pr.dibuatOleh}
                           </TableCell>
-                          <TableCell rowSpan={validItems.length}>
-                            {/* Tampilkan label skema dari skemaOptions */}
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                             {skemaOptions.find(
                               (s) => String(s.id_skema) === String(pr.skema)
                             )?.skema ??
@@ -1742,9 +1757,8 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                               pr.skema ??
                               ""}
                           </TableCell>
-                          <TableCell rowSpan={validItems.length}>
-                            <div className="flex space-x-1">
-                              {/* Hapus tombol edit */}
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                            <div className="flex space-x-1 justify-center">
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1756,15 +1770,15 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </TableCell>
                         </TableRow>
                         {validItems.slice(1).map((item, index) => (
-                          <TableRow key={`${pr.id}-item-${index + 1}`}>
-                            <TableCell>{item.namaBarang}</TableCell>
-                            <TableCell>
+                          <TableRow key={`${pr.id}-item-${index + 1}`} className="hover:bg-gray-50 transition-colors">
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{item.namaBarang}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
                               {parseFloat(item.quantityAwalPR) % 1 === 0
                                 ? parseInt(item.quantityAwalPR)
                                 : item.quantityAwalPR}
                             </TableCell>
-                            <TableCell>{item.satuan}</TableCell>
-                            <TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{item.satuan}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-center">
                               <div
                                 className="text-sm text-muted-foreground max-w-xs truncate"
                                 title={item.keterangan}
@@ -1772,29 +1786,6 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                                 {item.keterangan}
                               </div>
                             </TableCell>
-                            {/* HAPUS tombol hapus item di sini */}
-                            {/* <TableCell>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  handleDeletePRItem(
-                                    String(item.id_PRItem ?? item.id)
-                                  )
-                                }
-                                disabled={
-                                  deleteItemLoading ===
-                                  String(item.id_PRItem ?? item.id)
-                                }
-                              >
-                                {deleteItemLoading ===
-                                String(item.id_PRItem ?? item.id) ? (
-                                  "..."
-                                ) : (
-                                  <Trash2 className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </TableCell> */}
                           </TableRow>
                         ))}
                       </React.Fragment>

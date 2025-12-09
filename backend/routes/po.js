@@ -186,11 +186,26 @@ router.put("/:id", async (req, res, next) => {
 router.delete("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    await db.query("DELETE FROM po_item WHERE id_PO = ?", [id]);
-    const [result] = await db.query("DELETE FROM po WHERE id_PO = ?", [id]);
 
-    if (result.affectedRows === 0)
+    // --- Tambahkan pengecekan: apakah ada BTB item yang refer ke PO ini? ---
+    const [btbItems] = await db.query(
+      "SELECT id_btb_item FROM btb_item WHERE id_POItem IN (SELECT id_POItem FROM po_item WHERE id_PO = ?)",
+      [id]
+    );
+
+    if (btbItems.length > 0) {
+      return res.status(400).json({
+        message:
+          "Tidak dapat menghapus PO ini karena sudah ada BTB yang terkait",
+      });
+    }
+
+    await db.query("DELETE FROM po_item WHERE id_PO = ?", [id]);
+    const result = await db.query("DELETE FROM po WHERE id_PO = ?", [id]);
+
+    if (result.affectedRows === 0) {
       return res.status(404).json({ message: "PO tidak ditemukan" });
+    }
 
     res.json({ message: "PO berhasil dihapus" });
   } catch (err) {

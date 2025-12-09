@@ -68,9 +68,10 @@ export default function InputPOPage() {
     supplier: "",
     estimasiTanggalDiterima: null as Date | null,
     diskon: "",
-    ppn: "11",
+    ppn: "",
     statusPengiriman: "",
-    skema: "", // <-- add skema field
+    skema: "",
+    namaPembeli: "", // <-- Tambahkan state namaPembeli
   });
 
   const [userSkema, setUserSkema] = useState("");
@@ -526,6 +527,11 @@ export default function InputPOPage() {
       setTimeout(() => setNotif(null), 2500);
       return;
     }
+    if (!poFormData.namaPembeli.trim()) {
+      setNotif({ type: "error", message: "Nama Pembeli wajib diisi!" });
+      setTimeout(() => setNotif(null), 2500);
+      return;
+    }
 
     if (poItems.length === 0) {
       setNotif({ type: "error", message: "Minimal satu item harus dipilih!" });
@@ -549,7 +555,7 @@ export default function InputPOPage() {
     const userSkema = userData.id_skema || null;
 
     try {
-      // 1. POST PO ke backend with correct field references
+      // 1. POST PO ke backend
       const poRes = await fetch("http://localhost:5000/api/po", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -560,11 +566,10 @@ export default function InputPOPage() {
               ? poFormData.tanggalPO
               : formatDateForBackend(poFormData.tanggalPO),
           id_supplier: poFormData.supplier,
-          // --- Perbaikan mapping field diskon/ppn ---
-          diskon: parseDiskonPersenToNumber(poFormData.diskon), // Diskon (%) dari input user, hanya angka
-          originalDiskon: calculations.totalDiskon, // Diskon (Rp) hasil perhitungan
-          ppn: parseFloat(poFormData.ppn), // PPN (%) dari input user
-          ppnAmount: calculations.totalPPN, // PPN (Rp) hasil perhitungan
+          diskon: parseDiskonPersenToNumber(poFormData.diskon),
+          originalDiskon: calculations.totalDiskon,
+          ppn: parseFloat(poFormData.ppn),
+          ppnAmount: calculations.totalPPN,
           totalPembayaran: calculations.totalPayment,
           orderedBy: orderedByUserId,
           estimasiTanggalTerima: formatDateForBackend(
@@ -637,6 +642,7 @@ export default function InputPOPage() {
               ppnPersen: ppnPersenValue, // PPN (%) masuk ke kolom ppnPersen
               ppnRupiah: ppnRupiahValue, // PPN (Rp) masuk ke kolom ppnRupiah
               totalPerItem, // <-- Tambahkan field baru
+              namaPembeli: poFormData.namaPembeli, // <-- Kirim namaPembeli ke backend
               keterangan: item.keterangan,
               id_satuan: item.id_satuan,
             }),
@@ -710,9 +716,10 @@ export default function InputPOPage() {
         supplier: "",
         estimasiTanggalDiterima: "",
         diskon: "",
-        ppn: "11",
+        ppn: "", // <-- reset ke kosong, bukan "11"
         statusPengiriman: "",
         skema: userSkema, // reset skema dari user login
+        namaPembeli: "", // <-- Reset namaPembeli
       });
 
       setPoItems([]);
@@ -968,10 +975,10 @@ export default function InputPOPage() {
               jumlahPO: item.jumlah,
               jumlahAsli: item.jumlah,
               satuanLabel: item.satuanLabel || item.satuan || "",
-              id_satuan: item.id_satuan ?? item.idSatuan ?? null, // <-- always keep id_satuan
+              id_satuan: item.id_satuan ?? item.idSatuan ?? null,
               hargaSatuan: 0,
               diskonItem: "", // default string
-              ppnItem: 11, // default (atau 0)
+              ppnItem: "", // <-- ubah default dari 11 ke ""
               keterangan: item.keterangan ?? "",
               skema: pr.id_skema ?? "",
               dibuatOleh: pr.dibuatOleh ?? "",
@@ -1069,6 +1076,7 @@ export default function InputPOPage() {
                     harga = Number(i.hargaSatuan) || 0;
                   }
                   const qty = Number(i.jumlahPO) || 0;
+                  const ppn = Number(i.ppnItem) || 0;
                   const itemSubtotal = harga * qty;
                   // Stack diskon persen
                   let currentAmount = itemSubtotal;
@@ -1078,7 +1086,7 @@ export default function InputPOPage() {
                     .map((d) => d.trim())
                     .filter((d) => d.endsWith("%"))
                     .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-                    .filter((v) => !isNaN(v));
+                    .filter((v) => v !== null && !isNaN(v));
                   diskonPersenArr.forEach((persen) => {
                     const amount = currentAmount * (persen / 100);
                     diskonAmount += amount;
@@ -1394,14 +1402,11 @@ export default function InputPOPage() {
                 </div>
               </div>
 
-              {/* Baris 2: Supplier, Status Pengiriman, Skema */}
+              {/* Baris 2: Supplier, Status Pengiriman, Nama Pembeli */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                 {/* Supplier */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="supplier"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
+                  <Label htmlFor="supplier">
                     Supplier
                   </Label>
                   <Select
@@ -1567,10 +1572,7 @@ export default function InputPOPage() {
 
                 {/* Status Pengiriman */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="statusPengiriman"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
+                  <Label htmlFor="statusPengiriman">
                     Status Pengiriman
                   </Label>
                   <Select
@@ -1746,19 +1748,26 @@ export default function InputPOPage() {
                   </Select>
                 </div>
 
-                {/* Skema */}
+                {/* Nama Pembeli (ganti Skema) */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="skema"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
-                    Skema
+                  <Label htmlFor="namaPembeli">
+                    Nama Pembeli
                   </Label>
                   <Input
-                    id="skema"
+                    id="namaPembeli"
+                    value={poFormData.namaPembeli}
+                    onChange={(e) =>
+                      setPoFormData({ ...poFormData, namaPembeli: e.target.value })
+                    }
+                    placeholder="Masukkan nama pembeli"
+                    required
+                    className="border-border focus:border-primary/50 bg-white"
+                  />
+                  {/* Sembunyikan skema, tetap dikirim */}
+                  <input
+                    type="hidden"
+                    name="skema"
                     value={poFormData.skema}
-                    readOnly
-                    className="border-border focus:border-primary/50 bg-gray-100"
                   />
                 </div>
               </div>
@@ -1964,7 +1973,7 @@ export default function InputPOPage() {
                                     )
                                   }
                                   className="w-16 text-right"
-                                  placeholder="11"
+                                  placeholder="0"
                                 />
                               </TableCell>
                               <TableCell>
@@ -2045,7 +2054,7 @@ export default function InputPOPage() {
               {/* Baris 5: Ringkasan Perhitungan */}
               <div className="mt-4">
                 <h3 className="text-lg font-semibold mb-3">
-                  Ringkasan Perhitungan
+                                   Ringkasan Perhitungan
                 </h3>
                 <div className="border rounded-lg p-4 space-y-3">
                   {(() => {

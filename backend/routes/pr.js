@@ -197,14 +197,40 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE PR
-router.delete("/:id", async (req, res) => {
-  const { id } = req.params;
+// DELETE PR (beserta item)
+router.delete("/:id", async (req, res, next) => {
   try {
-    await db.query("DELETE FROM pr WHERE id_PR=?", [id]);
+    const { id } = req.params;
+
+    // 1. Check if any PO items reference this PR
+    // Find all PR items for this PR
+    const [prItems] = await db.query("SELECT id_PRItem FROM pr_item WHERE id_PR = ?", [id]);
+    if (prItems.length > 0) {
+      // Check if any PO items reference these PR items
+      const prItemIds = prItems.map(item => item.id_PRItem);
+      if (prItemIds.length > 0) {
+        const [poItems] = await db.query(
+          `SELECT * FROM po_item WHERE id_PRItem IN (${prItemIds.map(() => "?").join(",")})`,
+          prItemIds
+        );
+        if (poItems.length > 0) {
+          return res.status(400).json({
+            message: "PR tidak dapat dihapus karena sudah diproses menjadi PO. Silakan kembalikan semua item PO ke PR terlebih dahulu."
+          });
+        }
+      }
+    }
+
+    // 2. Delete PR items
+    await db.query("DELETE FROM pr_item WHERE id_PR = ?", [id]);
+    // 3. Delete PR
+    const [result] = await db.query("DELETE FROM pr WHERE id_PR = ?", [id]);
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: "PR tidak ditemukan" });
+
     res.json({ message: "PR berhasil dihapus" });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
