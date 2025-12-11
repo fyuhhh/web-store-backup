@@ -56,49 +56,53 @@ import {
 } from "@/components/ui/popover";
 
 // Kolom sesuai urutan permintaan (Periode, No. PR, dst)
+// Kembalikan urutan kolom seperti sebelumnya, delay tetap kosong dan di posisi aslinya (setelah status)
 const columns = [
   { key: "periodePR", label: "Periode" },
   { key: "noPR", label: "No. PR" },
   { key: "tanggalPR", label: "Tanggal PR" },
-  { key: "hariPR", label: "Hari PR" },
+  { key: "hariPR", label: "Hari" },
   { key: "daftarBarangPR", label: "Daftar Barang PR" },
-  { key: "quantityAwalPR", label: "Quantity Awal PR" },
-  { key: "satuanPR", label: "Satuan PR" },
-  { key: "keteranganPR", label: "Keterangan PR" },
+  { key: "quantityAwalPR", label: "Quantity PR" },
+  { key: "satuanPR", label: "Satuan" },
+  { key: "keteranganPR", label: "Keterangan" },
   { key: "divisi", label: "Divisi" },
   { key: "dibuatOleh", label: "Dibuat Oleh" },
-  { key: "skemaPR", label: "Skema PR" },
   { key: "targetTanggalPO", label: "Target Tanggal PO" },
-  { key: "status", label: "Status" }, // <-- Tambah kolom Status
-  { key: "delay", label: "Delay" },
-  { key: "quantityPR", label: "Sisa Quantity PR" }, // <-- Pindah ke sini
-  { key: "periodePO", label: "Periode PO" }, // Tambahkan kolom "periode PO" di sini
+  { key: "status", label: "Status" },
+  { key: "quantityPR", label: "Quantity Belum PR" },
+  { key: "skemaPR", label: "Skema PR" },
+  { key: "periodePO", label: "Periode" },
   { key: "noPO", label: "No. PO" },
   { key: "tanggalPO", label: "Tanggal PO" },
-  { key: "daftarBarangPO", label: "Daftar Barang PO" },
-  { key: "quantityPO", label: "Quantity PO" },
-  { key: "quantityAwalPO", label: "Quantity Awal PO" },
-  { key: "satuanPO", label: "Satuan PO" },
-  { key: "keteranganPO", label: "Keterangan PO" },
+  { key: "supplier", label: "Nama Supplier" },
+  { key: "quantityAwalPO", label: "Quantity PO" },
+  { key: "satuanPO", label: "Satuan" },
+  { key: "hargaSatuanPO", label: "Harga Satuan" },
   { key: "diskonPersen", label: "Diskon (%)" },
   { key: "diskonRp", label: "Diskon (RP)" },
   { key: "ppnPersen", label: "PPN (%)" },
   { key: "ppnRp", label: "PPN (Rp)" },
   { key: "totalHarga", label: "Total Harga" },
-  { key: "tanggalEstimasiDiterima", label: "Tanggal Estimasi Diterima" },
   { key: "statusPengiriman", label: "Status Pengiriman" },
-  { key: "supplier", label: "Supplier" },
+  { key: "tanggalEstimasiDiterima", label: "Tanggal Estimasi Diterima" },
   { key: "diorderOleh", label: "Diorder Oleh" },
+  { key: "diinputOleh", label: "Diinput Oleh" },
+  { key: "targetPencapaianPO", label: "Target Pencapaian PO" },
+  { key: "delay", label: "Delay" },
+  { key: "quantityPO", label: "Quantity Belum PO" },
   { key: "skemaPO", label: "Skema PO" },
-    { key: "periodeBTB", label: "Periode BTB" },
+  { key: "periodeBTB", label: "Periode" },
   { key: "noBTB", label: "No. BTB" },
-  { key: "tanggalBTB", label: "Tanggal BTB" },
-  { key: "namaSupplierBTB", label: "Nama Supplier BTB" },
-  { key: "namaBarangBTB", label: "Nama Barang BTB" },
+  { key: "tanggalBTB", label: "Tanggal Terima" },
   { key: "quantityBTB", label: "Quantity BTB" },
-  { key: "sisaStokBTB", label: "Sisa Stok BTB" },
+  { key: "satuanBTB", label: "Satuan BTB" }, // <-- Tambahkan kolom ini
   { key: "biayaBTB", label: "Biaya BTB" },
+  { key: "sisaStokBTB", label: "Quantity Belum BTB" },
   { key: "diterimaOleh", label: "Diterima Oleh" },
+  { key: "statusPermintaanByPR", label: "Status Permintaan By PR" }, // baru
+  { key: "plan", label: "Plan" }, // baru
+  { key: "noPlan", label: "No Plan" }, // baru
   { key: "skemaBTB", label: "Skema BTB" },
 ];
 
@@ -215,6 +219,17 @@ function formatTanggalTambahDuaHari(tgl: string) {
   const month = String(dateObj.getMonth() + 1).padStart(2, "0");
   const year = dateObj.getFullYear();
   return `${day}-${month}-${year}`;
+}
+// Helper untuk mendapatkan nama bulan yang benar (menambahkan 1)
+function getMonthNameCorrected(dateStr: string) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const monthIndex = date.getMonth(); // JavaScript's month index starts at 0 (Jan = 0)
+  const months = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+  return months[monthIndex]; // Fix month index off by 1
 }
 
 // Helper untuk popover keterangan (hover, abu-abu, di luar tabel)
@@ -370,228 +385,343 @@ export default function RekapFullPage() {
   }, []);
 
   useEffect(() => {
-  async function fetchData() {
-    try {
-      // Fetch PR data, PR Items, PO data, PO Items, BTB data, BTB Items, BKB data, BKB Items
-      const [
-        prRes,
-        prItemRes,
-        poRes,
-        poItemRes,
-        btbRes,
-        btbItemRes,
-        bkbRes,
-        bkbItemRes,
-      ] = await Promise.all([
-        fetch("http://localhost:5000/api/pr").then((r) => r.json()),
-        fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
-        fetch("http://localhost:5000/api/po").then((r) => r.json()),
-        fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
-        fetch("http://localhost:5000/api/btb").then((r) => r.json()),
-        fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
-        fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
-        fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
-      ]);
+    async function fetchData() {
+      try {
+        // Fetch PR data, PR Items, PO data, PO Items, BTB data, BTB Items, BKB data, BKB Items
+        const [
+          prRes,
+          prItemRes,
+          poRes,
+          poItemRes,
+          btbRes,
+          btbItemRes,
+          bkbRes,
+          bkbItemRes,
+        ] = await Promise.all([
+          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
+        ]);
 
-      // Ensure data is in the correct array format
-      const prData = Array.isArray(prRes) ? prRes : [];
-      const prItemData = Array.isArray(prItemRes) ? prItemRes : [];
-      const poData = Array.isArray(poRes) ? poRes : [];
-      const poItemData = Array.isArray(poItemRes) ? poItemRes : [];
-      const btbData = Array.isArray(btbRes) ? btbRes : [];
-      const btbItemData = Array.isArray(btbItemRes) ? btbItemRes : [];
-      const bkbData = Array.isArray(bkbRes) ? bkbRes : [];
-      const bkbItemData = Array.isArray(bkbItemRes) ? bkbItemRes : [];
+        // Ensure data is in the correct array format
+        const prData = Array.isArray(prRes) ? prRes : [];
+        const prItemData = Array.isArray(prItemRes) ? prItemRes : [];
+        const poData = Array.isArray(poRes) ? poRes : [];
+        const poItemData = Array.isArray(poItemRes) ? poItemRes : [];
+        const btbData = Array.isArray(btbRes) ? btbRes : [];
+        const btbItemData = Array.isArray(btbItemRes) ? btbItemRes : [];
+        const bkbData = Array.isArray(bkbRes) ? bkbRes : [];
+        const bkbItemData = Array.isArray(bkbItemRes) ? bkbItemRes : [];
 
-      const rekapRows: any[] = [];
-      
-      prData.forEach((pr) => {
-        const items = prItemData.filter((item: any) => item.id_PR === pr.id_PR);
+        const rekapRows: any[] = [];
         
-        items.forEach((item: any, idx: number) => {
-          // Normalize id_PRItem
-          const prItemId = String(item.id_PRItem || item.id_pritem || item.idPRItem || item.id);
+        prData.forEach((pr) => {
+          const items = prItemData.filter((item: any) => item.id_PR === pr.id_PR);
+          
+          items.forEach((item: any, idx: number) => {
+            // Normalize id_PRItem
+            const prItemId = String(item.id_PRItem || item.id_pritem || item.idPRItem || item.id);
 
-          // Find PO Items related to this PR Item (priority: by id_PRItem)
-          let poItemsForPRItem = poItemData.filter((poi: any) => {
-            const poiPRItemId = String(poi.id_PRItem || poi.id_pritem || poi.idPRItem || "");
-            return poiPRItemId === prItemId;
-          });
-
-          // FALLBACK: if no match, try to match by item name
-          if (poItemsForPRItem.length === 0) {
-            poItemsForPRItem = poItemData.filter((poi: any) => {
-              const poiName = (poi.namaBarang || "").toLowerCase().trim();
-              const itemName = (item.namaBarang || "").toLowerCase().trim();
-              return poiName === itemName;
+            // Cari semua PO Items yang terkait dengan PR Item ini
+            let poItemsForPRItem = poItemData.filter((poi: any) => {
+              const poiPRItemId = String(poi.id_PRItem || poi.id_pritem || poi.idPRItem || "");
+              return poiPRItemId === prItemId;
             });
-          }
 
-          // Find related PO (if any)
-          const poItem = poItemsForPRItem[0] ?? null;
-          const po = poItem
-            ? poData.find((p: any) => String(p.id_PO || p.id) === String(poItem.id_PO || poItem.id))
-            : null;
-
-          // Find BTB Items related to PO Item
-          let btbItemRow = null;
-          let btbRow = null;
-          if (poItem) {
-            const poItemId = String(poItem.id_POItem || poItem.id);
-
-            // Priority 1: Match by id_POItem
-            btbItemRow = btbItemData.find(
-              (bi: any) => String(bi.id_POItem || bi.idPOItem || "") === poItemId
-            );
-
-            // Priority 2 (Fallback): Match by item name + same supplier
-            if (!btbItemRow && po) {
-              const btbsForSupplier = btbData.filter(
-                (b: any) => String(b.id_supplier) === String(po.id_supplier)
-              );
-              for (const btb of btbsForSupplier) {
-                const matchingItem = btbItemData.find(
-                  (bi: any) =>
-                    String(bi.id_btb) === String(btb.id_btb) &&
-                    bi.nama_barang &&
-                    poItem.namaBarang &&
-                    bi.nama_barang.toLowerCase().trim() ===
-                      poItem.namaBarang.toLowerCase().trim()
-                );
-                if (matchingItem) {
-                  btbItemRow = matchingItem;
-                  btbRow = btb;
-                  break;
-                }
-              }
+            // FALLBACK: jika tidak ada, cocokkan nama barang
+            if (poItemsForPRItem.length === 0) {
+              poItemsForPRItem = poItemData.filter((poi: any) => {
+                const poiName = (poi.namaBarang || "").toLowerCase().trim();
+                const itemName = (item.namaBarang || "").toLowerCase().trim();
+                return poiName === itemName;
+              });
             }
 
-            // If btbItemRow is found, find related btbRow
-            if (btbItemRow && !btbRow) {
-              btbRow = btbData.find(
-                (b: any) => String(b.id_btb) === String(btbItemRow.id_btb)
-              );
-            }
-          }
-
-          rekapRows.push({
-            id: pr.id_PR + "-" + idx,
-            tahunPR: getYear(pr.tanggalPR),
-            bulanPR: getMonthName(pr.tanggalPR),
-            noPR: pr.noPR,
-            tanggalPR: (() => {
-              if (!pr.tanggalPR) return "";
-              const d = new Date(pr.tanggalPR);
-              return `${d.getDate().toString().padStart(2, "0")}-${(
-                d.getMonth() + 1
-              ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-            })(),
-            hariPR: getDayName(pr.tanggalPR),
-            daftarBarangPR: item.namaBarang,
-            quantityAwalPR: item.quantityAwalPR,
-            periodeBTB: btbRow?.tanggal_btb
-              ? `${getMonthName(btbRow.tanggal_btb)} ${getYear(btbRow.tanggal_btb)}`
-              : "", // Period for BTB
-            quantityPR: item.jumlah,
-            satuanPR: item.id_satuan
-              ? satuanMap[String(item.id_satuan)] || item.id_satuan
-              : "",
-            keteranganPR: item.keterangan || "",
-            divisi: pr.id_divisi
-              ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
-              : "",
-            dibuatOleh: pr.dibuatOleh,
-            skemaPR: pr.id_skema ?? "",
-            skemaPRLabel: pr.id_skema
-              ? skemaMap[String(pr.id_skema)] || pr.id_skema
-              : "",
-            targetTanggalPO: pr.tanggalPR
-              ? (() => {
+            // Jika tidak ada PO sama sekali, tetap push satu baris (tanpa PO)
+            if (poItemsForPRItem.length === 0) {
+              rekapRows.push({
+                id: pr.id_PR + "-" + idx,
+                id_PR: pr.id_PR,
+                periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "", // <-- Tambahkan baris ini
+                tahunPR: getYear(pr.tanggalPR),
+                bulanPR: getMonthName(pr.tanggalPR),
+                noPR: pr.noPR,
+                tanggalPR: (() => {
+                  if (!pr.tanggalPR) return "";
                   const d = new Date(pr.tanggalPR);
-                  d.setDate(d.getDate() + 3);
-                  return `${String(d.getDate()).padStart(
-                    2,
-                    "0"
-                  )}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
-                })()
-              : "",
-            delay:
-              pr.tanggalPR && po?.tanggalPO
-                ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
-                : "",
-            status: pr.status ?? "",
-            noPO: po?.noPO || "",
-            tanggalPO: po?.tanggalPO
-              ? (() => {
-                  const d = new Date(po.tanggalPO);
                   return `${d.getDate().toString().padStart(2, "0")}-${(
                     d.getMonth() + 1
                   ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                })()
-              : "",
-            daftarBarangPO: poItem?.namaBarang || item.namaBarang || "",
-            quantityPO: poItem?.jumlahPO ?? poItem?.jumlah ?? "",
-            quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-            satuanPO: poItem?.id_satuan
-              ? satuanMap[String(poItem.id_satuan)] || poItem.id_satuan
-              : item.id_satuan
-              ? satuanMap[String(item.id_satuan)] || item.id_satuan
-              : "",
-            keteranganPO: poItem?.keterangan ?? item.keterangan ?? "",
-            diskonPersen: po?.diskon ?? "",
-            diskonRp: po?.originalDiskon ?? "",
-            ppnPersen: po?.ppn ?? "",
-            ppnRp: po?.ppnAmount ?? "",
-            totalHarga: po?.totalPembayaran ?? "",
-            tanggalEstimasiDiterima: po?.estimasiTanggalTerima
-              ? (() => {
-                  const d = new Date(po.estimasiTanggalTerima);
-                  return `${d.getDate().toString().padStart(2, "0")}-${(
-                    d.getMonth() + 1
-                  ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                })()
-              : "",
-            statusPengiriman: po?.id_statusPengiriman
-              ? statusPengirimanMap[String(po.id_statusPengiriman)] || ""
-              : "",
-            supplier: po?.id_supplier
-              ? supplierMap[String(po.id_supplier)] || ""
-              : "",
-            diorderOleh: po?.orderedBy
-              ? userMap[String(po.orderedBy)] || ""
-              : "",
-            skemaPO: po?.id_skema ? skemaMap[String(po.id_skema)] || "" : "",
-            noBTB: btbRow?.no_btb || "",
-            tanggalBTB: btbRow?.tanggal_btb
-              ? (() => {
-                  const d = new Date(btbRow.tanggal_btb);
-                  return `${d.getDate().toString().padStart(2, "0")}-${(
-                    d.getMonth() + 1
-                  ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                })()
-              : "",
-            periodeBTB: btbRow?.tanggal_btb
-              ? `${getMonthName(btbRow.tanggal_btb)} ${getYear(btbRow.tanggal_btb)}`
-              : "", // Period for BTB
-            namaSupplierBTB: btbRow?.id_supplier
-              ? supplierMap[String(btbRow.id_supplier)] || ""
-              : "",
-            namaBarangBTB: btbItemRow?.nama_barang || "",
-            quantityBTB: btbItemRow?.jumlah_diterima ?? "",
-            satuanBTB: btbItemRow?.id_satuan
-              ? satuanMap[String(btbItemRow.id_satuan)] || ""
-              : "",
-            sisaStokBTB: btbItemRow?.qty_sisa ?? "",
-            biayaBTB: btbRow?.biaya ?? "",
-            diterimaOleh: btbRow?.id_user
-              ? userMap[String(btbRow.id_user)] || ""
-              : "",
-            skemaBTB: btbRow?.id_skema ? skemaMap[String(btbRow.id_skema)] || "" : "",
+                })(),
+                hariPR: getDayName(pr.tanggalPR),
+                daftarBarangPR: item.namaBarang,
+                quantityAwalPR: item.quantityAwalPR,
+                periodeBTB: "",
+                quantityPR: item.jumlah,
+                satuanPR: item.id_satuan
+                  ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                  : "",
+                keteranganPR: item.keterangan || "",
+                divisi: pr.id_divisi
+                  ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                  : "",
+                dibuatOleh: pr.dibuatOleh,
+                skemaPR: pr.id_skema ?? "",
+                skemaPRLabel: pr.id_skema
+                  ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                  : "",
+                targetTanggalPO: pr.tanggalPR
+                  ? (() => {
+                      const d = new Date(pr.tanggalPR);
+                      d.setDate(d.getDate() + 3);
+                      return `${String(d.getDate()).padStart(
+                        2,
+                        "0"
+                      )}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+                    })()
+                  : "",
+                delay:
+                  pr.tanggalPR && po?.tanggalPO
+                    ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
+                    : "",
+                status: pr.status ?? "",
+                noPO: "",
+                tanggalPO: "",
+                periodePO: "",
+                supplier: "",
+                quantityAwalPO: "",
+                satuanPO: "",
+                diskonPersen: "",
+                diskonRp: "",
+                ppnPersen: "",
+                ppnRp: "",
+                totalHarga: "",
+                tanggalEstimasiDiterima: "",
+                statusPengiriman: "",
+                diorderOleh: "",
+                diinputOleh: "", // <-- Tambahkan di sini
+                skemaPO: "",
+                noBTB: "",
+                tanggalBTB: "",
+                periodeBTB: "",
+                namaSupplierBTB: "",
+                namaBarangBTB: "",
+                quantityBTB: "",
+                satuanBTB: item.id_satuan
+                  ? satuanMap[String(item.id_satuan)] || ""
+                  : "",
+                sisaStokBTB: "",
+                statusPermintaanByPR: "", // baru
+                plan: "", // baru
+                noPlan: "", // baru
+                biayaBTB: "",
+                diterimaOleh: "",
+                skemaBTB: "",
+              });
+            } else {
+              // Untuk setiap PO Item yang terkait, buat satu baris
+              poItemsForPRItem.forEach((poItem: any) => {
+                const po = poData.find((p: any) => String(p.id_PO || p.id) === String(poItem.id_PO || poItem.id));
+
+                // Cari BTB Item dan BTB terkait
+                let btbItemRow = null;
+                let btbRow = null;
+                if (poItem) {
+                  const poItemId = String(poItem.id_POItem || poItem.id);
+
+                  // Priority 1: Match by id_POItem
+                  btbItemRow = btbItemData.find(
+                    (bi: any) => String(bi.id_POItem || bi.idPOItem || "") === poItemId
+                  );
+
+                  // Priority 2 (Fallback): Match by item name + same supplier
+                  if (!btbItemRow && po) {
+                    const btbsForSupplier = btbData.filter(
+                      (b: any) => String(b.id_supplier) === String(po.id_supplier)
+                    );
+                    for (const btb of btbsForSupplier) {
+                      const matchingItem = btbItemData.find(
+                        (bi: any) =>
+                          String(bi.id_btb) === String(btb.id_btb) &&
+                          bi.nama_barang &&
+                          poItem.namaBarang &&
+                          bi.nama_barang.toLowerCase().trim() ===
+                            poItem.namaBarang.toLowerCase().trim()
+                      );
+                      if (matchingItem) {
+                        btbItemRow = matchingItem;
+                        btbRow = btb;
+                        break;
+                      }
+                    }
+                  }
+
+                  // If btbItemRow is found, find related btbRow
+                  if (btbItemRow && !btbRow) {
+                    btbRow = btbData.find(
+                      (b: any) => String(b.id_btb) === String(btbItemRow.id_btb)
+                    );
+                  }
+                }
+
+                rekapRows.push({
+                  id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || poItem.id || ""),
+                  id_PR: pr.id_PR,
+                  periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
+                  tahunPR: getYear(pr.tanggalPR),
+                  bulanPR: getMonthName(pr.tanggalPR),
+                  noPR: pr.noPR,
+                  tanggalPR: (() => {
+                    if (!pr.tanggalPR) return "";
+                    const d = new Date(pr.tanggalPR);
+                    return `${d.getDate().toString().padStart(2, "0")}-${(
+                      d.getMonth() + 1
+                    ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                  })(),
+                  hariPR: getDayName(pr.tanggalPR),
+                  daftarBarangPR: item.namaBarang,
+                  quantityAwalPR: item.quantityAwalPR,
+                  periodeBTB: btbRow?.tanggal_btb
+                    ? `${getMonthName(btbRow.tanggal_btb)} ${getYear(btbRow.tanggal_btb)}`
+                    : "",
+                  quantityPR: item.jumlah,
+                  satuanPR: item.id_satuan
+                    ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                    : "",
+                  keteranganPR: item.keterangan || "",
+                  divisi: pr.id_divisi
+                    ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                    : "",
+                  dibuatOleh: pr.dibuatOleh,
+                  skemaPR: pr.id_skema ?? "",
+                  skemaPRLabel: pr.id_skema
+                    ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                    : "",
+                  targetTanggalPO: pr.tanggalPR
+                    ? (() => {
+                        const d = new Date(pr.tanggalPR);
+                        d.setDate(d.getDate() + 3);
+                        return `${String(d.getDate()).padStart(
+                          2,
+                          "0"
+                        )}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+                      })()
+                    : "",
+                  delay:
+                    pr.tanggalPR && po?.tanggalPO
+                      ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
+                      : "",
+                  status: pr.status ?? "",
+                  noPO: po?.noPO || "",
+                  tanggalPO: po?.tanggalPO
+                    ? (() => {
+                        const d = new Date(po.tanggalPO);
+                        return `${d.getDate().toString().padStart(2, "0")}-${(
+                          d.getMonth() + 1
+                        ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                      })()
+                    : "",
+                  periodePO: po?.tanggalPO
+                    ? (() => {
+                        let d;
+                        if (/^\d{2}-\d{2}-\d{4}$/.test(po.tanggalPO)) {
+                          // dd-mm-yyyy
+                          const [day, month, year] = po.tanggalPO.split("-");
+                          d = new Date(`${year}-${month}-${day}`);
+                        } else {
+                          // yyyy-mm-dd atau format lain
+                          d = new Date(po.tanggalPO);
+                        }
+                        if (isNaN(d.getTime())) return "";
+                        return `${d.toLocaleString("id-ID", { month: "long" })} ${d.getFullYear()}`;
+                      })()
+                    : "",
+                  supplier: po?.id_supplier
+                    ? supplierMap[String(po.id_supplier)] || ""
+                    : "",
+                  quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
+quantityPO: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
+satuanPO: poItem?.id_satuan
+
+                    ? satuanMap[String(poItem.id_satuan)] || poItem.id_satuan
+                    : item.id_satuan
+                    ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                    : "",
+                  hargaSatuanPO: poItem?.hargaSatuan ?? "", // <-- Tambahkan ini
+                  diskonPersen:
+                    poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
+                      ? (Number(poItem.diskonPersen) % 1 === 0
+                          ? Number(poItem.diskonPersen).toString()
+                          : Number(poItem.diskonPersen).toFixed(2)
+                        ) + "%"
+                      : "",
+                  ppnPersen:
+                    poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
+                      ? (Number(poItem.ppnPersen) % 1 === 0
+                          ? Number(poItem.ppnPersen).toString()
+                          : Number(poItem.ppnPersen).toFixed(2)
+                        ) + "%"
+                      : "",
+                  diskonRp: po?.originalDiskon ?? "",
+                  ppnRp: po?.ppnAmount ?? "",
+                  totalHarga: po?.totalPembayaran ?? "",
+                  tanggalEstimasiDiterima: po?.estimasiTanggalTerima
+                    ? (() => {
+                        const d = new Date(po.estimasiTanggalTerima);
+                        return `${d.getDate().toString().padStart(2, "0")}-${(
+                          d.getMonth() + 1
+                        ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                      })()
+                    : "",
+                  statusPengiriman: po?.id_statusPengiriman
+                    ? statusPengirimanMap[String(po.id_statusPengiriman)] || ""
+                    : "",
+                  diorderOleh: po?.orderedBy
+                    ? userMap[String(po.orderedBy)] || ""
+                    : "",
+                  diinputOleh: poItem?.namaPembeli ?? "", // <-- Ambil dari po_item.namaPembeli
+                  skemaPO: po?.id_skema ? skemaMap[String(po.id_skema)] || "" : "",
+                  noBTB: btbRow?.no_btb || "",
+                  tanggalBTB: btbRow?.tanggal_btb
+                    ? (() => {
+                        const d = new Date(btbRow.tanggal_btb);
+                        return `${d.getDate().toString().padStart(2, "0")}-${(
+                          d.getMonth() + 1
+                        ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                      })()
+                    : "",
+                  periodeBTB: btbRow?.tanggal_btb
+                    ? `${getMonthName(btbRow.tanggal_btb)} ${getYear(btbRow.tanggal_btb)}`
+                    : "",
+                  namaSupplierBTB: btbRow?.id_supplier
+                    ? supplierMap[String(btbRow.id_supplier)] || ""
+                    : "",
+                  namaBarangBTB: btbItemRow?.nama_barang || "",
+                  quantityBTB: btbItemRow?.jumlah_diterima ?? "",
+                  satuanBTB: item.id_satuan
+                    ? satuanMap[String(item.id_satuan)] || ""
+                    : "",
+                  sisaStokBTB: btbItemRow?.qty_sisa ?? "",
+                  statusPermintaanByPR: "", // baru
+                  plan: "", // baru
+                  noPlan: "", // baru
+                  biayaBTB: btbRow?.biaya ?? "",
+                  diterimaOleh: btbRow?.id_user
+                    ? userMap[String(btbRow.id_user)] || ""
+                    : "",
+                  skemaBTB: btbRow?.id_skema ? skemaMap[String(btbRow.id_skema)] || "" : "",
+                });
+              });
+            }
           });
         });
-      });
 
-      setRekapData(groupRowsForTable(rekapRows));
+        setRekapData(rekapRows); // <-- JANGAN groupRowsForTable di sini!
     } catch (err) {
       setRekapData([]);
     }
@@ -641,9 +771,8 @@ export default function RekapFullPage() {
   });
 
   // Filtered data (bandingkan id skema, bukan label)
-  const filteredData = rekapData.filter((prGroup) => {
-    // prGroup.main adalah baris utama PR
-    const row = prGroup.main;
+  const filteredData = sortRekapRows(
+    rekapData.filter((row) => {
     // Filter skemaPR sesuai user login (bandingkan id)
     if (userSkemaId && String(row.skemaPR) !== userSkemaId) {
       return false;
@@ -655,47 +784,20 @@ export default function RekapFullPage() {
         String(row[col.key] ?? "")
           .toLowerCase()
           .includes(searchTerm.toLowerCase())
-      ) ||
-      prGroup.items.some((item) =>
-        columns.some((col) =>
-          String(item[col.key] ?? "")
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())
-        )
       );
     // Filter dropdown
     const matchesFilters = Object.entries(filters).every(([key, val]) => {
       if (!val || (Array.isArray(val) && val.length === 0)) return true;
       if (Array.isArray(val)) {
-        return val.includes(row[key]) || prGroup.items.some((item) => val.includes(item[key]));
+        return val.includes(row[key]);
       }
-      return (
-        String(row[key] ?? "")
-          .toLowerCase()
-          .includes(String(val).toLowerCase()) ||
-        prGroup.items.some((item) =>
-          String(item[key] ?? "")
-            .toLowerCase()
-            .includes(String(val).toLowerCase())
-        )
-      );
+      return String(row[key] ?? "")
+        .toLowerCase()
+        .includes(String(val).toLowerCase());
     });
     return matchesSearch && matchesFilters;
-  });
-
-  // Log id_PR, skemaPR, skemaPRLabel yang tampil di rekap full
-  useEffect(() => {
-    if (userSkemaId) {
-      console.log(
-        "Filtered Rekap PRs (id_PR, skemaPR, skemaPRLabel):",
-        filteredData.map((row) => ({
-          id_PR: row.noPR,
-          skemaPR: row.skemaPR,
-          skemaPRLabel: row.skemaPRLabel,
-        }))
-      );
-    }
-  }, [filteredData, userSkemaId]);
+  })
+);
 
   // Pagination
   const pagedData = filteredData.slice(
@@ -703,11 +805,80 @@ export default function RekapFullPage() {
     currentPage * itemsPerPage
   );
 
-  // Handle filter change
-  const handleFilterChange = (key: string, value: any) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-    setCurrentPage(1);
-  };
+  // Group rows by id_PR, then by PR Item, then by PO, then by BTB
+  function groupRowsForTable(rows: any[]) {
+    const grouped: { [id_PR: string]: any[] } = {};
+    rows.forEach((row) => {
+      const key = String(row.id_PR);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
+    });
+    // For each PR group, further group by PR Item
+    return Object.entries(grouped).map(([id_PR, items]) => {
+      // Group by PR Item (by daftarBarangPR + satuanPR + quantityAwalPR)
+      const prItemGroups: { [prItemKey: string]: any[] } = {};
+      items.forEach((item) => {
+        // Use daftarBarangPR + satuanPR + quantityAwalPR as key
+        const prItemKey =
+          String(item.daftarBarangPR) +
+          "|" +
+          String(item.satuanPR) +
+          "|" +
+          String(item.quantityAwalPR);
+        if (!prItemGroups[prItemKey]) prItemGroups[prItemKey] = [];
+        prItemGroups[prItemKey].push(item);
+      });
+      const prItemGroupArr = Object.entries(prItemGroups).map(
+        ([prItemKey, prItemItems]) => {
+          // Group by PO
+          const poGroups: { [id_PO: string]: any[] } = {};
+          prItemItems.forEach((item) => {
+            const poKey = String(item.noPO || item.id_PO || "");
+            if (!poGroups[poKey]) poGroups[poKey] = [];
+            poGroups[poKey].push(item);
+          });
+          const poGroupArr = Object.entries(poGroups).map(([id_PO, poItems]) => {
+            // Group by BTB
+            const btbGroups: { [id_btb: string]: any[] } = {};
+            poItems.forEach((itm) => {
+              const btbKey = String(itm.noBTB || itm.id_btb || "");
+              if (!btbGroups[btbKey]) btbGroups[btbKey] = [];
+              btbGroups[btbKey].push(itm);
+            });
+            const btbGroupArr = Object.entries(btbGroups).map(
+              ([id_btb, btbItems]) => ({
+                id_btb,
+                items: btbItems,
+                rowSpan: btbItems.length,
+                firstIdx: poItems.findIndex((itm) => itm.noBTB === id_btb),
+              })
+            );
+            return {
+              id_PO,
+              items: poItems,
+              rowSpan: poItems.length,
+              btbGroups: btbGroupArr,
+              firstIdx: prItemItems.findIndex((itm) => itm.noPO === id_PO),
+            };
+          });
+          return {
+            prItemKey,
+            items: prItemItems,
+            rowSpan: prItemItems.length,
+            poGroups: poGroupArr,
+          };
+        }
+      );
+      return {
+        id_PR,
+        items,
+        rowSpan: items.length,
+        prItemGroups: prItemGroupArr,
+      };
+    });
+  }
+
+  const groupedTableData = groupRowsForTable(pagedData);
 
   // Data untuk export sesuai mode
   const getExportData = () => {
@@ -882,22 +1053,6 @@ export default function RekapFullPage() {
     URL.revokeObjectURL(url);
   };
 
-  // Group rekapRows by noPR, and keep items per PR
-  function groupRowsForTable(rows: any[]) {
-    const grouped: { [noPR: string]: any[] } = {};
-    rows.forEach((row) => {
-      const key = row.noPR;
-      if (!grouped[key]) grouped[key] = [];
-      grouped[key].push(row);
-    });
-    return Object.entries(grouped).map(([noPR, items]) => ({
-      noPR,
-      items,
-      main: items[0], // Use first item for PR info
-      rowSpan: items.length,
-    }));
-  }
-
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -993,11 +1148,9 @@ export default function RekapFullPage() {
               />
             </div>
             <div className="overflow-x-auto">
-
-       <Table className="border-collapse border border-gray-300 table-auto">
+<Table className="border-collapse border border-gray-300 table-auto">
   <TableHeader className="bg-gray-100">
     <TableRow>
-      {/* Existing Header Cells with Gray Borders between each column */}
       {columns.map((col) => (
         <TableHead key={col.key} className="text-left px-6 py-3 border-b border-r border-gray-300">
           {col.label}
@@ -1005,81 +1158,264 @@ export default function RekapFullPage() {
       ))}
     </TableRow>
   </TableHeader>
-
   <TableBody>
-    {pagedData.map((prGroup, prIdx) => {
-      const items = prGroup.items;
-      if (!items || items.length === 0) return null;
-      return (
-        <React.Fragment key={prGroup.noPR}>
-          {items.map((item, idx) => (
-            <TableRow key={`${prGroup.noPR}-item-${idx}`} className="hover:bg-gray-50 transition-colors">
-            <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-  {prGroup.main.tanggalPR ? `${getMonthName(prGroup.main.tanggalPR)} ${getYear(prGroup.main.tanggalPR)}` : ""}
-</TableCell>
-
-
-              {/* Table Cells */}
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.noPR}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.tanggalPR}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.hariPR}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.daftarBarangPR}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300 text-right">{formatInt(item.quantityAwalPR)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.satuanPR}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                <KeteranganPopover text={item.keteranganPR || ""} max={20} />
-              </TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.divisi}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.dibuatOleh}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.skemaPRLabel}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.targetTanggalPO}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.status}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.delay}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityPR)}</TableCell>
-           {/* Kolom Periode PO */}
-<TableCell className="px-6 py-3 border-b border-r border-gray-300">
-  {item.tanggalPO ? `${getMonthName(item.tanggalPO)} ${getYear(item.tanggalPO)}` : ""}
-</TableCell>
-
-
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.noPO}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.tanggalPO}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.daftarBarangPO}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityPO)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityAwalPO)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.satuanPO}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                <KeteranganPopover text={item.keteranganPO || ""} max={20} />
-              </TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.diskonPersen}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.diskonRp)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.ppnPersen}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.ppnRp)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.totalHarga)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.tanggalEstimasiDiterima}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.statusPengiriman}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.supplier}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.diorderOleh}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.skemaPO}</TableCell>
-
-              {/* New Column for No. BTB */}
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-  {item.periodeBTB}
-</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.noBTB}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.tanggalBTB}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.namaSupplierBTB}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.namaBarangBTB}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityBTB)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.sisaStokBTB)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.biayaBTB)}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.diterimaOleh}</TableCell>
-              <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.skemaBTB}</TableCell>
-            </TableRow>
-          ))}
-        </React.Fragment>
-      );
-    })}
+    {groupedTableData.map((prGroup) => (
+      <React.Fragment key={prGroup.id_PR}>
+        {/* For each PR Item group inside PR group */}
+        {prGroup.prItemGroups.map((prItemGroup) =>
+          prItemGroup.poGroups.map((poGroup) =>
+            poGroup.btbGroups.map((btbGroup) =>
+              btbGroup.items.map((item, idx) => {
+                // Find index of this item in prItemGroup.items (for PR Item rowSpan logic)
+                const prItemIdx = prItemGroup.items.indexOf(item);
+                // For PO rowSpan, only show on first item in PO group
+                const isFirstPO = poGroup.items.indexOf(item) === 0;
+                // For PR Item rowSpan, only show on first item in PR Item group
+                const isFirstPRItem = prItemIdx === 0;
+                // For PR rowSpan, only show on first item in PR group
+                const prIdx = prGroup.items.indexOf(item);
+                const isFirstPR = prIdx === 0;
+                // For BTB rowSpan, only show on first item in BTB group
+                const isFirstBTB = idx === 0;
+                return (
+                  <TableRow
+                    key={
+                      prGroup.id_PR +
+                      "-" +
+                      prItemGroup.prItemKey +
+                      "-" +
+                      poGroup.id_PO +
+                      "-" +
+                      btbGroup.id_btb +
+                      "-item-" +
+                      idx
+                    }
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    {/* Periode PR */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.periodePR}
+                      </TableCell>
+                    ) : null}
+                    {/* No. PR */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.noPR}
+                      </TableCell>
+                    ) : null}
+                    {/* Tanggal PR */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.tanggalPR}
+                      </TableCell>
+                    ) : null}
+                    {/* Hari PR */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.hariPR}
+                      </TableCell>
+                    ) : null}
+                    {/* Daftar Barang PR */}
+                    {isFirstPRItem ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
+                        {item.daftarBarangPR}
+                      </TableCell>
+                    ) : null}
+                    {/* Quantity Awal PR */}
+                    {isFirstPRItem ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300 text-right" rowSpan={prItemGroup.rowSpan}>
+                        {formatInt(item.quantityAwalPR)}
+                      </TableCell>
+                    ) : null}
+                    {/* Satuan PR */}
+                    {isFirstPRItem ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
+                        {item.satuanPR}
+                      </TableCell>
+                    ) : null}
+                    {/* Keterangan PR */}
+                    {isFirstPRItem ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
+                        <KeteranganPopover text={item.keteranganPR || ""} max={20} />
+                      </TableCell>
+                    ) : null}
+                    {/* Divisi */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.divisi}
+                      </TableCell>
+                    ) : null}
+                    {/* Dibuat Oleh */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.dibuatOleh}
+                      </TableCell>
+                    ) : null}
+                    {/* Target Tanggal PO */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.targetTanggalPO}
+                      </TableCell>
+                    ) : null}
+                    {/* Status */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.status}
+                      </TableCell>
+                    ) : null}
+                    {/* Sisa Quantity PR */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityPR)}</TableCell>
+                    {/* Skema PR */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.skemaPRLabel}
+                      </TableCell>
+                    ) : null}
+                    {/* Periode PO */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.periodePO}
+                      </TableCell>
+                    ) : null}
+                    {/* No. PO */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.noPO}
+                      </TableCell>
+                    ) : null}
+                    {/* Tanggal PO */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.tanggalPO}
+                      </TableCell>
+                    ) : null}
+                    {/* Supplier */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.supplier}
+                      </TableCell>
+                    ) : null}
+                    {/* Quantity Awal PO */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityAwalPO)}</TableCell>
+                    {/* Satuan PO */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.satuanPO}</TableCell>
+                    {/* Harga Satuan PO */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300 text-right">
+                      {item.hargaSatuanPO !== undefined && item.hargaSatuanPO !== null && item.hargaSatuanPO !== ""
+                        ? "Rp. " + Number(item.hargaSatuanPO).toLocaleString("id-ID")
+                        : ""}
+                    </TableCell>
+                    {/* Diskon (%) */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.diskonPersen}</TableCell>
+                    {/* Diskon (Rp) */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.diskonRp)}</TableCell>
+                    {/* PPN (%) */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.ppnPersen}</TableCell>
+                    {/* PPN (Rp) */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.ppnRp)}</TableCell>
+                    {/* Total Harga */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.totalHarga)}</TableCell>
+                    {/* Status Pengiriman */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.statusPengiriman}
+                      </TableCell>
+                    ) : null}
+                    {/* Tanggal Estimasi Diterima */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.tanggalEstimasiDiterima}
+                      </TableCell>
+                    ) : null}
+                    {/* Diorder Oleh */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.diorderOleh}
+                      </TableCell>
+                    ) : null}
+                    {/* Diinput Oleh */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                      {item.diinputOleh}
+                    </TableCell>
+                    {/* Target Pencapaian PO */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                      {/* Biarkan kosong */}
+                    </TableCell>
+                    {/* Delay (tetap di posisi aslinya, setelah Status) */}
+                    {isFirstPR ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                        {item.delay}
+                      </TableCell>
+                    ) : null}
+                    {/* Quantity PO */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityPO)}</TableCell>
+                    {/* Skema PO */}
+                    {isFirstPO ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                        {item.skemaPO}
+                      </TableCell>
+                    ) : null}
+                    {/* Periode BTB */}
+                    {isFirstBTB ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                        {item.periodeBTB}
+                      </TableCell>
+                    ) : null}
+                    {/* No. BTB */}
+                    {isFirstBTB ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                        {item.noBTB}
+                      </TableCell>
+                    ) : null}
+                    {/* Tanggal BTB */}
+                    {isFirstBTB ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                        {item.tanggalBTB}
+                      </TableCell>
+                    ) : null}
+                    {/* Quantity BTB */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityBTB)}</TableCell>
+                    {/* Satuan BTB */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                      {item.satuanBTB}
+                    </TableCell>
+                    {/* Biaya BTB */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.biayaBTB)}</TableCell>
+                    {/* Sisa Stok BTB */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.sisaStokBTB)}</TableCell>
+                    {/* Diterima Oleh */}
+                    {isFirstBTB ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                        {item.diterimaOleh}
+                      </TableCell>
+                    ) : null}
+                    {/* Status Permintaan By PR */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                      {/* kosong */}
+                    </TableCell>
+                    {/* Plan */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                      {/* kosong */}
+                    </TableCell>
+                    {/* No Plan */}
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                      {/* kosong */}
+                    </TableCell>
+                    {/* Skema BTB */}
+                    {isFirstBTB ? (
+                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                        {item.skemaBTB}
+                      </TableCell>
+                    ) : null}
+                  </TableRow>
+                );
+              })
+            )
+          )
+        )}
+      </React.Fragment>
+    ))}
   </TableBody>
 </Table>
 
@@ -1134,4 +1470,55 @@ export default function RekapFullPage() {
       </div>
     </MainLayout>
   );
+}
+
+// Tambahkan parser No. PR (E-WALK + PENTACITY)
+function parseNoPR(noPR: string | null | undefined) {
+  if (!noPR || typeof noPR !== "string") return null;
+  const s = noPR.trim().toUpperCase();
+  // PR/E-WALK/25/XI/001
+  const regexEwalk = /^PR\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+  // PR/PRQ/25/XI/00001
+  const regexPenta = /^PR\/PRQ\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  let match = s.match(regexEwalk);
+  let brand = "E-WALK";
+  if (!match) {
+    match = s.match(regexPenta);
+    brand = "PENTA";
+  }
+  if (!match) return null;
+
+  const [, tahun2, bulanRomawi, urutStr] = match;
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+
+  return { tahun, bulan, urut, brand };
+}
+
+// Fungsi sorting rekapRows
+function sortRekapRows(rows: any[]) {
+  const allValid = rows.every(
+    (row) => typeof row.noPR === "string" && parseNoPR(row.noPR)
+  );
+  if (allValid) {
+    return [...rows].sort((a, b) => {
+      const pa = parseNoPR(a.noPR)!;
+      const pb = parseNoPR(b.noPR)!;
+      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
+      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
+      return pb.urut - pa.urut;
+    });
+  }
+  // Fallback: urutkan berdasarkan tanggal PR terbaru
+  return [...rows].sort((a, b) => {
+    const ta = a.tanggalPR ? a.tanggalPR.replace(/-/g, "") : "";
+    const tb = b.tanggalPR ? b.tanggalPR.replace(/-/g, "") : "";
+    return tb.localeCompare(ta);
+  });
 }

@@ -191,7 +191,6 @@ export default function BKBInputPage() {
             noBTB: btb?.no_btb ?? "",
             tanggalBTB: btb?.tanggal_btb ?? "",
             tanggal: btb?.tanggal_diterima ?? "",
-            periode: btb?.periode ?? "",
             id_supplier: btb?.id_supplier ?? "",
             nama_supplier: btb?.nama_supplier ?? "",
             nama_barang: item.nama_barang ?? "",
@@ -707,28 +706,6 @@ export default function BKBInputPage() {
               )}
             </div>
           )}
-          {/* Detail asal BTB */}
-          <div className="mb-6">
-            <Label className="font-semibold">Asal BTB</Label>
-            <div className="border rounded-md p-2 bg-muted/50 text-sm">
-              {formData.barang.map((b: any, idx: number) => {
-                const btbInfo = getBTBInfo(b.btbId);
-                return (
-                  <div key={idx}>
-                    <span className="font-medium">{b.barang}</span> dari
-                    <span className="text-primary font-semibold ml-1">
-                      {btbInfo.noBTB}
-                    </span>
-                    {btbInfo.supplier && (
-                      <span className="ml-2 text-muted-foreground">
-                        - {btbInfo.supplier}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
           <form onSubmit={handleSubmitBKB} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 min-w-0">
               <div className="flex flex-col min-w-0">
@@ -816,14 +793,25 @@ export default function BKBInputPage() {
                 <Table className="w-full min-w-[1100px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Nama Barang</TableHead>
-                      <TableHead>No. BTB</TableHead>
-                      <TableHead>Tanggal BTB</TableHead>
-                      <TableHead>Periode</TableHead>
-                      <TableHead>Nama Supplier</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead>Sisa Stok</TableHead>
-                      <TableHead>Satuan</TableHead>
+                      {/* Hapus checkbox group di form input BKB */}
+                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                        Nama Barang
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[140px]">
+                        No. BTB
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[120px]">
+                        Tanggal BTB
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                        Nama Supplier
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
+                        Quantity
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
+                        Satuan
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -840,16 +828,16 @@ export default function BKBInputPage() {
                       );
                       return (
                         <TableRow key={idx}>
-                          <TableCell>{b.barang}</TableCell>
-                          <TableCell>
-                            <span className="font-medium">{btbInfo.noBTB}</span>
-                          </TableCell>
-                          <TableCell>
-                            {formatTanggalPas(btbRow?.tanggalBTB ?? "")}
-                          </TableCell>
-                          <TableCell>{btbRow?.periode ?? "-"}</TableCell>
-                          <TableCell>{btbRow?.nama_supplier ?? "-"}</TableCell>
-                          <TableCell>
+                          {/* Nama Barang */}
+                          <TableCell className="text-center align-middle px-4 py-3">{b.barang}</TableCell>
+                          {/* No. BTB */}
+                          <TableCell className="text-center align-middle">{btbInfo.noBTB}</TableCell>
+                          {/* Tanggal BTB */}
+                          <TableCell className="text-center align-middle">{formatTanggalPas(btbRow?.tanggalBTB ?? "")}</TableCell>
+                          {/* Nama Supplier */}
+                          <TableCell className="text-center align-middle">{btbRow?.nama_supplier ?? "-"}</TableCell>
+                          {/* Quantity */}
+                          <TableCell className="text-center align-middle">
                             <div className="flex items-center gap-2 justify-center">
                               <Input
                                 type="number"
@@ -864,21 +852,15 @@ export default function BKBInputPage() {
                                   )
                                 }
                                 required
-                                className="w-24 text-base"
+                                className="w-24 text-base text-center"
                               />
                               <span className="text-xs text-muted-foreground">
                                 / {formatInt(sisa)}
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={sisa > 0 ? "default" : "destructive"}
-                            >
-                              {formatInt(sisa)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{satuanLabel}</TableCell>
+                          {/* Satuan */}
+                          <TableCell className="text-center align-middle">{satuanLabel}</TableCell>
                         </TableRow>
                       );
                     })}
@@ -1004,6 +986,7 @@ export default function BKBInputPage() {
               <Table className="border border-gray-300">
                 <TableHeader>
                   <TableRow>
+                    {/* Checkbox group (select all per BTB) di paling kiri, rowSpan */}
                     <TableHead className="border border-gray-300 text-center w-12"></TableHead>
                     <TableHead className="border border-gray-300 text-center min-w-[140px]">
                       No. BTB
@@ -1053,30 +1036,27 @@ export default function BKBInputPage() {
                         return (
                           <React.Fragment key={fragmentKey}>
                             {items.map((item, itemIdx) => (
-                              <TableRow key={`${id_btb}-item-${itemIdx}`}
-                                className="hover:bg-gray-50 transition-colors">
-                                {/* Checkbox per group (rowSpan) hanya di baris pertama */}
+                              <TableRow key={`${id_btb}-item-${itemIdx}`} className="hover:bg-gray-50 transition-colors">
+                                {/* Checkbox group (select all per BTB), hanya di baris pertama */}
                                 {itemIdx === 0 && (
                                   <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
-                                    {(() => {
-                                      const allChecked = items.every((itm) => selectedBTBItemIds.includes(itm.id));
-                                      const someChecked = items.some((itm) => selectedBTBItemIds.includes(itm.id));
-                                      const indeterminate = someChecked && !allChecked;
-                                      return (
-                                        <Checkbox
-                                          checked={allChecked}
-                                          {...(indeterminate ? { indeterminate: true } : {})}
-                                          onCheckedChange={(checked) => {
-                                            if (checked) {
-                                              const idsToAdd = items.map((itm) => itm.id).filter((id) => !selectedBTBItemIds.includes(id));
-                                              setSelectedBTBItemIds((prev) => [...prev, ...idsToAdd]);
-                                            } else {
-                                              setSelectedBTBItemIds((prev) => prev.filter((id) => !items.map((itm) => itm.id).includes(id)));
-                                            }
-                                          }}
-                                        />
-                                      );
-                                    })()}
+                                    <Checkbox
+                                      checked={items.every((itm) => selectedBTBItemIds.includes(itm.id))}
+                                      indeterminate={
+                                        items.some((itm) => selectedBTBItemIds.includes(itm.id)) &&
+                                        !items.every((itm) => selectedBTBItemIds.includes(itm.id))
+                                          ? true
+                                          : undefined
+                                      }
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          const idsToAdd = items.map((itm) => itm.id).filter((id) => !selectedBTBItemIds.includes(id));
+                                          setSelectedBTBItemIds((prev) => [...prev, ...idsToAdd]);
+                                        } else {
+                                          setSelectedBTBItemIds((prev) => prev.filter((id) => !items.map((itm) => itm.id).includes(id)));
+                                        }
+                                      }}
+                                    />
                                   </TableCell>
                                 )}
                                 {/* No. BTB (rowSpan) hanya di baris pertama */}
@@ -1085,9 +1065,15 @@ export default function BKBInputPage() {
                                     {item.noBTB}
                                   </TableCell>
                                 )}
-                                {/* Nama Barang */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                                  {item.nama_barang}
+                                {/* Nama Barang + Checkbox per item di sebelah kiri nama barang */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap flex items-center gap-2">
+                                  <Checkbox
+                                    checked={selectedBTBItemIds.includes(item.id)}
+                                    onCheckedChange={(checked) => {
+                                      handleSelectBTBItem(item.id, !!checked);
+                                    }}
+                                  />
+                                  <span>{item.nama_barang}</span>
                                 </TableCell>
                                 {/* Quantity */}
                                 <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
