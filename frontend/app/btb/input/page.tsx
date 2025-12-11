@@ -534,29 +534,6 @@ export default function BTBInputPage() {
       const id_supplier = formData.supplier; // <-- ini id_supplier (number/integer)
       const id_skema = selectedPOsForBTB[0]?.skema ?? null;
 
-      // Pastikan yang dikirim ke backend adalah nama_supplier: formData.supplier
-      const btbHeaderRes = await fetch("http://localhost:5000/api/btb", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          no_btb: formData.noBTB,
-          tanggal_btb: formatDateForBackend(formData.tanggal),
-          periode: formData.periode,
-          id_po,
-          id_supplier, // <-- kirim id_supplier (number/integer)
-          nama_supplier: getSupplierLabel(id_supplier), // label supplier (opsional)
-          id_user: userData.id_user || userData.id,
-          id_skema,
-          biaya: Math.round(formData.biaya), // <-- pastikan integer
-          diterima_oleh: userData.id_user || userData.id,
-          tanggal_diterima: formatDateForBackend(formData.tanggalDiterima),
-          // status dan created_at otomatis di backend
-        }),
-      });
-      if (!btbHeaderRes.ok) throw new Error("Gagal menyimpan header BTB");
-      const btbHeaderData = await btbHeaderRes.json();
-      const id_btb = btbHeaderData.id;
-
       // 2. POST setiap item ke /api/btb-item
       // Setelah insert header BTB dan dapat id_btb
       // Ambil data PO Item dari backend (pastikan sudah ada di database)
@@ -580,16 +557,33 @@ export default function BTBInputPage() {
             const hargaSatuanInt = poItem?.hargaSatuan
               ? Math.round(Number(poItem.hargaSatuan))
               : 0;
+            // --- Ambil totalPerItem dari po_item untuk biaya per item ---
+            const totalPerItem = poItem?.totalPerItem
+              ? Number(poItem.totalPerItem)
+              : 0;
+            const qtyDiterima = Math.round(btbInputQty[item.poItemId] ?? 0);
+            // --- Hitung biaya per item sesuai qty diterima ---
+            let biayaPerItem = 0;
+            if (qtyDiterima > 0 && totalPerItem > 0 && poItem?.jumlahPO > 0) {
+              biayaPerItem = (totalPerItem / poItem.jumlahPO) * qtyDiterima;
+            }
             return {
               id_POItem: poItem?.id_POItem,
               nama_barang: item.namaBarang,
-              jumlah_diterima: Math.round(btbInputQty[item.poItemId] ?? 0), // integer
+              jumlah_diterima: qtyDiterima,
               id_satuan: item.id_satuan ?? poItem?.id_satuan ?? null,
               keterangan: item.keterangan ?? "",
-              hargaSatuan: hargaSatuanInt, // <-- tambahkan jika ingin kirim ke backend
+              hargaSatuan: hargaSatuanInt,
+              biayaPerItem, // <-- biaya per item BTB
             };
           })
           .filter((item) => !!item.id_POItem)
+      );
+
+      // Hitung total biaya BTB dari semua item diterima
+      const totalBiayaBTB = items.reduce(
+        (sum, item) => sum + (item.biayaPerItem ?? 0),
+        0
       );
 
       // LOG: dikirim frontend ke btb (header dan items)
@@ -602,11 +596,36 @@ export default function BTBInputPage() {
         nama_supplier: getSupplierLabel(formData.supplier),
         id_user: userData.id_user || userData.id,
         id_skema,
-        biaya: Math.round(formData.biaya),
+        biaya: Math.round(totalBiayaBTB), // <-- gunakan total biaya BTB
         diterima_oleh: userData.id_user || userData.id,
         tanggal_diterima: formData.tanggal,
       });
       console.log("DIKIRIM FRONTEND KE BTB ITEMS:", items);
+      console.log(filteredPOData); // Cek data yang difilter
+
+
+      // POST header BTB dengan biaya sesuai qty diterima
+      const btbHeaderRes = await fetch("http://localhost:5000/api/btb", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          no_btb: formData.noBTB,
+          tanggal_btb: formatDateForBackend(formData.tanggal),
+          periode: formData.periode,
+          id_po,
+          id_supplier, // <-- kirim id_supplier (number/integer)
+          nama_supplier: getSupplierLabel(id_supplier), // label supplier (opsional)
+          id_user: userData.id_user || userData.id,
+          id_skema,
+          biaya: Math.round(totalBiayaBTB), // <-- gunakan total biaya BTB
+          diterima_oleh: userData.id_user || userData.id,
+          tanggal_diterima: formatDateForBackend(formData.tanggalDiterima),
+          // status dan created_at otomatis di backend
+        }),
+      });
+      if (!btbHeaderRes.ok) throw new Error("Gagal menyimpan header BTB");
+      const btbHeaderData = await btbHeaderRes.json();
+      const id_btb = btbHeaderData.id;
 
       for (const item of items) {
         // Validasi field
@@ -631,6 +650,7 @@ export default function BTBInputPage() {
             keterangan: item.keterangan,
             qty_sisa: Math.round(item.jumlah_diterima), // integer
             // hargaSatuan: item.hargaSatuan, // opsional, jika backend ingin simpan
+            biaya: Math.round(item.biayaPerItem), // <-- kirim biaya per item ke backend jika ingin
           }),
         });
 
@@ -1203,9 +1223,9 @@ export default function BTBInputPage() {
                   <TableHeader>
                     <TableRow>
                       {/* HAPUS: <TableHead className="w-12 border-r border-gray-300">...</TableHead> */}
-                      <TableHead className="border-r border-gray-300">No. PO</TableHead>
-                      <TableHead className="border-r border-gray-300">Daftar Barang</TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">No. PO</TableHead>
+                      <TableHead className="border-r border-gray-300 text-center">Daftar Barang</TableHead>
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1240,7 +1260,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1285,7 +1305,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1303,7 +1323,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1338,7 +1358,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1373,7 +1393,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1423,7 +1443,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1478,7 +1498,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1528,7 +1548,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1583,7 +1603,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1628,7 +1648,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1680,7 +1700,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300">
+                      <TableHead className="border-r border-gray-300 text-center">
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1749,14 +1769,14 @@ export default function BTBInputPage() {
                                 <>
                                   <TableCell
                                     rowSpan={allItems.length}
-                                    className="font-medium px-4 py-2 border-r border-gray-300 align-middle"
+                                    className="font-medium px-4 py-2 border-r border-gray-300 align-middle text-center"
                                   >
                                     {po.noPO}
                                   </TableCell>
                                 </>
                               )}
                               {/* Checkbox + Nama Barang */}
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[200px] flex items-center gap-2">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[200px] flex items-center gap-2 justify-center">
                                 <Checkbox
                                   checked={selectedPOItemIds.includes(`${po.id}::${item.noPR}-${item.id}`)}
                                   onCheckedChange={(checked) =>
@@ -1765,13 +1785,13 @@ export default function BTBInputPage() {
                                 />
                                 {item.namaBarang}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[80px]">
                                 {item.jumlahPO}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[60px]">
                                 {item.satuan}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center max-w-xs whitespace-normal break-words">
                                 <HoverCard>
                                   <HoverCardTrigger asChild>
                                     <div
@@ -1788,13 +1808,13 @@ export default function BTBInputPage() {
                                   </HoverCardContent>
                                 </HoverCard>
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px]">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px]">
                                 Rp {item.hargaSatuan.toLocaleString("id-ID")}
                               </TableCell>
                               {itemIndex === 0 ? (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px] font-semibold"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px] font-semibold"
                                 >
                                   Rp{" "}
                                   {po.totalPembayaran.toLocaleString("id-ID")}
@@ -1803,7 +1823,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[120px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[120px]"
                                 >
                                   {formatTanggalPlus2(po.tanggalPO)}
                                 </TableCell>
@@ -1811,7 +1831,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[140px]"
                                 >
                                   {formatTanggalPlus2(po.estimasiTanggalTerima)}
                                 </TableCell>
@@ -1819,7 +1839,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[140px]"
                                 >
                                   {po.supplier}
                                 </TableCell>
@@ -1827,7 +1847,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {/* Status Pengiriman dari po.statusPengiriman */}
                                   {po.statusPengiriman}
@@ -1836,7 +1856,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {/* Status dari po.status */}
                                   {po.status}
@@ -1845,7 +1865,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {/* Diorder oleh dari po.orderedBy */}
                                   {po.orderedBy}
@@ -1854,7 +1874,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
                                 >
                                   {/* Skema dari po.id_skema, label dari skemaMap */}
                                   {skemaMap[String(po.skema)] ?? po.skema}
@@ -1992,12 +2012,12 @@ export default function BTBInputPage() {
               <div className="border border-[#e5e7eb] rounded-lg overflow-x-auto mb-4">
                 <table className="w-full text-xs border-collapse">
                   <thead>
-                    <tr className="bg-white font-semibold text-center h-10 border-b border-[#e5e7eb]">
-                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Nama Barang</th>
-                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Quantity PO</th>
-                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Quantity Diterima</th>
-                      <th className="px-4 py-2 border-r border-[#e5e7eb]">Satuan</th>
-                      <th className="px-4 py-2">Keterangan</th>
+                    <tr className="bg-white font-semibold text-center h-12 border-b border-[#e5e7eb]">
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[200px]">Nama Barang</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[160px]">Quantity PO</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[180px]">Quantity Diterima</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[140px]">Satuan</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[220px]">Keterangan</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2005,10 +2025,10 @@ export default function BTBInputPage() {
                       po.items
                         .filter((item) => item.qtySisa > 0)
                         .map((item, idx) => (
-                          <tr key={item.poItemId} className="border-b border-[#e5e7eb] text-center align-middle h-10">
-                            <td className="px-4 py-2 border-r border-[#e5e7eb]">{item.namaBarang}</td>
-                            <td className="px-4 py-2 border-r border-[#e5e7eb]">{item.qtySisa}</td>
-                            <td className="px-4 py-2 border-r border-[#e5e7eb] text-center flex justify-center items-center">
+                          <tr key={item.poItemId} className="border-b border-[#e5e7eb] text-center align-middle h-12">
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[200px]">{item.namaBarang}</td>
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[160px]">{item.qtySisa}</td>
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[180px]">
                               <Input
                                 type="number"
                                 min={0}
@@ -2033,7 +2053,7 @@ export default function BTBInputPage() {
                                     [item.poItemId]: parsedVal,
                                   }));
                                 }}
-                                className="w-16 h-9 text-center border border-[#e5e7eb] rounded bg-white appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-20 h-9 text-center mx-auto border border-[#e5e7eb] rounded bg-white appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 style={{
                                   MozAppearance: "textfield"
                                 }}
@@ -2043,8 +2063,8 @@ export default function BTBInputPage() {
                                 }}
                               />
                             </td>
-                            <td className="px-4 py-2 border-r border-[#e5e7eb]">{item.satuan}</td>
-                            <td className="px-4 py-2 text-left">
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[140px]">{item.satuan}</td>
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[220px]">
                               <div className="text-muted-foreground max-w-xs truncate" title={item.keterangan}>
                                 {item.keterangan}
                               </div>
