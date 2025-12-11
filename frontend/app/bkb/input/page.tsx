@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -72,6 +73,7 @@ export default function BKBInputPage() {
     barang: [],
     keterangan: "",
     skema: "", // <-- tambah field skema
+    divisi: "", // <-- tambahkan field divisi
   });
   const [userNick, setUserNick] = useState("");
   const [userSchema, setUserSchema] = useState<string>("");
@@ -87,7 +89,13 @@ export default function BKBInputPage() {
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [satuanMap, setSatuanMap] = useState<Record<string, string>>({});
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
+  const [divisiMap, setDivisiMap] = useState<Record<string, string>>({}); // Tambah state mapping divisi
   const [loading, setLoading] = useState(false);
+  const [prList, setPrList] = useState<any[]>([]); // <-- Tambah state PR
+  // Tambahkan state PO, PO Item, PR Item
+  const [poList, setPoList] = useState<any[]>([]);
+  const [poItemList, setPoItemList] = useState<any[]>([]);
+  const [prItemList, setPrItemList] = useState<any[]>([]);
 
   useEffect(() => {
     const storedBTB = localStorage.getItem("btbData");
@@ -116,32 +124,33 @@ export default function BKBInputPage() {
         setUserNick(user.nick ?? user.username ?? "");
         setFormData((prev: any) => ({
           ...prev,
-          skema: user.skema || "", // <-- set skema otomatis dari user login
+          skema: user.skema || "",
+          divisi: user.divisi || "", // <-- set divisi otomatis dari user login jika ada
         }));
         setUserSchema(user.skema || ""); // <-- set userSchema state
         setUserSkemaId(String(user.id_skema ?? user.skema ?? "")); // Set id_skema user
       } catch {}
     }
-  }, []);
 
-  // Ambil data BTB dari backend (persis monitoring BTB)
-  useEffect(() => {
+    // Ambil data BTB dari backend (persis monitoring BTB)
     async function fetchBTBData() {
       setLoading(true);
       try {
-        const [btbRes, btbItemRes, userRes, skemaRes, satuanRes] =
+        const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, divisiRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
+            fetch("http://localhost:5000/api/divisi"), // fetch divisi
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
         const userList = await userRes.json();
         const skemaList = await skemaRes.json();
         const satuanList = await satuanRes.json();
+        const divisiList = await divisiRes.json();
 
         // Mapping id_user -> nama_pengguna
         const userMapObj: Record<string, string> = {};
@@ -164,14 +173,24 @@ export default function BKBInputPage() {
         });
         setSatuanMap(satuanMapObj);
 
+        // Mapping id_divisi -> nama_divisi
+        const divisiMapObj: Record<string, string> = {};
+        divisiList.forEach((d: any) => {
+          // Support both "divisi" and "nama_divisi" field
+          divisiMapObj[String(d.id_divisi)] = d.divisi || d.nama_divisi || "";
+        });
+        setDivisiMap(divisiMapObj);
+
         // Gabungkan: untuk setiap btb_item, cari parent btb
         const rows = btbItemList.map((item: any) => {
           const btb = btbList.find((b: any) => b.id_btb === item.id_btb);
           return {
             id: item.id_btb_item,
+            id_btb: btb?.id_btb ?? null,
+            id_po: btb?.id_po ?? null, // <-- tambahkan ini!
             noBTB: btb?.no_btb ?? "",
-            tanggalBTB: btb?.tanggal_btb ?? "", // <-- ambil tanggal_btb dari backend
-            tanggal: btb?.tanggal_diterima ?? "", // legacy, bisa dihapus jika tidak dipakai
+            tanggalBTB: btb?.tanggal_btb ?? "",
+            tanggal: btb?.tanggal_diterima ?? "",
             periode: btb?.periode ?? "",
             id_supplier: btb?.id_supplier ?? "",
             nama_supplier: btb?.nama_supplier ?? "",
@@ -193,6 +212,20 @@ export default function BKBInputPage() {
       setLoading(false);
     }
     fetchBTBData();
+
+    // Ambil data PR, PO, PO Item, PR Item dari backend
+    fetch("http://localhost:5000/api/pr")
+      .then((res) => res.json())
+      .then((data) => setPrList(data));
+    fetch("http://localhost:5000/api/po")
+      .then((res) => res.json())
+      .then((data) => setPoList(data));
+    fetch("http://localhost:5000/api/po-item")
+      .then((res) => res.json())
+      .then((data) => setPoItemList(data));
+    fetch("http://localhost:5000/api/pr-item")
+      .then((res) => res.json())
+      .then((data) => setPrItemList(data));
   }, []);
 
   // Helper format tanggal DD-MM-YYYY (sama seperti monitoring PO)
@@ -203,6 +236,7 @@ export default function BKBInputPage() {
     if (!y || !m || !d) return tgl;
     return `${d}-${m}-${y}`;
   }
+
   // Helper format rupiah
   function formatRupiah(val: any) {
     if (val === undefined || val === "" || isNaN(val)) return "";
@@ -293,39 +327,81 @@ export default function BKBInputPage() {
     );
   };
 
+  // State untuk checkbox per item
+  const [selectedBTBItemIds, setSelectedBTBItemIds] = useState<string[]>([]);
+
+  // Handler checkbox per item
+  const handleSelectBTBItem = (itemId: string, checked: boolean) => {
+    setSelectedBTBItemIds((prev) =>
+      checked ? [...prev, itemId] : prev.filter((id) => id !== itemId)
+    );
+  };
+
   // Handler Input BKB button
   const handleInputBKB = () => {
-    if (selectedBTBIds.length === 0) {
-      alert("Pilih minimal satu BTB untuk dibuatkan BKB.");
+    if (selectedBTBItemIds.length === 0) {
+      alert("Pilih minimal satu barang BTB untuk dibuatkan BKB.");
       return;
     }
-    // Ambil BTB yang dipilih dari backendBTBRows
-    const selectedBTB = backendBTBRows.filter((row) =>
-      selectedBTBIds.includes(row.id)
+    // Ambil barang yang dipilih dari backendBTBRows
+    const selectedItems = backendBTBRows.filter((row) =>
+      selectedBTBItemIds.includes(row.id)
     );
-    // Gabungkan daftar barang dari semua BTB terpilih, hanya yang sisa > 0
-    const selectedBarangWithBTBId = selectedBTB.map((row) => ({
-      barang: row.nama_barang,
-      jumlah: row.sisa ?? row.jumlah,
-      satuan: row.id_satuan ?? null, // id_satuan untuk backend
-      satuanLabel: row.satuan ?? "", // label untuk tampilan
-      btbId: row.id,
-      asalBTB: row.noBTB,
-      tanggalBTB: row.tanggal,
-      supplier: row.nama_supplier,
-      skema: row.skema ?? "", // id_skema dari BTB
-    }));
-    // Ambil skema dari BTB pertama yang dipilih (atau dari user login jika tidak ada)
-    const skemaOtomatis =
-      selectedBarangWithBTBId[0]?.skema ||
-      JSON.parse(localStorage.getItem("userData") || "{}").skema ||
-      "";
+    // --- Ambil id_po dari item pertama (pastikan sudah ada di mapping!)
+    const id_po = selectedItems[0]?.id_po || null;
+
+    // --- Cari id_PR dari PO Item
+    let id_pr = null;
+    if (id_po && poItemList.length > 0) {
+      // Cari salah satu PO Item yang id_PO-nya sama
+      const poItem = poItemList.find((pi: any) => String(pi.id_PO) === String(id_po));
+      if (poItem && prItemList.length > 0) {
+        // Cari PR Item yang id_PRItem-nya sama
+        const prItem = prItemList.find((pri: any) => String(pri.id_PRItem) === String(poItem.id_PRItem));
+        if (prItem) {
+          id_pr = prItem.id_PR;
+        }
+      }
+    }
+
+    // --- Cari id_divisi dari PR
+    let divisiOtomatis = "";
+    if (id_pr && prList.length > 0) {
+      const pr = prList.find((pr: any) =>
+        String(pr.id_PR) === String(id_pr)
+      );
+      if (pr && pr.id_divisi) divisiOtomatis = pr.id_divisi;
+    }
+
+    // Fallback ke user login jika tidak ketemu
+    if (!divisiOtomatis) {
+      divisiOtomatis =
+        selectedItems[0]?.divisi ||
+        JSON.parse(localStorage.getItem("userData") || "{}").divisi ||
+        "";
+    }
+
     setShowForm(true);
     setFormData((prev: any) => ({
       ...prev,
-      barang: selectedBarangWithBTBId,
-      sumberBTB: selectedBTB.map((row) => row.noBTB),
-      skema: skemaOtomatis,
+      barang: selectedItems.map((row) => ({
+        barang: row.nama_barang,
+        jumlah: row.sisa ?? row.jumlah,
+        satuan: row.id_satuan ?? null,
+        satuanLabel: row.satuan ?? "",
+        btbId: row.id,
+        id_btb: row.id_btb,
+        asalBTB: row.noBTB,
+        tanggalBTB: row.tanggal,
+        supplier: row.nama_supplier,
+        skema: row.skema ?? "",
+        divisi: divisiOtomatis,
+      })),
+      sumberBTB: selectedItems.map((row) => row.noBTB),
+      skema: selectedItems[0]?.skema ||
+        JSON.parse(localStorage.getItem("userData") || "{}").skema ||
+        "",
+      divisi: divisiOtomatis,
     }));
   };
 
@@ -378,16 +454,31 @@ export default function BKBInputPage() {
       } catch {}
     }
 
-    // Siapkan payload untuk backend
+    // Ambil id_btb parent dari barang pertama yang dipilih (pastikan sudah ada di formData.barang)
+    let id_btb = null;
+    if (formData.barang && formData.barang.length > 0) {
+      id_btb = formData.barang[0].id_btb || null;
+    }
+
+    // Ambil divisi dari formData (sudah otomatis)
+    // --- Ambil nama divisi dari mapping, fallback ke formData.divisi jika sudah nama ---
+    const divisi =
+      divisiMap[String(formData.divisi)] ||
+      formData.divisi ||
+      "";
+
+    // Siapkan payload untuk endpoint /api/bkb/full
     const payload = {
       no_bkb: formData.noBKB,
       tanggal_bkb: formatDateForBackend(formData.tanggalBKB),
       keterangan: formData.keterangan,
       dibuat_oleh: userId,
       dikeluarkan_oleh: userId,
+      diterima_oleh: formData.diterima_oleh || "",
       skema: formData.skema, // <-- id_skema
+      id_btb: id_btb, // <-- parent id_btb
+      divisi: divisi, // <-- kirim nama divisi ke backend
       barang: formData.barang.map((b: any) => {
-        // Ambil tanggal BTB dari backendBTBRows
         const btb = backendBTBRows.find((row) => row.id === b.btbId);
         return {
           id_btb_item: b.btbId,
@@ -395,13 +486,19 @@ export default function BKBInputPage() {
           jumlah_keluar: b.jumlah,
           satuan: b.satuan, // <-- id_satuan
           keterangan: formData.keterangan,
-          tanggal: btb?.tanggal || "", // <-- tambahkan tanggal BTB
+          tanggal: btb?.tanggal || "",
         };
       }),
     };
 
+    // --- Tambahkan console log sebelum fetch ---
+    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", "http://localhost:5000/api/bkb/full");
+    console.log("BKB SUBMIT: id_btb yang dikirim:", id_btb);
+    console.log("BKB SUBMIT: payload:", payload);
+
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/bkb/full", {
+      // Kirim ke endpoint /api/bkb/full agar backend insert bkb + bkb_item sekaligus
+      const res = await fetch("http://localhost:5000/api/bkb/full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -412,16 +509,29 @@ export default function BKBInputPage() {
         setTimeout(() => setNotif(null), 2500);
         return;
       }
-      setNotif({ type: "success", message: "BKB berhasil disimpan!" });
+      setNotif({
+        type: "success",
+        message:
+          "BKB berhasil disimpan! Halaman akan direfresh...",
+      });
+      // Auto refresh halaman setelah submit sukses
       setTimeout(() => {
-        setNotif(null);
-        router.push("/bkb/monitoring");
-      }, 1800);
+        window.location.reload();
+      }, 1200);
     } catch (err: any) {
       setNotif({ type: "error", message: "Gagal simpan BKB ke backend." });
       setTimeout(() => setNotif(null), 2500);
     }
   };
+
+  // Helper format tanggal ke yyyy-mm-dd untuk backend
+  function formatDateForBackend(date: Date | null) {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
 
   // Handler barang di form (tidak perlu dropdown satuan)
   const handleBarangChange = (idx: number, field: string, value: any) => {
@@ -571,7 +681,7 @@ export default function BKBInputPage() {
       skemaMap[String(formData.skema)] || formData.skema || "-";
     return (
       <MainLayout>
-        <div className="max-w-3xl mx-auto py-8">
+        <div className="max-w-[1400px] px-4 mx-auto py-8">
           <h1 className="text-2xl font-bold mb-4">Input BKB</h1>
           {/* Notifikasi */}
           {notif && (
@@ -583,6 +693,18 @@ export default function BKBInputPage() {
               }`}
             >
               {notif.message}
+              {/* Jika sukses, tampilkan tombol kembali ke monitoring */}
+              {notif.type === "success" && (
+                <div className="mt-2">
+                  <Button
+                    type="button"
+                    onClick={() => router.push("/bkb/monitoring")}
+                    className="bg-primary"
+                  >
+                    Kembali ke Monitoring BKB
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           {/* Detail asal BTB */}
@@ -594,10 +716,9 @@ export default function BKBInputPage() {
                 return (
                   <div key={idx}>
                     <span className="font-medium">{b.barang}</span> dari
-                    <span className="text-primary font-semibold">
+                    <span className="text-primary font-semibold ml-1">
                       {btbInfo.noBTB}
                     </span>
-                    {/* Tanggal dihapus dari tampilan asal BTB */}
                     {btbInfo.supplier && (
                       <span className="ml-2 text-muted-foreground">
                         - {btbInfo.supplier}
@@ -609,9 +730,9 @@ export default function BKBInputPage() {
             </div>
           </div>
           <form onSubmit={handleSubmitBKB} className="space-y-6">
-            <div className="flex gap-4 min-w-0">
-              <div className="flex-1 min-w-0">
-                <Label>No BKB</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 min-w-0">
+              <div className="flex flex-col min-w-0">
+                <Label className="mb-1">No BKB</Label>
                 <Input
                   value={formData.noBKB}
                   onChange={(e) =>
@@ -621,11 +742,11 @@ export default function BKBInputPage() {
                     }))
                   }
                   required
-                  className="w-full"
+                  className="w-full text-base"
                 />
               </div>
-              <div className="flex-1 min-w-0">
-                <Label>Tanggal BKB</Label>
+              <div className="flex flex-col min-w-0">
+                <Label className="mb-1">Tanggal BKB</Label>
                 <DatePicker
                   id="tanggalBKB"
                   selected={formData.tanggalBKB}
@@ -637,7 +758,7 @@ export default function BKBInputPage() {
                   }
                   dateFormat="dd-MM-yyyy"
                   placeholderText="Pilih tanggal"
-                  className="w-full px-3 py-2 border rounded-md bg-white"
+                  className="w-full px-3 py-2 border rounded-md bg-white text-base"
                   showMonthDropdown
                   showYearDropdown
                   dropdownMode="select"
@@ -658,27 +779,43 @@ export default function BKBInputPage() {
                           : ""
                       }
                       readOnly
-                      className="w-full px-3 py-2 border rounded-md bg-white"
+                      className="w-full px-3 py-2 border rounded-md bg-white text-base"
                     />
                   }
                 />
               </div>
-              <div className="flex-1 min-w-0">
-                <Label>Skema</Label>
+              <div className="flex flex-col min-w-0">
+                <Label className="mb-1">Nama Penerima</Label>
                 <Input
-                  value={skemaLabel}
-                  readOnly
-                  className="w-full bg-muted/50 cursor-not-allowed"
+                  value={formData.diterima_oleh || ""}
+                  onChange={e => setFormData((prev: any) => ({ ...prev, diterima_oleh: e.target.value }))}
+                  placeholder="Masukkan nama penerima"
+                  className="w-full text-base"
                 />
+                {/* Input skema tetap dikirim ke backend, tapi disembunyikan */}
+                <input type="hidden" name="skema" value={formData.skema} />
+                {/* Tambahkan input divisi (readonly) */}
+                <div className="mt-2">
+                  <Label className="mb-1">Divisi</Label>
+                  <Input
+                    value={
+                      divisiMap[String(formData.divisi)] ||
+                      formData.divisi ||
+                      ""
+                    }
+                    readOnly
+                    className="w-full text-base bg-gray-100"
+                    placeholder="Divisi otomatis dari PR/user"
+                  />
+                </div>
               </div>
             </div>
             <div>
-              <Label>Daftar Barang</Label>
+              <Label className="mb-2">Daftar Barang</Label>
               <div className="border rounded-md p-2 overflow-x-auto">
-                <Table className="w-full min-w-[800px]">
+                <Table className="w-full min-w-[1100px]">
                   <TableHeader>
                     <TableRow>
-                      {/* Susunan header kolom */}
                       <TableHead>Nama Barang</TableHead>
                       <TableHead>No. BTB</TableHead>
                       <TableHead>Tanggal BTB</TableHead>
@@ -698,13 +835,11 @@ export default function BKBInputPage() {
                         b.satuanLabel ||
                         b.satuan ||
                         "-";
-                      // Ambil data dari backendBTBRows
                       const btbRow = backendBTBRows.find(
                         (row) => row.id === b.btbId
                       );
                       return (
                         <TableRow key={idx}>
-                          {/* Susunan cell sesuai header */}
                           <TableCell>{b.barang}</TableCell>
                           <TableCell>
                             <span className="font-medium">{btbInfo.noBTB}</span>
@@ -715,7 +850,7 @@ export default function BKBInputPage() {
                           <TableCell>{btbRow?.periode ?? "-"}</TableCell>
                           <TableCell>{btbRow?.nama_supplier ?? "-"}</TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-2 justify-center">
                               <Input
                                 type="number"
                                 min={1}
@@ -729,7 +864,7 @@ export default function BKBInputPage() {
                                   )
                                 }
                                 required
-                                className="w-20"
+                                className="w-24 text-base"
                               />
                               <span className="text-xs text-muted-foreground">
                                 / {formatInt(sisa)}
@@ -752,7 +887,7 @@ export default function BKBInputPage() {
               </div>
             </div>
             <div>
-              <Label>Keterangan</Label>
+              <Label className="mb-1">Keterangan</Label>
               <Input
                 value={formData.keterangan}
                 onChange={(e) =>
@@ -762,11 +897,11 @@ export default function BKBInputPage() {
                   }))
                 }
                 placeholder="Keterangan (opsional)"
-                className="w-full"
+                className="w-full text-base"
               />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button type="submit" className="bg-primary">
+              <Button type="submit" className="bg-primary px-6 text-base">
                 Simpan BKB
               </Button>
               <Button
@@ -777,6 +912,7 @@ export default function BKBInputPage() {
                   setSelectedBTBIds([]);
                   localStorage.removeItem("selectedBTBForBKB");
                 }}
+                className="px-6 text-base"
               >
                 Batal
               </Button>
@@ -785,6 +921,17 @@ export default function BKBInputPage() {
         </div>
       </MainLayout>
     );
+  }
+
+  // --- Group BTB items by id_btb for table rendering (match monitoring BTB) ---
+  function groupBTBByIdBTB(data: any[]) {
+    const grouped: Record<string, any[]> = {};
+    data.forEach((row) => {
+      const key = row.id_btb || row.noBTB;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
+    });
+    return grouped;
   }
 
   // Tabel BTB: urutan kolom sama seperti monitoring BTB
@@ -808,7 +955,7 @@ export default function BKBInputPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Input BKB</h1>
           <p className="text-muted-foreground">
-            Pilih data BTB untuk dibuatkan Bukti Keluar Barang (BKB)
+            Pilih barang BTB untuk dibuatkan Bukti Keluar Barang (BKB)
           </p>
         </div>
         {/* Search Bar untuk Daftar BTB */}
@@ -827,7 +974,7 @@ export default function BKBInputPage() {
           <Button
             className="bg-primary hover:bg-primary/90"
             onClick={handleInputBKB}
-            disabled={selectedBTBIds.length === 0}
+            disabled={selectedBTBItemIds.length === 0}
           >
             Input BKB
           </Button>
@@ -854,367 +1001,142 @@ export default function BKBInputPage() {
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="border border-gray-300">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>
-                      {/* Checkbox header jika ingin multi-select */}
+                    <TableHead className="border border-gray-300 text-center w-12"></TableHead>
+                    <TableHead className="border border-gray-300 text-center min-w-[140px]">
+                      No. BTB
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            No. BTB <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari No. BTB..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                      Nama Barang
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Tanggal BTB <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari tanggal..."
-                            value={tanggalBTBSearchTerm}
-                            onChange={(e) =>
-                              setTanggalBTBSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueTanggalBTB
-                              .filter((t) =>
-                                t
-                                  .toLowerCase()
-                                  .includes(tanggalBTBSearchTerm.toLowerCase())
-                              )
-                              .map((t) => (
-                                <div
-                                  key={t}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterTanggalBTB.includes(t)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterTanggalBTB([
-                                          ...filterTanggalBTB,
-                                          t,
-                                        ]);
-                                      else
-                                        setFilterTanggalBTB(
-                                          filterTanggalBTB.filter(
-                                            (x) => x !== t
-                                          )
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{t}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[90px]">
+                      Quantity
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Periode <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari periode..."
-                            value={periodeSearchTerm}
-                            onChange={(e) =>
-                              setPeriodeSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniquePeriode
-                              .filter((p) =>
-                                p
-                                  .toLowerCase()
-                                  .includes(periodeSearchTerm.toLowerCase())
-                              )
-                              .map((p) => (
-                                <div
-                                  key={p}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterPeriode === p}
-                                    onCheckedChange={(checked) => {
-                                      setFilterPeriode(checked ? p : "");
-                                    }}
-                                  />
-                                  <Label className="text-sm">{p}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[90px]">
+                      Satuan
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Nama Supplier <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari supplier..."
-                            value={supplierSearchTerm}
-                            onChange={(e) =>
-                              setSupplierSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueSuppliers
-                              .filter((s) =>
-                                s
-                                  .toLowerCase()
-                                  .includes(supplierSearchTerm.toLowerCase())
-                              )
-                              .map((s) => (
-                                <div
-                                  key={s}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterSupplier.includes(s)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterSupplier([
-                                          ...filterSupplier,
-                                          s,
-                                        ]);
-                                      else
-                                        setFilterSupplier(
-                                          filterSupplier.filter((x) => x !== s)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{s}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[90px]">
+                      Sisa Stok
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Nama Barang <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari barang..."
-                            value={barangSearchTerm}
-                            onChange={(e) =>
-                              setBarangSearchTerm(e.target.value)
-                            }
-                          />
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
+                      Biaya
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Quantity Awal BTB{" "}
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Min Qty"
-                            type="number"
-                            value={filterQtyMin}
-                            onChange={(e) =>
-                              setFilterQtyMin(
-                                e.target.value === ""
-                                  ? ""
-                                  : Number(e.target.value)
-                              )
-                            }
-                          />
-                          <Input
-                            placeholder="Max Qty"
-                            type="number"
-                            value={filterQtyMax}
-                            onChange={(e) =>
-                              setFilterQtyMax(
-                                e.target.value === ""
-                                  ? ""
-                                  : Number(e.target.value)
-                              )
-                            }
-                          />
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
+                      Tanggal BTB
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Satuan <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari satuan..."
-                            value={satuanSearchTerm}
-                            onChange={(e) =>
-                              setSatuanSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueSatuan
-                              .filter((s) =>
-                                s
-                                  .toLowerCase()
-                                  .includes(satuanSearchTerm.toLowerCase())
-                              )
-                              .map((s) => (
-                                <div
-                                  key={s}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterSatuan.includes(s)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterSatuan([...filterSatuan, s]);
-                                      else
-                                        setFilterSatuan(
-                                          filterSatuan.filter((x) => x !== s)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{s}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                      Nama Supplier
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Sisa Stok <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <span className="text-xs text-muted-foreground">
-                            Filter sisa stok manual diimplementasi jika perlu
-                          </span>
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
+                      Nama Penerima
                     </TableHead>
-                    <TableHead>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="inline-flex items-center gap-1">
-                            Biaya <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Min Biaya"
-                            type="number"
-                            value={filterBiayaMin}
-                            onChange={(e) =>
-                              setFilterBiayaMin(
-                                e.target.value === ""
-                                  ? ""
-                                  : Number(e.target.value)
-                              )
-                            }
-                          />
-                          <Input
-                            placeholder="Max Biaya"
-                            type="number"
-                            value={filterBiayaMax}
-                            onChange={(e) =>
-                              setFilterBiayaMax(
-                                e.target.value === ""
-                                  ? ""
-                                  : Number(e.target.value)
-                              )
-                            }
-                          />
-                        </PopoverContent>
-                      </Popover>
+                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
+                      Skema
                     </TableHead>
-                    <TableHead>Diterima Oleh</TableHead>
-                    <TableHead>Skema</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={12}>Loading...</TableCell>
+                      <TableCell colSpan={12} className="text-center py-4">
+                        Loading...
+                      </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedBTBData.map((row, idx) => (
-                      <TableRow key={row.id}>
-                        <TableCell>
-                          {/* Checkbox untuk pilih BTB item */}
-                          <Checkbox
-                            checked={selectedBTBIds.includes(row.id)}
-                            onCheckedChange={(checked) =>
-                              setSelectedBTBIds((prev) =>
-                                checked
-                                  ? [...prev, row.id]
-                                  : prev.filter((id) => id !== row.id)
-                              )
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>{row.noBTB}</TableCell>
-                        <TableCell>
-                          {formatTanggalPas(row.tanggalBTB)}
-                        </TableCell>
-                        <TableCell>{row.periode}</TableCell>
-                        <TableCell>{row.nama_supplier}</TableCell>
-                        <TableCell>{row.nama_barang}</TableCell>
-                        <TableCell>{formatInt(row.jumlah)}</TableCell>
-                        <TableCell>{row.satuan}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              Number(row.sisa) > 0 ? "default" : "destructive"
-                            }
-                          >
-                            {formatInt(row.sisa)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{formatRupiah(row.biaya)}</TableCell>
-                        <TableCell>
-                          {userMap[String(row.diterimaOleh)] ??
-                            row.diterimaOleh}
-                        </TableCell>
-                        <TableCell>
-                          {skemaMap[String(row.skema)] ?? row.skema}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    (() => {
+                      const grouped = groupBTBByIdBTB(paginatedBTBData);
+                      return Object.entries(grouped).map(([id_btb, items], idx) => {
+                        if (!items || items.length === 0) return null;
+                        const fragmentKey = id_btb || `id_btb-unknown-${idx}`;
+                        return (
+                          <React.Fragment key={fragmentKey}>
+                            {items.map((item, itemIdx) => (
+                              <TableRow key={`${id_btb}-item-${itemIdx}`}
+                                className="hover:bg-gray-50 transition-colors">
+                                {/* Checkbox per group (rowSpan) hanya di baris pertama */}
+                                {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                                    {(() => {
+                                      const allChecked = items.every((itm) => selectedBTBItemIds.includes(itm.id));
+                                      const someChecked = items.some((itm) => selectedBTBItemIds.includes(itm.id));
+                                      const indeterminate = someChecked && !allChecked;
+                                      return (
+                                        <Checkbox
+                                          checked={allChecked}
+                                          {...(indeterminate ? { indeterminate: true } : {})}
+                                          onCheckedChange={(checked) => {
+                                            if (checked) {
+                                              const idsToAdd = items.map((itm) => itm.id).filter((id) => !selectedBTBItemIds.includes(id));
+                                              setSelectedBTBItemIds((prev) => [...prev, ...idsToAdd]);
+                                            } else {
+                                              setSelectedBTBItemIds((prev) => prev.filter((id) => !items.map((itm) => itm.id).includes(id)));
+                                            }
+                                          }}
+                                        />
+                                      );
+                                    })()}
+                                  </TableCell>
+                                )}
+                                {/* No. BTB (rowSpan) hanya di baris pertama */}
+                                {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium">
+                                    {item.noBTB}
+                                  </TableCell>
+                                )}
+                                {/* Nama Barang */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                  {item.nama_barang}
+                                </TableCell>
+                                {/* Quantity */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                  {formatInt(item.jumlah)}
+                                </TableCell>
+                                {/* Satuan */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                  {item.satuan}
+                                </TableCell>
+                                {/* Sisa Stok */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                  <Badge variant={Number(item.sisa) > 0 ? "default" : "destructive"}>
+                                    {formatInt(item.sisa)}
+                                  </Badge>
+                                </TableCell>
+                                {/* Biaya */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  {formatRupiah(item.biaya)}
+                                </TableCell>
+                                {/* Tanggal BTB (rowSpan) hanya di baris pertama */}
+                                {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                    {formatTanggalPas(item.tanggalBTB)}
+                                  </TableCell>
+                                )}
+                                {/* Nama Supplier (rowSpan) hanya di baris pertama */}
+                                {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                    {item.nama_supplier || "-"}
+                                  </TableCell>
+                                )}
+                                {/* Diterima Oleh (rowSpan) hanya di baris pertama */}
+                                {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                    {userMap[String(item.diterimaOleh)] ?? item.diterimaOleh}
+                                  </TableCell>
+                                )}
+                                {/* Skema (rowSpan) hanya di baris pertama */}
+                                {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                    {skemaMap[String(item.skema)] ?? item.skema}
+                                  </TableCell>
+                                )}
+                              </TableRow>
+                            ))}
+                          </React.Fragment>
+                        );
+                      });
+                    })()
                   )}
                 </TableBody>
               </Table>

@@ -12,15 +12,25 @@ router.get("/", async (req, res) => {
         supplier.namaSupplier, 
         user.nama_pengguna, 
         skema.skema, 
-        po.noPO
+        po.noPO,
+        btb_item.keterangan AS keterangan
       FROM btb
       LEFT JOIN supplier ON btb.id_supplier = supplier.id_supplier
       LEFT JOIN user ON btb.id_user = user.id_user
       LEFT JOIN skema ON btb.id_skema = skema.id_skema
       LEFT JOIN po ON btb.id_po = po.id_PO
+      LEFT JOIN btb_item ON btb.id_btb = btb_item.id_btb
       ORDER BY btb.created_at DESC
     `);
-    res.json(rows);
+    // --- FIX: pastikan biaya integer ---
+    const fixedRows = rows.map((row) => ({
+      ...row,
+      biaya:
+        row.biaya !== undefined && row.biaya !== null
+          ? Math.round(Number(row.biaya))
+          : 0,
+    }));
+    res.json(fixedRows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -72,6 +82,12 @@ router.post("/", async (req, res) => {
       status,
     } = req.body;
 
+    // --- FIX: pastikan biaya integer ---
+    const biayaInt =
+      biaya !== undefined && biaya !== null
+        ? Math.round(Number(biaya))
+        : 0;
+
     const [result] = await db.query(
       `INSERT INTO btb 
       (no_btb, tanggal_btb, periode, id_po, id_supplier, nama_supplier, id_user, id_skema, biaya, diterima_oleh, tanggal_diterima, status)
@@ -85,7 +101,7 @@ router.post("/", async (req, res) => {
         nama_supplier || "", // <-- simpan ke kolom nama_supplier
         id_user || null,
         id_skema || null,
-        biaya || 0,
+        biayaInt, // <-- gunakan biaya integer
         diterima_oleh || null,
         tanggal_diterima || null,
         status || "draft",
@@ -153,6 +169,12 @@ router.post("/full", async (req, res) => {
       items, // array: [{ id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan }]
     } = req.body;
 
+    // --- FIX: pastikan biaya integer ---
+    const biayaInt =
+      biaya !== undefined && biaya !== null
+        ? Math.round(Number(biaya))
+        : 0;
+
     // 1. Insert ke btb (header)
     const [btbResult] = await conn.query(
       `INSERT INTO btb 
@@ -166,7 +188,7 @@ router.post("/full", async (req, res) => {
         id_supplier || null,
         id_user || null,
         id_skema || null,
-        biaya || 0,
+        biayaInt, // <-- gunakan biaya integer
         diterima_oleh || null, // id_user
         tanggal_diterima || null,
       ]
@@ -201,9 +223,10 @@ router.post("/full", async (req, res) => {
           "SELECT jumlahPO FROM po_item WHERE id_POItem = ?",
           [id_POItem]
         );
+        // --- FIX: pastikan sisa integer ---
         const sisa = Math.max(
           0,
-          Number(poItem?.jumlahPO || 0) - Number(jumlah_diterima)
+          Math.round(Number(poItem?.jumlahPO || 0)) - Math.round(Number(jumlah_diterima))
         );
         await conn.query(
           "UPDATE po_item SET jumlahPO = ? WHERE id_POItem = ?",

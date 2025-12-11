@@ -24,6 +24,7 @@ router.get("/", async (req, res, next) => {
         row.jumlahAsli !== undefined && row.jumlahAsli !== null
           ? Math.round(Number(row.jumlahAsli))
           : 0,
+      // namaPembeli sudah otomatis ikut dari SELECT *
     }));
     res.json(fixedRows);
   } catch (err) {
@@ -54,6 +55,7 @@ router.get("/:id", async (req, res, next) => {
       row.jumlahAsli !== undefined && row.jumlahAsli !== null
         ? Math.round(Number(row.jumlahAsli))
         : 0;
+    // namaPembeli sudah otomatis ikut dari SELECT *
     res.json(row);
   } catch (err) {
     next(err);
@@ -74,6 +76,7 @@ router.post("/", async (req, res, next) => {
       ppnPersen,
       ppnRupiah,
       totalPerItem,
+      namaPembeli, // <-- tambahkan di sini
       keterangan,
       id_satuan,
     } = req.body;
@@ -117,8 +120,8 @@ router.post("/", async (req, res, next) => {
 
     const [result] = await db.query(
       `INSERT INTO po_item 
-        (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonPersen, diskonRupiah, ppnPersen, ppnRupiah, totalPerItem, keterangan, id_satuan)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonPersen, diskonRupiah, ppnPersen, ppnRupiah, totalPerItem, namaPembeli, keterangan, id_satuan)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_PO || null,
         id_PRItem || null,
@@ -130,6 +133,7 @@ router.post("/", async (req, res, next) => {
         ppnPersenValue,
         ppnRupiahValue,
         totalPerItemVal,
+        namaPembeli || null, // <-- simpan namaPembeli
         keterangan || "",
         id_satuan || null,
       ]
@@ -201,7 +205,7 @@ router.put("/:id", async (req, res, next) => {
           ? parseFloat(payload.totalPerItem.replace(/\./g, "").replace(",", "."))
           : Number(payload.totalPerItem) || 0;
 
-    // Pastikan field baru bisa diupdate
+    // namaPembeli ikut di payload, bisa diupdate
     const fields = Object.keys(payload);
     if (fields.length === 0)
       return res.status(400).json({ message: "No data" });
@@ -225,6 +229,19 @@ router.put("/:id", async (req, res, next) => {
 router.delete("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
+
+    // --- Cek apakah ada btb_item yang refer ke id_POItem ini ---
+    const [btbItems] = await db.query(
+      "SELECT id_btb_item FROM btb_item WHERE id_POItem = ?",
+      [id]
+    );
+    if (btbItems.length > 0) {
+      return res.status(400).json({
+        message:
+          "Item PO tidak bisa dikembalikan ke PR karena sudah diproses menjadi BTB. Silakan kembalikan/dihapus BTB terlebih dahulu.",
+      });
+    }
+
     const [result] = await db.query("DELETE FROM po_item WHERE id_POItem = ?", [
       id,
     ]);

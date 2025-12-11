@@ -59,6 +59,14 @@ router.post("/", async (req, res) => {
       qty_sisa,
     } = req.body;
 
+    // --- FIX: pastikan jumlah_diterima dan qty_sisa integer ---
+    const jumlahDiterimaInt = jumlah_diterima !== undefined && jumlah_diterima !== null
+      ? Math.round(Number(jumlah_diterima))
+      : 0;
+    const qtySisaInt = qty_sisa !== undefined && qty_sisa !== null
+      ? Math.round(Number(qty_sisa))
+      : jumlahDiterimaInt;
+
     // Validasi wajib
     if (!id_btb || !id_POItem || !nama_barang) {
       return res
@@ -74,10 +82,10 @@ router.post("/", async (req, res) => {
         id_btb,
         id_POItem,
         nama_barang,
-        jumlah_diterima || 0,
+        jumlahDiterimaInt, // <-- integer
         id_satuan || null,
         keterangan || "",
-        qty_sisa || 0,
+        qtySisaInt, // <-- integer
       ]
     );
     res

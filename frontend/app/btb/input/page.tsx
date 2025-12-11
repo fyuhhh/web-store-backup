@@ -189,10 +189,10 @@ export default function BTBInputPage() {
     setUserSchema(userData.skema || "");
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
     // Ambil supplier dan skema dari backend
-    fetch("http://192.168.10.10:5000/api/supplier")
+    fetch("http://localhost:5000/api/supplier")
       .then((r) => r.json())
       .then((data) => setSupplierList(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((r) => r.json())
       .then((data) => {
         setSkemaList(data);
@@ -244,15 +244,15 @@ export default function BTBInputPage() {
           skemaRes,
           userRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"),
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"),
         ]);
         const [
           poList,
@@ -535,7 +535,7 @@ export default function BTBInputPage() {
       const id_skema = selectedPOsForBTB[0]?.skema ?? null;
 
       // Pastikan yang dikirim ke backend adalah nama_supplier: formData.supplier
-      const btbHeaderRes = await fetch("http://192.168.10.10:5000/api/btb", {
+      const btbHeaderRes = await fetch("http://localhost:5000/api/btb", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -561,7 +561,7 @@ export default function BTBInputPage() {
       // Setelah insert header BTB dan dapat id_btb
       // Ambil data PO Item dari backend (pastikan sudah ada di database)
       const poItemsRes = await fetch(
-        "http://192.168.10.10:5000/api/po-item?po=" + id_po
+        "http://localhost:5000/api/po-item?po=" + id_po
       );
       const poItems = await poItemsRes.json();
 
@@ -619,7 +619,7 @@ export default function BTBInputPage() {
         }
 
         // POST ke btb_item (ubah endpoint)
-        const res = await fetch("http://192.168.10.10:5000/api/btb-item", {
+        const res = await fetch("http://localhost:5000/api/btb-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -641,7 +641,7 @@ export default function BTBInputPage() {
         // 3. Update jumlahPO di po_item (PUT)
         // Ambil data po_item lama
         const poItemRes = await fetch(
-          `http://192.168.10.10:5000/api/po-item/${item.id_POItem}`
+          `http://localhost:5000/api/po-item/${item.id_POItem}`
         );
         const poItemData = await poItemRes.json();
         const sisa =
@@ -661,7 +661,7 @@ export default function BTBInputPage() {
           // jumlahPO: diupdate
         } = poItemData;
 
-        await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+        await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -721,32 +721,70 @@ export default function BTBInputPage() {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
+  // Tambahkan state untuk selected item per PO
+  const [selectedPOItemIds, setSelectedPOItemIds] = useState<string[]>([]);
+
+  // Fungsi untuk handle checkbox item di tabel PO
+  const handleSelectPOItem = (poId: string, poItemId: string, checked: boolean) => {
+    const key = `${poId}::${poItemId}`;
     if (checked) {
-      setSelectedPOs(filteredPOData.map((po) => po.id));
+      setSelectedPOItemIds((prev) => [...prev, key]);
     } else {
-      setSelectedPOs([]);
+      setSelectedPOItemIds((prev) => prev.filter((id) => id !== key));
     }
   };
 
+  // Fungsi untuk select all item di halaman
+  const handleSelectAllItemsOnPage = (checked: boolean, paginatedData: any[]) => {
+    const allItemKeys = paginatedData.flatMap((po) =>
+      po.poItems.flatMap((poItem: any) =>
+        poItem.items
+          .filter((item: any) => item.jumlahPO > 0)
+          .map((item: any) =>
+            `${po.id}::${poItem.noPR}-${item.id}`
+          )
+      )
+    );
+    if (checked) {
+      setSelectedPOItemIds((prev) =>
+        Array.from(new Set([...prev, ...allItemKeys]))
+      );
+    } else {
+      setSelectedPOItemIds((prev) =>
+        prev.filter((id) => !allItemKeys.includes(id))
+      );
+    }
+  };
+
+  // Tombol Buat BTB muncul jika ada item dipilih
+  const anyItemSelected = selectedPOItemIds.length > 0;
+
   const handleBuatBTB = () => {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    // Ambil PO yang mengandung item terpilih
     const selectedPOObjects = filteredPOData.filter((po) =>
-      selectedPOs.includes(po.id)
+      po.poItems.some((poItem: any) =>
+        poItem.items.some((item: any) =>
+          selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+        )
+      )
     );
     if (selectedPOObjects.length === 0) {
-      alert("Pilih minimal satu PO untuk dibuat BTB.");
+      alert("Pilih minimal satu item PO untuk dibuat BTB.");
       return;
     }
     setSelectedPOsForBTB(selectedPOObjects);
     setShowForm(true);
 
+    // Ambil hanya item yang dipilih
     setSelectedPOItems(
       selectedPOObjects.map((po) => ({
         poId: po.id,
         noPO: po.noPO,
         supplier: po.supplier,
-        items: getPOItemsWithSisa(po),
+        items: getPOItemsWithSisa(po).filter((item) =>
+          selectedPOItemIds.includes(`${po.id}::${item.poItemId}`)
+        ),
       }))
     );
     // LOG: diterima frontend dari PO (pastikan id_supplier adalah id PO, bukan label)
@@ -769,9 +807,11 @@ export default function BTBInputPage() {
     // Set initial BTB input qty to qtySisa for each item (bisa diubah user)
     const qtyObj: Record<string, number> = {};
     selectedPOObjects.forEach((po) => {
-      getPOItemsWithSisa(po).forEach((item) => {
-        qtyObj[item.poItemId] = item.qtySisa;
-      });
+      getPOItemsWithSisa(po)
+        .filter((item) => selectedPOItemIds.includes(`${po.id}::${item.poItemId}`))
+        .forEach((item) => {
+          qtyObj[item.poItemId] = item.qtySisa;
+        });
     });
     setBtbInputQty(qtyObj);
 
@@ -1118,14 +1158,14 @@ export default function BTBInputPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Input BTB (Bukti Terima Barang)
+              Input BTB
             </h1>
             <p className="text-muted-foreground">
-              Pilih PO yang sudah disetujui untuk dibuatkan BTB
+              Pilih item PO yang sudah disetujui untuk dibuatkan BTB
             </p>
           </div>
-          {/* Buat BTB button top right, only if PO(s) selected and not showing form */}
-          {selectedPOs.length > 0 && !showForm && (
+          {/* Buat BTB button top right, only if item(s) selected and not showing form */}
+          {anyItemSelected && !showForm && (
             <Button
               type="button"
               className="bg-primary hover:bg-primary/90"
@@ -1154,8 +1194,7 @@ export default function BTBInputPage() {
             <CardHeader>
               <CardTitle>Daftar Purchase Order</CardTitle>
               <CardDescription>
-                Total: {filteredPOData.length} PO | Dipilih:{" "}
-                {selectedPOs.length}
+                Total: {filteredPOData.length} PO | Item dipilih: {selectedPOItemIds.length}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1163,90 +1202,9 @@ export default function BTBInputPage() {
                 <Table className="border border-gray-300">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12 border-r border-gray-300">
-                        <Checkbox
-                          checked={allPageSelected}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedPOs((prev) =>
-                                Array.from(new Set([...prev, ...pagePOIds]))
-                              );
-                            } else {
-                              setSelectedPOs((prev) =>
-                                prev.filter((id) => !pagePOIds.includes(id))
-                              );
-                            }
-                          }}
-                          style={{
-                            boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
-                            border: "1.5px solid #bbb",
-                            borderRadius: 4,
-                          }}
-                          className="focus:ring-2 focus:ring-primary"
-                        />
-                      </TableHead>
-                      <TableHead className="border-r border-gray-300">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              No. PO <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 bg-white">
-                            <Input
-                              placeholder="Cari No. PO..."
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            <div className="flex items-center mt-2">
-                              <Checkbox
-                                checked={
-                                  pagePOIds.length > 0 &&
-                                  pagePOIds.every((id) =>
-                                    selectedPOs.includes(id)
-                                  )
-                                }
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedPOs((prev) =>
-                                      Array.from(
-                                        new Set([...prev, ...pagePOIds])
-                                      )
-                                    );
-                                  } else {
-                                    setSelectedPOs((prev) =>
-                                      prev.filter(
-                                        (id) => !pagePOIds.includes(id)
-                                      )
-                                    );
-                                  }
-                                }}
-                              />
-                              <Label className="ml-2 text-xs">
-                                Pilih semua halaman ini
-                              </Label>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead className="border-r border-gray-300">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Daftar Barang <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 bg-white">
-                            <Input
-                              placeholder="Cari barang..."
-                              value={filterNamaBarang}
-                              onChange={(e) =>
-                                setFilterNamaBarang(e.target.value)
-                              }
-                            />
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
+                      {/* HAPUS: <TableHead className="w-12 border-r border-gray-300">...</TableHead> */}
+                      <TableHead className="border-r border-gray-300">No. PO</TableHead>
+                      <TableHead className="border-r border-gray-300">Daftar Barang</TableHead>
                       <TableHead className="border-r border-gray-300">
                         <Popover>
                           <PopoverTrigger asChild>
@@ -1786,26 +1744,9 @@ export default function BTBInputPage() {
                               key={`${po.id}-item-${itemIndex}`}
                               className="border-b border-gray-300 align-middle"
                             >
+                              {/* Kolom No. PO dan Barang */}
                               {itemIndex === 0 && (
                                 <>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="px-4 py-2 border-r border-gray-300 align-middle"
-                                  >
-                                    <Checkbox
-                                      checked={selectedPOs.includes(po.id)}
-                                      onCheckedChange={(checked) =>
-                                        handleSelectPO(po.id, checked === true)
-                                      }
-                                      style={{
-                                        boxShadow:
-                                          "0 0 0 2px #bbb, 0 2px 8px #bbb8",
-                                        border: "1.5px solid #bbb",
-                                        borderRadius: 4,
-                                      }}
-                                      className="focus:ring-2 focus:ring-primary"
-                                    />
-                                  </TableCell>
                                   <TableCell
                                     rowSpan={allItems.length}
                                     className="font-medium px-4 py-2 border-r border-gray-300 align-middle"
@@ -1814,7 +1755,14 @@ export default function BTBInputPage() {
                                   </TableCell>
                                 </>
                               )}
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[200px]">
+                              {/* Checkbox + Nama Barang */}
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[200px] flex items-center gap-2">
+                                <Checkbox
+                                  checked={selectedPOItemIds.includes(`${po.id}::${item.noPR}-${item.id}`)}
+                                  onCheckedChange={(checked) =>
+                                    handleSelectPOItem(po.id, `${item.noPR}-${item.id}`, checked === true)
+                                  }
+                                />
                                 {item.namaBarang}
                               </TableCell>
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
@@ -1881,7 +1829,8 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[100px]"
                                 >
-                                  {getStatusBadge(po.status)}
+                                  {/* Status Pengiriman dari po.statusPengiriman */}
+                                  {po.statusPengiriman}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (
@@ -1889,7 +1838,8 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[100px]"
                                 >
-                                  {po.orderedBy ?? ""}
+                                  {/* Status dari po.status */}
+                                  {po.status}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (
@@ -1897,6 +1847,16 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[100px]"
                                 >
+                                  {/* Diorder oleh dari po.orderedBy */}
+                                  {po.orderedBy}
+                                </TableCell>
+                              )}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-left border-r border-gray-300 align-middle min-w-[100px]"
+                                >
+                                  {/* Skema dari po.id_skema, label dari skemaMap */}
                                   {skemaMap[String(po.skema)] ?? po.skema}
                                 </TableCell>
                               )}
@@ -1908,43 +1868,43 @@ export default function BTBInputPage() {
                   </TableBody>
                 </Table>
               </div>
+              <Pagination className="mt-4">
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      className={
+                        currentPage === 1 ? "pointer-events-none opacity-50" : ""
+                      }
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setCurrentPage(Math.min(totalPages, currentPage + 1))
+                      }
+                      className={
+                        currentPage === totalPages
+                          ? "pointer-events-none opacity-50"
+                          : ""
+                      }
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </CardContent>
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    className={
-                      currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                    }
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                  (page) => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        onClick={() => setCurrentPage(page)}
-                        isActive={currentPage === page}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  )
-                )}
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      setCurrentPage(Math.min(totalPages, currentPage + 1))
-                    }
-                    className={
-                      currentPage === totalPages
-                        ? "pointer-events-none opacity-50"
-                        : ""
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
           </Card>
         )}
 
@@ -2028,7 +1988,7 @@ export default function BTBInputPage() {
                   </div>
                 </div>
               </div>
-              {/* Tabel barang: Nama Barang, Quantity PO, Quantity Diterima, Satuan, Keterangan */}
+              {/* Tabel barang: hanya tampilkan item yang dipilih */}
               <div className="border border-[#e5e7eb] rounded-lg overflow-x-auto mb-4">
                 <table className="w-full text-xs border-collapse">
                   <thead>
@@ -2095,7 +2055,7 @@ export default function BTBInputPage() {
                   </tbody>
                 </table>
               </div>
-              {/* Form bawah: Skema saja ini */}
+              {/* Form bawah: Skema saja */}
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Skema di-hide, tetap dikirim */}
                 <input type="hidden" name="skema" value={formData.skema} />

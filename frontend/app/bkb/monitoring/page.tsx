@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -155,6 +155,7 @@ export default function BKBMonitoringPage() {
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
   const [satuanMap, setSatuanMap] = useState<Record<string, string>>({});
   const [btbMap, setBtbMap] = useState<Record<string, string>>({});
+  const [divisiMap, setDivisiMap] = useState<Record<string, string>>({});
   const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
 
   // Tambahkan state untuk export
@@ -173,7 +174,7 @@ export default function BKBMonitoringPage() {
 
   // Fetch satuan list from backend and build mapping
   useEffect(() => {
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         const map: Record<string, string> = {};
@@ -189,15 +190,17 @@ export default function BKBMonitoringPage() {
     async function fetchBKBData() {
       setLoading(true);
       try {
-        // Ambil semua BKB, BKB Item, User, Skema, Satuan, BTB
-        const [bkbRes, bkbItemRes, userRes, skemaRes, , btbRes] =
+        // Ambil semua BKB, BKB Item, User, Skema, Satuan, BTB, Divisi, PR
+        const [bkbRes, bkbItemRes, userRes, skemaRes, , btbRes, divisiRes, prRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/bkb"),
-            fetch("http://192.168.10.10:5000/api/bkb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/btb"),
+            fetch("http://localhost:5000/api/bkb"),
+            fetch("http://localhost:5000/api/bkb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/divisi"),
+            fetch("http://localhost:5000/api/pr"),
           ]);
         const bkbList = await bkbRes.json();
         const bkbItemList = await bkbItemRes.json();
@@ -205,6 +208,8 @@ export default function BKBMonitoringPage() {
         const skemaList = await skemaRes.json();
         // satuanList tidak perlu, sudah di-fetch di atas
         const btbList = await btbRes.json();
+        const divisiList = await divisiRes.json();
+        const prList = await prRes.json();
 
         // Buat mapping id_user -> nama_pengguna
         const userMapObj: Record<string, string> = {};
@@ -227,13 +232,33 @@ export default function BKBMonitoringPage() {
         });
         setBtbMap(btbMapObj);
 
+        // Buat mapping id_divisi -> nama_divisi
+        const divisiMapObj: Record<string, string> = {};
+        divisiList.forEach((d: any) => {
+          divisiMapObj[String(d.id_divisi)] = d.nama_divisi;
+        });
+        setDivisiMap(divisiMapObj);
+
+        // Buat mapping id_pr dan no_pr -> id_divisi dari PR
+        const prToDivisiMap: Record<string, string> = {};
+        prList.forEach((pr: any) => {
+          if (pr.id_pr && pr.id_divisi) prToDivisiMap[String(pr.id_pr)] = pr.id_divisi;
+          if (pr.no_pr && pr.id_divisi) prToDivisiMap[String(pr.no_pr)] = pr.id_divisi;
+        });
+
         // Gabungkan: untuk setiap bkb_item, cari parent bkb dan label satuan
-        // Tambahkan id_bkb ke setiap row
+        // Ambil divisi dari PR yang sama id_pr dengan BKB, fallback ke refrensiNoPr jika perlu
         const rows = bkbItemList.map((item: any) => {
           const bkb = bkbList.find((b: any) => b.id_bkb === item.id_bkb);
+          let divisiId = "";
+          if (bkb?.id_pr && prToDivisiMap[bkb.id_pr]) {
+            divisiId = prToDivisiMap[bkb.id_pr];
+          } else if (bkb?.refrensiNoPr && prToDivisiMap[bkb.refrensiNoPr]) {
+            divisiId = prToDivisiMap[bkb.refrensiNoPr];
+          }
           return {
             id: item.id_bkb_item,
-            id_bkb: item.id_bkb, // <-- tambahkan id_bkb parent
+            id_bkb: item.id_bkb,
             noBKB: bkb?.no_bkb ?? "",
             tanggalBKB: bkb?.tanggal_bkb ?? "",
             namaBarang: item.nama_barang ?? "",
@@ -241,7 +266,10 @@ export default function BKBMonitoringPage() {
             satuan: satuanMap[String(item.id_satuan)] ?? "",
             keterangan: item.keterangan ?? "",
             dikeluarkanOleh: bkb?.dikeluarkan_oleh ?? "",
+            diterima_oleh: bkb?.diterima_oleh ?? "",
+            divisi: bkb?.divisi ?? "", // <-- ambil langsung dari bkb.divisi
             skema: bkb?.id_skema ?? "",
+            noPR: bkb?.refrensiNoPr ?? "-",
           };
         });
         setBkbRows(rows);
@@ -289,6 +317,21 @@ export default function BKBMonitoringPage() {
 
   // Export Excel function
   const handleExport = async () => {
+    // Export data sesuai filter dan mode
+    function getExportBKBData() {
+      if (exportMode === "all") return filteredBKBData;
+      if (exportMode === "selected") return filteredBKBData.filter((row) => selectedBKBIds.includes(row.id));
+      if (exportMode === "range") {
+        const start = exportStartDate ? new Date(exportStartDate) : null;
+        const end = exportEndDate ? new Date(exportEndDate) : null;
+        return filteredBKBData.filter((row) => {
+          if (!row.tanggalBKB) return false;
+          const tgl = new Date(row.tanggalBKB);
+          return (!start || tgl >= start) && (!end || tgl <= end);
+        });
+      }
+      return filteredBKBData;
+    }
     const exportBKBData = getExportBKBData();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring BKB");
@@ -303,6 +346,8 @@ export default function BKBMonitoringPage() {
       "Keterangan",
       "Dikeluarkan Oleh",
       "Skema",
+      "Divisi",
+      "Refrensi Nomor PR",
     ];
 
     // Add header row
@@ -340,6 +385,8 @@ export default function BKBMonitoringPage() {
         ketShort,
         userMap[String(row.dikeluarkanOleh)] ?? row.dikeluarkanOleh ?? "",
         skemaMap[String(row.skema)] ?? row.skema ?? "",
+        row.divisi || "-", // <-- gunakan langsung row.divisi
+        row.noPR || "-",
       ]);
     });
 
@@ -429,7 +476,13 @@ export default function BKBMonitoringPage() {
     );
   }
 
-  // Hapus BKB (multi/single) - hapus juga di backend
+
+  // Restore-to-BTB modal and logic
+  const [restoreItemModalOpen, setRestoreItemModalOpen] = useState(false);
+  const [selectedBKBItemsForRestore, setSelectedBKBItemsForRestore] = useState<{ bkbId: string; items: any[] }[]>([]);
+  const [selectedItemIdsToRestore, setSelectedItemIdsToRestore] = useState<string[]>([]);
+
+  // Hapus BKB (multi/single) - restore ke BTB
   const handleDelete = (ids: string[] | string) => {
     // Ambil id_bkb unik dari baris yang dipilih
     const idList = Array.isArray(ids) ? ids : [ids];
@@ -439,19 +492,7 @@ export default function BKBMonitoringPage() {
         idList
           .map((id) => {
             const row = bkbRows.find((r) => r.id === id);
-            // row.id_bkb = id parent BKB
-            // row.id = id_bkb_item
-            // row.noBKB = no_bkb
-            // row.tanggalBKB = tanggal_bkb
-            // row.namaBarang = nama_barang
-            // row.quantity = jumlah_keluar
-            // row.satuan = satuan
-            // row.keterangan = keterangan
-            // row.dikeluarkanOleh = dikeluarkan_oleh
-            // row.skema = id_skema
-            // row.id_bkb bisa undefined jika mapping belum ada
             if (row?.id_bkb) return row.id_bkb;
-            // fallback: cari dari noBKB dan tanggal
             const fallback = bkbRows.find(
               (r) => r.noBKB === row?.noBKB && r.tanggalBKB === row?.tanggalBKB
             );
@@ -460,39 +501,112 @@ export default function BKBMonitoringPage() {
           .filter(Boolean)
       )
     );
-    setDeleteIds(idBkbList as string[]);
-    setConfirmDeleteOpen(true);
+    // Ambil semua item BKB yang memiliki id_bkb yang sama
+    const bkbItems = Array.from(new Set(idBkbList)).map((bkbId) => ({
+      bkbId,
+      items: bkbRows.filter((row) => row.id_bkb === bkbId),
+    }));
+    setSelectedBKBItemsForRestore(bkbItems);
+    setSelectedItemIdsToRestore([]);
+    setRestoreItemModalOpen(true);
   };
 
-  const confirmDelete = async () => {
-    setConfirmDeleteOpen(false);
+  // Fungsi konfirmasi restore item ke BTB
+  const confirmRestoreItems = async () => {
+    setRestoreItemModalOpen(false);
     try {
-      for (const id_bkb of deleteIds) {
-        // Hapus BKB di backend (beserta item, ON DELETE CASCADE)
-        await fetch(`http://192.168.10.10:5000/api/bkb/${id_bkb}`, {
-          method: "DELETE",
+      // Untuk setiap item yang dipilih, panggil endpoint restore ke BTB
+      for (const bkbItemId of selectedItemIdsToRestore) {
+        await fetch(`http://localhost:5000/api/bkb-item/restore-to-btb/${bkbItemId}`, {
+          method: "POST",
         });
       }
-      // Hapus semua baris yang id_bkb-nya ada di deleteIds
-      setBkbRows((prev) =>
-        prev.filter((row) => !deleteIds.includes(String(row.id_bkb)))
-      );
-      setSelectedBKBIds((prev) =>
-        prev.filter((id) => {
-          const row = bkbRows.find((r) => r.id === id);
-          return row && !deleteIds.includes(String(row.id_bkb));
-        })
-      );
-      setToastMsg("BKB berhasil dihapus.");
+      // Hapus item yang sudah direstore dari tampilan
+      setBkbRows((prev) => prev.filter((row) => !selectedItemIdsToRestore.includes(String(row.id))));
+      setSelectedBKBIds((prev) => prev.filter((id) => !selectedItemIdsToRestore.includes(String(id))));
+      setToastMsg("Item BKB berhasil dikembalikan ke BTB.");
       setToastOpen(true);
     } catch (error) {
-      setToastMsg("Terjadi kesalahan saat menghapus BKB.");
+      setToastMsg("Terjadi kesalahan saat mengembalikan item ke BTB.");
       setToastOpen(true);
     }
-    setDeleteIds([]);
+    setSelectedItemIdsToRestore([]);
   };
 
-  // State untuk popover keterangan
+  // Modal restore item BKB ke BTB
+  function RestoreItemModal({
+    open,
+    bkbItems,
+    selectedIds,
+    setSelectedIds,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[420px] max-h-[80vh] overflow-y-auto">
+          <h2 className="text-lg font-semibold mb-2">
+            Pilih Item BKB yang akan dikembalikan ke BTB
+          </h2>
+          <div className="space-y-4">
+            {bkbItems.map(({ bkbId, items }) => {
+              const noBKB = items && items.length > 0 && items[0].noBKB ? items[0].noBKB : "-";
+              return (
+                <div key={bkbId}>
+                  <div className="font-semibold mb-1">BKB: {noBKB}</div>
+                  {items.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Tidak ada item pada BKB ini.</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {items.map((item: any, idx: number) => {
+                        const keyId = item.id ? String(item.id) : `${item.namaBarang}-${item.quantity}-${idx}`;
+                        const valueId = item.id ? String(item.id) : "";
+                        return (
+                          <label key={keyId} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              value={valueId}
+                              checked={selectedIds.includes(valueId)}
+                              disabled={!valueId}
+                              onChange={(e) => {
+                                if (!valueId) return;
+                                if (e.target.checked) {
+                                  setSelectedIds([...selectedIds, valueId]);
+                                } else {
+                                  setSelectedIds(selectedIds.filter((x: string) => x !== valueId));
+                                }
+                              }}
+                            />
+                            <span>{item.namaBarang}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={onConfirm}
+              disabled={selectedIds.length === 0}
+            >
+              Kembalikan ke BTB ({selectedIds.length})
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // state untuk keterangan
   const [hoveredKeterangan, setHoveredKeterangan] = useState<string | null>(
     null
   );
@@ -598,9 +712,9 @@ export default function BKBMonitoringPage() {
             <div className="overflow-x-auto">
               <Table className="border border-gray-300">
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="border border-gray-300">
                     {/* Checkbox header untuk export terpilih */}
-                    <TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">
                       {exportMode === "selected" && (
                         <Checkbox
                           checked={paginatedData.every((row) =>
@@ -621,113 +735,184 @@ export default function BKBMonitoringPage() {
                         />
                       )}
                     </TableHead>
-                    <TableHead>No. BKB</TableHead>
-                    <TableHead>Tanggal BKB</TableHead>
-                    <TableHead>Nama Barang</TableHead>
-                    <TableHead>Quantity BKB</TableHead>
-                    <TableHead>Satuan</TableHead>
-                    <TableHead>Keterangan</TableHead>
-                    <TableHead>Dikeluarkan Oleh</TableHead>
-                    <TableHead>Skema</TableHead>
-                    {/* Tambahkan kolom aksi */}
-                    <TableHead className="text-left min-w-[80px]">
-                      Aksi
-                    </TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">No. BKB</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Tanggal BKB</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Nama Barang</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Quantity BKB</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Satuan</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Keterangan</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Dikeluarkan Oleh</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Nama Penerima</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Divisi</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Refrensi Nomor PR</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Skema</TableHead>
+                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2 min-w-[80px]">Aksi</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={9}>Loading...</TableCell>
+                      <TableCell colSpan={12}>Loading...</TableCell>
                     </TableRow>
                   ) : (
-                    paginatedData.map((row, idx) => {
-                      // Keterangan pendek (maks 20 karakter)
-                      const ket = row.keterangan ?? "";
-                      const ketShort =
-                        ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
-                      return (
-                        <TableRow key={row.id}>
-                          {/* Checkbox cell agar jumlah kolom selalu sama */}
-                          {exportMode === "selected" ? (
-                            <TableCell>
-                              <Checkbox
-                                checked={selectedBKBIds.includes(row.id)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedBKBIds((prev) =>
-                                    checked
-                                      ? [...prev, row.id]
-                                      : prev.filter((id) => id !== row.id)
-                                  );
-                                }}
-                              />
-                            </TableCell>
-                          ) : (
-                            <TableCell />
-                          )}
-                          <TableCell>{row.noBKB}</TableCell>
-                          <TableCell>
-                            {formatTanggalPas(row.tanggalBKB)}
-                          </TableCell>
-                          <TableCell>{row.namaBarang}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                Number(row.quantity) > 0
-                                  ? "default"
-                                  : "destructive"
-                              }
-                            >
-                              {formatInt(row.quantity)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{row.satuan}</TableCell>
-                          {/* Keterangan: tampilkan pendek, popover di luar tabel */}
-                          <TableCell
-                            onMouseEnter={(e) => {
-                              if (ket.length > 20) {
-                                setHoveredKeterangan(ket);
-                                const rect = (
-                                  e.target as HTMLElement
-                                ).getBoundingClientRect();
-                                setPopoverPos({
-                                  x: rect.left + rect.width / 2,
-                                  y: rect.bottom + window.scrollY,
-                                });
-                              }
-                            }}
-                            onMouseLeave={() => {
-                              setHoveredKeterangan(null);
-                              setPopoverPos(null);
-                            }}
-                            style={{
-                              cursor: ket.length > 20 ? "pointer" : undefined,
-                            }}
-                          >
-                            <span className="text-muted-foreground">
-                              {ketShort}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            {userMap[String(row.dikeluarkanOleh)] ??
-                              row.dikeluarkanOleh}
-                          </TableCell>
-                          <TableCell>
-                            {skemaMap[String(row.skema)] ?? row.skema}
-                          </TableCell>
-                          {/* Kolom aksi */}
-                          <TableCell className="px-4 py-2 text-left">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDelete(row.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
+                    (() => {
+                      // Group BKB by id_bkb
+                      const grouped: { [id_bkb: string]: any[] } = {};
+                      paginatedData.forEach((row) => {
+                        const key = row.id_bkb;
+                        if (!grouped[key]) grouped[key] = [];
+                        grouped[key].push(row);
+                      });
+                      return Object.entries(grouped).map(([id_bkb, items]) => {
+                        if (!items || items.length === 0) return null;
+                        return (
+                          <React.Fragment key={id_bkb}>
+                            <TableRow className="hover:bg-gray-50 transition-colors">
+                              {/* Checkbox hanya di baris pertama */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                                {exportMode === "selected" && (
+                                  <Checkbox
+                                    checked={selectedBKBIds.includes(items[0].id)}
+                                    onCheckedChange={(checked) => {
+                                      setSelectedBKBIds((prev) =>
+                                        checked
+                                          ? [...prev, items[0].id]
+                                          : prev.filter((id) => id !== items[0].id)
+                                      );
+                                    }}
+                                  />
+                                )}
+                              </TableCell>
+                              {/* No. BKB - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium">
+                                {items[0].noBKB}
+                              </TableCell>
+                              {/* Tanggal BKB - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                {formatTanggalPas(items[0].tanggalBKB)}
+                              </TableCell>
+                              {/* Nama Barang - item pertama */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                {items[0].namaBarang}
+                              </TableCell>
+                              {/* Quantity - item pertama */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                <Badge
+                                  variant={
+                                    Number(items[0].quantity) > 0
+                                      ? "default"
+                                      : "destructive"
+                                  }
+                                >
+                                  {formatInt(items[0].quantity)}
+                                </Badge>
+                              </TableCell>
+                              {/* Satuan - item pertama */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                {items[0].satuan}
+                              </TableCell>
+                              {/* Keterangan - item pertama */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                                {items[0].keterangan ? (
+                                  <span
+                                    title={items[0].keterangan}
+                                    style={{
+                                      cursor: "pointer",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      maxWidth: 120,
+                                      display: "inline-block",
+                                      color: "#6b7280"
+                                    }}
+                                  >
+                                    {items[0].keterangan.length > 15
+                                      ? items[0].keterangan.slice(0, 15) + "..."
+                                      : items[0].keterangan}
+                                  </span>
+                                ) : "-"}
+                              </TableCell>
+                              {/* Dikeluarkan Oleh - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                {userMap[String(items[0].dikeluarkanOleh)] ?? items[0].dikeluarkanOleh}
+                              </TableCell>
+                              {/* Diterima Oleh - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                {(userMap[String(items[0].diterima_oleh)] ?? items[0].diterima_oleh) || "-"}
+                              </TableCell>
+                              {/* Divisi - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                {items[0].divisi || "-"}
+                              </TableCell>
+                              {/* Refrensi Nomor PR - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                {items[0].noPR || "-"}
+                              </TableCell>
+                              {/* Skema - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                {skemaMap[String(items[0].skema)] ?? items[0].skema}
+                              </TableCell>
+                              {/* Aksi - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDelete(items[0].id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                            {/* Baris item berikutnya */}
+                            {items.slice(1).map((item, idx) => (
+                              <TableRow key={`${id_bkb}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors">
+                                {/* Nama Barang - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                  {item.namaBarang}
+                                </TableCell>
+                                {/* Quantity - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                  <Badge
+                                    variant={
+                                      Number(item.quantity) > 0
+                                        ? "default"
+                                        : "destructive"
+                                    }
+                                  >
+                                    {formatInt(item.quantity)}
+                                  </Badge>
+                                </TableCell>
+                                {/* Satuan - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                  {item.satuan}
+                                </TableCell>
+                                {/* Keterangan - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                                  {item.keterangan ? (
+                                    <span
+                                      title={item.keterangan}
+                                      style={{
+                                        cursor: "pointer",
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        maxWidth: 120,
+                                        display: "inline-block",
+                                        color: "#6b7280"
+                                      }}
+                                    >
+                                      {item.keterangan.length > 15
+                                        ? item.keterangan.slice(0, 15) + "..."
+                                        : item.keterangan}
+                                    </span>
+                                  ) : "-"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </React.Fragment>
+                        );
+                      });
+                    })()
                   )}
                 </TableBody>
               </Table>
@@ -795,15 +980,26 @@ export default function BKBMonitoringPage() {
         {/* Modal dan Toast */}
         <ConfirmModal
           open={confirmDeleteOpen}
-          title="Konfirmasi Hapus BKB"
-          description={`Apakah Anda yakin ingin menghapus ${deleteIds.length} BKB? Data yang dihapus tidak dapat dikembalikan.`}
-          onConfirm={confirmDelete}
+          title="Konfirmasi Kembalikan Item BKB ke BTB"
+          description={`Apakah Anda ingin mengembalikan item BKB ke BTB? Data BKB yang dikembalikan akan mengupdate stok BTB.`}
+          onConfirm={() => {
+            setConfirmDeleteOpen(false);
+            setRestoreItemModalOpen(true);
+          }}
           onCancel={() => setConfirmDeleteOpen(false)}
         />
         <Toast
           open={toastOpen}
           message={toastMsg}
           onClose={() => setToastOpen(false)}
+        />
+        <RestoreItemModal
+          open={restoreItemModalOpen}
+          bkbItems={selectedBKBItemsForRestore}
+          selectedIds={selectedItemIdsToRestore}
+          setSelectedIds={setSelectedItemIdsToRestore}
+          onConfirm={confirmRestoreItems}
+          onCancel={() => setRestoreItemModalOpen(false)}
         />
       </div>
     </MainLayout>

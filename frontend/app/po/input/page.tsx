@@ -68,9 +68,10 @@ export default function InputPOPage() {
     supplier: "",
     estimasiTanggalDiterima: null as Date | null,
     diskon: "",
-    ppn: "11",
+    ppn: "",
     statusPengiriman: "",
-    skema: "", // <-- add skema field
+    skema: "",
+    namaPembeli: "", // <-- Tambahkan state namaPembeli
   });
 
   const [userSkema, setUserSkema] = useState("");
@@ -396,10 +397,10 @@ export default function InputPOPage() {
 
   // Fetch supplier, status_pengiriman, status_permintaan dari backend
   useEffect(() => {
-    fetch("http://192.168.10.10:5000/api/supplier")
+    fetch("http://localhost:5000/api/supplier")
       .then((res) => res.json())
       .then((data) => setSupplierOptions(data));
-    fetch("http://192.168.10.10:5000/api/status-pengiriman")
+    fetch("http://localhost:5000/api/status-pengiriman")
       .then((res) => res.json())
       .then((data) => setStatusPengirimanOptions(data));
   }, []);
@@ -407,7 +408,7 @@ export default function InputPOPage() {
   // Handler tambah supplier
   const handleAddSupplier = async () => {
     if (!newSupplier.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/supplier", {
+    const res = await fetch("http://localhost:5000/api/supplier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ namaSupplier: newSupplier }),
@@ -424,7 +425,7 @@ export default function InputPOPage() {
   // Handler tambah status pengiriman
   const handleAddStatusPengiriman = async () => {
     if (!newStatusPengiriman.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/status-pengiriman", {
+    const res = await fetch("http://localhost:5000/api/status-pengiriman", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status_pengiriman: newStatusPengiriman }),
@@ -445,13 +446,13 @@ export default function InputPOPage() {
   const handleEditSupplier = async (id: string) => {
     if (!editSupplierValue.trim()) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/supplier/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ namaSupplier: editSupplierValue }),
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
+        fetch("http://localhost:5000/api/supplier")
           .then((res) => res.json())
           .then((data) => setSupplierOptions(data));
         setEditSupplierId(null);
@@ -465,11 +466,11 @@ export default function InputPOPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus supplier ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/supplier/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
+        fetch("http://localhost:5000/api/supplier")
           .then((res) => res.json())
           .then((data) => setSupplierOptions(data));
       }
@@ -481,7 +482,7 @@ export default function InputPOPage() {
     if (!editStatusPengirimanValue.trim()) return;
     try {
       const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
+        `http://localhost:5000/api/status-pengiriman/${id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -491,7 +492,7 @@ export default function InputPOPage() {
         }
       );
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
+        fetch("http://localhost:5000/api/status-pengiriman")
           .then((res) => res.json())
           .then((data) => setStatusPengirimanOptions(data));
         setEditStatusPengirimanId(null);
@@ -506,13 +507,13 @@ export default function InputPOPage() {
     if (!window.confirm("Yakin ingin menghapus status pengiriman ini?")) return;
     try {
       const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
+        `http://localhost:5000/api/status-pengiriman/${id}`,
         {
           method: "DELETE",
         }
       );
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
+        fetch("http://localhost:5000/api/status-pengiriman")
           .then((res) => res.json())
           .then((data) => setStatusPengirimanOptions(data));
       }
@@ -523,6 +524,11 @@ export default function InputPOPage() {
   const handleCreatePO = async () => {
     if (!poFormData.supplier.trim()) {
       setNotif({ type: "error", message: "Supplier harus diisi!" });
+      setTimeout(() => setNotif(null), 2500);
+      return;
+    }
+    if (!poFormData.namaPembeli.trim()) {
+      setNotif({ type: "error", message: "Nama Pembeli wajib diisi!" });
       setTimeout(() => setNotif(null), 2500);
       return;
     }
@@ -549,8 +555,8 @@ export default function InputPOPage() {
     const userSkema = userData.id_skema || null;
 
     try {
-      // 1. POST PO ke backend with correct field references
-      const poRes = await fetch("http://192.168.10.10:5000/api/po", {
+      // 1. POST PO ke backend
+      const poRes = await fetch("http://localhost:5000/api/po", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -560,11 +566,10 @@ export default function InputPOPage() {
               ? poFormData.tanggalPO
               : formatDateForBackend(poFormData.tanggalPO),
           id_supplier: poFormData.supplier,
-          // --- Perbaikan mapping field diskon/ppn ---
-          diskon: parseDiskonPersenToNumber(poFormData.diskon), // Diskon (%) dari input user, hanya angka
-          originalDiskon: calculations.totalDiskon, // Diskon (Rp) hasil perhitungan
-          ppn: parseFloat(poFormData.ppn), // PPN (%) dari input user
-          ppnAmount: calculations.totalPPN, // PPN (Rp) hasil perhitungan
+          diskon: parseDiskonPersenToNumber(poFormData.diskon),
+          originalDiskon: calculations.totalDiskon,
+          ppn: parseFloat(poFormData.ppn),
+          ppnAmount: calculations.totalPPN,
           totalPembayaran: calculations.totalPayment,
           orderedBy: orderedByUserId,
           estimasiTanggalTerima: formatDateForBackend(
@@ -623,7 +628,7 @@ export default function InputPOPage() {
           const totalPerItem = afterDiskon + ppnRupiahValue;
 
           // A. Create PO Item
-          await fetch("http://192.168.10.10:5000/api/po-item", {
+          await fetch("http://localhost:5000/api/po-item", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -637,6 +642,7 @@ export default function InputPOPage() {
               ppnPersen: ppnPersenValue, // PPN (%) masuk ke kolom ppnPersen
               ppnRupiah: ppnRupiahValue, // PPN (Rp) masuk ke kolom ppnRupiah
               totalPerItem, // <-- Tambahkan field baru
+              namaPembeli: poFormData.namaPembeli, // <-- Kirim namaPembeli ke backend
               keterangan: item.keterangan,
               id_satuan: item.id_satuan,
             }),
@@ -644,7 +650,7 @@ export default function InputPOPage() {
 
           // B. Get current PR Item data
           const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${item.id}`
+            `http://localhost:5000/api/pr-item/${item.id}`
           );
           const prItemData = await prItemRes.json();
 
@@ -652,7 +658,7 @@ export default function InputPOPage() {
           const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt);
 
           // C. Update PR Item with complete payload
-          await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
+          await fetch(`http://localhost:5000/api/pr-item/${item.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -674,14 +680,14 @@ export default function InputPOPage() {
       for (const prId of prIds) {
         // Ambil semua item PR dari backend
         const prItemRes = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
+          `http://localhost:5000/api/pr-item/pr/${prId}`
         );
         const prItems = await prItemRes.json();
         // Jika semua jumlah === 0 -> Telah Selesai, jika ada yang > 0 -> Gantung
         const allZero = prItems.every((item: any) => Number(item.jumlah) === 0);
         const newStatus = allZero ? "Telah Selesai" : "Gantung";
         // Ambil data PR lama
-        const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+        const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
         const prData = await prRes.json();
         // Kirim semua field PR lama + status baru
         // --- Tambahkan log payload sebelum PUT ---
@@ -696,7 +702,7 @@ export default function InputPOPage() {
           createdAt: prData.createdAt,
         };
         console.log("PUT /api/pr payload:", payload);
-        await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+        await fetch(`http://localhost:5000/api/pr/${prId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -710,9 +716,10 @@ export default function InputPOPage() {
         supplier: "",
         estimasiTanggalDiterima: "",
         diskon: "",
-        ppn: "11",
+        ppn: "", // <-- reset ke kosong, bukan "11"
         statusPengiriman: "",
         skema: userSkema, // reset skema dari user login
+        namaPembeli: "", // <-- Reset namaPembeli
       });
 
       setPoItems([]);
@@ -741,10 +748,10 @@ export default function InputPOPage() {
     const fetchPRData = async () => {
       // Fetch referensi satuan/divisi/urgensi jika perlu (optional)
       // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch("http://localhost:5000/api/pr");
       const prList = await prRes.json();
       // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
 
       // --- FIX: jangan pakai satuanMap di sini, hanya gunakan label/id langsung ---
@@ -815,13 +822,13 @@ export default function InputPOPage() {
 
   useEffect(() => {
     // Fetch referensi dari backend
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
   }, []);
@@ -837,10 +844,10 @@ export default function InputPOPage() {
         return;
 
       // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch("http://localhost:5000/api/pr");
       const prList = await prRes.json();
       // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
 
       // Helper mapping dari id ke label
@@ -968,10 +975,10 @@ export default function InputPOPage() {
               jumlahPO: item.jumlah,
               jumlahAsli: item.jumlah,
               satuanLabel: item.satuanLabel || item.satuan || "",
-              id_satuan: item.id_satuan ?? item.idSatuan ?? null, // <-- always keep id_satuan
+              id_satuan: item.id_satuan ?? item.idSatuan ?? null,
               hargaSatuan: 0,
               diskonItem: "", // default string
-              ppnItem: 11, // default (atau 0)
+              ppnItem: "", // <-- ubah default dari 11 ke ""
               keterangan: item.keterangan ?? "",
               skema: pr.id_skema ?? "",
               dibuatOleh: pr.dibuatOleh ?? "",
@@ -1069,6 +1076,7 @@ export default function InputPOPage() {
                     harga = Number(i.hargaSatuan) || 0;
                   }
                   const qty = Number(i.jumlahPO) || 0;
+                  const ppn = Number(i.ppnItem) || 0;
                   const itemSubtotal = harga * qty;
                   // Stack diskon persen
                   let currentAmount = itemSubtotal;
@@ -1078,7 +1086,7 @@ export default function InputPOPage() {
                     .map((d) => d.trim())
                     .filter((d) => d.endsWith("%"))
                     .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-                    .filter((v) => !isNaN(v));
+                    .filter((v) => v !== null && !isNaN(v));
                   diskonPersenArr.forEach((persen) => {
                     const amount = currentAmount * (persen / 100);
                     diskonAmount += amount;
@@ -1394,14 +1402,11 @@ export default function InputPOPage() {
                 </div>
               </div>
 
-              {/* Baris 2: Supplier, Status Pengiriman, Skema */}
+              {/* Baris 2: Supplier, Status Pengiriman, Nama Pembeli */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                 {/* Supplier */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="supplier"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
+                  <Label htmlFor="supplier">
                     Supplier
                   </Label>
                   <Select
@@ -1567,10 +1572,7 @@ export default function InputPOPage() {
 
                 {/* Status Pengiriman */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="statusPengiriman"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
+                  <Label htmlFor="statusPengiriman">
                     Status Pengiriman
                   </Label>
                   <Select
@@ -1746,19 +1748,26 @@ export default function InputPOPage() {
                   </Select>
                 </div>
 
-                {/* Skema */}
+                {/* Nama Pembeli (ganti Skema) */}
                 <div className="space-y-2">
-                  <Label
-                    htmlFor="skema"
-                    className="text-sm font-medium text-muted-foreground"
-                  >
-                    Skema
+                  <Label htmlFor="namaPembeli">
+                    Nama Pembeli
                   </Label>
                   <Input
-                    id="skema"
+                    id="namaPembeli"
+                    value={poFormData.namaPembeli}
+                    onChange={(e) =>
+                      setPoFormData({ ...poFormData, namaPembeli: e.target.value })
+                    }
+                    placeholder="Masukkan nama pembeli"
+                    required
+                    className="border-border focus:border-primary/50 bg-white"
+                  />
+                  {/* Sembunyikan skema, tetap dikirim */}
+                  <input
+                    type="hidden"
+                    name="skema"
                     value={poFormData.skema}
-                    readOnly
-                    className="border-border focus:border-primary/50 bg-gray-100"
                   />
                 </div>
               </div>
@@ -1964,7 +1973,7 @@ export default function InputPOPage() {
                                     )
                                   }
                                   className="w-16 text-right"
-                                  placeholder="11"
+                                  placeholder="0"
                                 />
                               </TableCell>
                               <TableCell>
@@ -2045,7 +2054,7 @@ export default function InputPOPage() {
               {/* Baris 5: Ringkasan Perhitungan */}
               <div className="mt-4">
                 <h3 className="text-lg font-semibold mb-3">
-                  Ringkasan Perhitungan
+                                   Ringkasan Perhitungan
                 </h3>
                 <div className="border rounded-lg p-4 space-y-3">
                   {(() => {
