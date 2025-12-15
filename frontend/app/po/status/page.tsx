@@ -1280,7 +1280,7 @@ function sortPRList(filteredPRData: any[]) {
                               </TableCell>
                             ) : null}
                             {/* Nama Barang */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                               <Checkbox
                                 checked={selectedItemIds.includes(
                                   String(item.id)
@@ -1310,15 +1310,15 @@ function sortPRList(filteredPRData: any[]) {
                               <span className="ml-2">{item.namaBarang}</span>
                               </TableCell>
                             {/* Qty */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                               {Number(item.jumlah) % 1 === 0
                                 ? parseInt(item.jumlah)
                                 : item.jumlah}
                             </TableCell>
                             {/* Satuan */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{item.satuan}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{item.satuan}</TableCell>
                             {/* Keterangan */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left">
                               <div
                                 className="max-w-xs truncate text-sm text-muted-foreground"
                                 title={item.keterangan}
