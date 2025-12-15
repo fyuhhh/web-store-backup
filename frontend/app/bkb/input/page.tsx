@@ -1042,12 +1042,12 @@ export default function BKBInputPage() {
                                   <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
                                     <Checkbox
                                       checked={items.every((itm) => selectedBTBItemIds.includes(itm.id))}
-                                      indeterminate={
+                                      {...(
                                         items.some((itm) => selectedBTBItemIds.includes(itm.id)) &&
                                         !items.every((itm) => selectedBTBItemIds.includes(itm.id))
-                                          ? true
-                                          : undefined
-                                      }
+                                          ? { indeterminate: true }
+                                          : {}
+                                      )}
                                       onCheckedChange={(checked) => {
                                         if (checked) {
                                           const idsToAdd = items.map((itm) => itm.id).filter((id) => !selectedBTBItemIds.includes(id));
@@ -1089,10 +1089,12 @@ export default function BKBInputPage() {
                                     {formatInt(item.sisa)}
                                   </Badge>
                                 </TableCell>
-                                {/* Biaya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                  {formatRupiah(item.biaya)}
-                                </TableCell>
+                                {/* Biaya: hanya di baris pertama, rowSpan */}
+                                {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                    {formatRupiah(item.biaya)}
+                                  </TableCell>
+                                )}
                                 {/* Tanggal BTB (rowSpan) hanya di baris pertama */}
                                 {itemIdx === 0 && (
                                   <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
