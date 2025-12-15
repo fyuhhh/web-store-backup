@@ -90,7 +90,7 @@ export default function InputPOPage() {
           hargaSatuan: number;
           jumlahPO: number;
           jumlahAsli: number;
-          diskonItem: string; // now string, e.g. "10%+500+2%"
+          diskonItem: string; // now string, e.g. "10%+5000+2%"
           ppnItem: number | ""; // per item
           skema: string;
           dibuatOleh: string;
@@ -139,53 +139,86 @@ export default function InputPOPage() {
     )
   ).sort();
 
-  // Filtered PO items
-  const filteredPOItems = poItems
-    .filter((poItem) => !userSkema || poItem.skema === userSkema) // <-- filter by skema
-    .map((poItem) => ({
-      ...poItem,
-      items: poItem.items.filter((item) => {
-        const matchesNoPR =
-          !filterNoPR ||
-          poItem.noPR.toLowerCase().includes(filterNoPR.toLowerCase());
-        const matchesNamaBarang =
-          !filterNamaBarang ||
-          item.namaBarang
-            .toLowerCase()
-            .includes(filterNamaBarang.toLowerCase());
-        const matchesQty =
-          (filterQtyMin === "" || item.jumlahPO >= filterQtyMin) &&
-          (filterQtyMax === "" || item.jumlahPO <= filterQtyMax);
-        const matchesSatuan =
-          filterSatuan.length === 0 || filterSatuan.includes(item.satuan);
-        const matchesHargaSatuan =
-          (filterHargaSatuanMin === "" ||
-            item.hargaSatuan >= filterHargaSatuanMin) &&
-          (filterHargaSatuanMax === "" ||
-            item.hargaSatuan <= filterHargaSatuanMax);
-        const matchesTotal =
-          (filterTotalMin === "" ||
-            item.hargaSatuan * item.jumlahPO >= filterTotalMin) &&
-          (filterTotalMax === "" ||
-            item.hargaSatuan * item.jumlahPO <= filterTotalMax);
-        const matchesKeterangan =
-          !filterKeterangan ||
-          (item.keterangan || "")
-            .toLowerCase()
-            .includes(filterKeterangan.toLowerCase());
+  // Tambahkan parser dan sorter PR (copy dari status/page.tsx)
+  function parseNoPR(noPR: string | null | undefined) {
+    if (!noPR || typeof noPR !== "string") return null;
+    const s = noPR.trim().toUpperCase();
+    const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+    const match = s.match(regex);
+    if (!match) return null;
+    const [, brand, tahun2, bulanRomawi, urutStr] = match;
+    const bulanMap: Record<string, number> = {
+      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+    };
+    const bulan = bulanMap[bulanRomawi] ?? 0;
+    const tahun = 2000 + parseInt(tahun2, 10);
+    const urut = parseInt(urutStr, 10);
+    return { tahun, bulan, urut, brand };
+  }
+  function sortPRListByNoPRDesc(poItems: any[]) {
+    const allValid = poItems.every((poItem) => typeof poItem.noPR === "string" && parseNoPR(poItem.noPR));
+    if (allValid) {
+      return [...poItems].sort((a, b) => {
+        const pa = parseNoPR(a.noPR)!;
+        const pb = parseNoPR(b.noPR)!;
+        if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
+        if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
+        return pb.urut - pa.urut;
+      });
+    }
+    return [...poItems];
+  }
 
-        return (
-          matchesNoPR &&
-          matchesNamaBarang &&
-          matchesQty &&
-          matchesSatuan &&
-          matchesHargaSatuan &&
-          matchesTotal &&
-          matchesKeterangan
-        );
-      }),
-    }))
-    .filter((poItem) => poItem.items.length > 0);
+  // Filtered PO items
+  const filteredPOItems = sortPRListByNoPRDesc(
+    poItems
+      .filter((poItem) => !userSkema || poItem.skema === userSkema) // <-- filter by skema
+      .map((poItem) => ({
+        ...poItem,
+        items: poItem.items.filter((item) => {
+          const matchesNoPR =
+            !filterNoPR ||
+            poItem.noPR.toLowerCase().includes(filterNoPR.toLowerCase());
+          const matchesNamaBarang =
+            !filterNamaBarang ||
+            item.namaBarang
+              .toLowerCase()
+              .includes(filterNamaBarang.toLowerCase());
+          const matchesQty =
+            (filterQtyMin === "" || item.jumlahPO >= filterQtyMin) &&
+            (filterQtyMax === "" || item.jumlahPO <= filterQtyMax);
+          const matchesSatuan =
+            filterSatuan.length === 0 || filterSatuan.includes(item.satuan);
+          const matchesHargaSatuan =
+            (filterHargaSatuanMin === "" ||
+              item.hargaSatuan >= filterHargaSatuanMin) &&
+            (filterHargaSatuanMax === "" ||
+              item.hargaSatuan <= filterHargaSatuanMax);
+          const matchesTotal =
+            (filterTotalMin === "" ||
+              item.hargaSatuan * item.jumlahPO >= filterTotalMin) &&
+            (filterTotalMax === "" ||
+              item.hargaSatuan * item.jumlahPO <= filterTotalMax);
+          const matchesKeterangan =
+            !filterKeterangan ||
+            (item.keterangan || "")
+              .toLowerCase()
+              .includes(filterKeterangan.toLowerCase());
+
+          return (
+            matchesNoPR &&
+            matchesNamaBarang &&
+            matchesQty &&
+            matchesSatuan &&
+            matchesHargaSatuan &&
+            matchesTotal &&
+            matchesKeterangan
+          );
+        }),
+      }))
+      .filter((poItem) => poItem.items.length > 0)
+  );
 
   // Flatten all items for pagination
   // const allFilteredItems = filteredPOItems.flatMap((poItem) =>
