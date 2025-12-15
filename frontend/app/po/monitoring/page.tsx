@@ -245,15 +245,15 @@ export default function MonitoringPOPage() {
         skemaRes,
         userRes, // <-- tambahkan fetch user
       ] = await Promise.all([
-        fetch("http://localhost:5000/api/po"),
-        fetch("http://localhost:5000/api/po-item"),
-        fetch("http://localhost:5000/api/pr-item"),
-        fetch("http://localhost:5000/api/pr"),
-        fetch("http://localhost:5000/api/supplier"),
-        fetch("http://localhost:5000/api/status-permintaan"),
-        fetch("http://localhost:5000/api/status-pengiriman"),
-        fetch("http://localhost:5000/api/skema"),
-        fetch("http://localhost:5000/api/user"), // <-- fetch user
+        fetch("http://192.168.10.10:5000/api/po"),
+        fetch("http://192.168.10.10:5000/api/po-item"),
+        fetch("http://192.168.10.10:5000/api/pr-item"),
+        fetch("http://192.168.10.10:5000/api/pr"),
+        fetch("http://192.168.10.10:5000/api/supplier"),
+        fetch("http://192.168.10.10:5000/api/status-permintaan"),
+        fetch("http://192.168.10.10:5000/api/status-pengiriman"),
+        fetch("http://192.168.10.10:5000/api/skema"),
+        fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
       ]);
 
       const [
@@ -600,7 +600,7 @@ export default function MonitoringPOPage() {
         if (mode === "restore") {
           // Ambil data PO item sebelum dihapus
           const poItemRes = await fetch(
-            `http://localhost:5000/api/po-item/${itemId}`
+            `http://192.168.10.10:5000/api/po-item/${itemId}`
           );
           if (!poItemRes.ok) continue;
           const poItem = await poItemRes.json();
@@ -612,7 +612,7 @@ export default function MonitoringPOPage() {
           } else if (poItem.id_PRItem) {
             // Fetch PR Item untuk dapatkan id_PR
             const prItemRes = await fetch(
-              `http://localhost:5000/api/pr-item/${poItem.id_PRItem}`
+              `http://192.168.10.10:5000/api/pr-item/${poItem.id_PRItem}`
             );
             if (prItemRes.ok) {
               const prItem = await prItemRes.json();
@@ -633,19 +633,19 @@ export default function MonitoringPOPage() {
         if (!itemId) continue;
         if (mode === "permanent") {
           // Hapus item PO secara permanen
-          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
+          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
         } else if (mode === "restore") {
           // --- RESTORE: Kembalikan item ke PR ---
           // Ambil data PO item
           const poItemRes = await fetch(
-            `http://localhost:5000/api/po-item/${itemId}`
+            `http://192.168.10.10:5000/api/po-item/${itemId}`
           );
           const poItem = await poItemRes.json();
 
           // Hapus item PO (cek error BTB)
-          const delRes = await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
+          const delRes = await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
           if (!delRes.ok) {
@@ -673,7 +673,7 @@ export default function MonitoringPOPage() {
           const prItemId = poItem.id_PRItem;
           // Cek apakah PRItem masih ada
           const prItemRes = await fetch(
-            `http://localhost:5000/api/pr-item/${prItemId}`
+            `http://192.168.10.10:5000/api/pr-item/${prItemId}`
           );
           let prItem = null;
           if (prItemRes.ok) {
@@ -681,7 +681,7 @@ export default function MonitoringPOPage() {
           }
           if (prItem && prItem.id_PRItem) {
             const newJumlah = Number(prItem.jumlah) + Number(poItem.jumlahPO);
-            await fetch(`http://localhost:5000/api/pr-item/${prItemId}`, {
+            await fetch(`http://192.168.10.10:5000/api/pr-item/${prItemId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -691,7 +691,7 @@ export default function MonitoringPOPage() {
             });
           } else {
             // PRItem sudah tidak ada, buat ulang
-            await fetch(`http://localhost:5000/api/pr-item`, {
+            await fetch(`http://192.168.10.10:5000/api/pr-item`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -715,12 +715,12 @@ export default function MonitoringPOPage() {
           // --- Tambahkan log sebelum fetch ---
           console.log("[DEBUG] Akan fetch PR untuk update status:", prId);
           // Ambil data PR lama
-          const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
+          const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
           if (prRes.ok) {
             const prData = await prRes.json();
             // Kirim semua field PR lama + status baru "Gantung"
             // Pastikan field status dikirim dan tidak kosong
-            await fetch(`http://localhost:5000/api/pr/${prId}`, {
+            await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -739,7 +739,7 @@ export default function MonitoringPOPage() {
         for (const poId of poIdsToCheck) {
           // Fetch semua item PO dari backend
           const poItemRes = await fetch(
-            `http://localhost:5000/api/po-item`
+            `http://192.168.10.10:5000/api/po-item`
           );
           if (poItemRes.ok) {
             const poItems = await poItemRes.json();
@@ -751,7 +751,7 @@ export default function MonitoringPOPage() {
             );
             if (itemsMasihAda.length === 0) {
               // Hapus PO dari backend
-              await fetch(`http://localhost:5000/api/po/${poId}`, {
+              await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
                 method: "DELETE",
               });
             }
@@ -1031,8 +1031,7 @@ export default function MonitoringPOPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PO");
 
-
-    // Header sesuai tampilan frontend (grouped)
+    // Header sesuai urutan tabel monitoring PO terbaru
     const headers = [
       "No. PO",
       "Daftar Barang",
@@ -1053,12 +1052,23 @@ export default function MonitoringPOPage() {
       "Status",
       "Skema",
     ];
+
+    // Add header row with bold font
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
+    // --- HELPER: format persen ---
+    function formatPersen(val: any) {
+      if (val === undefined || val === null || val === "") return "";
+      const num = Number(val);
+      if (isNaN(num)) return "";
+      return num % 1 === 0 ? `${num}%` : `${parseFloat(num.toFixed(2))}%`;
+    }
+
+    // Helper: format tanggal persis seperti frontend (tambah 2 hari, fallback jika gagal)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
       let dateObj;
@@ -1072,7 +1082,17 @@ export default function MonitoringPOPage() {
       return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl ?? "";
     }
 
-    // Gabungkan baris berdasarkan id/noPO
+    function formatQtyExcel(val: any) {
+      const num = Number(val);
+      if (Number.isNaN(num)) return "";
+      return num % 1 === 0 ? num.toString() : num.toString();
+    }
+    function formatRupiah(val: any) {
+      if (val === undefined || val === "" || isNaN(val)) return "";
+      return "Rp " + Number(val).toLocaleString("id-ID");
+    }
+
+    // Prepare and add data rows
     exportPOData.forEach((po) => {
       const allItems = po.poItems.flatMap((poItem) =>
         poItem.items.map((item) => ({
@@ -1082,38 +1102,36 @@ export default function MonitoringPOPage() {
       );
       if (allItems.length === 0) return;
 
-      allItems.forEach((item, idx) => {
+      allItems.forEach((item, index) => {
         worksheet.addRow([
-          idx === 0 ? po.noPO : "",
+          index === 0 ? po.noPO : "",
           item.namaBarang,
-          typeof item.jumlahAsli === "number" ? item.jumlahAsli : Number(item.jumlahAsli) || 0,
+          formatQtyExcel(item.jumlahAsli),
           item.satuan,
           item.keterangan || "",
-          typeof item.hargaSatuan === "number" ? item.hargaSatuan : Number(item.hargaSatuan) || 0,
-          typeof item.diskonPersen === "number" ? item.diskonPersen / 100 : Number(item.diskonPersen) / 100 || 0,
-          typeof item.diskonNominal === "number" ? item.diskonNominal : Number(item.diskonNominal) || 0,
-          typeof item.ppnItem === "number" ? item.ppnItem / 100 : Number(item.ppnItem) / 100 || 0,
-          typeof item.ppnAmount === "number" ? item.ppnAmount : Number(item.ppnAmount) || 0,
-          typeof item.totalPerItem === "number" ? item.totalPerItem : Number(item.totalPerItem) || 0,
-          idx === 0 ? (typeof po.totalPembayaran === "number" ? po.totalPembayaran : Number(po.totalPembayaran) || 0) : "",
-          idx === 0 ? po.orderedBy ?? "" : "",
-          idx === 0 ? allItems[0]?.namaPembeli ?? "" : "",
-          idx === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
-          idx === 0 ? po.statusPengiriman ?? "" : "",
-          idx === 0 ? po.status ?? "" : "",
-          idx === 0 ? skemaMap[String(po.skema)] ?? po.skema ?? "" : "",
+          formatRupiah(item.hargaSatuan),
+          formatPersenExcel(item.diskonPersen),
+          item.diskonNominal
+            ? `Rp ${Number(item.diskonNominal).toLocaleString("id-ID")}`
+            : "",
+          formatPersenExcel(item.ppnItem),
+          item.ppnAmount
+            ? `Rp ${Number(item.ppnAmount).toLocaleString("id-ID")}`
+            : "",
+          typeof item.totalPerItem !== "undefined" &&
+          item.totalPerItem !== null
+            ? `Rp ${Number(item.totalPerItem).toLocaleString("id-ID")}`
+            : "",
+          index === 0 ? formatRupiah(po.totalPembayaran) : "",
+          index === 0 ? po.orderedBy ?? "" : "",
+          // --- TAMBAHAN: Nama Pembeli (ambil dari item pertama saja) ---
+          index === 0 ? allItems[0]?.namaPembeli ?? "" : "",
+          index === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
+          index === 0 ? po.statusPengiriman ?? "" : "",
+          index === 0 ? po.status ?? "" : "",
+          index === 0 ? skemaMap[String(po.skema)] ?? po.skema ?? "" : "",
         ]);
       });
-    });
-
-    // Set number format for currency and percent columns
-    // Harga Satuan, Diskon (Rp), PPN (Rp), Total Per Item, Grand Total
-    [6,8,10,11,12].forEach((colIdx) => {
-      worksheet.getColumn(colIdx).numFmt = '#,##0';
-    });
-    // Diskon (%), PPN (%)
-    [7,9].forEach((colIdx) => {
-      worksheet.getColumn(colIdx).numFmt = '0%';
     });
 
     worksheet.columns.forEach((column) => {
@@ -1178,7 +1196,7 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        const res = await fetch(`http://localhost:5000/api/po/${id}`, {
+        const res = await fetch(`http://192.168.10.10:5000/api/po/${id}`, {
           method: "DELETE",
         });
         if (!res.ok) {

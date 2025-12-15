@@ -327,17 +327,17 @@ export default function RekapFullPage() {
         satuanRes,
         divisiRes,
       ] = await Promise.all([
-        fetch("http://localhost:5000/api/supplier").then((r) => r.json()),
-        fetch("http://localhost:5000/api/user").then((r) => r.json()),
-        fetch("http://localhost:5000/api/skema").then((r) => r.json()),
-        fetch("http://localhost:5000/api/status-pengiriman").then((r) =>
+        fetch("http://192.168.10.10:5000/api/supplier").then((r) => r.json()),
+        fetch("http://192.168.10.10:5000/api/user").then((r) => r.json()),
+        fetch("http://192.168.10.10:5000/api/skema").then((r) => r.json()),
+        fetch("http://192.168.10.10:5000/api/status-pengiriman").then((r) =>
           r.json()
         ),
-        fetch("http://localhost:5000/api/status-permintaan").then((r) =>
+        fetch("http://192.168.10.10:5000/api/status-permintaan").then((r) =>
           r.json()
         ),
-        fetch("http://localhost:5000/api/satuan").then((r) => r.json()),
-        fetch("http://localhost:5000/api/divisi").then((r) => r.json()),
+        fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
+        fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
       ]);
       setSupplierMap(
         Object.fromEntries(
@@ -398,14 +398,14 @@ export default function RekapFullPage() {
           bkbRes,
           bkbItemRes,
         ] = await Promise.all([
-          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
-          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://localhost:5000/api/po").then((r) => r.json()),
-          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
-          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
-          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
-          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
         ]);
 
         // Ensure data is in the correct array format
@@ -948,142 +948,80 @@ satuanPO: poItem?.id_satuan
       }
       return tgl;
     }
-    // Helper: parse number or empty string
-    function parseNumber(val: any) {
-      if (val === undefined || val === null || val === "") return "";
+    // Helper format quantity
+    function formatQtyExcel(val: any) {
       const num = Number(val);
-      return Number.isNaN(num) ? "" : num;
+      if (Number.isNaN(num)) return "";
+      return num % 1 === 0 ? num.toString() : num.toString();
+    }
+    // Helper format rupiah
+    function formatRupiahFull(val: any) {
+      if (val === undefined || val === "" || isNaN(val)) return "";
+      return "Rp. " + Number(val).toLocaleString("id-ID");
     }
 
-    // Group exportData by PR (Periode, No. PR, Tanggal PR, Hari, Divisi, Dibuat Oleh, Target Tanggal PO, Status)
-    const groupKeys = [
-      "periodePR",
-      "noPR",
-      "tanggalPR",
-      "hariPR",
-      "divisi",
-      "dibuatOleh",
-      "targetTanggalPO",
-      "status"
-    ];
-    // Group rows by the above keys
-    const grouped = {};
+    // Add data rows persis seperti tampilan tabel
     exportData.forEach((row) => {
-      const groupId = groupKeys.map((k) => row[k]).join("||");
-      if (!grouped[groupId]) grouped[groupId] = [];
-      grouped[groupId].push(row);
-    });
-
-    Object.values(grouped).forEach((rows) => {
-      rows.forEach((row, idx) => {
-        worksheet.addRow(
-          columns.map((col) => {
-            // If this column is a group column and not the first row in group, return empty string
-            if (groupKeys.includes(col.key) && idx > 0) return "";
-            // Format tanggal
-            if (
-              [
-                "tanggalPR",
-                "tanggalPO",
-                "tanggalEstimasiDiterima",
-                "tanggalBTB",
-                "tanggalBKB",
-                "targetTanggalPO",
-              ].includes(col.key)
-            ) {
-              return formatTanggalExcel(row[col.key], col.key);
-            }
-            // Format quantity (as number)
-            if (
-              [
-                "quantityAwalPR",
-                "quantityPR",
-                "quantityPO",
-                "quantityBTB",
-                "sisaStokBTB",
-                "quantityAwalPO",
-              ].includes(col.key)
-            ) {
-              return parseNumber(row[col.key]);
-            }
-            // Format harga satuan, total, biaya, diskon, ppn (as number)
-            if (
-              [
-                "hargaSatuanPO",
-                "totalHarga",
-                "biayaBTB",
-                "diskonRp",
-                "ppnRp",
-              ].includes(col.key)
-            ) {
-              return parseNumber(row[col.key]);
-            }
-            // Format diskon persen, ppn persen (as number, not string with %)
-            if (["diskonPersen", "ppnPersen"].includes(col.key)) {
-              if (row[col.key] && typeof row[col.key] === "string") {
-                const num = Number(row[col.key].replace("%", "").trim());
-                return Number.isNaN(num) ? "" : num / 100;
-              }
-              return parseNumber(row[col.key]);
-            }
-            // Skema kolom: tampilkan label jika ada
-            if (col.key === "skemaPR") {
-              return row.skemaPRLabel ?? row.skemaPR ?? "";
-            }
-            if (col.key === "skemaPO") {
-              return row.skemaPO ?? "";
-            }
-            if (col.key === "skemaBTB") {
-              return row.skemaBTB ?? "";
-            }
-            if (col.key === "skemaBKB") {
-              return row.skemaBKB ?? "";
-            }
-            // Keterangan: potong 20 karakter
-            if (
-              col.key === "keteranganPR" ||
-              col.key === "keteranganPO" ||
-              col.key === "keteranganBKB"
-            ) {
-              return typeof row[col.key] === "string" && row[col.key].length > 20
-                ? row[col.key].slice(0, 20) + "..."
-                : row[col.key];
-            }
-            return row[col.key];
-          })
-        );
-      });
-    });
-
-    // Set Excel number format for relevant columns
-    columns.forEach((col, idx) => {
-      const colIdx = idx + 1;
-      if (
-        [
-          "hargaSatuanPO",
-          "totalHarga",
-          "biayaBTB",
-          "diskonRp",
-          "ppnRp",
-        ].includes(col.key)
-      ) {
-        worksheet.getColumn(colIdx).numFmt = '#,##0';
-      }
-      if (
-        [
-          "quantityAwalPR",
-          "quantityPR",
-          "quantityPO",
-          "quantityBTB",
-          "sisaStokBTB",
-          "quantityAwalPO",
-        ].includes(col.key)
-      ) {
-        worksheet.getColumn(colIdx).numFmt = '#,##0';
-      }
-      if (["diskonPersen", "ppnPersen"].includes(col.key)) {
-        worksheet.getColumn(colIdx).numFmt = '0.00%';
-      }
+      worksheet.addRow(
+        columns.map((col) => {
+          // Format tanggal
+          if (
+            [
+              "tanggalPR",
+              "tanggalPO",
+              "tanggalEstimasiDiterima",
+              "tanggalBTB",
+              "tanggalBKB",
+              "targetTanggalPO",
+            ].includes(col.key)
+          ) {
+            return formatTanggalExcel(row[col.key], col.key);
+          }
+          // Format quantity
+          if (
+            [
+              "quantityAwalPR",
+              "quantityPR",
+              "quantityPO",
+              "quantityBTB",
+              "sisaStokBTB",
+              "quantityAwalPO", // <--- pastikan formatInt juga untuk kolom baru
+            ].includes(col.key)
+          ) {
+            return formatInt(row[col.key]);
+          }
+          // Format rupiah
+          if (
+            ["biayaBTB", "totalHarga", "ppnRp", "diskonRp"].includes(col.key)
+          ) {
+            return formatRupiahFull(row[col.key]);
+          }
+          // Skema kolom: tampilkan label jika ada
+          if (col.key === "skemaPR") {
+            return row.skemaPRLabel ?? row.skemaPR ?? "";
+          }
+          if (col.key === "skemaPO") {
+            return row.skemaPO ?? "";
+          }
+          if (col.key === "skemaBTB") {
+            return row.skemaBTB ?? "";
+          }
+          if (col.key === "skemaBKB") {
+            return row.skemaBKB ?? "";
+          }
+          // Keterangan: potong 20 karakter
+          if (
+            col.key === "keteranganPR" ||
+            col.key === "keteranganPO" ||
+            col.key === "keteranganBKB"
+          ) {
+            return typeof row[col.key] === "string" && row[col.key].length > 20
+              ? row[col.key].slice(0, 20) + "..."
+              : row[col.key];
+          }
+          return row[col.key];
+        })
+      );
     });
 
     // Autofit columns

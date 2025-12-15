@@ -151,16 +151,16 @@ export default function MonitoringPRPage() {
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
-    fetch("http://localhost:5000/api/divisi")
+    fetch("http://192.168.10.10:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://localhost:5000/api/urgensi")
+    fetch("http://192.168.10.10:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://localhost:5000/api/satuan")
+    fetch("http://192.168.10.10:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
-    fetch("http://localhost:5000/api/skema")
+    fetch("http://192.168.10.10:5000/api/skema")
       .then((res) => res.json())
       .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -202,9 +202,9 @@ export default function MonitoringPRPage() {
   ]);
 
   const loadPRData = async () => {
-    const prRes = await fetch("http://localhost:5000/api/pr");
+    const prRes = await fetch("http://192.168.10.10:5000/api/pr");
     const prList = await prRes.json();
-    const prItemRes = await fetch("http://localhost:5000/api/pr-item");
+    const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
     const prItemList = await prItemRes.json();
 
     // LOG: Tampilkan tanggalPR yang diterima dari backend
@@ -280,7 +280,7 @@ export default function MonitoringPRPage() {
         pr.items.every((item: any) => Number(item.jumlah) === 0)
       ) {
         // Update status ke "Diproses"
-        await fetch(`http://localhost:5000/api/pr/${pr.id}`, {
+        await fetch(`http://192.168.10.10:5000/api/pr/${pr.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -372,7 +372,7 @@ export default function MonitoringPRPage() {
         }
         console.log("Deleting PR Item id_PRItem:", idToDelete);
         const resp = await fetch(
-          `http://localhost:5000/api/pr-item/${idToDelete}`,
+          `http://192.168.10.10:5000/api/pr-item/${idToDelete}`,
           {
             method: "DELETE",
           }
@@ -401,7 +401,7 @@ export default function MonitoringPRPage() {
     try {
       let anyError = false;
       for (const id of deleteIds) {
-        const resp = await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
+        const resp = await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
         const respJson = await resp.json().catch(() => ({}));
         if (!resp.ok) {
           // Show backend error message if PR cannot be deleted
@@ -411,7 +411,7 @@ export default function MonitoringPRPage() {
           anyError = true;
           continue;
         }
-        await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
+        await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
           method: "DELETE",
         });
       }
@@ -1989,7 +1989,7 @@ function DeleteItemModal({
 const updatePRStatusToBackend = async (prId: string) => {
   // Ambil semua item PR dari backend
   const prItemsRes = await fetch(
-    `http://localhost:5000/api/pr-item/pr/${prId}`
+    `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
   );
   const prItems = prItemsRes.ok ? await prItemsRes.json() : [];
 
@@ -2019,10 +2019,10 @@ const updatePRStatusToBackend = async (prId: string) => {
   }
 
   // Ambil data PR lama
-  const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
+  const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
   if (prRes.ok) {
     const prData = await prRes.json();
-    await fetch(`http://localhost:5000/api/pr/${prId}`, {
+    await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

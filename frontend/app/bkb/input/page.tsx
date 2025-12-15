@@ -138,12 +138,12 @@ export default function BKBInputPage() {
       try {
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, divisiRes] =
           await Promise.all([
-            fetch("http://localhost:5000/api/btb"),
-            fetch("http://localhost:5000/api/btb-item"),
-            fetch("http://localhost:5000/api/user"),
-            fetch("http://localhost:5000/api/skema"),
-            fetch("http://localhost:5000/api/satuan"),
-            fetch("http://localhost:5000/api/divisi"), // fetch divisi
+            fetch("http://192.168.10.10:5000/api/btb"),
+            fetch("http://192.168.10.10:5000/api/btb-item"),
+            fetch("http://192.168.10.10:5000/api/user"),
+            fetch("http://192.168.10.10:5000/api/skema"),
+            fetch("http://192.168.10.10:5000/api/satuan"),
+            fetch("http://192.168.10.10:5000/api/divisi"), // fetch divisi
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -213,16 +213,16 @@ export default function BKBInputPage() {
     fetchBTBData();
 
     // Ambil data PR, PO, PO Item, PR Item dari backend
-    fetch("http://localhost:5000/api/pr")
+    fetch("http://192.168.10.10:5000/api/pr")
       .then((res) => res.json())
       .then((data) => setPrList(data));
-    fetch("http://localhost:5000/api/po")
+    fetch("http://192.168.10.10:5000/api/po")
       .then((res) => res.json())
       .then((data) => setPoList(data));
-    fetch("http://localhost:5000/api/po-item")
+    fetch("http://192.168.10.10:5000/api/po-item")
       .then((res) => res.json())
       .then((data) => setPoItemList(data));
-    fetch("http://localhost:5000/api/pr-item")
+    fetch("http://192.168.10.10:5000/api/pr-item")
       .then((res) => res.json())
       .then((data) => setPrItemList(data));
   }, []);
@@ -491,13 +491,13 @@ export default function BKBInputPage() {
     };
 
     // --- Tambahkan console log sebelum fetch ---
-    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", "http://localhost:5000/api/bkb/full");
+    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", "http://192.168.10.10:5000/api/bkb/full");
     console.log("BKB SUBMIT: id_btb yang dikirim:", id_btb);
     console.log("BKB SUBMIT: payload:", payload);
 
     try {
       // Kirim ke endpoint /api/bkb/full agar backend insert bkb + bkb_item sekaligus
-      const res = await fetch("http://localhost:5000/api/bkb/full", {
+      const res = await fetch("http://192.168.10.10:5000/api/bkb/full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
