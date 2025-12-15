@@ -159,12 +159,13 @@ export default function InputPOPage() {
   function sortPRListByNoPRDesc(poItems: any[]) {
     const allValid = poItems.every((poItem) => typeof poItem.noPR === "string" && parseNoPR(poItem.noPR));
     if (allValid) {
+      // Urutkan dari terlama ke terbaru (tahun, bulan, urut ASC)
       return [...poItems].sort((a, b) => {
         const pa = parseNoPR(a.noPR)!;
         const pb = parseNoPR(b.noPR)!;
-        if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
-        if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
-        return pb.urut - pa.urut;
+        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+        return pa.urut - pb.urut;
       });
     }
     return [...poItems];
