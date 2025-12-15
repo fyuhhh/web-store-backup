@@ -1031,7 +1031,8 @@ export default function MonitoringPOPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PO");
 
-    // Header sesuai urutan tabel monitoring PO terbaru
+
+    // Header sesuai tampilan frontend (grouped)
     const headers = [
       "No. PO",
       "Daftar Barang",
@@ -1052,23 +1053,12 @@ export default function MonitoringPOPage() {
       "Status",
       "Skema",
     ];
-
-    // Add header row with bold font
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // --- HELPER: format persen ---
-    function formatPersen(val: any) {
-      if (val === undefined || val === null || val === "") return "";
-      const num = Number(val);
-      if (isNaN(num)) return "";
-      return num % 1 === 0 ? `${num}%` : `${parseFloat(num.toFixed(2))}%`;
-    }
-
-    // Helper: format tanggal persis seperti frontend (tambah 2 hari, fallback jika gagal)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
       let dateObj;
@@ -1082,17 +1072,7 @@ export default function MonitoringPOPage() {
       return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl ?? "";
     }
 
-    function formatQtyExcel(val: any) {
-      const num = Number(val);
-      if (Number.isNaN(num)) return "";
-      return num % 1 === 0 ? num.toString() : num.toString();
-    }
-    function formatRupiah(val: any) {
-      if (val === undefined || val === "" || isNaN(val)) return "";
-      return "Rp " + Number(val).toLocaleString("id-ID");
-    }
-
-    // Prepare and add data rows
+    // Gabungkan baris berdasarkan id/noPO
     exportPOData.forEach((po) => {
       const allItems = po.poItems.flatMap((poItem) =>
         poItem.items.map((item) => ({
@@ -1102,36 +1082,38 @@ export default function MonitoringPOPage() {
       );
       if (allItems.length === 0) return;
 
-      allItems.forEach((item, index) => {
+      allItems.forEach((item, idx) => {
         worksheet.addRow([
-          index === 0 ? po.noPO : "",
+          idx === 0 ? po.noPO : "",
           item.namaBarang,
-          formatQtyExcel(item.jumlahAsli),
+          typeof item.jumlahAsli === "number" ? item.jumlahAsli : Number(item.jumlahAsli) || 0,
           item.satuan,
           item.keterangan || "",
-          formatRupiah(item.hargaSatuan),
-          formatPersenExcel(item.diskonPersen),
-          item.diskonNominal
-            ? `Rp ${Number(item.diskonNominal).toLocaleString("id-ID")}`
-            : "",
-          formatPersenExcel(item.ppnItem),
-          item.ppnAmount
-            ? `Rp ${Number(item.ppnAmount).toLocaleString("id-ID")}`
-            : "",
-          typeof item.totalPerItem !== "undefined" &&
-          item.totalPerItem !== null
-            ? `Rp ${Number(item.totalPerItem).toLocaleString("id-ID")}`
-            : "",
-          index === 0 ? formatRupiah(po.totalPembayaran) : "",
-          index === 0 ? po.orderedBy ?? "" : "",
-          // --- TAMBAHAN: Nama Pembeli (ambil dari item pertama saja) ---
-          index === 0 ? allItems[0]?.namaPembeli ?? "" : "",
-          index === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
-          index === 0 ? po.statusPengiriman ?? "" : "",
-          index === 0 ? po.status ?? "" : "",
-          index === 0 ? skemaMap[String(po.skema)] ?? po.skema ?? "" : "",
+          typeof item.hargaSatuan === "number" ? item.hargaSatuan : Number(item.hargaSatuan) || 0,
+          typeof item.diskonPersen === "number" ? item.diskonPersen / 100 : Number(item.diskonPersen) / 100 || 0,
+          typeof item.diskonNominal === "number" ? item.diskonNominal : Number(item.diskonNominal) || 0,
+          typeof item.ppnItem === "number" ? item.ppnItem / 100 : Number(item.ppnItem) / 100 || 0,
+          typeof item.ppnAmount === "number" ? item.ppnAmount : Number(item.ppnAmount) || 0,
+          typeof item.totalPerItem === "number" ? item.totalPerItem : Number(item.totalPerItem) || 0,
+          idx === 0 ? (typeof po.totalPembayaran === "number" ? po.totalPembayaran : Number(po.totalPembayaran) || 0) : "",
+          idx === 0 ? po.orderedBy ?? "" : "",
+          idx === 0 ? allItems[0]?.namaPembeli ?? "" : "",
+          idx === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
+          idx === 0 ? po.statusPengiriman ?? "" : "",
+          idx === 0 ? po.status ?? "" : "",
+          idx === 0 ? skemaMap[String(po.skema)] ?? po.skema ?? "" : "",
         ]);
       });
+    });
+
+    // Set number format for currency and percent columns
+    // Harga Satuan, Diskon (Rp), PPN (Rp), Total Per Item, Grand Total
+    [6,8,10,11,12].forEach((colIdx) => {
+      worksheet.getColumn(colIdx).numFmt = '#,##0';
+    });
+    // Diskon (%), PPN (%)
+    [7,9].forEach((colIdx) => {
+      worksheet.getColumn(colIdx).numFmt = '0%';
     });
 
     worksheet.columns.forEach((column) => {

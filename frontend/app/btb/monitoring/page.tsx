@@ -541,33 +541,33 @@ export default function BTBMonitoringPage() {
   };
 
   // Export Excel function
+
   const handleExport = async () => {
     const exportBTBData = getExportData();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring BTB");
 
-    // Header sesuai urutan tabel monitoring BTB
+    // Header sesuai tampilan frontend
     const headers = [
       "No. BTB",
       "Tanggal BTB",
       "Nama Supplier",
       "Nama Barang",
-      "Quantity",
+      "Quantity Awal BTB",
+      "Quantity Sisa BTB",
       "Satuan",
-      "Sisa Stok",
+      "Keterangan",
       "Biaya",
       "Diterima Oleh",
       "Skema",
+      "Status",
     ];
-
-    // Add header row
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper format tanggal persis seperti frontend (formatTanggalLebihSehari)
     function formatTanggalLebihSehari(tgl: string) {
       if (!tgl) return "-";
       let dateObj;
@@ -580,32 +580,42 @@ export default function BTBMonitoringPage() {
       }
       return dateObj.format("DD-MM-YYYY");
     }
-    // Helper format quantity
-    function formatQtyExcel(val: any) {
-      const num = Number(val);
-      if (Number.isNaN(num)) return "";
-      return num % 1 === 0 ? num.toString() : num.toString();
-    }
-    // Helper format rupiah
     function formatRupiahExcel(val: any) {
       if (val === undefined || val === "" || isNaN(val)) return "";
-      return "Rp " + Math.round(Number(val)).toLocaleString("id-ID"); // <-- pastikan integer
+      return "Rp " + Math.round(Number(val)).toLocaleString("id-ID");
     }
 
-    // Add data rows persis seperti tampilan tabel
-    exportBTBData.forEach((btb) => {
-      worksheet.addRow([
-        btb.noBTB,
-        formatTanggalLebihSehari(btb.tanggal), // <-- samakan dengan frontend
-        btb.nama_supplier ?? btb.supplier ?? "",
-        btb.nama_barang ?? "",
-        formatQtyExcel(btb.jumlah),
-        btb.satuan ?? "",
-        formatQtyExcel(btb.sisa),
-        formatRupiahExcel(btb.biaya),
-        userMap[String(btb.diterimaOleh)] ?? btb.diterimaOleh ?? "",
-        skemaMap[String(btb.skema)] ?? btb.skema ?? "",
-      ]);
+    // Gabungkan baris berdasarkan id_btb
+    const grouped = {};
+    exportBTBData.forEach((row) => {
+      const key = row.id_btb || row.id;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
+    });
+
+    Object.values(grouped).forEach((rows: any[]) => {
+      const first = rows[0];
+      const status = rows.every((item) => Number(item.sisa) === 0) ? "Closed" : "Open";
+      rows.forEach((item, idx) => {
+        worksheet.addRow([
+          idx === 0 ? first.noBTB : "",
+          idx === 0 ? formatTanggalLebihSehari(first.tanggal) : "",
+          idx === 0 ? (first.nama_supplier ?? first.supplier ?? "") : "",
+          item.nama_barang ?? "",
+          typeof item.jumlah === "number" ? item.jumlah : Number(item.jumlah) || 0,
+          typeof item.sisa === "number" ? item.sisa : Number(item.sisa) || 0,
+          item.satuan ?? "",
+          item.keterangan ?? "",
+          idx === 0 ? (typeof first.biaya === "number" ? first.biaya : Number(first.biaya) || 0) : "",
+          idx === 0 ? (userMap[String(first.diterimaOleh)] ?? first.diterimaOleh ?? "") : "",
+          idx === 0 ? (skemaMap[String(first.skema)] ?? first.skema ?? "") : "",
+          idx === 0 ? status : "",
+        ]);
+      });
+      // Set number format for quantity, sisa, biaya columns
+      worksheet.getColumn(5).numFmt = '#,##0';
+      worksheet.getColumn(6).numFmt = '#,##0';
+      worksheet.getColumn(9).numFmt = '#,##0';
     });
 
     // Auto-fit columns based on max length of cell values

@@ -726,7 +726,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PR");
 
-    // Header sesuai urutan tabel monitoring PR
+    // Header sesuai tampilan frontend (grouped)
     const headers = [
       "No. PR",
       "Tanggal PR",
@@ -740,15 +740,12 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
       "Dibuat Oleh",
       "Skema",
     ];
-
-    // Add header row with bold font
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper format tanggal persis seperti frontend (tambah 1 hari)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
       let dateObj;
@@ -761,31 +758,30 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
       }
       return dateObj.format("DD-MM-YYYY");
     }
-    // Helper format quantity
     function formatQtyExcel(val: any) {
       const num = Number(val);
-      if (Number.isNaN(num)) return "";
-      return num % 1 === 0 ? num.toString() : num.toString();
+      if (Number.isNaN(num)) return 0;
+      return num;
     }
 
-    // Prepare and add data rows persis seperti tampilan tabel
+    // Gabungkan baris berdasarkan id/noPR
     exportPRData.forEach((pr) => {
       const validItems = pr.items?.filter((item) => item.jumlah > 0) || [];
       if (validItems.length > 0) {
-        validItems.forEach((item, index) => {
+        validItems.forEach((item, idx) => {
           worksheet.addRow([
-            index === 0 ? pr.noPR : "",
-            index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
+            idx === 0 ? pr.noPR : "",
+            idx === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
             item.namaBarang,
             formatQtyExcel(item.jumlah),
             formatQtyExcel(item.quantityAwalPR),
             item.satuan,
             item.keterangan || "",
-            index === 0 ? pr.urgensi : "",
-            index === 0 ? pr.divisi : "",
-            index === 0 ? pr.status : "",
-            index === 0 ? pr.dibuatOleh : "",
-            index === 0
+            idx === 0 ? pr.urgensi : "",
+            idx === 0 ? pr.divisi : "",
+            idx === 0 ? pr.status : "",
+            idx === 0 ? pr.dibuatOleh : "",
+            idx === 0
               ? skemaOptions.find(
                   (s) => String(s.id_skema) === String(pr.skema)
                 )?.skema ??
@@ -796,7 +792,6 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
           ]);
         });
       } else {
-        // Handle PR tanpa item
         worksheet.addRow([
           pr.noPR,
           formatTanggalExcel(pr.tanggalPR),
@@ -817,6 +812,10 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
         ]);
       }
     });
+
+    // Set number format for quantity columns
+    worksheet.getColumn(4).numFmt = '#,##0';
+    worksheet.getColumn(5).numFmt = '#,##0';
 
     // Auto-fit columns based on max length of cell values
     worksheet.columns.forEach((column) => {

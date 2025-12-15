@@ -336,7 +336,7 @@ export default function BKBMonitoringPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring BKB");
 
-    // Header sesuai urutan tabel monitoring BKB
+    // Header sesuai tampilan frontend (grouped)
     const headers = [
       "No. BKB",
       "Tanggal BKB",
@@ -349,48 +349,55 @@ export default function BKBMonitoringPage() {
       "Divisi",
       "Refrensi Nomor PR",
     ];
-
-    // Add header row
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
-    // Helper format tanggal ke dd-mm-yyyy
     function formatTanggalExcel(tgl: string | null | undefined) {
       if (!tgl) return "";
       const [date] = tgl.split("T");
       const [y, m, d] = date.split("-");
       return y && m && d ? `${d}-${m}-${y}` : tgl;
     }
-    // Helper format quantity
     function formatQtyExcel(val: any) {
       const num = Number(val);
       if (Number.isNaN(num)) return "";
       return num % 1 === 0 ? num.toString() : num.toString();
     }
 
-    // Add data rows persis seperti tampilan tabel
+    // Gabungkan baris berdasarkan id_bkb/noBKB
+    const grouped = {};
     exportBKBData.forEach((row) => {
-      // Keterangan pendek (maks 20 karakter, sama seperti tampilan tabel)
-      const ket = row.keterangan ?? "";
-      const ketShort = ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
-      worksheet.addRow([
-        row.noBKB,
-        formatTanggalExcel(row.tanggalBKB),
-        row.namaBarang,
-        formatQtyExcel(row.quantity),
-        row.satuan ?? "",
-        ketShort,
-        userMap[String(row.dikeluarkanOleh)] ?? row.dikeluarkanOleh ?? "",
-        skemaMap[String(row.skema)] ?? row.skema ?? "",
-        row.divisi || "-", // <-- gunakan langsung row.divisi
-        row.noPR || "-",
-      ]);
+      const key = row.id_bkb || row.noBKB || row.id;
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(row);
     });
 
-    // Auto-fit columns based on max length of cell values
+    Object.values(grouped).forEach((rows: any[]) => {
+      const first = rows[0];
+      rows.forEach((item, idx) => {
+        const ket = item.keterangan ?? "";
+        const ketShort = ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
+        worksheet.addRow([
+          idx === 0 ? first.noBKB : "",
+          idx === 0 ? formatTanggalExcel(first.tanggalBKB) : "",
+          item.namaBarang,
+          typeof item.quantity === "number" ? item.quantity : Number(item.quantity) || 0,
+          item.satuan ?? "",
+          ketShort,
+          idx === 0 ? (userMap[String(first.dikeluarkanOleh)] ?? first.dikeluarkanOleh ?? "") : "",
+          idx === 0 ? (skemaMap[String(first.skema)] ?? first.skema ?? "") : "",
+          idx === 0 ? (first.divisi || "-") : "",
+          idx === 0 ? (first.noPR || "-") : "",
+        ]);
+      });
+      // Set number format for quantity column
+      worksheet.getColumn(4).numFmt = '#,##0';
+    });
+
+    // auto fit kolom untuk best value
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
       column.eachCell({ includeEmpty: true }, (cell) => {
