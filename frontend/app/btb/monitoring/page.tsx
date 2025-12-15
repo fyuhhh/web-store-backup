@@ -1251,7 +1251,7 @@ export default function BTBMonitoringPage() {
                     </TableCell>
                     {/* Tanggal BTB - rowSpan */}
                     <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                      {items[0].tanggal}
+                      {formatTanggalLebihSehari(items[0].tanggal)}
                     </TableCell>
                     {/* Nama Supplier - rowSpan */}
                     <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
@@ -1367,6 +1367,11 @@ export default function BTBMonitoringPage() {
                           </span>
                         ) : "-"}
                       </TableCell>
+                      {/* Jika ingin tampilkan tanggal di baris item, tambahkan di sini:
+                      <TableCell className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                        {formatTanggalLebihSehari(item.tanggal)}
+                      </TableCell>
+                      */}
                     </TableRow>
                   ))}
                 </React.Fragment>

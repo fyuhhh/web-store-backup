@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 09, 2025 at 07:33 AM
+-- Generation Time: Dec 15, 2025 at 02:05 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -48,10 +48,7 @@ CREATE TABLE `bkb` (
 --
 
 INSERT INTO `bkb` (`id_bkb`, `no_bkb`, `tanggal_bkb`, `id_btb`, `keterangan`, `dibuat_oleh`, `dikeluarkan_oleh`, `skema`, `created_at`, `id_skema`, `refrensiNoPr`, `diterima_oleh`, `divisi`) VALUES
-(56, 'aa', '2025-12-18', 130, '', 89, 89, NULL, '2025-12-05 17:45:43', 2, 'PR-1234', 'aaa', '4'),
-(57, '123', '2025-12-18', 130, 'bismillah', 89, 89, NULL, '2025-12-08 09:29:39', 2, 'PR-1234', 'wahyu', '4'),
-(58, '123', '2025-12-18', 130, 'bismillah', 89, 89, NULL, '2025-12-08 09:34:53', 2, 'PR-1234', 'wahyu', 'Customer Service'),
-(59, 'aaa', '2025-12-18', 130, 'bismillah', 89, 89, NULL, '2025-12-08 10:21:56', 2, 'PR-1234', 'wahyu', 'Customer Service');
+(62, 'BKB TEST', '2025-12-17', 131, 'Final', 89, 89, NULL, '2025-12-09 15:01:20', 2, 'Pr test', 'Dimas', 'Tenant Relation');
 
 -- --------------------------------------------------------
 
@@ -71,6 +68,15 @@ CREATE TABLE `bkb_item` (
   `keterangan` text DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `bkb_item`
+--
+
+INSERT INTO `bkb_item` (`id_bkb_item`, `id_bkb`, `id_btb_item`, `nama_barang`, `jumlah_keluar`, `satuan`, `id_satuan`, `sisa_btb`, `keterangan`, `created_at`) VALUES
+(84, 62, 169, 'Barang 1', 10.00, NULL, 1, 0.00, 'Final', '2025-12-09 15:01:20'),
+(85, 62, 170, 'Barang 2', 15.00, NULL, 1, 0.00, 'Final', '2025-12-09 15:01:20'),
+(86, 62, 171, 'Barang 3', 20.00, NULL, 1, 0.00, 'Final', '2025-12-09 15:01:20');
 
 -- --------------------------------------------------------
 
@@ -100,7 +106,7 @@ CREATE TABLE `btb` (
 --
 
 INSERT INTO `btb` (`id_btb`, `no_btb`, `tanggal_btb`, `periode`, `id_po`, `id_supplier`, `nama_supplier`, `id_user`, `id_skema`, `biaya`, `diterima_oleh`, `tanggal_diterima`, `created_at`, `status`) VALUES
-(130, 'BTB/123456789111', '2025-10-21', NULL, 214, 1, 'Tanjung Jaya', 89, 2, 350000.00, '89', NULL, '2025-12-05 17:18:41', 'draft');
+(131, 'BTB TST', '2025-12-09', NULL, 215, 1, 'Tanjung Jaya', 89, 2, 3816000.00, '89', NULL, '2025-12-09 14:59:54', 'draft');
 
 -- --------------------------------------------------------
 
@@ -125,9 +131,9 @@ CREATE TABLE `btb_item` (
 --
 
 INSERT INTO `btb_item` (`id_btb_item`, `id_btb`, `id_POItem`, `nama_barang`, `jumlah_diterima`, `id_satuan`, `keterangan`, `qty_sisa`, `created_at`) VALUES
-(166, 130, 322, 'Barang 1', 100.00, 1, 'Ini adalah barang ke 1', 100.00, '2025-12-05 17:18:41'),
-(167, 130, 323, 'Barang 2', 150.00, 1, 'Ini adalah barang ke 2', 150.00, '2025-12-05 17:18:41'),
-(168, 130, 324, 'Barang 3', 100.00, 2, 'Ini adalah barang ke 3', 100.00, '2025-12-05 17:18:41');
+(169, 131, 325, 'Barang 1', 10.00, 1, 'AA', 0.00, '2025-12-09 14:59:54'),
+(170, 131, 326, 'Barang 2', 15.00, 1, 'BB', 0.00, '2025-12-09 14:59:54'),
+(171, 131, 327, 'Barang 3', 20.00, 1, 'CC', 0.00, '2025-12-09 14:59:54');
 
 -- --------------------------------------------------------
 
@@ -228,7 +234,7 @@ CREATE TABLE `po` (
 --
 
 INSERT INTO `po` (`id_PO`, `noPO`, `tanggalPO`, `id_supplier`, `diskon`, `originalDiskon`, `ppn`, `ppnAmount`, `totalPembayaran`, `orderedBy`, `estimasiTanggalTerima`, `id_statusPengiriman`, `id_statusPermintaan`, `status`, `createdAt`, `id_skema`) VALUES
-(214, 'PO/2024/001', '2025-12-04', 1, 0.00, 0.00, 0.00, 0.00, 350000.00, 89, '2025-09-29', 1, NULL, 'Menunggu', '2025-12-05 09:18:29', 2);
+(215, 'POTEST', '2025-12-11', 1, 0.00, 570000.00, 0.00, 486000.00, 3816000.00, 89, '2025-12-11', 1, NULL, 'Menunggu', '2025-12-09 06:58:48', 2);
 
 -- --------------------------------------------------------
 
@@ -258,9 +264,9 @@ CREATE TABLE `po_item` (
 --
 
 INSERT INTO `po_item` (`id_POItem`, `id_PO`, `id_PRItem`, `hargaSatuan`, `jumlahPO`, `jumlahAsli`, `diskonPersen`, `diskonRupiah`, `ppnPersen`, `ppnRupiah`, `totalPerItem`, `namaPembeli`, `keterangan`, `id_satuan`) VALUES
-(322, 214, 347, 1000.00, 0, 100, 0.00, 0.00, 0.00, 0.00, 100000.00, 'Dimas', 'Ini adalah barang ke 1', NULL),
-(323, 214, 348, 1000.00, 0, 150, 0.00, 0.00, 0.00, 0.00, 150000.00, 'Dimas', 'Ini adalah barang ke 2', NULL),
-(324, 214, 349, 1000.00, 0, 100, 0.00, 0.00, 0.00, 0.00, 100000.00, 'Dimas', 'Ini adalah barang ke 3', NULL);
+(325, 215, 353, 15000.00, 0, 10, 10.00, 15000.00, 10.00, 13500.00, 148500.00, 'Dimas', 'AA', NULL),
+(326, 215, 354, 10000.00, 0, 15, 10.00, 15000.00, 10.00, 13500.00, 148500.00, 'Dimas', 'BB', NULL),
+(327, 215, 355, 180000.00, 0, 20, 15.00, 540000.00, 15.00, 459000.00, 3519000.00, 'Dimas', 'CC', NULL);
 
 -- --------------------------------------------------------
 
@@ -285,8 +291,7 @@ CREATE TABLE `pr` (
 --
 
 INSERT INTO `pr` (`id_PR`, `noPR`, `tanggalPR`, `id_divisi`, `id_urgensi`, `status`, `dibuatOleh`, `id_skema`, `createdAt`) VALUES
-(262, 'PR-1234', '2025-12-01', 4, 2, 'Menunggu', 'ewalk', 2, '2025-12-04 17:17:55'),
-(263, 'PR-1234', '2025-12-01', 5, 3, 'Menunggu', 'ewalk', 2, '2025-12-07 18:32:51');
+(265, 'Pr test', '2025-12-09', 27, 2, 'Menunggu', 'ewalk', 2, '2025-12-08 14:57:13');
 
 -- --------------------------------------------------------
 
@@ -310,11 +315,9 @@ CREATE TABLE `pr_item` (
 --
 
 INSERT INTO `pr_item` (`id_PRItem`, `id_PR`, `namaBarang`, `jumlah`, `originalJumlah`, `quantityAwalPR`, `id_satuan`, `keterangan`) VALUES
-(347, 262, 'Barang 1', 0.00, 100.00, 100.00, 1, 'Ini adalah barang ke 1'),
-(348, 262, 'Barang 2', 0.00, 150.00, 150.00, 1, 'Ini adalah barang ke 2'),
-(349, 262, 'Barang 3', 0.00, 100.00, 100.00, 2, 'Ini adalah barang ke 3'),
-(350, 263, 'Barang 1', 100.00, 100.00, 100.00, 1, 'Ini adalah barang ke 1'),
-(351, 263, 'Barang 2', 150.00, 150.00, 150.00, 1, 'Ini adalah barang ke 2');
+(353, 265, 'Barang 1', 0.00, 10.00, 10.00, 1, 'AA'),
+(354, 265, 'Barang 2', 0.00, 15.00, 15.00, 1, 'BB'),
+(355, 265, 'Barang 3', 0.00, 20.00, 20.00, 1, 'CC');
 
 -- --------------------------------------------------------
 
@@ -646,25 +649,25 @@ ALTER TABLE `user`
 -- AUTO_INCREMENT for table `bkb`
 --
 ALTER TABLE `bkb`
-  MODIFY `id_bkb` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=62;
+  MODIFY `id_bkb` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
 
 --
 -- AUTO_INCREMENT for table `bkb_item`
 --
 ALTER TABLE `bkb_item`
-  MODIFY `id_bkb_item` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=84;
+  MODIFY `id_bkb_item` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=87;
 
 --
 -- AUTO_INCREMENT for table `btb`
 --
 ALTER TABLE `btb`
-  MODIFY `id_btb` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=131;
+  MODIFY `id_btb` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=132;
 
 --
 -- AUTO_INCREMENT for table `btb_item`
 --
 ALTER TABLE `btb_item`
-  MODIFY `id_btb_item` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=169;
+  MODIFY `id_btb_item` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=172;
 
 --
 -- AUTO_INCREMENT for table `divisi`
@@ -682,25 +685,25 @@ ALTER TABLE `peran`
 -- AUTO_INCREMENT for table `po`
 --
 ALTER TABLE `po`
-  MODIFY `id_PO` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=215;
+  MODIFY `id_PO` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=216;
 
 --
 -- AUTO_INCREMENT for table `po_item`
 --
 ALTER TABLE `po_item`
-  MODIFY `id_POItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=325;
+  MODIFY `id_POItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=328;
 
 --
 -- AUTO_INCREMENT for table `pr`
 --
 ALTER TABLE `pr`
-  MODIFY `id_PR` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=264;
+  MODIFY `id_PR` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=266;
 
 --
 -- AUTO_INCREMENT for table `pr_item`
 --
 ALTER TABLE `pr_item`
-  MODIFY `id_PRItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=352;
+  MODIFY `id_PRItem` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=356;
 
 --
 -- AUTO_INCREMENT for table `satuan`
