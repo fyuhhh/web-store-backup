@@ -726,7 +726,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PR");
 
-    // Header sesuai tampilan frontend (grouped)
+    // Header sesuai urutan tabel monitoring PR
     const headers = [
       "No. PR",
       "Tanggal PR",
@@ -740,12 +740,15 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
       "Dibuat Oleh",
       "Skema",
     ];
+
+    // Add header row with bold font
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
       cell.alignment = { horizontal: "left", vertical: "middle" };
     });
 
+    // Helper format tanggal persis seperti frontend (tambah 1 hari)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
       let dateObj;
@@ -758,30 +761,31 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
       }
       return dateObj.format("DD-MM-YYYY");
     }
+    // Helper format quantity
     function formatQtyExcel(val: any) {
       const num = Number(val);
-      if (Number.isNaN(num)) return 0;
-      return num;
+      if (Number.isNaN(num)) return "";
+      return num % 1 === 0 ? num.toString() : num.toString();
     }
 
-    // Gabungkan baris berdasarkan id/noPR
+    // Prepare and add data rows persis seperti tampilan tabel
     exportPRData.forEach((pr) => {
       const validItems = pr.items?.filter((item) => item.jumlah > 0) || [];
       if (validItems.length > 0) {
-        validItems.forEach((item, idx) => {
+        validItems.forEach((item, index) => {
           worksheet.addRow([
-            idx === 0 ? pr.noPR : "",
-            idx === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
+            index === 0 ? pr.noPR : "",
+            index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
             item.namaBarang,
             formatQtyExcel(item.jumlah),
             formatQtyExcel(item.quantityAwalPR),
             item.satuan,
             item.keterangan || "",
-            idx === 0 ? pr.urgensi : "",
-            idx === 0 ? pr.divisi : "",
-            idx === 0 ? pr.status : "",
-            idx === 0 ? pr.dibuatOleh : "",
-            idx === 0
+            index === 0 ? pr.urgensi : "",
+            index === 0 ? pr.divisi : "",
+            index === 0 ? pr.status : "",
+            index === 0 ? pr.dibuatOleh : "",
+            index === 0
               ? skemaOptions.find(
                   (s) => String(s.id_skema) === String(pr.skema)
                 )?.skema ??
@@ -792,6 +796,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
           ]);
         });
       } else {
+        // Handle PR tanpa item
         worksheet.addRow([
           pr.noPR,
           formatTanggalExcel(pr.tanggalPR),
@@ -812,10 +817,6 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
         ]);
       }
     });
-
-    // Set number format for quantity columns
-    worksheet.getColumn(4).numFmt = '#,##0';
-    worksheet.getColumn(5).numFmt = '#,##0';
 
     // Auto-fit columns based on max length of cell values
     worksheet.columns.forEach((column) => {
@@ -1698,7 +1699,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                     return (
                       <React.Fragment key={pr.id}>
                         <TableRow className="hover:bg-gray-50 transition-colors">
-                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                          <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-left align-middle">
                             <Checkbox
                               checked={selectedPRs.includes(pr.id)}
                               onCheckedChange={(checked) =>
@@ -1721,14 +1722,14 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                             {formatTanggal(pr.tanggalPR)}
                           </TableCell>
-                          <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{validItems[0]?.namaBarang}</TableCell>
-                          <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                          <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{validItems[0]?.namaBarang}</TableCell>
+                          <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                             {parseFloat(validItems[0]?.quantityAwalPR) % 1 === 0
                               ? parseInt(validItems[0]?.quantityAwalPR)
                               : validItems[0]?.quantityAwalPR}
                           </TableCell>
-                          <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{validItems[0]?.satuan}</TableCell>
-                          <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                          <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{validItems[0]?.satuan}</TableCell>
+                          <TableCell className="border border-gray-300 px-4 py-3 text-left">
                             <div
                               className="text-sm text-muted-foreground max-w-xs truncate"
                               title={validItems[0]?.keterangan}
@@ -1770,14 +1771,14 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                         </TableRow>
                         {validItems.slice(1).map((item, index) => (
                           <TableRow key={`${pr.id}-item-${index + 1}`} className="hover:bg-gray-50 transition-colors">
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{item.namaBarang}</TableCell>
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{item.namaBarang}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                               {parseFloat(item.quantityAwalPR) % 1 === 0
                                 ? parseInt(item.quantityAwalPR)
                                 : item.quantityAwalPR}
                             </TableCell>
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">{item.satuan}</TableCell>
-                            <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{item.satuan}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left">
                               <div
                                 className="text-sm text-muted-foreground max-w-xs truncate"
                                 title={item.keterangan}
