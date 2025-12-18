@@ -71,101 +71,50 @@ import { type POData, type PRData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
 function formatTanggal(tgl: string) {
   if (!tgl) return "";
-  // Pastikan tgl adalah string tanggal valid
+  // Tampilkan tanggal asli tanpa modifikasi
   let dateObj = dayjs(tgl);
-  // Jika tidak valid, coba parse manual (misal dari DD-MM-YYYY)
   if (!dateObj.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
     const [d, m, y] = tgl.split("-");
     dateObj = dayjs(`${y}-${m}-${d}`);
   }
-  // Tambahkan 1 hari ke tanggal sebelum ditampilkan
   if (dateObj.isValid()) {
-    return dateObj.add(1, "day").format("DD-MM-YYYY");
+    return dateObj.format("DD-MM-YYYY");
   }
   return tgl ?? "";
 }
 
-function formatTanggalPlus1(tgl: string) {
-  if (!tgl) return "-";
-  const dateObj = dayjs(tgl).add(1, "day");
-  return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl;
-}
 
-function formatTanggalPlus2(tgl: string) {
-  if (!tgl) return "-";
-  const dateObj = dayjs(tgl).add(2, "day");
-  return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl;
-}
-
-// ========================================
-// 1. PARSER No. PO (E-WALK + PENTACITY)
-// ========================================
+// Tambahkan kembali fungsi sortPOList
 function parseNoPO(noPO: string | null | undefined) {
   if (!noPO || typeof noPO !== "string") return null;
-
   const s = noPO.trim().toUpperCase();
-
-  // FORMAT:
-  // PO/E-WALK/WBL/25/XI/00001
-  // PO/PSV/WBL/25/XI/00001
-  //
-  // BRAND = E-WALK atau PSV
-  // STORE = WBL atau lainnya
   const regex = /^PO\/(E-?WALK|PSV)\/([A-Z0-9]+)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
   const match = s.match(regex);
   if (!match) return null;
-
   const [, brand, store, tahun2, bulanRomawi, urutStr] = match;
-
-  // Konversi bulan romawi
   const bulanMap: Record<string, number> = {
-    I: 1,
-    II: 2,
-    III: 3,
-    IV: 4,
-    V: 5,
-    VI: 6,
-    VII: 7,
-    VIII: 8,
-    IX: 9,
-    X: 10,
-    XI: 11,
-    XII: 12,
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
   };
-
   const bulan = bulanMap[bulanRomawi] ?? 0;
   const tahun = 2000 + parseInt(tahun2, 10);
   const urut = parseInt(urutStr, 10);
-
   return { tahun, bulan, urut, brand, store };
 }
 
-// ========================================
-// 2. SORTING PO TERBARU → TERLAMA
-// ========================================
 function sortPOList(filteredPOData: any[]) {
   const allValid = filteredPOData.every(
     (po) => typeof po.noPO === "string" && parseNoPO(po.noPO)
   );
-
   if (allValid) {
     return [...filteredPOData].sort((a, b) => {
       const pa = parseNoPO(a.noPO)!;
       const pb = parseNoPO(b.noPO)!;
-
-      // Tahun DESC
-      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
-
-      // Bulan DESC
-      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
-
-      // Urut DESC
-      return pb.urut - pa.urut;
+      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+      return pa.urut - pb.urut;
     });
   }
-
-  // fallback jika format tidak valid
   return [...filteredPOData].sort((a, b) => Number(b.id_PO ?? b.id) - Number(a.id_PO ?? a.id));
 }
 
@@ -966,7 +915,7 @@ export default function MonitoringPOPage() {
         )
       )
     )
-    )
+  )
       .filter((s) => s.trim() !== "")
       .sort();
 
@@ -1435,7 +1384,7 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label htmlFor={`tglPO-${tgl}`} className="text-sm">{formatTanggalPlus2(tgl)}</Label>
+                                  <Label htmlFor={`tglPO-${tgl}`} className="text-sm">{formatTanggal(tgl)}</Label>
                                 </div>
                               ))}
                           </div>
@@ -1877,7 +1826,7 @@ export default function MonitoringPOPage() {
                                         );
                                     }}
                                   />
-                                  <Label htmlFor={`estimasi-${tgl}`} className="text-sm">{formatTanggalPlus2(tgl)}</Label>
+                                  <Label htmlFor={`estimasi-${tgl}`} className="text-sm">{formatTanggal(tgl)}</Label>
                                 </div>
                               ))}
                           </div>
@@ -2019,7 +1968,7 @@ export default function MonitoringPOPage() {
                           </Label>
                           <Input
                             placeholder="Cari skema..."
-                            value={skemaSearchTerm}
+                            value={ skemaSearchTerm}
                             onChange={(e) => setSkemaSearchTerm(e.target.value)}
                             className="mb-2"
                           />
@@ -2058,8 +2007,9 @@ export default function MonitoringPOPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((po) => {
-                    // Flatten all items from all poItems
+                    // Flatten all items from all poItems, urutan sesuai backend/input PO
                     const allItems = po.poItems.flatMap((poItem) =>
+                     
                       poItem.items.map((item) => ({
                         ...item,
                         noPR: poItem.noPR,
@@ -2106,7 +2056,7 @@ export default function MonitoringPOPage() {
                                   rowSpan={allItems.length}
                                   className="text-left border-r border-gray-300 align-middle min-w-[120px]"
                                 >
-                                  {formatTanggalPlus2(po.tanggalPO)}
+                                  {formatTanggal(po.tanggalPO)}
                                 </TableCell>
                                 <TableCell
                                   key="supplier"
@@ -2127,21 +2077,28 @@ export default function MonitoringPOPage() {
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
                               {item.satuan}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words">
+                            <TableCell
+                              className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-[120px] whitespace-nowrap overflow-hidden text-ellipsis"
+                            >
+                              {/* HoverCard untuk keterangan */}
                               <HoverCard>
                                 <HoverCardTrigger asChild>
-                                  <div
-                                    className="text-sm text-muted-foreground cursor-help"
+                                  <span
+                                    className="text-sm text-muted-foreground cursor-pointer"
                                     title={item.keterangan}
+                                    style={{
+                                      display: "inline-block",
+                                      maxWidth: "120px",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      verticalAlign: "middle",
+                                    }}
                                   >
-                                    {truncateText(item.keterangan, 35)}
-                                  </div>
-                                </HoverCardTrigger>
-                                <HoverCardContent>
-                                  <p className="whitespace-pre-wrap text-sm">
-                                    {item.keterangan}
-                                  </p>
-                                </HoverCardContent>
+                                    {item.keterangan ? item.keterangan.slice(0, 20) : ""}
+                                    {item.keterangan && item.keterangan.length > 20 ? "..." : ""}
+                                  </span>
+                                </HoverCardTrigger> 
                               </HoverCard>
                             </TableCell>
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px]">
@@ -2158,7 +2115,6 @@ export default function MonitoringPOPage() {
                                     item.diskonNominal
                                   ).toLocaleString("id-ID")}`
                                 : ""}
-
                             </TableCell>
                             {/* Kolom baru: PPN (%) */}
                             <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
@@ -2209,7 +2165,7 @@ export default function MonitoringPOPage() {
                                   rowSpan={allItems.length}
                                   className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px]"
                                 >
-                                  {formatTanggalPlus2(po.estimasiTanggalTerima)}
+                                  {formatTanggal(po.estimasiTanggalTerima)}
                                 </TableCell>
                                 <TableCell
                                   key="statusPengiriman"

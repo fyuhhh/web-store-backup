@@ -8,7 +8,79 @@ console.log("Loaded routes: /api/po");
 // Fungsi konversi tanggal ke YYYY-MM-DD
 function formatDate(tgl) {
   if (!tgl) return null;
-  return new Date(tgl).toISOString().split("T")[0];
+  // Jika sudah string 'YYYY-MM-DD', return apa adanya
+  if (typeof tgl === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(tgl)) return tgl;
+  // Jika Date object, ambil tanggal lokal (bukan UTC)
+  if (tgl instanceof Date) {
+    const yyyy = tgl.getFullYear();
+    const mm = String(tgl.getMonth() + 1).padStart(2, '0');
+    const dd = String(tgl.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return tgl;
+}
+
+// Helper: get PR info (tanggalPR, estimasipo) dari PO id
+async function getPRInfoByPO(conn, id_PO) {
+  // Ambil satu id_PR dari po_item
+  const [[poItem]] = await conn.query(
+    "SELECT id_PRItem FROM po_item WHERE id_PO = ? LIMIT 1",
+    [id_PO]
+  );
+  if (!poItem || !poItem.id_PRItem) return null;
+  // Ambil id_PR dari pr_item
+  const [[prItem]] = await conn.query(
+    "SELECT id_PR FROM pr_item WHERE id_PRItem = ?",
+    [poItem.id_PRItem]
+  );
+  if (!prItem || !prItem.id_PR) return null;
+  // Ambil tanggalPR & estimasipo dari pr
+  const [[pr]] = await conn.query(
+    "SELECT tanggalPR, estimasipo FROM pr WHERE id_PR = ?",
+    [prItem.id_PR]
+  );
+  if (!pr) return null;
+  return { tanggalPR: pr.tanggalPR, estimasipo: pr.estimasipo };
+}
+
+// Helper: cek apakah tanggalPO di antara tanggalPR dan estimasipo
+function getStatusTerima(tanggalPR, estimasipo, tanggalPO) {
+  if (!tanggalPR || !estimasipo || !tanggalPO) return "Tidak Tercapai";
+  // Normalisasi ke Date
+  function toDateObj(t) {
+    if (/^\d{2}-\d{2}-\d{4}$/.test(t)) {
+      const [d, m, y] = t.split("-");
+      return new Date(`${y}-${m}-${d}`);
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+      return new Date(t);
+    }
+    return new Date(t);
+  }
+  const dPR = toDateObj(tanggalPR);
+  const dEst = toDateObj(estimasipo);
+  const dPO = toDateObj(tanggalPO);
+  if (isNaN(dPR.getTime()) || isNaN(dEst.getTime()) || isNaN(dPO.getTime())) return "Tidak Tercapai";
+  // dPO >= dPR && dPO <= dEst
+  if (dPO.getTime() >= dPR.getTime() && dPO.getTime() <= dEst.getTime()) {
+    return "SCHEDULE (Tercapai)";
+  }
+  return "Tidak Tercapai";
+}
+
+// Helper: update statusterima pada PO (id_PO)
+async function updateStatusTerimaPO(conn, id_PO) {
+  // Ambil tanggalPO dari po
+  const [[poRow]] = await conn.query("SELECT tanggalPO FROM po WHERE id_PO = ?", [id_PO]);
+  const tanggalPOVal = poRow?.tanggalPO;
+  // Ambil info PR terkait
+  const prInfo = await getPRInfoByPO(conn, id_PO);
+  let statusterima = "Tidak Tercapai";
+  if (prInfo && tanggalPOVal) {
+    statusterima = getStatusTerima(prInfo.tanggalPR, prInfo.estimasipo, tanggalPOVal);
+    await conn.query("UPDATE po SET statusterima = ? WHERE id_PO = ?", [statusterima, id_PO]);
+  }
+  return statusterima;
 }
 
 // GET semua PO
@@ -85,6 +157,24 @@ router.post("/", async (req, res, next) => {
       ? parseFloat(totalPembayaran.replace(/\./g, "").replace(",", "."))
       : Number(totalPembayaran) || 0;
 
+    // Normalisasi tanggalPO dan estimasiTanggalTerima ke format YYYY-MM-DD
+    if (req.body.tanggalPO && typeof req.body.tanggalPO === "string") {
+      if (req.body.tanggalPO.includes("T")) {
+        req.body.tanggalPO = req.body.tanggalPO.split("T")[0];
+      } else if (/^\d{2}-\d{2}-\d{4}$/.test(req.body.tanggalPO)) {
+        const [d, m, y] = req.body.tanggalPO.split("-");
+        req.body.tanggalPO = `${y}-${m}-${d}`;
+      }
+    }
+    if (req.body.estimasiTanggalTerima && typeof req.body.estimasiTanggalTerima === "string") {
+      if (req.body.estimasiTanggalTerima.includes("T")) {
+        req.body.estimasiTanggalTerima = req.body.estimasiTanggalTerima.split("T")[0];
+      } else if (/^\d{2}-\d{2}-\d{4}$/.test(req.body.estimasiTanggalTerima)) {
+        const [d, m, y] = req.body.estimasiTanggalTerima.split("-");
+        req.body.estimasiTanggalTerima = `${y}-${m}-${d}`;
+      }
+    }
+
     const [result] = await db.query(
       `INSERT INTO po
       (noPO, tanggalPO, id_supplier, diskon, originalDiskon, ppn, ppnAmount, totalPembayaran, orderedBy, estimasiTanggalTerima, id_statusPengiriman, id_statusPermintaan, status, createdAt, id_skema)
@@ -107,18 +197,19 @@ router.post("/", async (req, res, next) => {
         id_skema || null,
       ]
     );
-
     const insertId = result.insertId;
+    // --- statusterima kemungkinan belum bisa diisi di sini karena po_item biasanya belum ada ---
+    // Tetap coba update, tapi jika null, biarkan, nanti diupdate setelah po_item masuk
+    await updateStatusTerimaPO(db, insertId);
     const [[newRow]] = await db.query("SELECT * FROM po WHERE id_PO = ?", [
       insertId,
     ]);
-
     if (newRow) {
       newRow.tanggalPO = formatDate(newRow.tanggalPO);
       newRow.estimasiTanggalTerima = formatDate(newRow.estimasiTanggalTerima);
       newRow.createdAt = newRow.createdAt ? formatDate(newRow.createdAt) : null;
+      // newRow.statusterima sudah terisi dari DB
     }
-
     res.status(201).json(newRow || { id_PO: insertId });
   } catch (err) {
     next(err);
@@ -153,6 +244,30 @@ router.put("/:id", async (req, res, next) => {
         ? parseFloat(payload.totalPembayaran.replace(/\./g, "").replace(",", "."))
         : Number(payload.totalPembayaran) || 0;
 
+    // Normalisasi tanggalPO dan estimasiTanggalTerima ke format YYYY-MM-DD
+    if (req.body.tanggalPO && typeof req.body.tanggalPO === "string") {
+      if (req.body.tanggalPO.includes("T")) {
+        req.body.tanggalPO = req.body.tanggalPO.split("T")[0];
+      } else if (/^\d{2}-\d{2}-\d{4}$/.test(req.body.tanggalPO)) {
+        const [d, m, y] = req.body.tanggalPO.split("-");
+        req.body.tanggalPO = `${y}-${m}-${d}`;
+      }
+    }
+    if (req.body.estimasiTanggalTerima && typeof req.body.estimasiTanggalTerima === "string") {
+      if (req.body.estimasiTanggalTerima.includes("T")) {
+        req.body.estimasiTanggalTerima = req.body.estimasiTanggalTerima.split("T")[0];
+      } else if (/^\d{2}-\d{2}-\d{4}$/.test(req.body.estimasiTanggalTerima)) {
+        const [d, m, y] = req.body.estimasiTanggalTerima.split("-");
+        req.body.estimasiTanggalTerima = `${y}-${m}-${d}`;
+      }
+    }
+
+    // Tambahkan: jika statusterima di payload, update langsung tanpa auto-calc
+    let skipAutoStatus = false;
+    if (typeof payload.statusterima === "string") {
+      skipAutoStatus = true;
+    }
+
     const fields = Object.keys(payload);
     if (fields.length === 0)
       return res.status(400).json({ message: "No data to update" });
@@ -163,20 +278,33 @@ router.put("/:id", async (req, res, next) => {
       ` WHERE id_PO = ?`;
 
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
-
+    // --- update statusterima setelah update ---
+    if (!skipAutoStatus) {
+      await updateStatusTerimaPO(db, id);
+    }
     const [[updated]] = await db.query("SELECT * FROM po WHERE id_PO = ?", [
       id,
     ]);
-
     if (updated) {
       updated.tanggalPO = formatDate(updated.tanggalPO);
       updated.estimasiTanggalTerima = formatDate(updated.estimasiTanggalTerima);
       updated.createdAt = updated.createdAt
         ? formatDate(updated.createdAt)
         : null;
+      // updated.statusterima sudah terisi dari DB
     }
-
     res.json(updated || { message: "PO berhasil diperbarui" });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH endpoint: paksa update statusterima PO (bisa dipanggil dari po_item.js)
+router.patch("/update-statusterima/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const statusterima = await updateStatusTerimaPO(db, id);
+    res.json({ id_PO: id, statusterima });
   } catch (err) {
     next(err);
   }
@@ -212,5 +340,8 @@ router.delete("/:id", async (req, res, next) => {
     next(err);
   }
 });
+
+// Tambahkan export agar bisa di-import di file lain
+export { updateStatusTerimaPO };
 
 export default router;

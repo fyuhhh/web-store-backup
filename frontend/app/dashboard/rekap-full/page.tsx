@@ -35,6 +35,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { ChevronDown } from "lucide-react";
+import { Pencil } from "lucide-react"; // untuk ikon edit
 
 import { Label } from "@/components/ui/label";
 // halo disini saya cooba coba
@@ -70,7 +71,6 @@ const columns = [
   { key: "dibuatOleh", label: "Dibuat Oleh" },
   { key: "targetTanggalPO", label: "Target Tanggal PO" },
   { key: "status", label: "Status" },
-  { key: "quantityPR", label: "Quantity Belum PR" },
   { key: "skemaPR", label: "Skema PR" },
   { key: "periodePO", label: "Periode" },
   { key: "noPO", label: "No. PO" },
@@ -89,8 +89,8 @@ const columns = [
   { key: "diorderOleh", label: "Diorder Oleh" },
   { key: "diinputOleh", label: "Diinput Oleh" },
   { key: "targetPencapaianPO", label: "Target Pencapaian PO" },
-  { key: "delay", label: "Delay" },
-  { key: "quantityPO", label: "Quantity Belum PO" },
+  { key: "delay", label: "Status" },
+  { key: "quantityPO", label: "Quantity Belum PR" },
   { key: "skemaPO", label: "Skema PO" },
   { key: "periodeBTB", label: "Periode" },
   { key: "noBTB", label: "No. BTB" },
@@ -98,11 +98,9 @@ const columns = [
   { key: "quantityBTB", label: "Quantity BTB" },
   { key: "satuanBTB", label: "Satuan BTB" }, // <-- Tambahkan kolom ini
   { key: "biayaBTB", label: "Biaya BTB" },
-  { key: "sisaStokBTB", label: "Quantity Belum BTB" },
-  { key: "diterimaOleh", label: "Diterima Oleh" },
-  { key: "statusPermintaanByPR", label: "Status Permintaan By PR" }, // baru
-  { key: "plan", label: "Plan" }, // baru
-  { key: "noPlan", label: "No Plan" }, // baru
+  { key: "sisaStokBTB", label: "Quantity Belum PO" },
+  { key: "diterimaOleh", label: "Diterima Oleh" },// baru
+  { key: "plan", label: "Plan / No Plan" }, // baru
   { key: "skemaBTB", label: "Skema BTB" },
 ];
 
@@ -136,6 +134,35 @@ function formatRupiahFull(val: any) {
   if (val === undefined || val === "" || isNaN(val)) return "";
   return "Rp. " + Number(val).toLocaleString("id-ID");
 }
+
+// ===== New helpers: parse percent and compute per-item total =====
+function parsePercentVal(val: any) {
+  if (val === undefined || val === null || val === "") return 0;
+  if (typeof val === "string") {
+    return Number(val.replace("%", "").trim()) || 0;
+  }
+  return Number(val) || 0;
+}
+
+function computeItemTotal(po: any, poItem: any) {
+  const price = Number(poItem?.hargaSatuan ?? 0);
+  const qty = Number(poItem?.jumlahPO ?? poItem?.jumlah_po ?? poItem?.jumlah ?? 0);
+  const base = price * qty;
+  const diskonPercent = parsePercentVal(poItem?.diskonPersen);
+  const diskonRp = Number(poItem?.diskonRp ?? po?.originalDiskon ?? 0);
+  const ppnPercent = parsePercentVal(poItem?.ppnPersen);
+
+  let total = base;
+  // apply percent discount
+  total = total - (base * diskonPercent) / 100;
+  // apply flat discount
+  total = total - diskonRp;
+  // apply ppn on post-discount amount
+  total = total + (total * ppnPercent) / 100;
+
+  return Number.isFinite(total) ? Math.round(total) : total;
+}
+// ===== end new helpers =====
 
 // Hari libur nasional (contoh, bisa ditambah sesuai kebutuhan)
 const HOLIDAYS = [
@@ -291,8 +318,7 @@ function KeteranganPopover({ text, max = 20 }: { text: string; max?: number }) {
 export default function RekapFullPage() {
   const [rekapData, setRekapData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  // Hilangkan pagination: tampilkan semua data sesuai rentang tanggal
   const [filters, setFilters] = useState<{ [key: string]: any }>({});
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
@@ -314,6 +340,125 @@ export default function RekapFullPage() {
   const [satuanMap, setSatuanMap] = useState<{ [key: string]: string }>({});
   // Tambah: divisiMap
   const [divisiMap, setDivisiMap] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+  async function fetchData() {
+    try {
+      // Fetch PR data, PR Items, PO data, PO Items, BTB data, BTB Items, BKB data, BKB Items
+      const [
+        prRes,
+        prItemRes,
+        poRes,
+        poItemRes,
+        btbRes,
+        btbItemRes,
+        bkbRes,
+        bkbItemRes,
+      ] = await Promise.all([
+        fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+        fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+        fetch("http://localhost:5000/api/po").then((r) => r.json()),
+        fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+        fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+        fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+        fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+        fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
+      ]);
+
+      // Log the fetched data for verification
+      console.log("Fetched PR Data:", prRes);
+      console.log("Fetched PR Items Data:", prItemRes);
+      console.log("Fetched PO Data:", poRes);
+      console.log("Fetched PO Items Data:", poItemRes);
+      console.log("Fetched BTB Data:", btbRes);
+      console.log("Fetched BTB Items Data:", btbItemRes);
+      console.log("Fetched BKB Data:", bkbRes);
+      console.log("Fetched BKB Items Data:", bkbItemRes);
+
+      // Ensure data is in the correct array format
+      const prData = Array.isArray(prRes) ? prRes : [];
+      const prItemData = Array.isArray(prItemRes) ? prItemRes : [];
+      const poData = Array.isArray(poRes) ? poRes : [];
+      const poItemData = Array.isArray(poItemRes) ? poItemRes : [];
+      const btbData = Array.isArray(btbRes) ? btbRes : [];
+      const btbItemData = Array.isArray(btbItemRes) ? btbItemRes : [];
+      const bkbData = Array.isArray(bkbRes) ? bkbRes : [];
+      const bkbItemData = Array.isArray(bkbItemRes) ? bkbItemRes : [];
+
+      const rekapRows: any[] = [];
+
+      prData.forEach((pr) => {
+        const items = prItemData.filter((item: any) => item.id_PR === pr.id_PR);
+
+        items.forEach((item: any, idx: number) => {
+          const poItems = poItemData.filter((poi: any) => String(poi.id_PRItem) === String(item.id_PRItem));
+
+          if (poItems.length === 0) {
+            rekapRows.push({
+              id: pr.id_PR + "-" + idx,
+              id_PR: pr.id_PR,
+              noPR: pr.noPR,
+              // Add other fields...
+            });
+
+            // Log data for this PR item when no PO exists
+            console.log("PR Item (No PO):", {
+              prId: pr.id_PR,
+              prNo: pr.noPR,
+              prItem: item,
+              // Other relevant fields
+            });
+          } else {
+            poItems.forEach((poItem: any) => {
+              const po = poData.find((p: any) => String(p.id_PO) === String(poItem.id_PO));
+
+              // Log PO Item Data
+              console.log("PO Item Data:", poItem);
+
+              const btbItems = btbItemData.filter((bi: any) => String(bi.id_POItem) === String(poItem.id_POItem));
+              
+              if (btbItems.length === 0) {
+                rekapRows.push({
+                  id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || ""),
+                  noPO: po?.noPO || "",
+                  // Add other fields...
+                });
+
+                // Log data for this PR-PO Item pair when no BTB exists
+                console.log("PR-PO Item (No BTB):", {
+                  prId: pr.id_PR,
+                  prNo: pr.noPR,
+                  poItem,
+                  poNo: po?.noPO,
+                  // Other relevant fields
+                });
+              } else {
+                btbItems.forEach((btbItem: any) => {
+                  const btb = btbData.find((b: any) => String(b.id_btb) === String(btbItem.id_btb));
+
+                  // Log BTB Item Data
+                  console.log("BTB Item Data:", btbItem);
+
+                  rekapRows.push({
+                    id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb || ""),
+                    noBTB: btb?.no_btb || "",
+                    // Add other fields...
+                  });
+                });
+              }
+            });
+          }
+        });
+      });
+
+      setRekapData(rekapRows);
+    } catch (err) {
+      setRekapData([]);
+    }
+  }
+
+  fetchData();
+}, []);
 
   // Ambil data referensi untuk label
   useEffect(() => {
@@ -459,18 +604,9 @@ export default function RekapFullPage() {
                 skemaPRLabel: pr.id_skema
                   ? skemaMap[String(pr.id_skema)] || pr.id_skema
                   : "",
-                targetTanggalPO: pr.tanggalPR
-                  ? (() => {
-                      const d = new Date(pr.tanggalPR);
-                      d.setDate(d.getDate() + 3);
-                      return `${String(d.getDate()).padStart(
-                        2,
-                        "0"
-                      )}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
-                    })()
-                  : "",
+                targetTanggalPO: pr.estimasipo || "",
                 delay: "",
-                status: pr.status ?? "",
+                status: pr.status ?? "", // <-- tetap pakai pr.status jika belum ada PO
                 // PO & BTB kosong
                 noPO: "",
                 tanggalPO: "",
@@ -498,11 +634,12 @@ export default function RekapFullPage() {
                 satuanBTB: "",
                 sisaStokBTB: "",
                 statusPermintaanByPR: "",
-                plan: "",
+                plan: pr.plan || "",
                 noPlan: "",
                 biayaBTB: "",
                 diterimaOleh: "",
                 skemaBTB: "",
+                targetPencapaianPO: "", // <-- tambahkan kolom ini, kosong jika belum ada PO/BTB
               });
             } else {
               // Untuk setiap PO Item yang terkait, cari PO dan BTB
@@ -543,20 +680,11 @@ export default function RekapFullPage() {
                     skemaPRLabel: pr.id_skema
                       ? skemaMap[String(pr.id_skema)] || pr.id_skema
                       : "",
-                    targetTanggalPO: pr.tanggalPR
-                      ? (() => {
-                          const d = new Date(pr.tanggalPR);
-                          d.setDate(d.getDate() + 3);
-                          return `${String(d.getDate()).padStart(
-                            2,
-                            "0"
-                          )}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
-                        })()
-                      : "",
+                    targetTanggalPO: pr.estimasipo || "",
                     delay: pr.tanggalPR && po?.tanggalPO
                       ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
                       : "",
-                    status: pr.status ?? "",
+                    status: po?.statusterima ?? pr.status ?? "", // <-- ambil dari po.statusterima
                     noPO: po?.noPO || "",
                     tanggalPO: po?.tanggalPO
                       ? (() => {
@@ -583,10 +711,11 @@ export default function RekapFullPage() {
                       ? supplierMap[String(po.id_supplier)] || ""
                       : "",
                     quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                    quantityPO: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
-                    satuanPO: poItem?.id_satuan
-                      ? satuanMap[String(poItem.id_satuan)] || poItem.id_satuan
-                      : "",
+                    quantityPO: item.jumlah ?? "", // <-- ambil dari pr_item.jumlah
+                    satuanPO:
+                      item.id_satuan
+                        ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                        : "",
                     hargaSatuanPO: poItem?.hargaSatuan ?? "",
                     diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
                       ? (Number(poItem.diskonPersen) % 1 === 0
@@ -602,7 +731,8 @@ export default function RekapFullPage() {
                         ) + "%"
                       : "",
                     ppnRp: po?.ppnAmount ?? "",
-                    totalHarga: po?.totalPembayaran ?? "",
+                    // total per item (hitung dari hargaSatuan & jumlah serta diskon/ppn di POItem)
+                    totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
                     tanggalEstimasiDiterima: po?.estimasiTanggalTerima
                       ? (() => {
                           const d = new Date(po.estimasiTanggalTerima);
@@ -629,16 +759,19 @@ export default function RekapFullPage() {
                     satuanBTB: "",
                     sisaStokBTB: "",
                     statusPermintaanByPR: "",
-                    plan: "",
+                    plan: pr.plan || "",
                     noPlan: "",
                     biayaBTB: "",
                     diterimaOleh: "",
                     skemaBTB: "",
+                    targetPencapaianPO: "", // <-- tetap kosong jika belum ada BTB
                   });
                 } else {
                   // Untuk setiap BTB Item yang terkait, cari BTB
                   btbItems.forEach((btbItem: any) => {
                     const btb = btbData.find((b: any) => String(b.id_btb) === String(btbItem.id_btb));
+
+                    // Ambil langsung dari btb.targetPencapaianPo
                     rekapRows.push({
                       id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb || ""),
                       id_PR: pr.id_PR,
@@ -670,20 +803,11 @@ export default function RekapFullPage() {
                       skemaPRLabel: pr.id_skema
                         ? skemaMap[String(pr.id_skema)] || pr.id_skema
                         : "",
-                      targetTanggalPO: pr.tanggalPR
-                        ? (() => {
-                            const d = new Date(pr.tanggalPR);
-                            d.setDate(d.getDate() + 3);
-                            return `${String(d.getDate()).padStart(
-                              2,
-                              "0"
-                            )}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
-                          })()
-                        : "",
-                      delay: pr.tanggalPR && po?.tanggalPO
+                      targetTanggalPO: pr.estimasipo || "",
+                      delay: btb?.delay ?? (pr.tanggalPR && po?.tanggalPO
                         ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
-                        : "",
-                      status: pr.status ?? "",
+                        : ""),
+                      status: po?.statusterima ?? pr.status ?? "", // <-- ambil dari po.statusterima
                       noPO: po?.noPO || "",
                       tanggalPO: po?.tanggalPO
                         ? (() => {
@@ -710,10 +834,11 @@ export default function RekapFullPage() {
                         ? supplierMap[String(po.id_supplier)] || ""
                         : "",
                       quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                      quantityPO: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
-                      satuanPO: poItem?.id_satuan
-                        ? satuanMap[String(poItem.id_satuan)] || poItem.id_satuan
-                        : "",
+                      quantityPO: item.jumlah ?? "",
+                      satuanPO:
+                        item.id_satuan
+                          ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                          : "",
                       hargaSatuanPO: poItem?.hargaSatuan ?? "",
                       diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
                         ? (Number(poItem.diskonPersen) % 1 === 0
@@ -729,7 +854,8 @@ export default function RekapFullPage() {
                           ) + "%"
                         : "",
                       ppnRp: po?.ppnAmount ?? "",
-                      totalHarga: po?.totalPembayaran ?? "",
+                      // total per item (hitung dari hargaSatuan & jumlah serta diskon/ppn di POItem)
+                      totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
                       tanggalEstimasiDiterima: po?.estimasiTanggalTerima
                         ? (() => {
                             const d = new Date(po.estimasiTanggalTerima);
@@ -746,6 +872,7 @@ export default function RekapFullPage() {
                         : "",
                       diinputOleh: poItem?.namaPembeli ?? "",
                       skemaPO: po?.id_skema ? skemaMap[String(po.id_skema)] || "" : "",
+                      // === BTB mapping start ===
                       noBTB: btb?.no_btb || "",
                       tanggalBTB: btb?.tanggal_btb
                         ? (() => {
@@ -756,25 +883,34 @@ export default function RekapFullPage() {
                           })()
                         : "",
                       periodeBTB: btb?.tanggal_btb
-                        ? `${getMonthName(btb.tanggal_btb)} ${getYear(btb.tanggal_btb)}`
+                        ? (() => {
+                            let d;
+                            if (/^\d{2}-\d{2}-\d{4}$/.test(btb.tanggal_btb)) {
+                              const [day, month, year] = btb.tanggal_btb.split("-");
+                              d = new Date(`${year}-${month}-${day}`);
+                            } else {
+                              d = new Date(btb.tanggal_btb);
+                            }
+                            if (isNaN(d.getTime())) return "";
+                            return `${d.toLocaleString("id-ID", { month: "long" })} ${d.getFullYear()}`;
+                          })()
                         : "",
-                      namaSupplierBTB: btb?.id_supplier
-                        ? supplierMap[String(btb.id_supplier)] || ""
-                        : "",
-                      namaBarangBTB: btbItem?.nama_barang || "",
                       quantityBTB: btbItem?.jumlah_diterima ?? "",
-                      satuanBTB: btbItem?.id_satuan
-                        ? satuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
-                        : "",
+                      satuanBTB:
+                        btbItem?.id_satuan
+                          ? satuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
+                          : "",
+                      biayaBTB: btbItem?.biaya ?? btb?.biaya ?? "",
                       sisaStokBTB: btbItem?.qty_sisa ?? "",
-                      statusPermintaanByPR: "",
-                      plan: "",
-                      noPlan: "",
-                      biayaBTB: btb?.biaya ?? "",
-                      diterimaOleh: btb?.id_user
-                        ? userMap[String(btb.id_user)] || ""
+                      diterimaOleh: btb?.diterima_oleh
+                        ? userMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                         : "",
-                      skemaBTB: btb?.id_skema ? skemaMap[String(btb.id_skema)] || "" : "",
+                      plan: pr.plan || "",
+                      skemaBTB: btb?.id_skema
+                        ? skemaMap[String(btb.id_skema)] || btb.id_skema
+                        : "",
+                      targetPencapaianPO: btb?.targetPencapaianPo ?? "",
+                      // === BTB mapping end ===
                     });
                   });
                 }
@@ -832,40 +968,72 @@ export default function RekapFullPage() {
     ).sort();
   });
 
-  // Filtered data (bandingkan id skema, bukan label)
-  const filteredData = sortRekapRows(
-    rekapData.filter((row) => {
-    // Filter skemaPR sesuai user login (bandingkan id)
-    if (userSkemaId && String(row.skemaPR) !== userSkemaId) {
-      return false;
+  // --- FILTER DATA BERDASARKAN RENTANG TANGGAL PR YANG DIPILIH USER ---
+  // Helper: parse tanggal ke Date
+  function parseTanggalToDate(tgl: string) {
+    if (!tgl) return null;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+      const [d, m, y] = tgl.split("-");
+      return new Date(`${y}-${m}-${d}`);
     }
-    // Global search
-    const matchesSearch =
-      !searchTerm ||
-      columns.some((col) =>
-        String(row[col.key] ?? "")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())
-      );
-    // Filter dropdown
-    const matchesFilters = Object.entries(filters).every(([key, val]) => {
-      if (!val || (Array.isArray(val) && val.length === 0)) return true;
-      if (Array.isArray(val)) {
-        return val.includes(row[key]);
-      }
-      return String(row[key] ?? "")
-        .toLowerCase()
-        .includes(String(val).toLowerCase());
-    });
-    return matchesSearch && matchesFilters;
-  })
-);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+      return new Date(tgl);
+    }
+    return null;
+  }
 
-  // Pagination
-  const pagedData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // Filtered data (bandingkan id skema, bukan label)
+  const filteredData = React.useMemo(() => {
+    // Jika tanggal belum diisi, return []
+    if (!exportStartDate || !exportEndDate) return [];
+    return (
+      rekapData.filter((row) => {
+        // Filter skemaPR sesuai user login (bandingkan id)
+        if (userSkemaId && String(row.skemaPR) !== userSkemaId) {
+          return false;
+        }
+        // Filter tanggal PR
+        if (row.tanggalPR) {
+          const tglPR = parseTanggalToDate(row.tanggalPR);
+          const tglStart = parseTanggalToDate(exportStartDate);
+          const tglEnd = parseTanggalToDate(exportEndDate);
+          if (!tglPR || !tglStart || !tglEnd) return false;
+          if (tglPR < tglStart || tglPR > tglEnd) return false;
+        } else {
+          return false;
+        }
+        // Global search
+        const matchesSearch =
+          !searchTerm ||
+          columns.some((col) =>
+            String(row[col.key] ?? "")
+              .toLowerCase()
+              .includes(searchTerm.toLowerCase())
+          );
+        // Filter dropdown
+        const matchesFilters = Object.entries(filters).every(([key, val]) => {
+          if (!val || (Array.isArray(val) && val.length === 0)) return true;
+          if (Array.isArray(val)) {
+            return val.includes(row[key]);
+          }
+          return String(row[key] ?? "")
+            .toLowerCase()
+            .includes(String(val).toLowerCase());
+        });
+        return matchesSearch && matchesFilters;
+      })
+    );
+  }, [
+    rekapData,
+    userSkemaId,
+    searchTerm,
+    filters,
+    exportStartDate,
+    exportEndDate,
+  ]);
+
+  // Tidak ada pagination, gunakan seluruh filteredData
+  const pagedData = filteredData;
 
   // Group rows by id_PR, then by PR Item, then by PO, then by BTB
   function groupRowsForTable(rows: any[]) {
@@ -1176,6 +1344,312 @@ export default function RekapFullPage() {
     a.click();
     URL.revokeObjectURL(url);
   };
+  
+
+  // State untuk edit Target Pencapaian PO
+  const [editingTargetId, setEditingTargetId] = useState<string | null>(null); // pakai item.id
+  const [editingTargetValue, setEditingTargetValue] = useState<string>("");
+  const [editingTargetLoading, setEditingTargetLoading] = useState<boolean>(false);
+  const [customTargetInput, setCustomTargetInput] = useState<string>(""); // <-- tambahkan untuk custom
+
+  // State untuk edit Status (statusterima)
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [editingStatusValue, setEditingStatusValue] = useState<string>("");
+  const [editingStatusLoading, setEditingStatusLoading] = useState<boolean>(false);
+  const [customStatusInput, setCustomStatusInput] = useState<string>("");
+
+  // Opsi status yang diizinkan
+  const statusOptions = [
+    "SCHEDULE (Tercapai)",
+    "Tidak Tercapai",
+    "Custom..."
+  ];
+
+  // Opsi target pencapaian yang diizinkan (sesuai permintaan)
+  const targetOptions = [
+    "Tercapai",
+    "Tidak Tercapai",
+    "WakGeng",
+    "Cihuyanjaymabar",
+    "Custom...",
+  ];
+
+  // Handler klik kolom status: buka dropdown
+  function handleStatusEditClick(item: any) {
+    if (!item.noPO) return;
+    setEditingStatusId(item.noPO);
+    setEditingStatusValue(item.status || "");
+    setCustomStatusInput("");
+  }
+
+  // Handler klik kolom target pencapaian: buka dropdown
+  function handleTargetEditClick(item: any) {
+    if (!item.noBTB) return;
+    setEditingTargetId(item.id); // pakai id unik row
+    setEditingTargetValue(item.targetPencapaianPO || "");
+    setCustomTargetInput(""); // reset custom input
+  }
+
+  // Handler pilih status baru
+  async function handleStatusChange(newStatus: string, item: any) {
+    if (newStatus === "Custom...") {
+      setEditingStatusValue("Custom...");
+      setCustomStatusInput("");
+      return;
+    }
+    setEditingStatusValue(newStatus);
+    setEditingStatusId(item.noPO); // lock editing
+    setEditingStatusLoading(true);
+    try {
+      // Cari id_PO dari noPO
+      const poRes = await fetch("http://localhost:5000/api/po");
+      const poList = await poRes.json();
+      const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
+      if (!po) {
+        alert("PO tidak ditemukan");
+        setEditingStatusId(null);
+        setEditingStatusLoading(false);
+        return;
+      }
+      // Update statusterima di backend
+      await fetch(`http://localhost:5000/api/po/${po.id_PO}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusterima: newStatus }),
+      });
+      // Update di frontend (refresh data)
+      setRekapData((prev) =>
+        prev.map((row) =>
+          row.noPO === item.noPO ? { ...row, status: newStatus } : row
+        )
+      );
+    } catch (err) {
+      alert("Gagal update status");
+    }
+    setEditingStatusId(null);
+    setEditingStatusLoading(false);
+  }
+
+  // Handler pilih target baru
+  async function handleTargetChange(newTarget: string, item: any) {
+    if (newTarget === "Custom...") {
+      setEditingTargetValue("Custom...");
+      setCustomTargetInput(item.targetPencapaianPO || ""); // isi dengan nilai lama jika ada
+      return;
+    }
+    setEditingTargetValue(newTarget);
+    setEditingTargetId(item.id);
+    setEditingTargetLoading(true);
+    try {
+      const btbRes = await fetch("http://localhost:5000/api/btb");
+      const btbList = await btbRes.json();
+      const btb = btbList.find((b: any) => String(b.no_btb) === String(item.noBTB));
+      if (!btb) {
+        alert("BTB tidak ditemukan");
+        setEditingTargetId(null);
+        setEditingTargetLoading(false);
+        return;
+      }
+      await fetch(`http://localhost:5000/api/btb/${btb.id_btb}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetPencapaianPo: newTarget }),
+      });
+      setRekapData((prev) =>
+        prev.map((row) =>
+          row.id === item.id ? { ...row, targetPencapaianPO: newTarget } : row
+        )
+      );
+    } catch (err) {
+      alert("Gagal update Target Pencapaian PO");
+    }
+    setEditingTargetId(null);
+    setEditingTargetLoading(false);
+  }
+
+  // Handler submit custom status
+  async function handleCustomStatusSubmit(item: any) {
+    const customVal = customStatusInput.trim();
+    if (!customVal) return;
+    setEditingStatusLoading(true);
+    try {
+      // Cari id_PO dari noPO
+      const poRes = await fetch("http://localhost:5000/api/po");
+      const poList = await poRes.json();
+      const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
+      if (!po) {
+        alert("PO tidak ditemukan");
+        setEditingStatusId(null);
+        setEditingStatusLoading(false);
+        return;
+      }
+      await fetch(`http://localhost:5000/api/po/${po.id_PO}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusterima: customVal }),
+      });
+      setRekapData((prev) =>
+        prev.map((row) =>
+          row.noPO === item.noPO ? { ...row, status: customVal } : row
+        )
+      );
+    } catch (err) {
+      alert("Gagal update status");
+    }
+    setEditingStatusId(null);
+    setEditingStatusLoading(false);
+  }
+
+  // Handler submit custom target
+  async function handleCustomTargetSubmit(item: any) {
+    const customVal = customTargetInput.trim();
+    if (!customVal) return;
+    setEditingTargetLoading(true);
+    try {
+      const btbRes = await fetch("http://localhost:5000/api/btb");
+      const btbList = await btbRes.json();
+      const btb = btbList.find((b: any) => String(b.no_btb) === String(item.noBTB));
+      if (!btb) {
+        alert("BTB tidak ditemukan");
+        setEditingTargetId(null);
+        setEditingTargetLoading(false);
+        return;
+      }
+      await fetch(`http://localhost:5000/api/btb/${btb.id_btb}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetPencapaianPo: customVal }),
+      });
+      setRekapData((prev) =>
+        prev.map((row) =>
+          row.id === item.id ? { ...row, targetPencapaianPO: customVal } : row
+        )
+      );
+    } catch (err) {
+      alert("Gagal update Target Pencapaian PO");
+    }
+    setEditingTargetId(null);
+    setEditingTargetLoading(false);
+  }
+
+  // Handler klik target pencapaian PO: update targetPencapaianPo di backend (BTB)
+  async function handleTargetPencapaianClick(item: any) {
+    // Hanya update jika ada id_btb dan targetPencapaianPO bukan "woke bos"
+    if (!item.noBTB || !item.targetPencapaianPO || item.targetPencapaianPO === "woke bos") return;
+    // id_btb bisa didapat dari item.noBTB dengan mencari di btbData, tapi di rekapRows sudah ada id_btb (dari BTB group)
+    // Namun, pada item, id_btb tidak selalu ada, jadi kita cari dari btbData jika perlu
+    let id_btb = null;
+    if (item.noBTB) {
+      // Cari id_btb dari rekapData yang punya noBTB sama
+      const found = rekapData.find(r => r.noBTB === item.noBTB && r.id_PR === item.id_PR);
+      if (found && found.id) {
+        // id format: ...-...-...-id_btb
+        const parts = String(found.id).split("-");
+        id_btb = parts[parts.length - 1];
+      }
+    }
+    if (!id_btb) return;
+    setUpdatingTargetId(id_btb);
+    try {
+      await fetch(`http://localhost:5000/api/btb/${id_btb}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetPencapaianPo: "woke bos" }),
+      });
+      setRekapData(prev =>
+        prev.map(row =>
+          row.noBTB === item.noBTB
+            ? { ...row, targetPencapaianPO: "woke bos" }
+            : row
+        )
+      );
+    } catch (err) {
+      alert("Gagal update Target Pencapaian PO");
+    }
+    setUpdatingTargetId(null);
+  }
+
+  // Helper: mapping status Target Pencapaian PO ke warna background cell
+  function getTargetPencapaianPoBg(status: string | undefined | null) {
+    if (!status) return "bg-red-100";
+    const s = status.trim().toUpperCase();
+    if (s === "TERCAPAI") return "bg-green-100";
+    if (s === "TIDAK TERCAPAI") return "bg-red-100";
+    if (s === "WAITING PAYMENT") return "bg-yellow-100";
+    if (s === "WAITING DELIVERY") return "bg-orange-100";
+    if (s === "INDENT PART") return "bg-blue-100";
+    // Jika typo atau status lain, tetap merah muda
+    return "bg-red-100";
+  }
+
+  // Helper: mapping status ke warna background cell (untuk kolom Status)
+  function getStatusBg(status: string | undefined | null) {
+    if (!status) return "";
+    const s = status.trim().toUpperCase();
+    if (s === "SCHEDULE (TERCAPAI)") return "bg-green-100";
+    if (s === "TIDAK TERCAPAI") return "bg-red-100";
+    return "";
+  }
+
+  // Helper format tanggal ke dd-mm-yyyy dan bisa lebihkan hari
+  function formatTanggalDisplay(tgl: string, plusDays: number = 0) {
+    if (!tgl) return "";
+    let dateObj: Date | null = null;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+      const [d, m, y] = tgl.split("-");
+      dateObj = new Date(`${y}-${m}-${d}`);
+    } else if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+      dateObj = new Date(tgl);
+    }
+    if (dateObj && !isNaN(dateObj.getTime())) {
+      if (plusDays !== 0) dateObj.setDate(dateObj.getDate() + plusDays);
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const year = dateObj.getFullYear();
+      return `${day}-${month}-${year}`;
+    }
+    // fallback: jika sudah dd-mm-yyyy dan parsing gagal, return as is
+    if (/^\d{2}-\d{2}-\d{4}$/.test(tgl) && plusDays === 0) return tgl;
+    return tgl;
+  }
+
+  // State untuk loading update status
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+  // Tambahkan state untuk loading update target pencapaian PO
+  const [updatingTargetId, setUpdatingTargetId] = useState<string | null>(null);
+
+  // Handler klik status: update status PO di backend
+  async function handleStatusClick(item: any) {
+    // Hanya update jika ada noPO dan status bukan "woke bos"
+    if (!item.noPO || item.status === "woke bos") return;
+    setUpdatingStatusId(item.noPO);
+    try {
+      // Cari id_PO dari noPO (harus ada di data PO)
+      const poRes = await fetch("http://localhost:5000/api/po");
+      const poList = await poRes.json();
+      const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
+      if (!po) {
+        alert("PO tidak ditemukan");
+        setUpdatingStatusId(null);
+        return;
+      }
+      // Update statusterima di backend
+      await fetch(`http://localhost:5000/api/po/${po.id_PO}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statusterima: "woke bos" }),
+      });
+      // Update di frontend (refresh data)
+      setRekapData((prev) =>
+        prev.map((row) =>
+          row.noPO === item.noPO ? { ...row, status: "woke bos" } : row
+        )
+      );
+    } catch (err) {
+      alert("Gagal update status");
+    }
+    setUpdatingStatusId(null);
+  }
 
   return (
     <MainLayout>
@@ -1234,6 +1708,7 @@ export default function RekapFullPage() {
                 className="bg-primary hover:bg-primary/90 h-9 ml-2"
                 disabled={
                   (exportMode === "selected" && selectedIds.length === 0) ||
+                 
                   (exportMode === "range" &&
                     (!exportStartDate || !exportEndDate))
                 }
@@ -1244,405 +1719,469 @@ export default function RekapFullPage() {
             </div>
           </div>
         </div>
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle>Daftar Rekap Full</CardTitle>
-            <CardDescription>
-              Total: {filteredData.length} data
-              {filteredData.length > 0 && (
-                <>
-                  {" | "}
-                  Menampilkan {(currentPage - 1) * itemsPerPage + 1}-
-                  {Math.min(currentPage * itemsPerPage, filteredData.length)}
-                  {" dari "}
-                  {filteredData.length} data
-                </>
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-4">
-              <Input
-                placeholder="Cari semua kolom..."
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
-            </div>
-            <div className="overflow-x-auto">
-<Table className="border-collapse border border-gray-300 table-auto">
-  <TableHeader className="bg-gray-100">
-    <TableRow>
-      {columns.map((col) => (
-        <TableHead key={col.key} className="text-left px-6 py-3 border-b border-r border-gray-300">
-          {col.label}
-        </TableHead>
-      ))}
-    </TableRow>
-  </TableHeader>
-  <TableBody>
-    {groupedTableData.map((prGroup) => (
-      <React.Fragment key={prGroup.id_PR}>
-        {/* For each PR Item group inside PR group */}
-        {prGroup.prItemGroups.map((prItemGroup) =>
-          prItemGroup.poGroups.map((poGroup) =>
-            poGroup.btbGroups.map((btbGroup) =>
-              btbGroup.items.map((item, idx) => {
-                // Find index of this item in prItemGroup.items (for PR Item rowSpan logic)
-                const prItemIdx = prItemGroup.items.indexOf(item);
-                // For PO rowSpan, only show on first item in PO group
-                const isFirstPO = poGroup.items.indexOf(item) === 0;
-                // For PR Item rowSpan, only show on first item in PR Item group
-                const isFirstPRItem = prItemIdx === 0;
-                // For PR rowSpan, only show on first item in PR group
-                const prIdx = prGroup.items.indexOf(item);
-                const isFirstPR = prIdx === 0;
-                // For BTB rowSpan, only show on first item in BTB group
-                const isFirstBTB = idx === 0;
-                return (
-                  <TableRow
-                    key={
-                      prGroup.id_PR +
-                      "-" +
-                      prItemGroup.prItemKey +
-                      "-" +
-                      poGroup.id_PO +
-                      "-" +
-                      btbGroup.id_btb +
-                      "-item-" +
-                      idx
-                    }
-                    className="hover:bg-gray-50 transition-colors"
-                  >
-                    {/* Periode PR */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.periodePR}
-                      </TableCell>
-                    ) : null}
-                    {/* No. PR */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.noPR}
-                      </TableCell>
-                    ) : null}
-                    {/* Tanggal PR */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.tanggalPR}
-                      </TableCell>
-                    ) : null}
-                    {/* Hari PR */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.hariPR}
-                      </TableCell>
-                    ) : null}
-                    {/* Daftar Barang PR */}
-                    {isFirstPRItem ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
-                        {item.daftarBarangPR}
-                      </TableCell>
-                    ) : null}
-                    {/* Quantity Awal PR */}
-                    {isFirstPRItem ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300 text-right" rowSpan={prItemGroup.rowSpan}>
-                        {formatInt(item.quantityAwalPR)}
-                      </TableCell>
-                    ) : null}
-                    {/* Satuan PR */}
-                    {isFirstPRItem ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
-                        {item.satuanPR}
-                      </TableCell>
-                    ) : null}
-                    {/* Keterangan PR */}
-                    {isFirstPRItem ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
-                        <KeteranganPopover text={item.keteranganPR || ""} max={20} />
-                      </TableCell>
-                    ) : null}
-                    {/* Divisi */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.divisi}
-                      </TableCell>
-                    ) : null}
-                    {/* Dibuat Oleh */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.dibuatOleh}
-                      </TableCell>
-                    ) : null}
-                    {/* Target Tanggal PO */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.targetTanggalPO}
-                      </TableCell>
-                    ) : null}
-                    {/* Status */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.status}
-                      </TableCell>
-                    ) : null}
-                    {/* Sisa Quantity PR */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityPR)}</TableCell>
-                    {/* Skema PR */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.skemaPRLabel}
-                      </TableCell>
-                    ) : null}
-                    {/* Periode PO */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.periodePO}
-                      </TableCell>
-                    ) : null}
-                    {/* No. PO */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.noPO}
-                      </TableCell>
-                    ) : null}
-                    {/* Tanggal PO */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.tanggalPO}
-                      </TableCell>
-                    ) : null}
-                    {/* Supplier */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.supplier}
-                      </TableCell>
-                    ) : null}
-                    {/* Quantity Awal PO */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityAwalPO)}</TableCell>
-                    {/* Satuan PO */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.satuanPO}</TableCell>
-                    {/* Harga Satuan PO */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300 text-right">
-                      {item.hargaSatuanPO !== undefined && item.hargaSatuanPO !== null && item.hargaSatuanPO !== ""
-                        ? "Rp. " + Number(item.hargaSatuanPO).toLocaleString("id-ID")
-                        : ""}
+        {/* Tambahkan input tanggal PR di atas tabel */}
+        <div className="flex items-center gap-2 mb-2">
+          <Label className="text-sm font-medium">Rentang Tanggal PR:</Label>
+          <Input
+            type="date"
+            value={exportStartDate}
+            onChange={(e) => {
+              setExportStartDate(e.target.value);
+            }}
+            className="w-[140px]"
+            placeholder="Tanggal Mulai"
+          />
+          <span>-</span>
+          <Input
+            type="date"
+            value={exportEndDate}
+            onChange={(e) => {
+              setExportEndDate(e.target.value);
+            }}
+            className="w-[140px]"
+            placeholder="Tanggal Akhir"
+          />
+        </div>
+        {/* Jika tanggal belum diisi, tampilkan pesan */}
+        {!exportStartDate || !exportEndDate ? (
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle>Daftar Rekap Full</CardTitle>
+              <CardDescription>
+                Pilih rentang tanggal PR terlebih dahulu untuk menampilkan data.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <Card className="bg-card border-border">
+            <CardHeader>
+              <CardTitle>Daftar Rekap Full</CardTitle>
+              <CardDescription>
+                Total: {filteredData.length} data
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <Input
+                  placeholder="Cari semua kolom..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                  }}
+                />
+              </div>
+              <div className="overflow-x-auto">
+                <Table className="border-collapse border border-gray-300 table-auto">
+                  <TableHeader className="bg-gray-100">
+                    <TableRow>
+                      {columns.map((col) => (
+                        <TableHead key={col.key} className="text-left px-6 py-3 border-b border-r border-gray-300">
+                          {col.label}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {groupedTableData.map((prGroup) => (
+                      <React.Fragment key={prGroup.id_PR}>
+                        {/* For each PR Item group inside PR group */}
+                        {prGroup.prItemGroups.map((prItemGroup) =>
+                          prItemGroup.poGroups.map((poGroup) =>
+                            poGroup.btbGroups.map((btbGroup) =>
+                              btbGroup.items.map((item, idx) => {
+                                // Find index of this item in prItemGroup.items (for PR Item rowSpan logic)
+                                const prItemIdx = prItemGroup.items.indexOf(item);
+                                // For PO rowSpan, only show on first item in PO group
+                                const isFirstPO = poGroup.items.indexOf(item) === 0;
+                                // For PR Item rowSpan, only show on first item in PR Item group
+                                const isFirstPRItem = prItemIdx === 0;
+                                // For PR rowSpan, only show on first item in PR group
+                                const prIdx = prGroup.items.indexOf(item);
+                                const isFirstPR = prIdx === 0;
+                                // For BTB rowSpan, only show on first item in BTB group
+                                const isFirstBTB = idx === 0;
+                                // Only allow edit on the last item in BTB group
+                                const isEditableRow = idx === btbGroup.items.length - 1;
+                                return (
+                                  <TableRow
+                                    key={
+                                      prGroup.id_PR +
+                                      "-" +
+                                      prItemGroup.prItemKey +
+                                      "-" +
+                                      poGroup.id_PO +
+                                      "-" +
+                                      btbGroup.id_btb +
+                                      "-item-" +
+                                      idx
+                                    }
+                                    className="hover:bg-gray-50 transition-colors"
+                                  >
+                                    {/* Periode PR */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.periodePR}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* No. PR */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.noPR}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Tanggal PR */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.tanggalPR}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Hari PR */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.hariPR}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Daftar Barang PR */}
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
+                                        {item.daftarBarangPR}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Quantity Awal PR */}
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300 text-right" rowSpan={prItemGroup.rowSpan}>
+                                        {formatInt(item.quantityAwalPR)}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Satuan PR */}
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
+                                        {item.satuanPR}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Keterangan PR */}
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prItemGroup.rowSpan}>
+                                        <KeteranganPopover text={item.keteranganPR || ""} max={20} />
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Divisi */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.divisi}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Dibuat Oleh */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.dibuatOleh}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Target Tanggal PO */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.targetTanggalPO}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Status (gabung per PR) */}
+                                    {isFirstPR ? (
+                                      <TableCell
+                                        className={`px-6 py-3 border-b border-r border-gray-300 relative group ${isEditableRow ? "cursor-pointer" : ""} ${
+                                          editingStatusId === item.noPO
+                                            ? "bg-gray-200"
+                                            : getStatusBg(item.status)
+                                        }`}
+                                        rowSpan={prGroup.rowSpan}
+                                        onClick={isEditableRow ? () => handleStatusEditClick(item) : undefined}
+                                        style={{ opacity: updatingStatusId === item.noPO ? 0.5 : 1 }}
+                                        title={isEditableRow ? "Klik untuk edit status" : ""}
+                                      >
+                                        {isEditableRow && editingStatusId === item.noPO ? (
+                                          editingStatusValue === "Custom..." ? (
+                                            <form
+                                              onSubmit={e => {
+                                                e.preventDefault();
+                                                handleCustomStatusSubmit(item);
+                                              }}
+                                              style={{ display: "flex", alignItems: "center", gap: 4 }}
+                                            >
+                                              <input
+                                                autoFocus
+                                                className="border rounded px-2 py-1 text-sm bg-white"
+                                                placeholder="Isi status custom"
+                                                value={customStatusInput}
+                                                onChange={e => setCustomStatusInput(e.target.value)}
+                                                onBlur={() => {
+                                                  if (customStatusInput.trim()) {
+                                                    handleCustomStatusSubmit(item);
+                                                  } else {
+                                                    setEditingStatusId(null);
+                                                  }
+                                                }}
+                                                onKeyDown={e => {
+                                                  if (e.key === "Escape") setEditingStatusId(null);
+                                                }}
+                                                disabled={editingStatusLoading}
+                                              />
+                                              <Button
+                                                type="submit"
+                                                size="sm"
+                                                className="ml-1"
+                                                disabled={editingStatusLoading || !customStatusInput.trim()}
+                                              >
+                                                Simpan
+                                              </Button>
+                                            </form>
+                                          ) : (
+                                            <div className="bg-gray-200 rounded w-fit">
+                                              <Select
+                                                value={editingStatusValue}
+                                                onValueChange={(val) => handleStatusChange(val, item)}
+                                                open
+                                              >
+                                                <SelectTrigger className="w-[180px] h-8 bg-gray-200 !bg-opacity-100">
+                                                  <SelectValue placeholder="Pilih status" />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-gray-200">
+                                                  {statusOptions.map((opt) => (
+                                                    <SelectItem key={opt} value={opt}>
+                                                      {opt}
+                                                    </SelectItem>
+                                                  ))}
+                                                </SelectContent>
+                                              </Select>
+                                            </div>
+                                          )
+                                        ) : (
+                                          <span>{item.status}</span>
+                                        )}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Skema PR */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.skemaPRLabel}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Periode PO */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                                        {item.periodePO}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* No. PO */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                                        {item.noPO}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Tanggal PO */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                                        {/* Hapus plusDays=1 */}
+                                        {formatTanggalDisplay(item.tanggalPO)}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Supplier */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                                        {item.supplier}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Quantity Awal PO */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityAwalPO)}</TableCell>
+                                    {/* Satuan PO */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.satuanPO}</TableCell>
+                                    {/* Harga Satuan PO */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300 text-right">
+                                      {item.hargaSatuanPO !== undefined && item.hargaSatuanPO !== null && item.hargaSatuanPO !== ""
+                                        ? "Rp. " + Number(item.hargaSatuanPO).toLocaleString("id-ID")
+                                        : ""}
+                                    </TableCell>
+                                    {/* Diskon (%) */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.diskonPersen}</TableCell>
+                                    {/* Diskon (Rp) */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.diskonRp)}</TableCell>
+                                    {/* PPN (%) */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.ppnPersen}</TableCell>
+                                    {/* PPN (Rp) */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.ppnRp)}</TableCell>
+                                    {/* Total Harga */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.totalHarga)}</TableCell>
+                                    {/* Status Pengiriman */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                                        {item.statusPengiriman}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Tanggal Estimasi Diterima */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                                        {/* Hapus plusDays=1 */}
+                                        {formatTanggalDisplay(item.tanggalEstimasiDiterima)}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Diorder Oleh */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                                        {item.diorderOleh}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Diinput Oleh */}
+                                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                                      {item.diinputOleh}
+                                    </TableCell>
+                                    {/* Target Pencapaian PO (gabung per BTB) */}
+                                    {isFirstBTB ? (
+                                      <TableCell
+                                        className={`px-6 py-3 border-b border-r border-gray-300 ${getTargetPencapaianPoBg(item.targetPencapaianPO)} ${isEditableRow ? "cursor-pointer" : ""}`}
+                                        rowSpan={btbGroup.rowSpan}
+                                        onClick={isEditableRow ? () => handleTargetEditClick(item) : undefined}
+                                        style={{
+                                          opacity:
+                                            updatingTargetId &&
+                                            String(item.noBTB) &&
+                                            rekapData.find(r => r.noBTB === item.noBTB && String(r.id).endsWith(updatingTargetId))
+                                              ? 0.5
+                                              : 1
+                                        }}
+                                        title={isEditableRow ? "Klik untuk update Target Pencapaian PO" : ""}
+                                      >
+                                        {isEditableRow && editingTargetId === item.id ? (
+                                          editingTargetValue === "Custom..." ? (
+                                            <form
+                                              onSubmit={e => {
+                                                e.preventDefault();
+                                                handleCustomTargetSubmit(item);
+                                              }}
+                                              style={{ display: "flex", alignItems: "center", gap: 4 }}
+                                            >
+                                              <input
+                                                autoFocus
+                                                className="border rounded px-2 py-1 text-sm bg-white"
+                                                placeholder="Isi target custom"
+                                                value={customTargetInput}
+                                                onChange={e => setCustomTargetInput(e.target.value)}
+                                                onBlur={() => {
+                                                  if (customTargetInput.trim()) {
+                                                    handleCustomTargetSubmit(item);
+                                                  } else {
+                                                    setEditingTargetId(null);
+                                                  }
+                                                }}
+                                                onKeyDown={e => {
+                                                  if (e.key === "Escape") setEditingTargetId(null);
+                                                }}
+                                                disabled={editingTargetLoading}
+                                              />
+                                              <Button
+                                                type="submit"
+                                                size="sm"
+                                                className="ml-1"
+                                                disabled={editingTargetLoading || !customTargetInput.trim()}
+                                              >
+                                                Simpan
+                                              </Button>
+                                            </form>
+                                          ) : (
+                                            <div className="bg-gray-200 rounded w-fit">
+                                              <Select
+                                                value={editingTargetValue}
+                                                onValueChange={(val) => handleTargetChange(val, item)}
+                                                open
+                                              >
+                                                <SelectTrigger className="w-[180px] h-8 bg-gray-200 !bg-opacity-100">
+                                                  <SelectValue placeholder="Pilih Target" />
+                                                </SelectTrigger>
+                                                <SelectContent className="bg-gray-200">
+                                                  {targetOptions.map((opt) => (
+                                                    <SelectItem key={opt} value={opt}>
+                                                      {opt}
+                                                    </SelectItem>
+                                                  ))}
+                                                </SelectContent>
+                                              </Select>
+                                            </div>
+                                          )
+                                        ) : (
+                                          <span className="text-black">{item.targetPencapaianPO}</span>
+                                        )}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* Delay (gabung per PR, setelah Status) */}
+                                    {isFirstPR ? (
+                                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
+                                        {item.delay}
+                                      </TableCell>
+                                    ) : null}
+                  {/* Quantity PO */}
+                  <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityPO)}</TableCell>
+                  {/* Skema PO */}
+                  {isFirstPO ? (
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
+                      {item.skemaPO}
                     </TableCell>
-                    {/* Diskon (%) */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.diskonPersen}</TableCell>
-                    {/* Diskon (Rp) */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.diskonRp)}</TableCell>
-                    {/* PPN (%) */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{item.ppnPersen}</TableCell>
-                    {/* PPN (Rp) */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.ppnRp)}</TableCell>
-                    {/* Total Harga */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.totalHarga)}</TableCell>
-                    {/* Status Pengiriman */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.statusPengiriman}
-                      </TableCell>
-                    ) : null}
-                    {/* Tanggal Estimasi Diterima */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.tanggalEstimasiDiterima}
-                      </TableCell>
-                    ) : null}
-                    {/* Diorder Oleh */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.diorderOleh}
-                      </TableCell>
-                    ) : null}
-                    {/* Diinput Oleh */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                      {item.diinputOleh}
+                  ) : null}
+                  {/* Periode BTB */}
+                  {isFirstBTB ? (
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                      {item.periodeBTB}
                     </TableCell>
-                    {/* Target Pencapaian PO */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                      {/* Biarkan kosong */}
+                  ) : null}
+                  {/* No. BTB */}
+                  {isFirstBTB ? (
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                      {item.noBTB}
                     </TableCell>
-                    {/* Delay (tetap di posisi aslinya, setelah Status) */}
-                    {isFirstPR ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={prGroup.rowSpan}>
-                        {item.delay}
-                      </TableCell>
-                    ) : null}
-                    {/* Quantity PO */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityPO)}</TableCell>
-                    {/* Skema PO */}
-                    {isFirstPO ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={poGroup.rowSpan}>
-                        {item.skemaPO}
-                      </TableCell>
-                    ) : null}
-                    {/* Periode BTB */}
-                    {isFirstBTB ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
-                        {item.periodeBTB}
-                      </TableCell>
-                    ) : null}
-                    {/* No. BTB */}
-                    {isFirstBTB ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
-                        {item.noBTB}
-                      </TableCell>
-                    ) : null}
-                    {/* Tanggal BTB */}
-                    {isFirstBTB ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
-                        {item.tanggalBTB}
-                      </TableCell>
-                    ) : null}
-                    {/* Quantity BTB */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityBTB)}</TableCell>
-                    {/* Satuan BTB */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                      {item.satuanBTB}
+                  ) : null}
+                  {/* Tanggal BTB */}
+                  {isFirstBTB ? (
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                      {item.tanggalBTB}
                     </TableCell>
-                    {/* Biaya BTB */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.biayaBTB)}</TableCell>
-                    {/* Sisa Stok BTB */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.sisaStokBTB)}</TableCell>
-                    {/* Diterima Oleh */}
-                    {isFirstBTB ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
-                        {item.diterimaOleh}
-                      </TableCell>
-                    ) : null}
-                    {/* Status Permintaan By PR */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                      {/* kosong */}
+                  ) : null}
+                  {/* Quantity BTB */}
+                  <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.quantityBTB)}</TableCell>
+                  {/* Satuan BTB */}
+                  <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                    {item.satuanBTB}
+                  </TableCell>
+                  {/* Biaya BTB */}
+                  <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatRupiahFull(item.biayaBTB)}</TableCell>
+                  {/* Sisa Stok BTB */}
+                  <TableCell className="px-6 py-3 border-b border-r border-gray-300">{formatInt(item.sisaStokBTB)}</TableCell>
+                  {/* Diterima Oleh */}
+                  {isFirstBTB ? (
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                      {item.diterimaOleh}
                     </TableCell>
-                    {/* Plan */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                      {/* kosong */}
+                  ) : null}
+                  {/* Plan */}
+                  <TableCell className="px-6 py-3 border-b border-r border-gray-300">
+                    {item.plan}
+                  </TableCell>
+                  {/* Skema BTB */}
+                  {isFirstBTB ? (
+                    <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
+                      {item.skemaBTB}
                     </TableCell>
-                    {/* No Plan */}
-                    <TableCell className="px-6 py-3 border-b border-r border-gray-300">
-                      {/* kosong */}
-                    </TableCell>
-                    {/* Skema BTB */}
-                    {isFirstBTB ? (
-                      <TableCell className="px-6 py-3 border-b border-r border-gray-300" rowSpan={btbGroup.rowSpan}>
-                        {item.skemaBTB}
-                      </TableCell>
-                    ) : null}
-                  </TableRow>
-                );
-              })
-            )
+                  ) : null}
+                </TableRow>
+              );
+            })
           )
-        )}
-      </React.Fragment>
-    ))}
-  </TableBody>
-</Table>
-
-
-
-            </div>
-          </CardContent>
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className={
-                    currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                  }
-                />
-              </PaginationItem>
-              {Array.from(
-                { length: Math.ceil(filteredData.length / itemsPerPage) },
-                (_, i) => i + 1
-              ).map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    onClick={() => setCurrentPage(page)}
-                    isActive={currentPage === page}
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() =>
-                    setCurrentPage(
-                      Math.min(
-                        Math.ceil(filteredData.length / itemsPerPage),
-                        currentPage + 1
-                      )
-                    )
-                  }
-                  className={
-                    currentPage ===
-                    Math.ceil(filteredData.length / itemsPerPage)
-                      ? "pointer-events-none opacity-50"
-                      : ""
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+        )
+      )}
+    </React.Fragment>
+  ))}
+</TableBody>
+          </Table>
+        </div>
+      </CardContent>
+      {/* Pagination dihilangkan, tampilkan semua data sesuai rentang tanggal */}
         </Card>
+      )}
       </div>
     </MainLayout>
   );
-}
-
-// Tambahkan parser No. PR (E-WALK + PENTACITY)
-function parseNoPR(noPR: string | null | undefined) {
-  if (!noPR || typeof noPR !== "string") return null;
-  const s = noPR.trim().toUpperCase();
-  // PR/E-WALK/25/XI/001
-  const regexEwalk = /^PR\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-  // PR/PRQ/25/XI/00001
-  const regexPenta = /^PR\/PRQ\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
-  let match = s.match(regexEwalk);
-  let brand = "E-WALK";
-  if (!match) {
-    match = s.match(regexPenta);
-    brand = "PENTA";
-  }
-  if (!match) return null;
-
-  const [, tahun2, bulanRomawi, urutStr] = match;
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
-  };
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
-
-  return { tahun, bulan, urut, brand };
-}
-
-// Fungsi sorting rekapRows
-function sortRekapRows(rows: any[]) {
-  const allValid = rows.every(
-    (row) => typeof row.noPR === "string" && parseNoPR(row.noPR)
-  );
-  if (allValid) {
-    return [...rows].sort((a, b) => {
-      const pa = parseNoPR(a.noPR)!;
-      const pb = parseNoPR(b.noPR)!;
-      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
-      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
-      return pb.urut - pa.urut;
-    });
-  }
-  // Fallback: urutkan berdasarkan tanggal PR terbaru
-  return [...rows].sort((a, b) => {
-    const ta = a.tanggalPR ? a.tanggalPR.replace(/-/g, "") : "";
-    const tb = b.tanggalPR ? b.tanggalPR.replace(/-/g, "") : "";
-    return tb.localeCompare(ta);
-  });
 }

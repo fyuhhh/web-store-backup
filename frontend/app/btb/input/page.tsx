@@ -474,30 +474,19 @@ export default function BTBInputPage() {
     return `${year}-${month}-${day}`;
   }
 
-  function formatTanggalLebihSehari(tgl: string) {
-    if (!tgl) return "";
-    let dateObj;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-      dateObj = dayjs(tgl).add(1, "day");
-    } else if (tgl.includes("T")) {
-      dateObj = dayjs.utc(tgl).add(1, "day");
-    } else {
-      dateObj = dayjs(tgl).add(1, "day");
-    }
-    return dateObj.format("DD-MM-YYYY");
-  }
 
-  function formatTanggalPlus2(tgl: string) {
+  // Fungsi format tanggal standar (tanpa penambahan hari)
+  function formatTanggal(tgl: string) {
     if (!tgl) return "";
-    let dateObj;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-      dateObj = dayjs(tgl).add(2, "day");
-    } else if (tgl.includes("T")) {
-      dateObj = dayjs.utc(tgl).add(2, "day");
-    } else {
-      dateObj = dayjs(tgl).add(2, "day");
+    let dateObj = dayjs(tgl);
+    if (!dateObj.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+      const [d, m, y] = tgl.split("-");
+      dateObj = dayjs(`${y}-${m}-${d}`);
     }
-    return dateObj.format("DD-MM-YYYY");
+    if (dateObj.isValid()) {
+      return dateObj.format("DD-MM-YYYY");
+    }
+    return tgl ?? "";
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -553,19 +542,22 @@ export default function BTBInputPage() {
                 String(p.id_PRItem) === String(item.id) ||
                 p.namaBarang === item.namaBarang
             );
-            // --- FIX: pastikan hargaSatuan integer ---
             const hargaSatuanInt = poItem?.hargaSatuan
               ? Math.round(Number(poItem.hargaSatuan))
               : 0;
-            // --- Ambil totalPerItem dari po_item untuk biaya per item ---
             const totalPerItem = poItem?.totalPerItem
               ? Number(poItem.totalPerItem)
               : 0;
+            const jumlahAsli = poItem?.jumlahAsli
+              ? Number(poItem.jumlahAsli)
+              : 0;
             const qtyDiterima = Math.round(btbInputQty[item.poItemId] ?? 0);
-            // --- Hitung biaya per item sesuai qty diterima ---
-            let biayaPerItem = 0;
-            if (qtyDiterima > 0 && totalPerItem > 0 && poItem?.jumlahPO > 0) {
-              biayaPerItem = (totalPerItem / poItem.jumlahPO) * qtyDiterima;
+            // --- Hitung biaya per item proporsional ---
+            let biaya = 0;
+            if (qtyDiterima > 0 && totalPerItem > 0 && jumlahAsli > 0) {
+              biaya = Math.round((qtyDiterima / jumlahAsli) * totalPerItem);
+            } else if (qtyDiterima > 0 && totalPerItem > 0) {
+              biaya = Math.round(totalPerItem / qtyDiterima);
             }
             return {
               id_POItem: poItem?.id_POItem,
@@ -574,7 +566,7 @@ export default function BTBInputPage() {
               id_satuan: item.id_satuan ?? poItem?.id_satuan ?? null,
               keterangan: item.keterangan ?? "",
               hargaSatuan: hargaSatuanInt,
-              biayaPerItem, // <-- biaya per item BTB
+              biaya, // <-- biaya per item BTB, dikirim ke backend
             };
           })
           .filter((item) => !!item.id_POItem)
@@ -582,7 +574,7 @@ export default function BTBInputPage() {
 
       // Hitung total biaya BTB dari semua item diterima
       const totalBiayaBTB = items.reduce(
-        (sum, item) => sum + (item.biayaPerItem ?? 0),
+        (sum, item) => sum + (item.biaya ?? 0),
         0
       );
 
@@ -649,8 +641,7 @@ export default function BTBInputPage() {
             id_satuan: item.id_satuan,
             keterangan: item.keterangan,
             qty_sisa: Math.round(item.jumlah_diterima), // integer
-            // hargaSatuan: item.hargaSatuan, // opsional, jika backend ingin simpan
-            biaya: Math.round(item.biayaPerItem), // <-- kirim biaya per item ke backend jika ingin
+            biaya: Math.round(item.biaya), // <-- kirim biaya per item ke backend
           }),
         });
 
@@ -700,6 +691,7 @@ export default function BTBInputPage() {
       setTimeout(() => {
         setNotif(null);
         // Redirect jika perlu
+        window.location.href = "/btb/input"; // <-- auto refresh ke halaman input BTB
       }, 1800);
       resetForm();
     } catch (err) {
@@ -751,6 +743,15 @@ export default function BTBInputPage() {
       setSelectedPOItemIds((prev) => [...prev, key]);
     } else {
       setSelectedPOItemIds((prev) => prev.filter((id) => id !== key));
+    }
+  };
+
+  // Tambahkan: handle checkbox group (per PO)
+  const handleSelectPOGroup = (poId: string, checked: boolean, allItemKeys: string[]) => {
+    if (checked) {
+      setSelectedPOItemIds((prev) => Array.from(new Set([...prev, ...allItemKeys])));
+    } else {
+      setSelectedPOItemIds((prev) => prev.filter((id) => !allItemKeys.includes(id)));
     }
   };
 
@@ -1143,13 +1144,13 @@ export default function BTBInputPage() {
         const pb = parseNoPO(b.noPO)!;
 
         // Tahun DESC
-        if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
+        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
 
         // Bulan DESC
-        if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
+        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
 
         // Urut DESC
-        return pb.urut - pa.urut;
+        return pa.urut - pb.urut;
       });
     }
 
@@ -1222,7 +1223,46 @@ export default function BTBInputPage() {
                 <Table className="border border-gray-300">
                   <TableHeader>
                     <TableRow>
-                      {/* HAPUS: <TableHead className="w-12 border-r border-gray-300">...</TableHead> */}
+                      {/* Tambahkan checkbox header untuk select all */}
+                      <TableHead className="w-12 border-r border-gray-300 text-center">
+                        <Checkbox
+                          checked={
+                            paginatedData.length > 0 &&
+                            paginatedData.every((po) =>
+                              po.poItems.flatMap((poItem: any) =>
+                                poItem.items
+                                  .filter((item: any) => item.jumlahPO > 0)
+                                  .map((item: any) =>
+                                    selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                  )
+                              ).every(Boolean)
+                            )
+                          }
+                          indeterminate={
+                            paginatedData.some((po) =>
+                              po.poItems.flatMap((poItem: any) =>
+                                poItem.items
+                                  .filter((item: any) => item.jumlahPO > 0)
+                                  .map((item: any) =>
+                                    selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                  )
+                              ).some(Boolean)
+                            ) &&
+                            !paginatedData.every((po) =>
+                              po.poItems.flatMap((poItem: any) =>
+                                poItem.items
+                                  .filter((item: any) => item.jumlahPO > 0)
+                                  .map((item: any) =>
+                                    selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                  )
+                              ).every(Boolean)
+                            )
+                          }
+                          onCheckedChange={(checked) =>
+                            handleSelectAllItemsOnPage(checked === true, paginatedData)
+                          }
+                        />
+                      </TableHead>
                       <TableHead className="border-r border-gray-300 text-center">No. PO</TableHead>
                       <TableHead className="border-r border-gray-300 text-center">Daftar Barang</TableHead>
                       <TableHead className="border-r border-gray-300 text-center">
@@ -1757,6 +1797,10 @@ export default function BTBInputPage() {
                             noPR: poItem.noPR,
                           }))
                       );
+                      // Kumpulkan semua item key untuk group PO ini
+                      const groupItemKeys = allItems.map((item: any) => `${po.id}::${item.noPR}-${item.id}`);
+                      const allGroupSelected = groupItemKeys.length > 0 && groupItemKeys.every((key) => selectedPOItemIds.includes(key));
+                      const someGroupSelected = groupItemKeys.some((key) => selectedPOItemIds.includes(key));
                       return (
                         <React.Fragment key={po.id}>
                           {allItems.map((item: any, itemIndex: number) => (
@@ -1764,19 +1808,32 @@ export default function BTBInputPage() {
                               key={`${po.id}-item-${itemIndex}`}
                               className="border-b border-gray-300 align-middle"
                             >
+                              {/* Checkbox group (per PO), hanya di baris pertama group */}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="px-2 py-2 border-r border-gray-300 align-middle text-center"
+                                >
+                                  <Checkbox
+                                    checked={allGroupSelected}
+                                    indeterminate={someGroupSelected && !allGroupSelected}
+                                    onCheckedChange={(checked) =>
+                                      handleSelectPOGroup(po.id, checked === true, groupItemKeys)
+                                    }
+                                  />
+                                </TableCell>
+                              )}
                               {/* Kolom No. PO dan Barang */}
                               {itemIndex === 0 && (
-                                <>
-                                  <TableCell
-                                    rowSpan={allItems.length}
-                                    className="font-medium px-4 py-2 border-r border-gray-300 align-middle text-center"
-                                  >
-                                    {po.noPO}
-                                  </TableCell>
-                                </>
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="font-medium px-4 py-2 border-r border-gray-300 align-middle text-left"
+                                >
+                                  {po.noPO}
+                                </TableCell>
                               )}
                               {/* Checkbox + Nama Barang */}
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[200px] flex items-center gap-2 justify-center">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 text-left min-w-[200px] flex items-left gap-2 justify-left">
                                 <Checkbox
                                   checked={selectedPOItemIds.includes(`${po.id}::${item.noPR}-${item.id}`)}
                                   onCheckedChange={(checked) =>
@@ -1785,13 +1842,13 @@ export default function BTBInputPage() {
                                 />
                                 {item.namaBarang}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[80px]">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
                                 {item.jumlahPO}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[60px]">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
                                 {item.satuan}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center max-w-xs whitespace-normal break-words">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words">
                                 <HoverCard>
                                   <HoverCardTrigger asChild>
                                     <div
@@ -1801,11 +1858,6 @@ export default function BTBInputPage() {
                                       {truncateText(item.keterangan, 35)}
                                     </div>
                                   </HoverCardTrigger>
-                                  <HoverCardContent>
-                                    <p className="whitespace-pre-wrap text-sm">
-                                      {item.keterangan}
-                                    </p>
-                                  </HoverCardContent>
                                 </HoverCard>
                               </TableCell>
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px]">
@@ -1825,7 +1877,7 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-center border-r border-gray-300 align-middle min-w-[120px]"
                                 >
-                                  {formatTanggalPlus2(po.tanggalPO)}
+                                  {formatTanggal(po.tanggalPO)}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (
@@ -1833,7 +1885,7 @@ export default function BTBInputPage() {
                                   rowSpan={allItems.length}
                                   className="text-center border-r border-gray-300 align-middle min-w-[140px]"
                                 >
-                                  {formatTanggalPlus2(po.estimasiTanggalTerima)}
+                                  {formatTanggal(po.estimasiTanggalTerima)}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (

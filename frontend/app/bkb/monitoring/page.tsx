@@ -135,9 +135,9 @@ function sortBKBList(filteredBKBData: any[]) {
       const pa = parseNoBKB(a.noBKB)!;
       const pb = parseNoBKB(b.noBKB)!;
 
-      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun; // DESC
-      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan; // DESC
-      return pb.urut - pa.urut; // DESC
+      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun; // DESC
+      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan; // DESC
+      return pa.urut - pb.urut; // DESC
     });
   }
 
@@ -772,6 +772,11 @@ export default function BKBMonitoringPage() {
                       });
                       return Object.entries(grouped).map(([id_bkb, items]) => {
                         if (!items || items.length === 0) return null;
+                        // Urutkan items ASC by id_bkb_item (atau id_bkbItem/id)
+                        const sortedItems = [...items].sort((a, b) => {
+                          const getId = (x) => x.id_bkb_item ?? x.id_bkbItem ?? x.id;
+                          return getId(a) - getId(b);
+                        });
                         return (
                           <React.Fragment key={id_bkb}>
                             <TableRow className="hover:bg-gray-50 transition-colors">
@@ -800,29 +805,29 @@ export default function BKBMonitoringPage() {
                               </TableCell>
                               {/* Nama Barang - item pertama */}
                               <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                                {items[0].namaBarang}
+                                {sortedItems[0].namaBarang}
                               </TableCell>
                               {/* Quantity - item pertama */}
                               <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
                                 <Badge
                                   variant={
-                                    Number(items[0].quantity) > 0
+                                    Number(sortedItems[0].quantity) > 0
                                       ? "default"
                                       : "destructive"
                                   }
                                 >
-                                  {formatInt(items[0].quantity)}
+                                  {formatInt(sortedItems[0].quantity)}
                                 </Badge>
                               </TableCell>
                               {/* Satuan - item pertama */}
                               <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                                {items[0].satuan}
+                                {sortedItems[0].satuan}
                               </TableCell>
                               {/* Keterangan - item pertama */}
                               <TableCell className="border border-gray-300 px-4 py-3 text-center">
-                                {items[0].keterangan ? (
+                                {sortedItems[0].keterangan ? (
                                   <span
-                                    title={items[0].keterangan}
+                                    title={sortedItems[0].keterangan}
                                     style={{
                                       cursor: "pointer",
                                       whiteSpace: "nowrap",
@@ -833,9 +838,9 @@ export default function BKBMonitoringPage() {
                                       color: "#6b7280"
                                     }}
                                   >
-                                    {items[0].keterangan.length > 15
-                                      ? items[0].keterangan.slice(0, 15) + "..."
-                                      : items[0].keterangan}
+                                    {sortedItems[0].keterangan.length > 15
+                                      ? sortedItems[0].keterangan.slice(0, 15) + "..."
+                                      : sortedItems[0].keterangan}
                                   </span>
                                 ) : "-"}
                               </TableCell>
@@ -871,7 +876,7 @@ export default function BKBMonitoringPage() {
                               </TableCell>
                             </TableRow>
                             {/* Baris item berikutnya */}
-                            {items.slice(1).map((item, idx) => (
+                            {sortedItems.slice(1).map((item, idx) => (
                               <TableRow key={`${id_bkb}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors">
                                 {/* Nama Barang - item berikutnya */}
                                 <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">

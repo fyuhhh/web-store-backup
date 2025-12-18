@@ -595,10 +595,7 @@ export default function InputPOPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           noPO: poFormData.noPO,
-          tanggalPO:
-            typeof poFormData.tanggalPO === "string"
-              ? poFormData.tanggalPO
-              : formatDateForBackend(poFormData.tanggalPO),
+          tanggalPO: formatDateForBackend(poFormData.tanggalPO),
           id_supplier: poFormData.supplier,
           diskon: parseDiskonPersenToNumber(poFormData.diskon),
           originalDiskon: calculations.totalDiskon,
@@ -606,12 +603,10 @@ export default function InputPOPage() {
           ppnAmount: calculations.totalPPN,
           totalPembayaran: calculations.totalPayment,
           orderedBy: orderedByUserId,
-          estimasiTanggalTerima: formatDateForBackend(
-            poFormData.estimasiTanggalDiterima
-          ),
+          estimasiTanggalTerima: formatDateForBackend(poFormData.estimasiTanggalDiterima),
           id_statusPengiriman: poFormData.statusPengiriman,
           status: "Menunggu",
-          createdAt: new Date().toISOString(),
+          createdAt: formatDateForBackend(new Date()), // tanggal hari ini, tanpa jam
           id_skema: userSkema,
         }),
       });
@@ -723,11 +718,10 @@ export default function InputPOPage() {
         // Ambil data PR lama
         const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
         const prData = await prRes.json();
-        // Kirim semua field PR lama + status baru
-        // --- Tambahkan log payload sebelum PUT ---
+        // Kirim semua field PR lama + status baru, TANPA mengirim tanggalPR
         const payload = {
           noPR: prData.noPR,
-          tanggalPR: normalizeToDateString(prData.tanggalPR),
+          // tanggalPR: HAPUS agar tidak mengubah tanggal PR di backend!
           id_divisi: prData.id_divisi,
           id_urgensi: prData.id_urgensi,
           status: newStatus,
@@ -1225,10 +1219,25 @@ export default function InputPOPage() {
     return found ? found.satuan : satuanValue;
   }
 
-  // Helper format tanggal ke yyyy-mm-dd untuk backend
+  // Helper format tanggal ke yyyy-mm-dd untuk backend (KONSISTEN, TANPA JAM, TANPA TIMEZONE)
   function formatDateForBackend(date: Date | string | null) {
     if (!date) return "";
-    return dayjs(date).utc().format("YYYY-MM-DD");
+    if (typeof date === "string") {
+      // Jika sudah yyyy-mm-dd, return langsung
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+      // Jika dd-mm-yyyy, ubah ke yyyy-mm-dd
+      if (/^\d{2}-\d{2}-\d{4}$/.test(date)) {
+        const [d, m, y] = date.split("-");
+        return `${y}-${m}-${d}`;
+      }
+      // Jika ISO string, ambil tanggal saja
+      if (date.includes("T")) return date.split("T")[0];
+    }
+    // Jika Date object, ambil tahun, bulan, hari persis (tanpa jam, tanpa timezone)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   }
   // Fungsi untuk memberi class pada weekend
   function highlightWeekends(date: Date) {
@@ -1989,7 +1998,7 @@ export default function InputPOPage() {
                                   className="w-24 text-right"
                                   placeholder="Rp. 0"
                                 />
-                              </TableCell>
+                                                           </TableCell>
                               <TableCell>
                                 Rp {afterDiskon.toLocaleString("id-ID")}
                               </TableCell>

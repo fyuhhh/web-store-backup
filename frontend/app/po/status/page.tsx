@@ -41,15 +41,14 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
 
+
 export default function StatusPOPage() {
   const [prData, setPrData] = useState<any[]>([]);
   const [prItemData, setPrItemData] = useState<any[]>([]);
   const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
   const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
   const [urgensiOptions, setUrgensiOptions] = useState<any[]>([]);
-  const [selectedPRsForProcess, setSelectedPRsForProcess] = useState<string[]>(
-    []
-  );
+  const [selectedPRsForProcess, setSelectedPRsForProcess] = useState<string[]>([]);
   const [userSkema, setUserSkema] = useState<string>("");
   // Tambahkan state untuk id_skema user
   const [userSkemaId, setUserSkemaId] = useState<string | null>(null);
@@ -79,12 +78,33 @@ export default function StatusPOPage() {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
+  // Ubah itemsPerPage ke 50
+  const [itemsPerPage] = useState(50);
 
   // NEW: state untuk menyimpan item terpilih per PR (map: prId -> array of item ids)
-  const [selectedItemsMap, setSelectedItemsMap] = useState<
-    Record<string, string[]>
-  >({});
+  const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, string[]>>({});
+  // Ref untuk sticky scrollbar
+  const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+  const scrollBarRef = React.useRef<HTMLDivElement>(null);
+
+  // Sinkronkan scroll antara tabel dan scrollbar custom
+  React.useEffect(() => {
+    const tableDiv = tableWrapperRef.current;
+    const scrollDiv = scrollBarRef.current;
+    if (!tableDiv || !scrollDiv) return;
+    const onTableScroll = () => {
+      scrollDiv.scrollLeft = tableDiv.scrollLeft;
+    };
+    const onScrollBarScroll = () => {
+      tableDiv.scrollLeft = scrollDiv.scrollLeft;
+    };
+    tableDiv.addEventListener("scroll", onTableScroll);
+    scrollDiv.addEventListener("scroll", onScrollBarScroll);
+    return () => {
+      tableDiv.removeEventListener("scroll", onTableScroll);
+      scrollDiv.removeEventListener("scroll", onScrollBarScroll);
+    };
+  }, []);
 
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
@@ -619,14 +639,14 @@ function sortPRList(filteredPRData: any[]) {
       const pa = parseNoPR(a.noPR)!;
       const pb = parseNoPR(b.noPR)!;
 
-      // Tahun DESC → terbaru
-      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
+      // Tahun ASC → terlama di atas
+      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
 
-      // Bulan DESC
-      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
+      // Bulan ASC
+      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
 
-      // Nomor urut DESC
-      return pb.urut - pa.urut;
+      // Nomor urut ASC
+      return pa.urut - pb.urut;
     });
   }
 
@@ -706,13 +726,34 @@ function sortPRList(filteredPRData: any[]) {
           <CardHeader>
             <CardTitle>PR Siap Proses ke PO</CardTitle>
             <CardDescription>
-              Total: {filteredPRs.length} PR | Dipilih:{" "}
-              {selectedPRsForProcess.length}
+              Total: {filteredPRs.length} PR | Dipilih: {selectedPRsForProcess.length}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table className="border border-gray-300">
+            {/* Sticky scrollbar custom */}
+            <div
+              ref={scrollBarRef}
+              style={{
+                overflowX: "auto",
+                overflowY: "hidden",
+                height: 16,
+                position: "sticky",
+                top: 0,
+                zIndex: 20,
+                background: "#f8fafc",
+                borderBottom: "1px solid #e5e7eb",
+                marginBottom: -16,
+              }}
+              className="w-full"
+            >
+              <div style={{ width: tableWrapperRef.current?.scrollWidth || 2000, height: 1 }} />
+            </div>
+            <div
+              ref={tableWrapperRef}
+              className="overflow-x-auto"
+              style={{ maxHeight: 600 }}
+            >
+              <Table className="border border-gray-300 min-w-[1200px]">
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="w-16 border border-gray-300 px-4 py-3 text-center align-middle">
@@ -1323,7 +1364,10 @@ function sortPRList(filteredPRData: any[]) {
                                 className="max-w-xs truncate text-sm text-muted-foreground"
                                 title={item.keterangan}
                               >
-                                {item.keterangan}
+                                {/* Batasi maksimal 20 karakter */}
+                                {item.keterangan && item.keterangan.length > 20
+                                  ? item.keterangan.slice(0, 20) + "..."
+                                  : item.keterangan}
                               </div>
                             </TableCell>
                             {/* Urgensi hanya di baris pertama */}
