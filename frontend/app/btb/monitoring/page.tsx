@@ -308,17 +308,17 @@ export default function BTBMonitoringPage() {
       const poIdsToCheck = new Set<string>();
       for (const itemId of selectedItemIdsToRestore) {
         // Ambil data item BTB
-        const btbItemRes = await fetch(`http://localhost:5000/api/btb-item/${itemId}`);
+        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`);
         if (!btbItemRes.ok) continue;
         const btbItem = await btbItemRes.json();
         // Hapus item BTB
-        await fetch(`http://localhost:5000/api/btb-item/${itemId}`, { method: "DELETE" });
+        await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`, { method: "DELETE" });
         // Update jumlahPO di po_item (tambah kembali jumlah_diterima)
-        const poItemRes = await fetch(`http://localhost:5000/api/po-item/${btbItem.id_POItem}`);
+        const poItemRes = await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`);
         if (poItemRes.ok) {
           const poItem = await poItemRes.json();
           const newJumlahPO = Number(poItem.jumlahPO) + Number(btbItem.jumlah_diterima);
-          await fetch(`http://localhost:5000/api/po-item/${btbItem.id_POItem}`, {
+          await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -330,12 +330,12 @@ export default function BTBMonitoringPage() {
       }
       // Hapus BTB parent jika semua item sudah dihapus
       for (const { btbId } of selectedBTBItemsForRestore) {
-        const btbItemRes = await fetch(`http://localhost:5000/api/btb-item?id_btb=${btbId}`);
+        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item?id_btb=${btbId}`);
         if (btbItemRes.ok) {
           const items = await btbItemRes.json();
           if (!items || items.length === 0) {
             // Hapus BTB parent pakai id_btb
-            await fetch(`http://localhost:5000/api/btb/${btbId}`, { method: "DELETE" });
+            await fetch(`http://192.168.10.10:5000/api/btb/${btbId}`, { method: "DELETE" });
           }
         }
       }
@@ -379,12 +379,12 @@ export default function BTBMonitoringPage() {
         // Ambil semua BTB, BTB Item, User, Skema, Satuan, dan BKB
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, bkbRes] =
           await Promise.all([
-            fetch("http://localhost:5000/api/btb"),
-            fetch("http://localhost:5000/api/btb-item"),
-            fetch("http://localhost:5000/api/user"),
-            fetch("http://localhost:5000/api/skema"),
-            fetch("http://localhost:5000/api/satuan"),
-            fetch("http://localhost:5000/api/bkb"), // <-- ambil semua BKB
+            fetch("http://192.168.10.10:5000/api/btb"),
+            fetch("http://192.168.10.10:5000/api/btb-item"),
+            fetch("http://192.168.10.10:5000/api/user"),
+            fetch("http://192.168.10.10:5000/api/skema"),
+            fetch("http://192.168.10.10:5000/api/satuan"),
+            fetch("http://192.168.10.10:5000/api/bkb"), // <-- ambil semua BKB
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
