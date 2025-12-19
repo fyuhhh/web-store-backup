@@ -730,29 +730,15 @@ function sortPRList(filteredPRData: any[]) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Sticky scrollbar custom */}
             <div
-              ref={scrollBarRef}
-              style={{
-                overflowX: "auto",
-                overflowY: "hidden",
-                height: 16,
-                position: "sticky",
-                top: 0,
-                zIndex: 20,
-                background: "#f8fafc",
-                borderBottom: "1px solid #e5e7eb",
-                marginBottom: -16,
-              }}
-              className="w-full"
-            >
-              <div style={{ width: tableWrapperRef.current?.scrollWidth || 2000, height: 1 }} />
-            </div>
-            <div
-              ref={tableWrapperRef}
-              className="overflow-x-auto"
-              style={{ maxHeight: 600 }}
-            >
+  ref={tableWrapperRef}
+  className="overflow-x-auto"
+  style={{ 
+    maxHeight: 600,
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none'
+  }}
+>
               <Table className="border border-gray-300 min-w-[1200px]">
                 <TableHeader>
                   <TableRow className="bg-gray-50">
@@ -1407,6 +1393,46 @@ function sortPRList(filteredPRData: any[]) {
                   })}
                 </TableBody>
               </Table>
+              {/* Sticky scrollbar baru - abu-abu rokok */}
+             <div 
+              className="sticky bottom-0 left-0 right-0 z-30 bg-gray-100 border-t border-gray-300"
+              style={{ 
+                height: '16px',
+                overflowX: 'auto',
+                overflowY: 'hidden'
+              }}
+              onScroll={(e) => {
+                if (tableWrapperRef.current) {
+                  tableWrapperRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }
+              }}
+            >
+              <div 
+                style={{ 
+                  height: '1px',
+                  width: tableWrapperRef.current?.scrollWidth || '2000px'
+                }}
+              />
+            </div>
+
+            <style jsx>{`
+              .sticky {
+                position: sticky !important;
+              }
+              
+              div[class*="sticky"]::-webkit-scrollbar {
+                height: 12px;
+              }
+              
+              div[class*="sticky"]::-webkit-scrollbar-thumb {
+                background-color: #8b8b8b;
+                border-radius: 6px;
+              }
+              
+              div[class*="sticky"]::-webkit-scrollbar-track {
+                background: #e5e7eb;
+              }
+            `}</style>
             </div>
           </CardContent>
         </Card>

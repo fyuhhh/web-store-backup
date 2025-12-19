@@ -989,31 +989,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
 
   // Tambahkan ref dan state untuk sticky scrollbar
   const tableWrapperRef = useRef<HTMLDivElement>(null);
-  const scrollBarRef = useRef<HTMLDivElement>(null);
 
-  // Sinkronkan scroll antara tabel dan scrollbar custom
-  useEffect(() => {
-    const tableDiv = tableWrapperRef.current;
-    const scrollDiv = scrollBarRef.current;
-    if (!tableDiv || !scrollDiv) return;
-
-    // Saat scroll tabel, update scrollbar
-    const handleTableScroll = () => {
-      scrollDiv.scrollLeft = tableDiv.scrollLeft;
-    };
-    // Saat scroll scrollbar, update tabel
-    const handleScrollBarScroll = () => {
-      tableDiv.scrollLeft = scrollDiv.scrollLeft;
-    };
-
-    tableDiv.addEventListener("scroll", handleTableScroll);
-    scrollDiv.addEventListener("scroll", handleScrollBarScroll);
-
-    return () => {
-      tableDiv.removeEventListener("scroll", handleTableScroll);
-      scrollDiv.removeEventListener("scroll", handleScrollBarScroll);
-    };
-  }, []);
 
   return (
     <MainLayout>
@@ -1150,10 +1126,14 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
             <div className="relative">
               {/* Wrapper tabel dengan overflow-x */}
               <div
-                ref={tableWrapperRef}
-                className="overflow-x-auto"
-                style={{ maxHeight: "70vh" }}
-              >
+  ref={tableWrapperRef}
+  className="overflow-x-auto overflow-y-auto"
+  style={{ 
+    maxHeight: "70vh",
+    scrollbarWidth: 'none', /* Firefox */
+    msOverflowStyle: 'none'  /* IE and Edge */
+  }}
+>
                 <Table className="border border-gray-300 min-w-[1200px]">
                   <TableHeader>
                     <TableRow className="bg-gray-50">
@@ -1831,55 +1811,45 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                 </Table>
               </div>
               {/* Sticky horizontal scrollbar di bawah tabel */}
-              <div
-                ref={scrollBarRef}
-                className="sticky-scrollbar"
-                style={{
-                  position: "sticky",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 18,
-                  background: "#f3f4f6",
-                  zIndex: 20,
-                  overflowX: "auto",
-                  overflowY: "hidden",
-                  borderTop: "1px solid #e5e7eb",
-                  width: "100%",
-                  pointerEvents: "auto",
+               <div 
+              className="sticky bottom-0 left-0 right-0 z-30 bg-gray-100 border-t border-gray-300"
+              style={{ 
+                height: '16px',
+                overflowX: 'auto',
+                overflowY: 'hidden'
+              }}
+              onScroll={(e) => {
+                if (tableWrapperRef.current) {
+                  tableWrapperRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                }
+              }}
+            >
+              <div 
+                style={{ 
+                  height: '1px',
+                  width: tableWrapperRef.current?.scrollWidth || '2000px'
                 }}
-                tabIndex={-1}
-              >
-                {/* Dummy div untuk panjang scrollbar */}
-                <div
-                  style={{
-                    width: tableWrapperRef.current
-                      ? tableWrapperRef.current.scrollWidth
-                      : "2000px",
-                    height: 1,
-                  }}
-                />
-              </div>
-              {/* CSS agar sticky-scrollbar hanya muncul jika tabel overflow */}
-              <style>{`
-                .sticky-scrollbar {
-                  display: none;
-                }
-                .overflow-x-auto {
-                  scrollbar-width: thin;
-                }
-                .sticky-scrollbar::-webkit-scrollbar {
-                  height: 12px;
-                }
-                .overflow-x-auto::-webkit-scrollbar {
-                  height: 12px;
-                }
-                @media (min-width: 640px) {
-                  .sticky-scrollbar {
-                    display: block;
-                  }
-                }
-              `}</style>
+              />
+            </div>
+
+            <style jsx>{`
+              .sticky {
+                position: sticky !important;
+              }
+              
+              div[class*="sticky"]::-webkit-scrollbar {
+                height: 12px;
+              }
+              
+              div[class*="sticky"]::-webkit-scrollbar-thumb {
+                background-color: #8b8b8b;
+                border-radius: 6px;
+              }
+              
+              div[class*="sticky"]::-webkit-scrollbar-track {
+                background: #e5e7eb;
+              }
+            `}</style>
             </div>
           </CardContent>
           <Pagination className="mt-4">

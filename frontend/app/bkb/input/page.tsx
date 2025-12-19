@@ -83,6 +83,25 @@ export default function BKBInputPage() {
     message: string;
   } | null>(null);
   const router = useRouter(); // <-- tambahkan inisialisasi router
+   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+
+  // Sinkronkan scroll antara tabel dan scrollbar custom
+  React.useEffect(() => {
+    const tableDiv = tableWrapperRef.current;
+    if (!tableDiv) return;
+
+    const handleTableScroll = () => {
+      const stickyScrollbar = document.querySelector('.sticky') as HTMLElement;
+      if (stickyScrollbar) {
+        stickyScrollbar.scrollLeft = tableDiv.scrollLeft;
+      }
+    };
+
+    tableDiv.addEventListener('scroll', handleTableScroll);
+    return () => {
+      tableDiv.removeEventListener('scroll', handleTableScroll);
+    };
+  }, []);
 
   // Tambahkan state untuk data BTB dari backend
   const [backendBTBRows, setBackendBTBRows] = useState<any[]>([]);

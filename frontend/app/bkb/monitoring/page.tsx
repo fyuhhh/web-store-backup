@@ -159,6 +159,25 @@ export default function BKBMonitoringPage() {
   const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
 
   // Tambahkan state untuk export
+   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+
+  // Sinkronkan scroll antara tabel dan scrollbar custom
+  React.useEffect(() => {
+    const tableDiv = tableWrapperRef.current;
+    if (!tableDiv) return;
+
+    const handleTableScroll = () => {
+      const stickyScrollbar = document.querySelector('.sticky') as HTMLElement;
+      if (stickyScrollbar) {
+        stickyScrollbar.scrollLeft = tableDiv.scrollLeft;
+      }
+    };
+
+    tableDiv.addEventListener('scroll', handleTableScroll);
+    return () => {
+      tableDiv.removeEventListener('scroll', handleTableScroll);
+    };
+  }, []);
   const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
     "all"
   );

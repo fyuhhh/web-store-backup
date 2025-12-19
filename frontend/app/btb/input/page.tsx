@@ -90,6 +90,25 @@ export default function BTBInputPage() {
   // Pagination states for PO table
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+
+  // Sinkronkan scroll antara tabel dan scrollbar custom
+  React.useEffect(() => {
+    const tableDiv = tableWrapperRef.current;
+    if (!tableDiv) return;
+
+    const handleTableScroll = () => {
+      const stickyScrollbar = document.querySelector('.sticky') as HTMLElement;
+      if (stickyScrollbar) {
+        stickyScrollbar.scrollLeft = tableDiv.scrollLeft;
+      }
+    };
+
+    tableDiv.addEventListener('scroll', handleTableScroll);
+    return () => {
+      tableDiv.removeEventListener('scroll', handleTableScroll);
+    };
+  }, []);
 
   // Search filter for PO table
   const [searchTerm, setSearchTerm] = useState("");
