@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
+// Tambahkan import react-datepicker
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 // Import exceljs for Excel export with style support
 import * as ExcelJS from "exceljs";
@@ -126,6 +129,8 @@ export default function MonitoringPOPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Filter states
+  const [filterEndDate, setFilterEndDate] = useState<string>(""); 
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
   const [filterQtyMin, setFilterQtyMin] = useState<number | "">("");
   const [filterQtyMax, setFilterQtyMax] = useState<number | "">("");
@@ -213,15 +218,15 @@ export default function MonitoringPOPage() {
         skemaRes,
         userRes, // <-- tambahkan fetch user
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/po"),
-        fetch("http://192.168.10.10:5000/api/po-item"),
-        fetch("http://192.168.10.10:5000/api/pr-item"),
-        fetch("http://192.168.10.10:5000/api/pr"),
-        fetch("http://192.168.10.10:5000/api/supplier"),
-        fetch("http://192.168.10.10:5000/api/status-permintaan"),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-        fetch("http://192.168.10.10:5000/api/skema"),
-        fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+        fetch("http://localhost:5000/api/po"),
+        fetch("http://localhost:5000/api/po-item"),
+        fetch("http://localhost:5000/api/pr-item"),
+        fetch("http://localhost:5000/api/pr"),
+        fetch("http://localhost:5000/api/supplier"),
+        fetch("http://localhost:5000/api/status-permintaan"),
+        fetch("http://localhost:5000/api/status-pengiriman"),
+        fetch("http://localhost:5000/api/skema"),
+        fetch("http://localhost:5000/api/user"), // <-- fetch user
       ]);
 
       const [
@@ -568,7 +573,7 @@ export default function MonitoringPOPage() {
         if (mode === "restore") {
           // Ambil data PO item sebelum dihapus
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `http://localhost:5000/api/po-item/${itemId}`
           );
           if (!poItemRes.ok) continue;
           const poItem = await poItemRes.json();
@@ -580,7 +585,7 @@ export default function MonitoringPOPage() {
           } else if (poItem.id_PRItem) {
             // Fetch PR Item untuk dapatkan id_PR
             const prItemRes = await fetch(
-              `http://192.168.10.10:5000/api/pr-item/${poItem.id_PRItem}`
+              `http://localhost:5000/api/pr-item/${poItem.id_PRItem}`
             );
             if (prItemRes.ok) {
               const prItem = await prItemRes.json();
@@ -601,19 +606,19 @@ export default function MonitoringPOPage() {
         if (!itemId) continue;
         if (mode === "permanent") {
           // Hapus item PO secara permanen
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
         } else if (mode === "restore") {
           // --- RESTORE: Kembalikan item ke PR ---
           // Ambil data PO item
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `http://localhost:5000/api/po-item/${itemId}`
           );
           const poItem = await poItemRes.json();
 
           // Hapus item PO (cek error BTB)
-          const delRes = await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          const delRes = await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
           if (!delRes.ok) {
@@ -641,7 +646,7 @@ export default function MonitoringPOPage() {
           const prItemId = poItem.id_PRItem;
           // Cek apakah PRItem masih ada
           const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${prItemId}`
+            `http://localhost:5000/api/pr-item/${prItemId}`
           );
           let prItem = null;
           if (prItemRes.ok) {
@@ -649,7 +654,7 @@ export default function MonitoringPOPage() {
           }
           if (prItem && prItem.id_PRItem) {
             const newJumlah = Number(prItem.jumlah) + Number(poItem.jumlahPO);
-            await fetch(`http://192.168.10.10:5000/api/pr-item/${prItemId}`, {
+            await fetch(`http://localhost:5000/api/pr-item/${prItemId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -659,7 +664,7 @@ export default function MonitoringPOPage() {
             });
           } else {
             // PRItem sudah tidak ada, buat ulang
-            await fetch(`http://192.168.10.10:5000/api/pr-item`, {
+            await fetch(`http://localhost:5000/api/pr-item`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -683,12 +688,12 @@ export default function MonitoringPOPage() {
           // --- Tambahkan log sebelum fetch ---
           console.log("[DEBUG] Akan fetch PR untuk update status:", prId);
           // Ambil data PR lama
-          const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+          const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
           if (prRes.ok) {
             const prData = await prRes.json();
             // Kirim semua field PR lama + status baru "Gantung"
             // Pastikan field status dikirim dan tidak kosong
-            await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+            await fetch(`http://localhost:5000/api/pr/${prId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -707,7 +712,7 @@ export default function MonitoringPOPage() {
         for (const poId of poIdsToCheck) {
           // Fetch semua item PO dari backend
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item`
+            `http://localhost:5000/api/po-item`
           );
           if (poItemRes.ok) {
             const poItems = await poItemRes.json();
@@ -719,7 +724,7 @@ export default function MonitoringPOPage() {
             );
             if (itemsMasihAda.length === 0) {
               // Hapus PO dari backend
-              await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
+              await fetch(`http://localhost:5000/api/po/${poId}`, {
                 method: "DELETE",
               });
             }
@@ -767,14 +772,17 @@ export default function MonitoringPOPage() {
     })
     .filter(
       (po) => {
+        // --- Tambahkan pencarian global ---
+        const searchLower = searchTerm.toLowerCase();
         const matchesSearch =
-          po.noPO.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          po.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          !searchTerm ||
+          po.noPO.toLowerCase().includes(searchLower) ||
+          po.supplier.toLowerCase().includes(searchLower) ||
           po.poItems.some((poItem) =>
             poItem.items
               .filter((item) => item.jumlahPO > 0)
               .some((item) =>
-                item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
+                item.namaBarang.toLowerCase().includes(searchLower)
               )
           );
 
@@ -860,6 +868,18 @@ export default function MonitoringPOPage() {
           filterDiorderOleh.length === 0 ||
           filterDiorderOleh.includes(po.orderedBy || "");
 
+        // --- FILTER BY TANGGAL RENTANG (pakai DatePicker) ---
+        let matchesDateRange = true;
+        if (filterStartDate && filterEndDate) {
+          // po.tanggalPO format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+          const tglStr = (po.tanggalPO || "").split("T")[0];
+          const tglDate = tglStr ? new Date(tglStr) : null;
+          matchesDateRange =
+            tglDate &&
+            tglDate >= filterStartDate &&
+            tglDate <= filterEndDate;
+        }
+
         return (
           matchesSearch &&
           matchesNamaBarang &&
@@ -874,7 +894,8 @@ export default function MonitoringPOPage() {
           matchesKode &&
           matchesStatusPengiriman &&
           matchesStatus &&
-          matchesDiorderOleh
+          matchesDiorderOleh &&
+          matchesDateRange // <-- tambahkan ini
         );
       }
       // Pada filter data PO, hapus filter yang menghilangkan item dengan jumlahPO = 0
@@ -1164,7 +1185,7 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        const res = await fetch(`http://192.168.10.10:5000/api/po/${id}`, {
+        const res = await fetch(`http://localhost:5000/api/po/${id}`, {
           method: "DELETE",
         });
         if (!res.ok) {
@@ -1276,6 +1297,57 @@ export default function MonitoringPOPage() {
           </div>
         </div>
 
+        {/* Search Bar & Filter Tanggal PO */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <Input
+            placeholder="Cari No. PO, Supplier, atau Nama Barang..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-[320px]"
+          />
+          {/* Filter rentang tanggal PO pakai DatePicker */}
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-muted-foreground">Tanggal PO:</span>
+            <DatePicker
+              selected={filterStartDate}
+              onChange={(date) => setFilterStartDate(date)}
+              selectsStart
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Mulai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              maxDate={filterEndDate || undefined}
+              isClearable
+            />
+            <span className="mx-1">-</span>
+            <DatePicker
+              selected={filterEndDate}
+              onChange={(date) => setFilterEndDate(date)}
+              selectsEnd
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Selesai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              minDate={filterStartDate || undefined}
+              isClearable
+            />
+            <style jsx global>{`
+              .react-datepicker__day.datepicker-red {
+                color: #e53935 !important;
+                font-weight: bold;
+              }
+              .react-datepicker-popper {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                z-index: 9999 !important;
+              }
+            `}</style>
+          </div>
+        </div>
+
         {/* Table */}
         <Card className="bg-card border-border">
           <CardHeader>
@@ -1300,8 +1372,6 @@ export default function MonitoringPOPage() {
               className="overflow-x-auto"
               style={{ 
                 maxHeight: 600,
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
               }}
             >
               <Table className="border border-gray-300">
@@ -2242,45 +2312,6 @@ export default function MonitoringPOPage() {
                   })}
                 </TableBody>
               </Table>
-               <div 
-              className="sticky bottom-0 left-0 right-0 z-30 bg-gray-100 border-t border-gray-300"
-              style={{ 
-                height: '16px',
-                overflowX: 'auto',
-                overflowY: 'hidden'
-              }}
-              onScroll={(e) => {
-                if (tableWrapperRef.current) {
-                  tableWrapperRef.current.scrollLeft = e.currentTarget.scrollLeft;
-                }
-              }}
-            >
-              <div 
-                style={{ 
-                  height: '1px',
-                  width: tableWrapperRef.current?.scrollWidth || '2000px'
-                }}
-              />
-            </div>
-
-            <style jsx>{`
-              .sticky {
-                position: sticky !important;
-              }
-              
-              div[class*="sticky"]::-webkit-scrollbar {
-                height: 12px;
-              }
-              
-              div[class*="sticky"]::-webkit-scrollbar-thumb {
-                background-color: #8b8b8b;
-                border-radius: 6px;
-              }
-              
-              div[class*="sticky"]::-webkit-scrollbar-track {
-                background: #e5e7eb;
-              }
-            `}</style>
             </div>
           </CardContent>
           <Pagination className="mt-4">

@@ -157,6 +157,8 @@ export default function BKBMonitoringPage() {
   const [btbMap, setBtbMap] = useState<Record<string, string>>({});
   const [divisiMap, setDivisiMap] = useState<Record<string, string>>({});
   const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
+  const [startDate, setStartDate] = useState(""); // Tambahkan ini
+  const [endDate, setEndDate] = useState("");     // Tambahkan ini
 
   // Tambahkan state untuk export
    const tableWrapperRef = React.useRef<HTMLDivElement>(null);
@@ -193,7 +195,7 @@ export default function BKBMonitoringPage() {
 
   // Fetch satuan list from backend and build mapping
   useEffect(() => {
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         const map: Record<string, string> = {};
@@ -212,14 +214,14 @@ export default function BKBMonitoringPage() {
         // Ambil semua BKB, BKB Item, User, Skema, Satuan, BTB, Divisi, PR
         const [bkbRes, bkbItemRes, userRes, skemaRes, , btbRes, divisiRes, prRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/bkb"),
-            fetch("http://192.168.10.10:5000/api/bkb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/divisi"),
-            fetch("http://192.168.10.10:5000/api/pr"),
+            fetch("http://localhost:5000/api/bkb"),
+            fetch("http://localhost:5000/api/bkb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/divisi"),
+            fetch("http://localhost:5000/api/pr"),
           ]);
         const bkbList = await bkbRes.json();
         const bkbItemList = await bkbItemRes.json();
@@ -316,12 +318,29 @@ export default function BKBMonitoringPage() {
   const filteredBKBDataRaw = bkbRows
     // Filter hanya BKB dengan id_skema sesuai user login
     .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
+    // Filter berdasarkan searchTerm
     .filter((row) => {
-      const matchesSearch =
-        row.noBKB.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.namaBarang.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.keterangan.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesSearch;
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        String(row.noBKB ?? "").toLowerCase().includes(search) ||
+        String(row.namaBarang ?? "").toLowerCase().includes(search) ||
+        String(row.keterangan ?? "").toLowerCase().includes(search) ||
+        String(row.satuan ?? "").toLowerCase().includes(search) ||
+        String(row.dikeluarkanOleh ?? "").toLowerCase().includes(search) ||
+        String(row.diterima_oleh ?? "").toLowerCase().includes(search) ||
+        String(row.divisi ?? "").toLowerCase().includes(search) ||
+        String(row.noPR ?? "").toLowerCase().includes(search) ||
+        String(row.tanggalBKB ?? "").toLowerCase().includes(search)
+      );
+    })
+    // Filter berdasarkan rentang tanggal jika diisi
+    .filter((row) => {
+      if (!startDate || !endDate) return true;
+      if (!row.tanggalBKB) return false;
+      // tanggalBKB bisa format yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+      const tgl = row.tanggalBKB.split("T")[0];
+      return tgl >= startDate && tgl <= endDate;
     });
 
   // --- SORTING: BKB TERBARU → TERLAMA (PAKAI PARSER) ---
@@ -543,7 +562,7 @@ export default function BKBMonitoringPage() {
     try {
       // Untuk setiap item yang dipilih, panggil endpoint restore ke BTB
       for (const bkbItemId of selectedItemIdsToRestore) {
-        await fetch(`http://192.168.10.10:5000/api/bkb-item/restore-to-btb/${bkbItemId}`, {
+        await fetch(`http://localhost:5000/api/bkb-item/restore-to-btb/${bkbItemId}`, {
           method: "POST",
         });
       }
@@ -735,6 +754,33 @@ export default function BKBMonitoringPage() {
             )}
           </CardHeader>
           <CardContent>
+            {/* Filter tanggal BKB */}
+            <div className="flex items-center gap-2 mb-4">
+              <Label className="text-sm font-medium">Tanggal BKB:</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="w-[140px]"
+                placeholder="Tanggal Awal"
+              />
+              <span>-</span>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="w-[140px]"
+                placeholder="Tanggal Akhir"
+              />
+            </div>
+            {/* Search bar */}
+            <div className="mb-4">
+              <Input
+                placeholder="Cari semua kolom..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
             <div className="overflow-x-auto">
               <Table className="border border-gray-300">
                 <TableHeader>

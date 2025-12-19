@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "@/app/pr/input-baru/datepicker-red-weekend.css";
@@ -110,8 +111,13 @@ export default function BTBInputPage() {
     };
   }, []);
 
+
   // Search filter for PO table
   const [searchTerm, setSearchTerm] = useState("");
+
+  // PO date range filter (start and end)
+  const [poStartDate, setPoStartDate] = useState<Date | null>(null);
+  const [poEndDate, setPoEndDate] = useState<Date | null>(null);
 
   // Filter states
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
@@ -208,10 +214,10 @@ export default function BTBInputPage() {
     setUserSchema(userData.skema || "");
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
     // Ambil supplier dan skema dari backend
-    fetch("http://192.168.10.10:5000/api/supplier")
+    fetch("http://localhost:5000/api/supplier")
       .then((r) => r.json())
       .then((data) => setSupplierList(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((r) => r.json())
       .then((data) => {
         setSkemaList(data);
@@ -263,15 +269,15 @@ export default function BTBInputPage() {
           skemaRes,
           userRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"),
+          fetch("http://localhost:5000/api/po"),
+          fetch("http://localhost:5000/api/po-item"),
+          fetch("http://localhost:5000/api/pr-item"),
+          fetch("http://localhost:5000/api/pr"),
+          fetch("http://localhost:5000/api/supplier"),
+          fetch("http://localhost:5000/api/status-permintaan"),
+          fetch("http://localhost:5000/api/status-pengiriman"),
+          fetch("http://localhost:5000/api/skema"),
+          fetch("http://localhost:5000/api/user"),
         ]);
         const [
           poList,
@@ -546,7 +552,7 @@ export default function BTBInputPage() {
       // Setelah insert header BTB dan dapat id_btb
       // Ambil data PO Item dari backend (pastikan sudah ada di database)
       const poItemsRes = await fetch(
-        "http://192.168.10.10:5000/api/po-item?po=" + id_po
+        "http://localhost:5000/api/po-item?po=" + id_po
       );
       const poItems = await poItemsRes.json();
 
@@ -616,7 +622,7 @@ export default function BTBInputPage() {
 
 
       // POST header BTB dengan biaya sesuai qty diterima
-      const btbHeaderRes = await fetch("http://192.168.10.10:5000/api/btb", {
+      const btbHeaderRes = await fetch("http://localhost:5000/api/btb", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -649,7 +655,7 @@ export default function BTBInputPage() {
         }
 
         // POST ke btb_item (ubah endpoint)
-        const res = await fetch("http://192.168.10.10:5000/api/btb-item", {
+        const res = await fetch("http://localhost:5000/api/btb-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -671,7 +677,7 @@ export default function BTBInputPage() {
         // 3. Update jumlahPO di po_item (PUT)
         // Ambil data po_item lama
         const poItemRes = await fetch(
-          `http://192.168.10.10:5000/api/po-item/${item.id_POItem}`
+          `http://localhost:5000/api/po-item/${item.id_POItem}`
         );
         const poItemData = await poItemRes.json();
         const sisa =
@@ -691,7 +697,7 @@ export default function BTBInputPage() {
           // jumlahPO: diupdate
         } = poItemData;
 
-        await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+        await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1065,7 +1071,18 @@ export default function BTBInputPage() {
       // Filter skema
       const matchSkema =
         filterSkema.length === 0 || filterSkema.includes(String(po.skema));
-      // ...tambahkan filter lain sesuai kebutuhan...
+
+      // --- Filter by PO date range ---
+      let matchDateRange = true;
+      if (poStartDate && poEndDate) {
+        // Assume po.tanggalPO is yyyy-mm-dd or yyyy-mm-ddTHH:mm:ss
+        const tgl = (po.tanggalPO || "").split("T")[0];
+        if (tgl) {
+          const tglDate = new Date(tgl);
+          matchDateRange = tglDate >= poStartDate && tglDate <= poEndDate;
+        }
+      }
+
       return (
         matchSearch &&
         matchSupplier &&
@@ -1073,7 +1090,8 @@ export default function BTBInputPage() {
         matchBarang &&
         matchStatus &&
         matchKode &&
-        matchSkema
+        matchSkema &&
+        matchDateRange
       );
     });
 
@@ -1216,15 +1234,44 @@ export default function BTBInputPage() {
           )}
         </div>
 
-        {/* Search Bar untuk Daftar Purchase Order */}
+        {/* Search Bar dan Filter Rentang Tanggal PO */}
         {!showForm && (
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <Input
               placeholder="Cari No. PO, Supplier, atau Nama Barang..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-[320px]"
             />
+            {/* Filter rentang tanggal PO */}
+            <div className="flex items-center gap-1">
+              <span className="text-sm text-muted-foreground">Tanggal PO:</span>
+              <DatePicker
+                selected={poStartDate}
+                onChange={(date) => setPoStartDate(date)}
+                selectsStart
+                startDate={poStartDate}
+                endDate={poEndDate}
+                dateFormat="yyyy-MM-dd"
+                placeholderText="Mulai"
+                className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+                maxDate={poEndDate || undefined}
+                isClearable
+              />
+              <span className="mx-1">-</span>
+              <DatePicker
+                selected={poEndDate}
+                onChange={(date) => setPoEndDate(date)}
+                selectsEnd
+                startDate={poStartDate}
+                endDate={poEndDate}
+                dateFormat="yyyy-MM-dd"
+                placeholderText="Selesai"
+                className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+                minDate={poStartDate || undefined}
+                isClearable
+              />
+            </div>
           </div>
         )}
 

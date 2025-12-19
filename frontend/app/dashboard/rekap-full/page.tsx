@@ -355,14 +355,14 @@ export default function RekapFullPage() {
         bkbRes,
         bkbItemRes,
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
+        fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+        fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+        fetch("http://localhost:5000/api/po").then((r) => r.json()),
+        fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+        fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+        fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+        fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+        fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
       ]);
 
       // Log the fetched data for verification
@@ -472,17 +472,17 @@ export default function RekapFullPage() {
         satuanRes,
         divisiRes,
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/supplier").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/user").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/skema").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman").then((r) =>
+        fetch("http://localhost:5000/api/supplier").then((r) => r.json()),
+        fetch("http://localhost:5000/api/user").then((r) => r.json()),
+        fetch("http://localhost:5000/api/skema").then((r) => r.json()),
+        fetch("http://localhost:5000/api/status-pengiriman").then((r) =>
           r.json()
         ),
-        fetch("http://192.168.10.10:5000/api/status-permintaan").then((r) =>
+        fetch("http://localhost:5000/api/status-permintaan").then((r) =>
           r.json()
         ),
-        fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
+        fetch("http://localhost:5000/api/satuan").then((r) => r.json()),
+        fetch("http://localhost:5000/api/divisi").then((r) => r.json()),
       ]);
       setSupplierMap(
         Object.fromEntries(
@@ -543,14 +543,14 @@ export default function RekapFullPage() {
           bkbRes,
           bkbItemRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
         ]);
 
         // Ensure data is in the correct array format
@@ -1340,7 +1340,7 @@ export default function RekapFullPage() {
     setEditingStatusLoading(true);
     try {
       // Cari id_PO dari noPO
-      const poRes = await fetch("http://192.168.10.10:5000/api/po");
+      const poRes = await fetch("http://localhost:5000/api/po");
       const poList = await poRes.json();
       const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
       if (!po) {
@@ -1350,7 +1350,7 @@ export default function RekapFullPage() {
         return;
       }
       // Update statusterima di backend
-      await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
+      await fetch(`http://localhost:5000/api/po/${po.id_PO}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusterima: newStatus }),
@@ -1379,7 +1379,7 @@ export default function RekapFullPage() {
     setEditingTargetId(item.id);
     setEditingTargetLoading(true);
     try {
-      const btbRes = await fetch("http://192.168.10.10:5000/api/btb");
+      const btbRes = await fetch("http://localhost:5000/api/btb");
       const btbList = await btbRes.json();
       const btb = btbList.find((b: any) => String(b.no_btb) === String(item.noBTB));
       if (!btb) {
@@ -1388,7 +1388,7 @@ export default function RekapFullPage() {
         setEditingTargetLoading(false);
         return;
       }
-      await fetch(`http://192.168.10.10:5000/api/btb/${btb.id_btb}`, {
+      await fetch(`http://localhost:5000/api/btb/${btb.id_btb}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: newTarget }),
@@ -1412,7 +1412,7 @@ export default function RekapFullPage() {
     setEditingStatusLoading(true);
     try {
       // Cari id_PO dari noPO
-      const poRes = await fetch("http://192.168.10.10:5000/api/po");
+      const poRes = await fetch("http://localhost:5000/api/po");
       const poList = await poRes.json();
       const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
       if (!po) {
@@ -1421,7 +1421,7 @@ export default function RekapFullPage() {
         setEditingStatusLoading(false);
         return;
       }
-      await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
+      await fetch(`http://localhost:5000/api/po/${po.id_PO}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusterima: customVal }),
@@ -1444,7 +1444,7 @@ export default function RekapFullPage() {
     if (!customVal) return;
     setEditingTargetLoading(true);
     try {
-      const btbRes = await fetch("http://192.168.10.10:5000/api/btb");
+      const btbRes = await fetch("http://localhost:5000/api/btb");
       const btbList = await btbRes.json();
       const btb = btbList.find((b: any) => String(b.no_btb) === String(item.noBTB));
       if (!btb) {
@@ -1453,7 +1453,7 @@ export default function RekapFullPage() {
         setEditingTargetLoading(false);
         return;
       }
-      await fetch(`http://192.168.10.10:5000/api/btb/${btb.id_btb}`, {
+      await fetch(`http://localhost:5000/api/btb/${btb.id_btb}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: customVal }),
@@ -1489,7 +1489,7 @@ export default function RekapFullPage() {
     if (!id_btb) return;
     setUpdatingTargetId(id_btb);
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb/${id_btb}`, {
+      await fetch(`http://localhost:5000/api/btb/${id_btb}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: "woke bos" }),
@@ -1563,7 +1563,7 @@ export default function RekapFullPage() {
     setUpdatingStatusId(item.noPO);
     try {
       // Cari id_PO dari noPO (harus ada di data PO)
-      const poRes = await fetch("http://192.168.10.10:5000/api/po");
+      const poRes = await fetch("http://localhost:5000/api/po");
       const poList = await poRes.json();
       const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
       if (!po) {
@@ -1572,7 +1572,7 @@ export default function RekapFullPage() {
         return;
       }
       // Update statusterima di backend
-      await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
+      await fetch(`http://localhost:5000/api/po/${po.id_PO}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusterima: "woke bos" }),

@@ -40,7 +40,9 @@ import { Label } from "@/components/ui/label";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
-
+// Tambahkan import react-datepicker
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function StatusPOPage() {
   const [prData, setPrData] = useState<any[]>([]);
@@ -55,6 +57,8 @@ export default function StatusPOPage() {
 
   // Filter states for table columns
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState<string>(""); 
+  const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterNoPR, setFilterNoPR] = useState<string[]>([]);
   const [noPRSearchTerm, setNoPRSearchTerm] = useState("");
   const [filterTanggalPR, setFilterTanggalPR] = useState<string[]>([]);
@@ -109,15 +113,15 @@ export default function StatusPOPage() {
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
     const fetchPRData = async () => {
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch("http://localhost:5000/api/pr");
       const prList = await prRes.json();
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
-      const satuanRes = await fetch("http://192.168.10.10:5000/api/satuan");
+      const satuanRes = await fetch("http://localhost:5000/api/satuan");
       const satuanList = await satuanRes.json();
-      const divisiRes = await fetch("http://192.168.10.10:5000/api/divisi");
+      const divisiRes = await fetch("http://localhost:5000/api/divisi");
       const divisiList = await divisiRes.json();
-      const urgensiRes = await fetch("http://192.168.10.10:5000/api/urgensi");
+      const urgensiRes = await fetch("http://localhost:5000/api/urgensi");
       const urgensiList = await urgensiRes.json();
       setPrData(prList);
       setPrItemData(prItemList);
@@ -528,6 +532,18 @@ export default function StatusPOPage() {
         filterSkema.length === 0 ||
         (pr.skema !== undefined && filterSkema.includes(pr.skema));
 
+      // --- FILTER BY TANGGAL RENTANG (pakai DatePicker) ---
+      let matchesDateRange = true;
+      if (filterStartDate && filterEndDate) {
+        // pr.tanggalPR format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+        const tglStr = (pr.tanggalPR || "").split("T")[0];
+        const tglDate = tglStr ? new Date(tglStr) : null;
+        matchesDateRange =
+          tglDate &&
+          tglDate >= filterStartDate &&
+          tglDate <= filterEndDate;
+      }
+
       return (
         matchesSearch &&
         matchesNamaBarang &&
@@ -540,119 +556,120 @@ export default function StatusPOPage() {
         matchesNoPR &&
         matchesTanggalPR &&
         matchesDibuatOleh &&
-        matchesSkema
+        matchesSkema &&
+        matchesDateRange // <-- tambahkan ini
       );
     })
     // --- SORTING: PR TERBARU → TERLAMA (PAKAI PARSER) ---
     filteredPRs = sortPRList(filteredPRs);
 
-// --- PAGINATION ---
-const totalPages = Math.ceil(filteredPRs.length / itemsPerPage);
-const startIndex = (currentPage - 1) * itemsPerPage;
-const paginatedData = filteredPRs.slice(
-  startIndex,
-  startIndex + itemsPerPage
-);
-
-// Auto-logout logic (testing: 5 detik idle)
-useEffect(() => {
-  let timer: NodeJS.Timeout;
-  const resetTimer = () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      localStorage.removeItem("userData");
-      window.location.href = "/login";
-    }, 600000); // 5 detik idle
-  };
-
-  const events = ["mousemove", "keydown", "mousedown", "touchstart"];
-  events.forEach((ev) => window.addEventListener(ev, resetTimer));
-  resetTimer();
-
-  return () => {
-    clearTimeout(timer);
-    events.forEach((ev) => window.removeEventListener(ev, resetTimer));
-  };
-}, []);
-
-// Tambahkan helper untuk cek semua/some item selected
-function isAllItemsSelected(pr: any) {
-  const itemIds = (pr.items || [])
-    .filter((item: any) => item.jumlah > 0)
-    .map((item: any) => String(item.id));
-  const selected = selectedItemsMap[String(pr.id_PR)] || [];
-  return (
-    itemIds.length > 0 && itemIds.every((id: string) => selected.includes(id))
-  );
-}
-function isSomeItemsSelected(pr: any) {
-  const itemIds = (pr.items || [])
-    .filter((item: any) => item.jumlah > 0)
-    .map((item: any) => String(item.id));
-  const selected = selectedItemsMap[String(pr.id_PR)] || [];
-  return selected.length > 0 && selected.length < itemIds.length;
-}
-
-// =====================================
-// 1. PARSER No. PR (E-WALK + PENTACITY)
-// =====================================
-function parseNoPR(noPR: string | null | undefined) {
-  if (!noPR || typeof noPR !== "string") return null;
-
-  const s = noPR.trim().toUpperCase();
-
-  // FORMAT DITERIMA:
-  // PR/E-WALK/25/XI/001
-  // PR/PRQ/25/XI/00001
-  //
-  // Bagian kedua bisa E-WALK atau PRQ
-  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
-  const match = s.match(regex);
-  if (!match) return null;
-
-  const [, brand, tahun2, bulanRomawi, urutStr] = match;
-
-  // Konversi bulan Romawi
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
-  };
-
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
-
-  return { tahun, bulan, urut, brand };
-}
-
-// =====================================
-// 2. SORTING PR TERBARU → TERLAMA
-// =====================================
-function sortPRList(filteredPRData: any[]) {
-  const allValid = filteredPRData.every(
-    (pr) => typeof pr.noPR === "string" && parseNoPR(pr.noPR)
+  // --- PAGINATION ---
+  const totalPages = Math.ceil(filteredPRs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = filteredPRs.slice(
+    startIndex,
+    startIndex + itemsPerPage
   );
 
-  if (allValid) {
-    return [...filteredPRData].sort((a, b) => {
-      const pa = parseNoPR(a.noPR)!;
-      const pb = parseNoPR(b.noPR)!;
+  // Auto-logout logic (testing: 5 detik idle)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        localStorage.removeItem("userData");
+        window.location.href = "/login";
+      }, 600000); // 5 detik idle
+    };
 
-      // Tahun ASC → terlama di atas
-      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer));
+    resetTimer();
 
-      // Bulan ASC
-      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, []);
 
-      // Nomor urut ASC
-      return pa.urut - pb.urut;
-    });
+  // Tambahkan helper untuk cek semua/some item selected
+  function isAllItemsSelected(pr: any) {
+    const itemIds = (pr.items || [])
+      .filter((item: any) => item.jumlah > 0)
+      .map((item: any) => String(item.id));
+    const selected = selectedItemsMap[String(pr.id_PR)] || [];
+    return (
+      itemIds.length > 0 && itemIds.every((id: string) => selected.includes(id))
+    );
+  }
+  function isSomeItemsSelected(pr: any) {
+    const itemIds = (pr.items || [])
+      .filter((item: any) => item.jumlah > 0)
+      .map((item: any) => String(item.id));
+    const selected = selectedItemsMap[String(pr.id_PR)] || [];
+    return selected.length > 0 && selected.length < itemIds.length;
   }
 
-  // Fallback jika format tidak valid
-  return [...filteredPRData].sort((a, b) => Number(b.id_PR ?? b.id) - Number(a.id_PR ?? a.id));
-}
+  // =====================================
+  // 1. PARSER No. PR (E-WALK + PENTACITY)
+  // =====================================
+  function parseNoPR(noPR: string | null | undefined) {
+    if (!noPR || typeof noPR !== "string") return null;
+
+    const s = noPR.trim().toUpperCase();
+
+    // FORMAT DITERIMA:
+    // PR/E-WALK/25/XI/001
+    // PR/PRQ/25/XI/00001
+    //
+    // Bagian kedua bisa E-WALK atau PRQ
+    const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+    const match = s.match(regex);
+    if (!match) return null;
+
+    const [, brand, tahun2, bulanRomawi, urutStr] = match;
+
+    // Konversi bulan Romawi
+    const bulanMap: Record<string, number> = {
+      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+    };
+
+    const bulan = bulanMap[bulanRomawi] ?? 0;
+    const tahun = 2000 + parseInt(tahun2, 10);
+    const urut = parseInt(urutStr, 10);
+
+    return { tahun, bulan, urut, brand };
+  }
+
+  // =====================================
+  // 2. SORTING PR TERBARU → TERLAMA
+  // =====================================
+  function sortPRList(filteredPRData: any[]) {
+    const allValid = filteredPRData.every(
+      (pr) => typeof pr.noPR === "string" && parseNoPR(pr.noPR)
+    );
+
+    if (allValid) {
+      return [...filteredPRData].sort((a, b) => {
+        const pa = parseNoPR(a.noPR)!;
+        const pb = parseNoPR(b.noPR)!;
+
+        // Tahun ASC → terlama di atas
+        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+
+        // Bulan ASC
+        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+
+        // Nomor urut ASC
+        return pa.urut - pb.urut;
+      });
+    }
+
+    // Fallback jika format tidak valid
+    return [...filteredPRData].sort((a, b) => Number(b.id_PR ?? b.id) - Number(a.id_PR ?? a.id));
+  }
 
   return (
     <MainLayout>
@@ -711,14 +728,55 @@ function sortPRList(filteredPRData: any[]) {
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="flex items-center gap-2 mb-2">
+        {/* Search Bar & Filter Tanggal */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <Input
             placeholder="Cari No PR atau Nama Barang..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[320px]"
           />
+          {/* Filter rentang tanggal PR pakai DatePicker */}
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-muted-foreground">Tanggal PR:</span>
+            <DatePicker
+              selected={filterStartDate}
+              onChange={(date) => setFilterStartDate(date)}
+              selectsStart
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Mulai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              maxDate={filterEndDate || undefined}
+              isClearable
+            />
+            <span className="mx-1">-</span>
+            <DatePicker
+              selected={filterEndDate}
+              onChange={(date) => setFilterEndDate(date)}
+              selectsEnd
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Selesai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              minDate={filterStartDate || undefined}
+              isClearable
+            />
+            <style jsx global>{`
+              .react-datepicker__day.datepicker-red {
+                color: #e53935 !important;
+                font-weight: bold;
+              }
+              .react-datepicker-popper {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                z-index: 9999 !important;
+              }
+            `}</style>
+          </div>
         </div>
 
         {/* PR Siap Proses ke PO */}

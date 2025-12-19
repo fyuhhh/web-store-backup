@@ -49,6 +49,11 @@ dayjs.extend(utc);
 export default function BKBInputPage() {
   // State
   const [btbData, setBtbData] = useState<BTBData[]>([]);
+  // HAPUS: const [searchTerm, setSearchTerm] = useState("");
+  // Tambahkan state untuk filter tanggal BTB (rentang)
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  // Tambahkan state untuk pencarian seperti monitoring BKB
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSupplier, setFilterSupplier] = useState<string[]>([]);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
@@ -157,12 +162,12 @@ export default function BKBInputPage() {
       try {
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, divisiRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/divisi"),
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
+            fetch("http://localhost:5000/api/divisi"),
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -233,16 +238,16 @@ export default function BKBInputPage() {
     fetchBTBData();
 
     // Ambil data PR, PO, PO Item, PR Item dari backend
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch("http://localhost:5000/api/pr")
       .then((res) => res.json())
       .then((data) => setPrList(data));
-    fetch("http://192.168.10.10:5000/api/po")
+    fetch("http://localhost:5000/api/po")
       .then((res) => res.json())
       .then((data) => setPoList(data));
-    fetch("http://192.168.10.10:5000/api/po-item")
+    fetch("http://localhost:5000/api/po-item")
       .then((res) => res.json())
       .then((data) => setPoItemList(data));
-    fetch("http://192.168.10.10:5000/api/pr-item")
+    fetch("http://localhost:5000/api/pr-item")
       .then((res) => res.json())
       .then((data) => setPrItemList(data));
   }, []);
@@ -302,16 +307,27 @@ export default function BKBInputPage() {
     .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
     // Filter hanya yang sisa stok > 0
     .filter((row) => Number(row.sisa) > 0)
+    // Filter berdasarkan pencarian (searchTerm) seperti monitoring BKB
     .filter((row) => {
-      const matchesSearch =
-        row.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (row.nama_supplier || "")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (row.nama_barang || "")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
-      return matchesSearch;
+      if (!searchTerm) return true;
+      const search = searchTerm.toLowerCase();
+      return (
+        String(row.noBTB ?? "").toLowerCase().includes(search) ||
+        String(row.nama_barang ?? "").toLowerCase().includes(search) ||
+        String(row.nama_supplier ?? "").toLowerCase().includes(search) ||
+        String(row.satuan ?? "").toLowerCase().includes(search) ||
+        String(row.diterimaOleh ?? "").toLowerCase().includes(search) ||
+        String(row.tanggalBTB ?? "").toLowerCase().includes(search) ||
+        String(row.keterangan ?? "").toLowerCase().includes(search)
+      );
+    })
+    // Filter berdasarkan rentang tanggal BTB jika diisi
+    .filter((row) => {
+      if (!startDate || !endDate) return true;
+      if (!row.tanggalBTB) return false;
+      // tanggalBTB bisa format yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+      const tgl = row.tanggalBTB.split("T")[0];
+      return tgl >= startDate && tgl <= endDate;
     });
 
   // Ambil detail BTB terpilih
@@ -514,13 +530,13 @@ export default function BKBInputPage() {
     };
 
     // --- Tambahkan console log sebelum fetch ---
-    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", "http://192.168.10.10:5000/api/bkb/full");
+    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", "http://localhost:5000/api/bkb/full");
     console.log("BKB SUBMIT: id_btb yang dikirim:", id_btb);
     console.log("BKB SUBMIT: payload:", payload);
 
     try {
       // Kirim ke endpoint /api/bkb/full agar backend insert bkb + bkb_item sekaligus
-      const res = await fetch("http://192.168.10.10:5000/api/bkb/full", {
+      const res = await fetch("http://localhost:5000/api/bkb/full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1017,11 +1033,32 @@ export default function BKBInputPage() {
             Pilih barang BTB untuk dibuatkan Bukti Keluar Barang (BKB)
           </p>
         </div>
-        {/* Search Bar untuk Daftar BTB */}
+        {/* Filter tanggal BTB */}
+        {!showForm && (
+          <div className="flex items-center gap-2 mb-2">
+            <Label className="text-sm font-medium">Tanggal BTB:</Label>
+            <Input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="w-[140px]"
+              placeholder="Tanggal Awal"
+            />
+            <span>-</span>
+            <Input
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              className="w-[140px]"
+              placeholder="Tanggal Akhir"
+            />
+          </div>
+        )}
+        {/* Tambahkan search bar seperti monitoring BKB */}
         {!showForm && (
           <div className="flex items-center gap-2 mb-2">
             <Input
-              placeholder="Cari No. BTB, Supplier, atau Nama Barang..."
+              placeholder="Cari semua kolom..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-[320px]"

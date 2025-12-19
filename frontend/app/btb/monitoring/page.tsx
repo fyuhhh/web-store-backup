@@ -12,6 +12,8 @@ import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
 
 import { useState, useEffect } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -181,6 +183,8 @@ export default function BTBMonitoringPage() {
   }, []);
 
   // Filter states
+  const [filterStartDate, setFilterStartDate] = useState<Date | null>(null); 
+  const [filterEndDate, setFilterEndDate] = useState<Date | null>(null);
   const [filterSupplier, setFilterSupplier] = useState<string[]>([]);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
   const [barangSearchTerm, setBarangSearchTerm] = useState("");
@@ -308,17 +312,17 @@ export default function BTBMonitoringPage() {
       const poIdsToCheck = new Set<string>();
       for (const itemId of selectedItemIdsToRestore) {
         // Ambil data item BTB
-        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`);
+        const btbItemRes = await fetch(`http://localhost:5000/api/btb-item/${itemId}`);
         if (!btbItemRes.ok) continue;
         const btbItem = await btbItemRes.json();
         // Hapus item BTB
-        await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`, { method: "DELETE" });
+        await fetch(`http://localhost:5000/api/btb-item/${itemId}`, { method: "DELETE" });
         // Update jumlahPO di po_item (tambah kembali jumlah_diterima)
-        const poItemRes = await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`);
+        const poItemRes = await fetch(`http://localhost:5000/api/po-item/${btbItem.id_POItem}`);
         if (poItemRes.ok) {
           const poItem = await poItemRes.json();
           const newJumlahPO = Number(poItem.jumlahPO) + Number(btbItem.jumlah_diterima);
-          await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`, {
+          await fetch(`http://localhost:5000/api/po-item/${btbItem.id_POItem}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -330,12 +334,12 @@ export default function BTBMonitoringPage() {
       }
       // Hapus BTB parent jika semua item sudah dihapus
       for (const { btbId } of selectedBTBItemsForRestore) {
-        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item?id_btb=${btbId}`);
+        const btbItemRes = await fetch(`http://localhost:5000/api/btb-item?id_btb=${btbId}`);
         if (btbItemRes.ok) {
           const items = await btbItemRes.json();
           if (!items || items.length === 0) {
             // Hapus BTB parent pakai id_btb
-            await fetch(`http://192.168.10.10:5000/api/btb/${btbId}`, { method: "DELETE" });
+            await fetch(`http://localhost:5000/api/btb/${btbId}`, { method: "DELETE" });
           }
         }
       }
@@ -379,12 +383,12 @@ export default function BTBMonitoringPage() {
         // Ambil semua BTB, BTB Item, User, Skema, Satuan, dan BKB
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, bkbRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/bkb"), // <-- ambil semua BKB
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
+            fetch("http://localhost:5000/api/bkb"), // <-- ambil semua BKB
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -485,12 +489,17 @@ export default function BTBMonitoringPage() {
     // Filter hanya BTB dengan id_skema sesuai user login
     .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
     .filter((row) => {
+      // --- FITUR PENCARIAN GLOBAL ---
+      const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
-        row.noBTB.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(row.supplier).toLowerCase().includes(searchTerm.toLowerCase()) ||
-        String(row.barang ?? "")
+        !searchTerm ||
+        row.noBTB?.toLowerCase().includes(searchLower) ||
+        String(row.nama_supplier ?? row.supplier ?? "")
           .toLowerCase()
-          .includes(searchTerm.toLowerCase());
+          .includes(searchLower) ||
+        String(row.nama_barang ?? "")
+          .toLowerCase()
+          .includes(searchLower);
 
       const matchesStatus = !filterStatus || row.status === filterStatus;
 
@@ -530,6 +539,18 @@ export default function BTBMonitoringPage() {
       const matchesBiayaMax =
         filterBiayaMax === "" || biayaVal <= Number(filterBiayaMax);
 
+      // --- FILTER BY TANGGAL RENTANG (pakai DatePicker) ---
+      let matchesDateRange = true;
+      if (filterStartDate && filterEndDate) {
+        // row.tanggal format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+        const tglStr = (row.tanggal || "").split("T")[0];
+        const tglDate = tglStr ? new Date(tglStr) : null;
+        matchesDateRange =
+          tglDate &&
+          tglDate >= filterStartDate &&
+          tglDate <= filterEndDate;
+      }
+
       return (
         matchesSearch &&
         matchesStatus &&
@@ -541,7 +562,8 @@ export default function BTBMonitoringPage() {
         matchesQtyMin &&
         matchesQtyMax &&
         matchesBiayaMin &&
-        matchesBiayaMax
+        matchesBiayaMax &&
+        matchesDateRange
       );
     });
 
@@ -796,6 +818,16 @@ export default function BTBMonitoringPage() {
     return items.every((item) => Number(item.sisa) === 0) ? "Closed" : "Open";
   }
 
+  // Reset ke halaman 1 saat searchTerm berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  // Reset ke halaman 1 saat filter tanggal berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStartDate, filterEndDate]);
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -863,6 +895,58 @@ export default function BTBMonitoringPage() {
                 Export Excel
               </Button>
             </div>
+          </div>
+        </div>
+        {/* FITUR PENCARIAN GLOBAL & FILTER TANGGAL RENTANG */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <Input
+            placeholder="Cari No. BTB, Supplier, atau Nama Barang..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-[320px]"
+          />
+          {/* Filter rentang tanggal BTB pakai DatePicker */}
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-muted-foreground">Tanggal BTB:</span>
+            <DatePicker
+              selected={filterStartDate}
+              onChange={(date) => setFilterStartDate(date)}
+              selectsStart
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Mulai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              maxDate={filterEndDate || undefined}
+              isClearable
+            />
+            <span className="mx-1">-</span>
+            <DatePicker
+              selected={filterEndDate}
+              onChange={(date) => setFilterEndDate(date)}
+              selectsEnd
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Selesai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              minDate={filterStartDate || undefined}
+              isClearable
+            />
+            <style jsx global>{`
+  .react-datepicker__day.datepicker-red {
+    color: #e53935 !important;
+    font-weight: bold;
+  }
+
+  .react-datepicker-popper {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 9999 !important;
+  }
+`}</style>
+
           </div>
         </div>
         {/* Table */}

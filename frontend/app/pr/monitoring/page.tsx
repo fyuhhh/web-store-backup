@@ -8,6 +8,9 @@ import * as ExcelJS from "exceljs";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
+// Tambahkan import react-datepicker
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -71,6 +74,8 @@ export default function MonitoringPRPage() {
 
   // Filter states
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
+    const [filterEndDate, setFilterEndDate] = useState<string>(""); 
+    const [filterStartDate, setFilterStartDate] = useState<string>("");
   // Hapus state filterQty dan filterQtySearchTerm
   // const [filterQty, setFilterQty] = useState<number[]>([]);
   // const [filterQtySearchTerm, setFilterQtySearchTerm] = useState("");
@@ -151,16 +156,16 @@ export default function MonitoringPRPage() {
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((res) => res.json())
       .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -202,9 +207,9 @@ export default function MonitoringPRPage() {
   ]);
 
   const loadPRData = async () => {
-    const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+    const prRes = await fetch("http://localhost:5000/api/pr");
     const prList = await prRes.json();
-    const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+    const prItemRes = await fetch("http://localhost:5000/api/pr-item");
     const prItemList = await prItemRes.json();
 
     // LOG: Tampilkan tanggalPR yang diterima dari backend
@@ -280,7 +285,7 @@ export default function MonitoringPRPage() {
         pr.items.every((item: any) => Number(item.jumlah) === 0)
       ) {
         // Update status ke "Diproses"
-        await fetch(`http://192.168.10.10:5000/api/pr/${pr.id}`, {
+        await fetch(`http://localhost:5000/api/pr/${pr.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -372,7 +377,7 @@ export default function MonitoringPRPage() {
         }
         console.log("Deleting PR Item id_PRItem:", idToDelete);
         const resp = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/${idToDelete}`,
+          `http://localhost:5000/api/pr-item/${idToDelete}`,
           {
             method: "DELETE",
           }
@@ -401,7 +406,7 @@ export default function MonitoringPRPage() {
     try {
       let anyError = false;
       for (const id of deleteIds) {
-        const resp = await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
+        const resp = await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
         const respJson = await resp.json().catch(() => ({}));
         if (!resp.ok) {
           // Show backend error message if PR cannot be deleted
@@ -411,7 +416,7 @@ export default function MonitoringPRPage() {
           anyError = true;
           continue;
         }
-        await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
+        await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
           method: "DELETE",
         });
       }
@@ -481,15 +486,18 @@ export default function MonitoringPRPage() {
   const filteredPRData = prData
     .filter((pr) => (userSkemaId ? String(pr.skema) === userSkemaId : true))
     .filter((pr) => {
+      // --- Tambahkan pencarian global ---
+      const searchLower = searchTerm.toLowerCase();
       const matchesSearch =
+        !searchTerm ||
         (pr.items &&
           pr.items.some(
             (item) =>
               typeof item.namaBarang === "string" &&
-              item.namaBarang.toLowerCase().includes(searchTerm.toLowerCase())
+              item.namaBarang.toLowerCase().includes(searchLower)
           )) ||
         (typeof pr.noPR === "string" &&
-          pr.noPR.toLowerCase().includes(searchTerm.toLowerCase()));
+          pr.noPR.toLowerCase().includes(searchLower));
 
       const matchesNamaBarang =
         !filterNamaBarang ||
@@ -556,6 +564,18 @@ export default function MonitoringPRPage() {
         filterSkema.length === 0 ||
         (pr.skema !== undefined && filterSkema.includes(pr.skema));
 
+      // --- FILTER BY TANGGAL RENTANG (pakai DatePicker) ---
+      let matchesDateRange = true;
+      if (filterStartDate && filterEndDate) {
+        // pr.tanggalPR format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+        const tglStr = (pr.tanggalPR || "").split("T")[0];
+        const tglDate = tglStr ? new Date(tglStr) : null;
+        matchesDateRange =
+          tglDate &&
+          tglDate >= filterStartDate &&
+          tglDate <= filterEndDate;
+      }
+
       return (
         matchesSearch &&
         matchesNamaBarang &&
@@ -569,7 +589,8 @@ export default function MonitoringPRPage() {
         matchesNoPR &&
         matchesTanggalPR &&
         matchesDibuatOleh &&
-        matchesSkema
+        matchesSkema &&
+        matchesDateRange // <-- tambahkan ini
       );
     })
     // Ganti filter logic: jika "all", tampilkan semua
@@ -1100,6 +1121,57 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                 Export Excel
               </Button>
             </div>
+          </div>
+        </div>
+
+        {/* Search Bar & Filter Tanggal PR */}
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
+          <Input
+            placeholder="Cari No. PR atau Nama Barang..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-[320px]"
+          />
+          {/* Filter rentang tanggal PR pakai DatePicker */}
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-muted-foreground">Tanggal PR:</span>
+            <DatePicker
+              selected={filterStartDate}
+              onChange={(date) => setFilterStartDate(date)}
+              selectsStart
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Mulai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              maxDate={filterEndDate || undefined}
+              isClearable
+            />
+            <span className="mx-1">-</span>
+            <DatePicker
+              selected={filterEndDate}
+              onChange={(date) => setFilterEndDate(date)}
+              selectsEnd
+              startDate={filterStartDate}
+              endDate={filterEndDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Selesai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              minDate={filterStartDate || undefined}
+              isClearable
+            />
+            <style jsx global>{`
+              .react-datepicker__day.datepicker-red {
+                color: #e53935 !important;
+                font-weight: bold;
+              }
+              .react-datepicker-popper {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                z-index: 9999 !important;
+              }
+            `}</style>
           </div>
         </div>
 
@@ -2047,7 +2119,7 @@ function DeleteItemModal({
 const updatePRStatusToBackend = async (prId: string) => {
   // Ambil semua item PR dari backend
   const prItemsRes = await fetch(
-    `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
+    `http://localhost:5000/api/pr-item/pr/${prId}`
   );
   const prItems = prItemsRes.ok ? await prItemsRes.json() : [];
 
@@ -2077,10 +2149,10 @@ const updatePRStatusToBackend = async (prId: string) => {
   }
 
   // Ambil data PR lama
-  const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+  const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
   if (prRes.ok) {
     const prData = await prRes.json();
-    await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+    await fetch(`http://localhost:5000/api/pr/${prId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
