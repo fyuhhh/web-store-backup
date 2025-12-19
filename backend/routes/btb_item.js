@@ -1,7 +1,6 @@
 import express from "express";
-import db from "../config/database.js";
-
 const router = express.Router();
+import db from "../config/database.js";
 
 // GET semua BTB Item (opsional: filter by id_btb)
 router.get("/", async (req, res) => {
@@ -19,9 +18,17 @@ router.get("/", async (req, res) => {
       sql += " WHERE btb_item.id_btb = ?";
       params.push(id_btb);
     }
-    sql += " ORDER BY btb_item.id_btb_item ASC";
+    sql += " ORDER BY btb_item.id_btb_item ASC"; // <-- Sudah benar ASC
     const [rows] = await db.query(sql, params);
-    res.json(rows);
+    // Pastikan biaya integer
+    const fixedRows = rows.map((row) => ({
+      ...row,
+      biaya:
+        row.biaya !== undefined && row.biaya !== null
+          ? Math.round(Number(row.biaya))
+          : 0,
+    }));
+    res.json(fixedRows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -57,6 +64,7 @@ router.post("/", async (req, res) => {
       id_satuan,
       keterangan,
       qty_sisa,
+      biaya, // <-- tambahkan biaya
     } = req.body;
 
     // --- FIX: pastikan jumlah_diterima dan qty_sisa integer ---
@@ -66,6 +74,9 @@ router.post("/", async (req, res) => {
     const qtySisaInt = qty_sisa !== undefined && qty_sisa !== null
       ? Math.round(Number(qty_sisa))
       : jumlahDiterimaInt;
+    const biayaInt = biaya !== undefined && biaya !== null
+      ? Math.round(Number(biaya))
+      : 0;
 
     // Validasi wajib
     if (!id_btb || !id_POItem || !nama_barang) {
@@ -76,8 +87,8 @@ router.post("/", async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO btb_item 
-      (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa, biaya)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_btb,
         id_POItem,
@@ -86,7 +97,13 @@ router.post("/", async (req, res) => {
         id_satuan || null,
         keterangan || "",
         qtySisaInt, // <-- integer
+        biayaInt, // <-- biaya per item
       ]
+    );
+    // Setelah insert, update biaya pada btb
+    await db.query(
+      "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
+      [id_btb, id_btb]
     );
     res
       .status(201)
@@ -111,6 +128,15 @@ router.put("/:id", async (req, res) => {
       ` WHERE id_btb_item = ?`;
 
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
+    // Setelah update, update biaya pada btb
+    // Ambil id_btb dari btb_item
+    const [[row]] = await db.query("SELECT id_btb FROM btb_item WHERE id_btb_item = ?", [id]);
+    if (row && row.id_btb) {
+      await db.query(
+        "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
+        [row.id_btb, row.id_btb]
+      );
+    }
     res.json({ message: "BTB Item berhasil diupdate" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -121,12 +147,21 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
+    // Ambil id_btb sebelum hapus
+    const [[row]] = await db.query("SELECT id_btb FROM btb_item WHERE id_btb_item = ?", [id]);
     const [result] = await db.query(
       "DELETE FROM btb_item WHERE id_btb_item = ?",
       [id]
     );
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "BTB Item tidak ditemukan" });
+    // Setelah delete, update biaya pada btb
+    if (row && row.id_btb) {
+      await db.query(
+        "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
+        [row.id_btb, row.id_btb]
+      );
+    }
     res.json({ message: "BTB Item berhasil dihapus" });
   } catch (err) {
     res.status(500).json({ error: err.message });

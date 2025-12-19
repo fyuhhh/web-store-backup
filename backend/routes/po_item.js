@@ -1,5 +1,7 @@
 import express from "express";
 import db from "../config/database.js";
+import { updateTargetPencapaianPoByBTB } from "./btb.js"; // pastikan export fungsi ini dari btb.js
+import { updateStatusTerimaPO } from "./po.js";
 
 const router = express.Router();
 
@@ -7,7 +9,7 @@ const router = express.Router();
 router.get("/", async (req, res, next) => {
   try {
     const [rows] = await db.query(
-      "SELECT * FROM po_item ORDER BY id_POItem DESC"
+      "SELECT * FROM po_item ORDER BY id_POItem ASC" // <-- Ubah DESC ke ASC
     );
     // --- FIX: pastikan hargaSatuan, jumlahPO, jumlahAsli integer ---
     const fixedRows = rows.map((row) => ({
@@ -138,12 +140,15 @@ router.post("/", async (req, res, next) => {
         id_satuan || null,
       ]
     );
-
     const insertId = result.insertId;
     const [[newRow]] = await db.query(
       "SELECT * FROM po_item WHERE id_POItem = ?",
       [insertId]
     );
+    // --- update statusterima pada PO terkait ---
+    if (newRow && newRow.id_PO) {
+      await updateStatusTerimaPO(db, newRow.id_PO);
+    }
     res.status(201).json(newRow || { id_POItem: insertId });
   } catch (err) {
     next(err);
@@ -215,6 +220,14 @@ router.put("/:id", async (req, res, next) => {
       fields.map((f) => `${f} = ?`).join(", ") +
       ` WHERE id_POItem = ?`;
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
+    // Setelah update, update targetPencapaianPo pada semua BTB terkait PO ini
+    const [[poItem]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [id]);
+    if (poItem && poItem.id_PO) {
+      const [btbs] = await db.query("SELECT id_btb FROM btb WHERE id_po = ?", [poItem.id_PO]);
+      for (const btb of btbs) {
+        await updateTargetPencapaianPoByBTB(db, btb.id_btb);
+      }
+    }
     const [[updated]] = await db.query(
       "SELECT * FROM po_item WHERE id_POItem = ?",
       [id]
@@ -241,12 +254,17 @@ router.delete("/:id", async (req, res, next) => {
           "Item PO tidak bisa dikembalikan ke PR karena sudah diproses menjadi BTB. Silakan kembalikan/dihapus BTB terlebih dahulu.",
       });
     }
-
+    // Ambil id_PO sebelum hapus
+    const [[poItemRow]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [id]);
     const [result] = await db.query("DELETE FROM po_item WHERE id_POItem = ?", [
       id,
     ]);
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "PO item tidak ditemukan" });
+    // --- update statusterima pada PO terkait ---
+    if (poItemRow && poItemRow.id_PO) {
+      await updateStatusTerimaPO(db, poItemRow.id_PO);
+    }
     res.json({ message: "PO item dihapus" });
   } catch (err) {
     next(err);

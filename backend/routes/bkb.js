@@ -228,4 +228,19 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
+router.post("/transaksi", async (req, res) => {
+  const conn = await db.getConnection(); // <-- ini hanya bisa jika db adalah pool!
+  try {
+    await conn.beginTransaction();
+    // ...query...
+    await conn.commit();
+    res.json({ success: true });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
 export default router;

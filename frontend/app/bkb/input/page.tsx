@@ -143,7 +143,7 @@ export default function BKBInputPage() {
             fetch("http://192.168.10.10:5000/api/user"),
             fetch("http://192.168.10.10:5000/api/skema"),
             fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/divisi"), // fetch divisi
+            fetch("http://192.168.10.10:5000/api/divisi"),
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -187,7 +187,7 @@ export default function BKBInputPage() {
           return {
             id: item.id_btb_item,
             id_btb: btb?.id_btb ?? null,
-            id_po: btb?.id_po ?? null, // <-- tambahkan ini!
+            id_po: btb?.id_po ?? null,
             noBTB: btb?.no_btb ?? "",
             tanggalBTB: btb?.tanggal_btb ?? "",
             tanggal: btb?.tanggal_diterima ?? "",
@@ -202,6 +202,7 @@ export default function BKBInputPage() {
             biaya: btb?.biaya ?? "",
             diterimaOleh: btb?.id_user ?? "",
             skema: btb?.id_skema ?? "",
+            keterangan: item.keterangan ?? "", // <-- tambahkan ini!
           };
         });
         setBackendBTBRows(rows);
@@ -327,7 +328,9 @@ export default function BKBInputPage() {
   };
 
   // State untuk checkbox per item
-  const [selectedBTBItemIds, setSelectedBTBItemIds] = useState<string[]>([]);
+  const [selectedBTBItemIds, setSelectedBTBItemIds] = useState<string[]>(
+    []
+  );
 
   // Handler checkbox per item
   const handleSelectBTBItem = (itemId: string, checked: boolean) => {
@@ -395,6 +398,7 @@ export default function BKBInputPage() {
         supplier: row.nama_supplier,
         skema: row.skema ?? "",
         divisi: divisiOtomatis,
+        keterangan: row.keterangan ?? "", // <-- pastikan mapping keterangan dari backend
       })),
       sumberBTB: selectedItems.map((row) => row.noBTB),
       skema: selectedItems[0]?.skema ||
@@ -629,9 +633,9 @@ export default function BKBInputPage() {
         const pa = parseNoBTB(a.noBTB)!;
         const pb = parseNoBTB(b.noBTB)!;
 
-        if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun; // DESC
-        if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan; // DESC
-        return pb.urut - pa.urut; // DESC
+        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun; // DESC
+        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan; // DESC
+        return pa.urut - pb.urut; // DESC
       });
     }
 
@@ -707,6 +711,137 @@ export default function BKBInputPage() {
             </div>
           )}
           <form onSubmit={handleSubmitBKB} className="space-y-6">
+            {/* Daftar Barang & Tabel di paling atas */}
+            <div>
+              <Label className="mb-2">Daftar Barang</Label>
+              <div className="border rounded-md p-2 overflow-x-auto">
+                <Table className="w-full min-w-[1100px]">
+                  <TableHeader>
+                    <TableRow>
+                      {/* Hapus checkbox group di form input BKB */}
+                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                        Nama Barang
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[140px]">
+                        No. BTB
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[120px]">
+                        Tanggal BTB
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                        Nama Supplier
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
+                        Quantity
+                      </TableHead>
+                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
+                        Satuan
+                      </TableHead>
+                      {/* Tambahkan kolom Keterangan */}
+                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                        Keterangan
+                      </TableHead>
+                      {/* Tambahkan kolom Refrensi Nomor PR */}
+                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
+                        Refrensi Nomor PR
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {formData.barang.map((b: any, idx: number) => {
+                      const sisa = getSisaBTB(b);
+                      const btbInfo = getBTBInfo(b.btbId);
+                      const satuanLabel =
+                        satuanMap[String(b.satuan)] ||
+                        b.satuanLabel ||
+                        b.satuan ||
+                        "-";
+                      const btbRow = backendBTBRows.find(
+                        (row) => row.id === b.btbId
+                      );
+                      // --- Cari refrensi nomor PR dari btbRow ---
+                      let noPR = "-";
+                      if (btbRow) {
+                        // Cek apakah ada field no_pr atau refrensiNoPr di btbRow
+                        noPR = btbRow.no_pr || btbRow.refrensiNoPr || "-";
+                        // Jika tidak ada, coba cari dari PO/PR mapping jika tersedia
+                        if (
+                          noPR === "-" &&
+                          poItemList.length > 0 &&
+                          prItemList.length > 0
+                        ) {
+                          // Cari PO Item dari id_po
+                          const poItem = poItemList.find(
+                            (pi: any) => String(pi.id_PO) === String(btbRow.id_po)
+                          );
+                          if (poItem) {
+                            // Cari PR Item dari id_PRItem
+                            const prItem = prItemList.find(
+                              (pri: any) =>
+                                String(pri.id_PRItem) === String(poItem.id_PRItem)
+                            );
+                            if (prItem) {
+                              // Cari PR dari id_PR
+                              const pr = prList.find(
+                                (pr: any) =>
+                                  String(pr.id_PR) === String(prItem.id_PR)
+                              );
+                              if (pr && pr.noPR) noPR = pr.noPR;
+                            }
+                          }
+                        }
+                      }
+                      return (
+                        <TableRow key={idx}>
+                          {/* Nama Barang */}
+                          <TableCell className="text-center align-middle px-4 py-3">{b.barang}</TableCell>
+                          {/* No. BTB */}
+                          <TableCell className="text-center align-middle">{btbInfo.noBTB}</TableCell>
+                          {/* Tanggal BTB */}
+                          <TableCell className="text-center align-middle">{formatTanggalPas(btbRow?.tanggalBTB ?? "")}</TableCell>
+                          {/* Nama Supplier */}
+                          <TableCell className="text-center align-middle">{btbRow?.nama_supplier ?? "-"}</TableCell>
+                          {/* Quantity */}
+                          <TableCell className="text-center align-middle">
+                            <div className="flex items-center gap-2 justify-center">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={sisa}
+                                value={formatInt(b.jumlah)}
+                                onChange={(e) =>
+                                  handleBarangChange(
+                                    idx,
+                                    "jumlah",
+                                    e.target.value
+                                  )
+                                }
+                                required
+                                className="w-24 text-base text-center"
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                / {formatInt(sisa)}
+                              </span>
+                            </div>
+                          </TableCell>
+                          {/* Satuan */}
+                          <TableCell className="text-center align-middle">{satuanLabel}</TableCell>
+                          {/* Kolom baru: Keterangan dari b.keterangan */}
+                          <TableCell className="text-center align-middle">
+                            {b.keterangan || "-"}
+                          </TableCell>
+                          {/* Kolom baru: Refrensi Nomor PR */}
+                          <TableCell className="text-center align-middle">
+                            {noPR}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+            {/* No BKB, Tanggal BKB, Nama Penerima */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 min-w-0">
               <div className="flex flex-col min-w-0">
                 <Label className="mb-1">No BKB</Label>
@@ -759,6 +894,7 @@ export default function BKBInputPage() {
                       className="w-full px-3 py-2 border rounded-md bg-white text-base"
                     />
                   }
+                  popperPlacement="right-start"
                 />
               </div>
               <div className="flex flex-col min-w-0">
@@ -771,117 +907,39 @@ export default function BKBInputPage() {
                 />
                 {/* Input skema tetap dikirim ke backend, tapi disembunyikan */}
                 <input type="hidden" name="skema" value={formData.skema} />
-                {/* Tambahkan input divisi (readonly) */}
-                <div className="mt-2">
-                  <Label className="mb-1">Divisi</Label>
-                  <Input
-                    value={
-                      divisiMap[String(formData.divisi)] ||
-                      formData.divisi ||
-                      ""
-                    }
-                    readOnly
-                    className="w-full text-base bg-gray-100"
-                    placeholder="Divisi otomatis dari PR/user"
-                  />
-                </div>
               </div>
             </div>
-            <div>
-              <Label className="mb-2">Daftar Barang</Label>
-              <div className="border rounded-md p-2 overflow-x-auto">
-                <Table className="w-full min-w-[1100px]">
-                  <TableHeader>
-                    <TableRow>
-                      {/* Hapus checkbox group di form input BKB */}
-                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                        Nama Barang
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[140px]">
-                        No. BTB
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[120px]">
-                        Tanggal BTB
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                        Nama Supplier
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
-                        Quantity
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
-                        Satuan
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {formData.barang.map((b: any, idx: number) => {
-                      const sisa = getSisaBTB(b);
-                      const btbInfo = getBTBInfo(b.btbId);
-                      const satuanLabel =
-                        satuanMap[String(b.satuan)] ||
-                        b.satuanLabel ||
-                        b.satuan ||
-                        "-";
-                      const btbRow = backendBTBRows.find(
-                        (row) => row.id === b.btbId
-                      );
-                      return (
-                        <TableRow key={idx}>
-                          {/* Nama Barang */}
-                          <TableCell className="text-center align-middle px-4 py-3">{b.barang}</TableCell>
-                          {/* No. BTB */}
-                          <TableCell className="text-center align-middle">{btbInfo.noBTB}</TableCell>
-                          {/* Tanggal BTB */}
-                          <TableCell className="text-center align-middle">{formatTanggalPas(btbRow?.tanggalBTB ?? "")}</TableCell>
-                          {/* Nama Supplier */}
-                          <TableCell className="text-center align-middle">{btbRow?.nama_supplier ?? "-"}</TableCell>
-                          {/* Quantity */}
-                          <TableCell className="text-center align-middle">
-                            <div className="flex items-center gap-2 justify-center">
-                              <Input
-                                type="number"
-                                min={1}
-                                max={sisa}
-                                value={formatInt(b.jumlah)}
-                                onChange={(e) =>
-                                  handleBarangChange(
-                                    idx,
-                                    "jumlah",
-                                    e.target.value
-                                  )
-                                }
-                                required
-                                className="w-24 text-base text-center"
-                              />
-                              <span className="text-xs text-muted-foreground">
-                                / {formatInt(sisa)}
-                              </span>
-                            </div>
-                          </TableCell>
-                          {/* Satuan */}
-                          <TableCell className="text-center align-middle">{satuanLabel}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+            {/* Divisi dan Keterangan di bawahnya */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 min-w-0">
+              <div className="flex flex-col min-w-0">
+                <Label className="mb-1">Divisi</Label>
+                <Input
+                  value={
+                    divisiMap[String(formData.divisi)] ||
+                    formData.divisi ||
+                    ""
+                  }
+                  readOnly
+                  className="w-full text-base bg-gray-100"
+                  placeholder="Divisi otomatis dari PR/user"
+                />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <Label className="mb-1">Keterangan</Label>
+                <Input
+                  value={formData.keterangan}
+                  onChange={(e) =>
+                    setFormData((prev: any) => ({
+                      ...prev,
+                      keterangan: e.target.value,
+                    }))
+                  }
+                  placeholder="Keterangan (opsional)"
+                  className="w-full text-base"
+                />
               </div>
             </div>
-            <div>
-              <Label className="mb-1">Keterangan</Label>
-              <Input
-                value={formData.keterangan}
-                onChange={(e) =>
-                  setFormData((prev: any) => ({
-                    ...prev,
-                    keterangan: e.target.value,
-                  }))
-                }
-                placeholder="Keterangan (opsional)"
-                className="w-full text-base"
-              />
-            </div>
+            {/* Tombol Simpan/Batal */}
             <div className="flex gap-2 justify-end">
               <Button type="submit" className="bg-primary px-6 text-base">
                 Simpan BKB
@@ -1032,10 +1090,15 @@ export default function BKBInputPage() {
                       const grouped = groupBTBByIdBTB(paginatedBTBData);
                       return Object.entries(grouped).map(([id_btb, items], idx) => {
                         if (!items || items.length === 0) return null;
+                        // Urutkan items ASC by id_btb_item (atau id_btbItem/id)
+                        const sortedItems = [...items].sort((a, b) => {
+                          const getId = (x) => x.id_btb_item ?? x.id_btbItem ?? x.id;
+                          return getId(a) - getId(b);
+                        });
                         const fragmentKey = id_btb || `id_btb-unknown-${idx}`;
                         return (
                           <React.Fragment key={fragmentKey}>
-                            {items.map((item, itemIdx) => (
+                            {sortedItems.map((item, itemIdx) => (
                               <TableRow key={`${id_btb}-item-${itemIdx}`} className="hover:bg-gray-50 transition-colors">
                                 {/* Checkbox group (select all per BTB), hanya di baris pertama */}
                                 {itemIdx === 0 && (

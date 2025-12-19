@@ -144,9 +144,9 @@ function sortBTBList(filteredBTBData: any[]) {
       const pa = parseNoBTB(a.noBTB)!;
       const pb = parseNoBTB(b.noBTB)!;
 
-      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun; // DESC
-      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan; // DESC
-      return pb.urut - pa.urut; // DESC
+      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun; // DESC
+      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan; // DESC
+      return pa.urut - pb.urut; // DESC
     });
   }
 
@@ -554,7 +554,6 @@ export default function BTBMonitoringPage() {
       "Nama Supplier",
       "Nama Barang",
       "Quantity Awal BTB",
-      "Quantity Sisa BTB",
       "Satuan",
       "Keterangan",
       "Biaya",
@@ -603,7 +602,6 @@ export default function BTBMonitoringPage() {
           idx === 0 ? (first.nama_supplier ?? first.supplier ?? "") : "",
           item.nama_barang ?? "",
           typeof item.jumlah === "number" ? item.jumlah : Number(item.jumlah) || 0,
-          typeof item.sisa === "number" ? item.sisa : Number(item.sisa) || 0,
           item.satuan ?? "",
           item.keterangan ?? "",
           idx === 0 ? (typeof first.biaya === "number" ? first.biaya : Number(first.biaya) || 0) : "",
@@ -614,7 +612,6 @@ export default function BTBMonitoringPage() {
       });
       // Set number format for quantity, sisa, biaya columns
       worksheet.getColumn(5).numFmt = '#,##0';
-      worksheet.getColumn(6).numFmt = '#,##0';
       worksheet.getColumn(9).numFmt = '#,##0';
     });
 
@@ -1077,7 +1074,7 @@ export default function BTBMonitoringPage() {
             <Popover>
               <PopoverTrigger asChild>
                 <button className="inline-flex items-center gap-1">
-                  Quantity Awal BTB <ChevronDown className="w-4 h-4" />
+                  Quantity <ChevronDown className="w-4 h-4" />
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-48 p-2 bg-white">
@@ -1110,10 +1107,10 @@ export default function BTBMonitoringPage() {
               </PopoverContent>
             </Popover>
           </TableHead>
-          {/* Tambahkan kolom Quantity Sisa BTB */}
-          <TableHead className="border border-gray-300 text-center min-w-[90px]">
+          {/* HAPUS: Quantity Sisa BTB */}
+          {/* <TableHead className="border border-gray-300 text-center min-w-[90px]">
             Quantity Sisa BTB
-          </TableHead>
+          </TableHead> */}
           {/* Satuan */}
           <TableHead className="border border-gray-300 text-center min-w-[90px]">
             <Popover>
@@ -1241,6 +1238,11 @@ export default function BTBMonitoringPage() {
 
             return Object.entries(grouped).map(([noBTB, items]) => {
               if (!items || items.length === 0) return null;
+              // Urutkan items ASC by id_btb_item (atau id_btbItem/id)
+              const sortedItems = [...items].sort((a, b) => {
+                const getId = (x) => x.id_btb_item ?? x.id_btbItem ?? x.id;
+                return getId(a) - getId(b);
+              });
               return (
                 <React.Fragment key={noBTB}>
                   <TableRow className="hover:bg-gray-50 transition-colors border border-gray-300">
@@ -1268,28 +1270,24 @@ export default function BTBMonitoringPage() {
                       {items[0].nama_supplier || "-"}
                     </TableCell>
                     {/* Nama Barang - item pertama */}
-                    <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                      {items[0].nama_barang && items[0].nama_barang !== ""
-                        ? items[0].nama_barang
-                        : items[0].nama_supplier || "-"}
+                    <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
+                      {sortedItems[0].nama_barang && sortedItems[0].nama_barang !== ""
+                        ? sortedItems[0].nama_barang
+                        : sortedItems[0].nama_supplier || "-"}
                     </TableCell>
                     {/* Quantity - item pertama */}
-                    <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                      {formatInt(items[0].jumlah)}
-                    </TableCell>
-                    {/* Quantity Sisa BTB - item pertama */}
-                    <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                      {formatInt(items[0].sisa)}
+                    <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
+                      {formatInt(sortedItems[0].jumlah)}
                     </TableCell>
                     {/* Satuan - item pertama */}
-                    <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                      {items[0].satuan}
+                    <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
+                      {sortedItems[0].satuan}
                     </TableCell>
                     {/* Keterangan - item pertama */}
-                    <TableCell className="border border-gray-300 px-4 py-3 text-center">
-                      {items[0].keterangan ? (
+                    <TableCell className="border border-gray-300 px-4 py-3 text-left">
+                      {sortedItems[0].keterangan ? (
                         <span
-                          title={items[0].keterangan}
+                          title={sortedItems[0].keterangan}
                           style={{
                             cursor: "pointer",
                             whiteSpace: "nowrap",
@@ -1300,9 +1298,9 @@ export default function BTBMonitoringPage() {
                             color: "#6b7280"
                           }}
                         >
-                          {items[0].keterangan.length > 15
-                            ? items[0].keterangan.slice(0, 15) + "..."
-                            : items[0].keterangan}
+                          {sortedItems[0].keterangan.length > 15
+                            ? sortedItems[0].keterangan.slice(0, 15) + "..."
+                            : sortedItems[0].keterangan}
                         </span>
                       ) : "-"}
                     </TableCell>
@@ -1335,29 +1333,25 @@ export default function BTBMonitoringPage() {
                     </TableCell>
                   </TableRow>
                   {/* Baris item berikutnya */}
-                  {items.slice(1).map((item, idx) => (
+                  {sortedItems.slice(1).map((item, idx) => (
                     <TableRow key={`${noBTB}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors border border-gray-300">
                       {/* Kolom yang di-rowSpan tidak ditampilkan lagi */}
                       {/* Nama Barang - item berikutnya */}
-                      <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                      <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                         {item.nama_barang && item.nama_barang !== ""
                           ? item.nama_barang
                           : item.nama_supplier || "-"}
                       </TableCell>
                       {/* Quantity - item berikutnya */}
-                      <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                      <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                         {formatInt(item.jumlah)}
                       </TableCell>
-                      {/* Quantity Sisa BTB - item berikutnya */}
-                      <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                        {formatInt(item.sisa)}
-                      </TableCell>
                       {/* Satuan - item berikutnya */}
-                      <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                      <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                         {item.satuan}
                       </TableCell>
                       {/* Keterangan - item berikutnya */}
-                      <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                      <TableCell className="border border-gray-300 px-4 py-3 text-left">
                         {item.keterangan ? (
                           <span
                             title={item.keterangan}

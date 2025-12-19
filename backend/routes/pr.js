@@ -3,6 +3,34 @@ import db from "../config/database.js";
 
 const router = express.Router();
 
+// Helper: hitung tanggal +N hari kerja (skip Sabtu/Minggu)
+function addWorkingDays(startDateStr, days) {
+  // Support dd-mm-yyyy dan yyyy-mm-dd
+  let date;
+  if (/^\d{2}-\d{2}-\d{4}$/.test(startDateStr)) {
+    const [d, m, y] = startDateStr.split("-");
+    date = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(startDateStr)) {
+    date = new Date(startDateStr);
+  } else {
+    date = new Date(startDateStr);
+  }
+  let added = 0;
+  while (added < days) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+    if (day !== 0 && day !== 6) {
+      // 0 = Minggu, 6 = Sabtu
+      added++;
+    }
+  }
+  // Return dd-mm-yyyy
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+}
+
 // GET semua PR
 router.get("/", async (req, res) => {
   try {
@@ -59,6 +87,8 @@ router.post("/", async (req, res) => {
     dibuatOleh,
     id_skema,
     createdAt,
+    // plan, // jangan ambil dari body, akan diisi otomatis
+    // estimasipo, // <-- jangan ambil dari body, akan diisi otomatis
   } = req.body;
 
   id_divisi = typeof id_divisi === "string" ? parseInt(id_divisi) : id_divisi;
@@ -81,9 +111,34 @@ router.post("/", async (req, res) => {
       error: `Field berikut wajib diisi: ${emptyFields.join(", ")}`,
     });
   }
+
+  // --- Hitung nilai kolom plan otomatis ---
+  let plan = "No Plan";
+  if (tanggalPR) {
+    // tanggalPR bisa "yyyy-mm-dd" atau "dd-mm-yyyy"
+    let day = 0;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tanggalPR)) {
+      // yyyy-mm-dd
+      day = parseInt(tanggalPR.split("-")[2], 10);
+    } else if (/^\d{2}-\d{2}-\d{4}$/.test(tanggalPR)) {
+      // dd-mm-yyyy
+      day = parseInt(tanggalPR.split("-")[0], 10);
+    }
+    // Jika tanggal 25-31 atau 1-5
+    if ((day >= 25 && day <= 31) || (day >= 1 && day <= 5)) {
+      plan = "Plan";
+    }
+  }
+
+  // --- Hitung estimasipo otomatis (3 hari kerja setelah tanggalPR) ---
+  let estimasipo = null;
+  if (tanggalPR) {
+    estimasipo = addWorkingDays(tanggalPR, 3);
+  }
+
   try {
     const [result] = await db.query(
-      "INSERT INTO pr (noPR, tanggalPR, id_divisi, id_urgensi, status, dibuatOleh, id_skema, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO pr (noPR, tanggalPR, id_divisi, id_urgensi, status, dibuatOleh, id_skema, createdAt, plan, estimasipo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [
         noPR,
         tanggalPR,
@@ -93,6 +148,8 @@ router.post("/", async (req, res) => {
         dibuatOleh,
         id_skema,
         createdAt,
+        plan, // <-- tambahkan plan
+        estimasipo, // <-- tambahkan estimasipo
       ]
     );
     res
@@ -115,18 +172,9 @@ router.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "Tidak ada data untuk diupdate" });
     }
 
-    // --- Normalisasi dan validasi field tanggalPR agar selalu YYYY-MM-DD ---
-    if (payload.tanggalPR && typeof payload.tanggalPR === "string") {
-      // Jika format ISO (ada T), ambil hanya tanggalnya
-      if (payload.tanggalPR.includes("T")) {
-        payload.tanggalPR = payload.tanggalPR.split("T")[0];
-      }
-      // Jika format dd-mm-yyyy, ubah ke yyyy-mm-dd
-      else if (/^\d{2}-\d{2}-\d{4}$/.test(payload.tanggalPR)) {
-        const [d, m, y] = payload.tanggalPR.split("-");
-        payload.tanggalPR = `${y}-${m}-${d}`;
-      }
-      // Jika format yyyy-mm-dd, biarkan
+    // === LOCK tanggalPR: hapus field tanggalPR dari payload agar tidak bisa diupdate ===
+    if ('tanggalPR' in payload) {
+      delete payload.tanggalPR;
     }
 
     // --- Normalisasi id_divisi, id_urgensi, id_skema ke integer jika string ---
@@ -150,13 +198,14 @@ router.put("/:id", async (req, res) => {
     // --- Hapus field yang tidak ada di tabel PR ---
     const allowedFields = [
       "noPR",
-      "tanggalPR",
+      // "tanggalPR", // <-- JANGAN izinkan update tanggalPR
       "id_divisi",
       "id_urgensi",
       "status",
       "dibuatOleh",
       "id_skema",
       "createdAt",
+      "plan", // <-- tambahkan plan
     ];
     for (const key of Object.keys(payload)) {
       if (!allowedFields.includes(key)) {
