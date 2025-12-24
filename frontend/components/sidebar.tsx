@@ -95,7 +95,7 @@ const menuItems = [
     title: "Pengaturan",
     icon: Settings,
     submenu: [
-      { title: "Hari Libur", href: "/settings/holidays" },
+      { title: "Hari Libur", href: "/holidays" },
     ],
   },
 ];

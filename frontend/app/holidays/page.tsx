@@ -22,7 +22,7 @@ export default function HolidayPage() {
     async function fetchHolidays() {
         try {
             setLoading(true);
-            const res = await fetch("http://localhost:5000/api/holidays");
+            const res = await fetch("http://192.168.10.10:5000/api/holidays");
             const data = await res.json();
             setHolidays(Array.isArray(data) ? data : []);
         } catch (err) {
@@ -35,7 +35,7 @@ export default function HolidayPage() {
     async function handleAdd() {
         if (!newDate) return alert("Pilih tanggal!");
         try {
-            const res = await fetch("http://localhost:5000/api/holidays", {
+            const res = await fetch("http://192.168.10.10:5000/api/holidays", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ tanggal: newDate, description: newDesc }),
@@ -55,7 +55,7 @@ export default function HolidayPage() {
     async function handleDelete(id: number) {
         if (!confirm("Hapus hari libur ini?")) return;
         try {
-            await fetch(`http://localhost:5000/api/holidays/${id}`, { method: "DELETE" });
+            await fetch(`http://192.168.10.10:5000/api/holidays/${id}`, { method: "DELETE" });
             fetchHolidays();
         } catch (err) {
             console.error(err);

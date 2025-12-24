@@ -356,30 +356,6 @@ export default function RekapFullPage() {
   const [divisiMap, setDivisiMap] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
-<<<<<<< HEAD
-  async function fetchData() {
-    try {
-      // Fetch PR data, PR Items, PO data, PO Items, BTB data, BTB Items, BKB data, BKB Items
-      const [
-        prRes,
-        prItemRes,
-        poRes,
-        poItemRes,
-        btbRes,
-        btbItemRes,
-        bkbRes,
-        bkbItemRes,
-      ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
-      ]);
-=======
     async function fetchData() {
       try {
         // Fetch PR data, PR Items, PO data, PO Items, BTB data, BTB Items, BKB data, BKB Items
@@ -393,16 +369,15 @@ export default function RekapFullPage() {
           bkbRes,
           bkbItemRes,
         ] = await Promise.all([
-          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
-          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://localhost:5000/api/po").then((r) => r.json()),
-          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
-          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
-          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
-          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
         ]);
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
 
         // Log the fetched data for verification
         console.log("Fetched PR Data:", prRes);
@@ -1514,29 +1489,14 @@ export default function RekapFullPage() {
     setEditingStatusId(item.id); // lock editing on specific row
     setEditingStatusLoading(true);
     try {
-<<<<<<< HEAD
-      // Cari id_PO dari noPO
-      const poRes = await fetch("http://192.168.10.10:5000/api/po");
-      const poList = await poRes.json();
-      const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
-      if (!po) {
-        alert("PO tidak ditemukan");
-=======
       if (!item.id_POItem) {
         alert("PO Item ID tidak ditemukan");
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
         setEditingStatusId(null);
         setEditingStatusLoading(false);
         return;
       }
-<<<<<<< HEAD
       // Update statusterima di backend
       await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
-=======
-
-      // Update statusTerima di po_item (backend)
-      await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusTerima: newStatus }),
@@ -1575,22 +1535,8 @@ export default function RekapFullPage() {
     }
 
     try {
-<<<<<<< HEAD
-      const btbRes = await fetch("http://192.168.10.10:5000/api/btb");
-      const btbList = await btbRes.json();
-      const btb = btbList.find((b: any) => String(b.no_btb) === String(item.noBTB));
-      if (!btb) {
-        alert("BTB tidak ditemukan");
-        setEditingTargetId(null);
-        setEditingTargetLoading(false);
-        return;
-      }
-      await fetch(`http://192.168.10.10:5000/api/btb/${btb.id_btb}`, {
-        method: "PATCH",
-=======
-      await fetch(`http://localhost:5000/api/btb-item/${targetId}`, {
+      await fetch(`http://192.168.10.10:5000/api/btb-item/${targetId}`, {
         method: "PUT", // PUT for item update
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: newTarget }),
       });
@@ -1613,27 +1559,14 @@ export default function RekapFullPage() {
     if (!customVal) return;
     setEditingStatusLoading(true);
     try {
-<<<<<<< HEAD
-      // Cari id_PO dari noPO
-      const poRes = await fetch("http://192.168.10.10:5000/api/po");
-      const poList = await poRes.json();
-      const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
-      if (!po) {
-        alert("PO tidak ditemukan");
-=======
       if (!item.id_POItem) {
         alert("PO Item ID tidak ditemukan");
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
         setEditingStatusId(null);
         setEditingStatusLoading(false);
         return;
       }
-<<<<<<< HEAD
-      await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
-=======
 
-      await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
+      await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusTerima: customVal }),
@@ -1667,22 +1600,8 @@ export default function RekapFullPage() {
     }
 
     try {
-<<<<<<< HEAD
-      const btbRes = await fetch("http://192.168.10.10:5000/api/btb");
-      const btbList = await btbRes.json();
-      const btb = btbList.find((b: any) => String(b.no_btb) === String(item.noBTB));
-      if (!btb) {
-        alert("BTB tidak ditemukan");
-        setEditingTargetId(null);
-        setEditingTargetLoading(false);
-        return;
-      }
-      await fetch(`http://192.168.10.10:5000/api/btb/${btb.id_btb}`, {
-        method: "PATCH",
-=======
-      await fetch(`http://localhost:5000/api/btb-item/${targetId}`, {
+      await fetch(`http://192.168.10.10:5000/api/btb-item/${targetId}`, {
         method: "PUT",
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: customVal }),
       });
@@ -1705,13 +1624,8 @@ export default function RekapFullPage() {
 
     setUpdatingTargetId(item.id_btb_item);
     try {
-<<<<<<< HEAD
-      await fetch(`http://192.168.10.10:5000/api/btb/${id_btb}`, {
-        method: "PATCH",
-=======
-      await fetch(`http://localhost:5000/api/btb-item/${item.id_btb_item}`, {
+      await fetch(`http://192.168.10.10:5000/api/btb-item/${item.id_btb_item}`, {
         method: "PUT",
->>>>>>> 727cdff1d3a3f72263559c00f1375a70bab18cd9
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: "woke bos" }),
       });
