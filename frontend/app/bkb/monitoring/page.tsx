@@ -195,7 +195,7 @@ export default function BKBMonitoringPage() {
 
   // Fetch satuan list from backend and build mapping
   useEffect(() => {
-    fetch("http://localhost:5000/api/satuan")
+    fetch("http://192.168.10.10:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         const map: Record<string, string> = {};
@@ -214,14 +214,14 @@ export default function BKBMonitoringPage() {
         // Ambil semua BKB, BKB Item, User, Skema, Satuan, BTB, Divisi, PR
         const [bkbRes, bkbItemRes, userRes, skemaRes, , btbRes, divisiRes, prRes] =
           await Promise.all([
-            fetch("http://localhost:5000/api/bkb"),
-            fetch("http://localhost:5000/api/bkb-item"),
-            fetch("http://localhost:5000/api/user"),
-            fetch("http://localhost:5000/api/skema"),
-            fetch("http://localhost:5000/api/satuan"),
-            fetch("http://localhost:5000/api/btb"),
-            fetch("http://localhost:5000/api/divisi"),
-            fetch("http://localhost:5000/api/pr"),
+            fetch("http://192.168.10.10:5000/api/bkb"),
+            fetch("http://192.168.10.10:5000/api/bkb-item"),
+            fetch("http://192.168.10.10:5000/api/user"),
+            fetch("http://192.168.10.10:5000/api/skema"),
+            fetch("http://192.168.10.10:5000/api/satuan"),
+            fetch("http://192.168.10.10:5000/api/btb"),
+            fetch("http://192.168.10.10:5000/api/divisi"),
+            fetch("http://192.168.10.10:5000/api/pr"),
           ]);
         const bkbList = await bkbRes.json();
         const bkbItemList = await bkbItemRes.json();
@@ -562,7 +562,7 @@ export default function BKBMonitoringPage() {
     try {
       // Untuk setiap item yang dipilih, panggil endpoint restore ke BTB
       for (const bkbItemId of selectedItemIdsToRestore) {
-        await fetch(`http://localhost:5000/api/bkb-item/restore-to-btb/${bkbItemId}`, {
+        await fetch(`http://192.168.10.10:5000/api/bkb-item/restore-to-btb/${bkbItemId}`, {
           method: "POST",
         });
       }
