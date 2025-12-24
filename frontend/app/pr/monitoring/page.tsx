@@ -74,8 +74,19 @@ export default function MonitoringPRPage() {
 
   // Filter states
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
-    const [filterEndDate, setFilterEndDate] = useState<string>(""); 
-    const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<Date | null>(null);
+  const [filterStartDate, setFilterStartDate] = useState<Date | null>(null);
+
+  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  useEffect(() => {
+    if (filterStartDate === null && filterEndDate === null) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setFilterStartDate(firstDay);
+      setFilterEndDate(lastDay);
+    }
+  }, [filterStartDate, filterEndDate]);
   // Hapus state filterQty dan filterQtySearchTerm
   // const [filterQty, setFilterQty] = useState<number[]>([]);
   // const [filterQtySearchTerm, setFilterQtySearchTerm] = useState("");
@@ -299,7 +310,7 @@ export default function MonitoringPRPage() {
     // (hindari infinite loop, reload hanya jika ada perubahan)
     // Cek jika ada PR yang statusnya berubah
     const needReload = validatedData.some(
-      (pr) =>
+      (pr: any) =>
         pr.status === "Menunggu" &&
         pr.items &&
         pr.items.length > 0 &&
@@ -569,11 +580,22 @@ export default function MonitoringPRPage() {
       if (filterStartDate && filterEndDate) {
         // pr.tanggalPR format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
         const tglStr = (pr.tanggalPR || "").split("T")[0];
-        const tglDate = tglStr ? new Date(tglStr) : null;
-        matchesDateRange =
-          tglDate &&
-          tglDate >= filterStartDate &&
-          tglDate <= filterEndDate;
+        if (tglStr) {
+          const parts = tglStr.split("-");
+          // Buat date object local time (00:00:00)
+          const tglDate = new Date(
+            Number(parts[0]),
+            Number(parts[1]) - 1,
+            Number(parts[2])
+          );
+          // Set filterEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
+          const end = new Date(filterEndDate);
+          end.setHours(23, 59, 59, 999);
+
+          matchesDateRange = tglDate >= filterStartDate && tglDate <= end;
+        } else {
+          matchesDateRange = false;
+        }
       }
 
       return (
@@ -598,71 +620,74 @@ export default function MonitoringPRPage() {
       (pr) => filterSkemaId === "all" || String(pr.skema) === filterSkemaId
     );
 
- // =====================================
-// 1. PARSER No. PR (E-WALK + PENTACITY)
-// =====================================
-function parseNoPR(noPR: string | null | undefined) {
-  if (!noPR || typeof noPR !== "string") return null;
+  // =====================================
+  // 1. PARSER No. PR (E-WALK + PENTACITY)
+  // =====================================
+  function parseNoPR(noPR: string | null | undefined) {
+    if (!noPR || typeof noPR !== "string") return null;
 
-  const s = noPR.trim().toUpperCase();
+    const s = noPR.trim().toUpperCase();
 
-  // FORMAT DITERIMA:
-  // PR/E-WALK/25/XI/001
-  // PR/PRQ/25/XI/00001
-  //
-  // Bagian kedua bisa E-WALK atau PRQ
-  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+    // FORMAT DITERIMA:
+    // PR/E-WALK/25/XI/001
+    // PR/PRQ/25/XI/00001
+    //
+    // Bagian kedua bisa E-WALK atau PRQ
+    const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
 
-  const match = s.match(regex);
-  if (!match) return null;
+    const match = s.match(regex);
+    if (!match) return null;
 
-  const [, brand, tahun2, bulanRomawi, urutStr] = match;
+    const [, brand, tahun2, bulanRomawi, urutStr] = match;
 
-  // Konversi bulan Romawi
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
-  };
+    // Konversi bulan Romawi
+    const bulanMap: Record<string, number> = {
+      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+    };
 
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
+    const bulan = bulanMap[bulanRomawi] ?? 0;
+    const tahun = 2000 + parseInt(tahun2, 10);
+    const urut = parseInt(urutStr, 10);
 
-  return { tahun, bulan, urut, brand };
-}
+    return { tahun, bulan, urut, brand };
+  }
 
-// =====================================
-// 2. SORTING PR TERBARU → TERLAMA
-// =====================================
-function sortPRList(filteredPRData: any[]) {
-  const allValid = filteredPRData.every(
-    (pr) => typeof pr.noPR === "string" && parseNoPR(pr.noPR)
-  );
-
-  if (allValid) {
+  // =====================================
+  // 2. SORTING PR TERBARU → TERLAMA
+  // =====================================
+  // =====================================
+  // 2. SORTING PR TERBARU → TERLAMA (DIBALIK JD TERLAMA -> TERBARU)
+  // =====================================
+  function sortPRList(filteredPRData: any[]) {
     return [...filteredPRData].sort((a, b) => {
-      const pa = parseNoPR(a.noPR)!;
-      const pb = parseNoPR(b.noPR)!;
+      const pa = parseNoPR(a.noPR);
+      const pb = parseNoPR(b.noPR);
 
-      // Tahun DESC → terbaru
-      if (pb.tahun !== pa.tahun) return pb.tahun - pa.tahun;
+      // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC)
+      if (pa && pb) {
+        // Tahun ASC (terkecil ke terbesar)
+        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
 
-      // Bulan DESC
-      if (pb.bulan !== pa.bulan) return pb.bulan - pa.bulan;
+        // Bulan ASC
+        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
 
-      // Nomor urut DESC
-      return pb.urut - pa.urut;
+        // Nomor urut ASC
+        return pa.urut - pb.urut;
+      }
+
+      // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
+      // Gunakan string comparison untuk tanggal YYYY-MM-DD
+      const dateA = a.tanggalPR || "";
+      const dateB = b.tanggalPR || "";
+      return dateA.localeCompare(dateB);
     });
   }
 
-  // Fallback jika format tidak valid
-  return [...filteredPRData].sort((a, b) => Number(b.id) - Number(a.id));
-}
-
-// =====================================
-// 3. PEMAKAIAN
-// =====================================
-const sortedPRDataFinal = sortPRList(filteredPRData);
+  // =====================================
+  // 3. PEMAKAIAN
+  // =====================================
+  const sortedPRDataFinal = sortPRList(filteredPRData);
 
 
 
@@ -747,12 +772,12 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PR");
 
-    // Header sesuai urutan tabel monitoring PR
+    // Header sesuai UI persis
     const headers = [
       "No. PR",
-      "Tanggal PR",
+      "Tanggal",
       "Daftar Barang",
-      "Qty PR Awal",
+      "Kuantitas",
       "Satuan",
       "Keterangan",
       "Urgensi",
@@ -762,60 +787,70 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
       "Skema",
     ];
 
-    // Add header row with bold font
+    // Add header row with bold font and styling
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
-      cell.alignment = { horizontal: "left", vertical: "middle" };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFEEEEEE" },
+      };
+      cell.border = {
+        top: { style: "thin" },
+        right: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+      };
     });
 
-    // Helper format tanggal persis seperti frontend (tambah 1 hari)
+    // Helper format tanggal persis seperti frontend
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      let dateObj;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
       if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-        dateObj = dayjs(tgl).add(1, "day");
-      } else if (tgl.includes("T")) {
-        dateObj = dayjs.utc(tgl).add(1, "day");
-      } else {
-        dateObj = dayjs(tgl).add(1, "day");
+        const [y, m, d] = tgl.split("-");
+        return `${d}-${m}-${y}`;
       }
-      return dateObj.format("DD-MM-YYYY");
-    }
-    // Helper format quantity
-    function formatQtyExcel(val: any) {
-      const num = Number(val);
-      if (Number.isNaN(num)) return "";
-      return num % 1 === 0 ? num.toString() : num.toString();
+      const d = dayjs(tgl);
+      if (d.isValid()) return d.format("DD-MM-YYYY");
+      return tgl;
     }
 
-    // Prepare and add data rows persis seperti tampilan tabel
+    // Helper untuk bersihkan skema
+    const getSkemaLabel = (pr: any) => {
+      return skemaOptions.find(
+        (s) => String(s.id_skema) === String(pr.skema)
+      )?.skema ??
+        pr.skemaLabel ??
+        pr.skema ??
+        "";
+    };
+
+    // Prepare and add data rows
     exportPRData.forEach((pr) => {
-      const validItems = pr.items?.filter((item) => item.jumlah > 0) || [];
+      // Logic items persis TableBody: const validItems = pr.items || [];
+      const validItems = pr.items || [];
+
       if (validItems.length > 0) {
         validItems.forEach((item, index) => {
           worksheet.addRow([
             index === 0 ? pr.noPR : "",
             index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
             item.namaBarang,
-            formatQtyExcel(item.jumlah),
-            formatQtyExcel(item.quantityAwalPR),
-            item.satuan,
+            Number(item.quantityAwalPR || item.jumlah || 0), // Use Number() for correct Excel format
+            item.satuan ?? "",
             item.keterangan || "",
             index === 0 ? pr.urgensi : "",
             index === 0 ? pr.divisi : "",
             index === 0 ? pr.status : "",
             index === 0 ? pr.dibuatOleh : "",
-            index === 0
-              ? skemaOptions.find(
-                  (s) => String(s.id_skema) === String(pr.skema)
-                )?.skema ??
-                pr.skemaLabel ??
-                pr.skema ??
-                ""
-              : "",
+            index === 0 ? getSkemaLabel(pr) : "",
           ]);
         });
+        // Set number format for 'Kuantitas' (column 4)
+        worksheet.getColumn(4).numFmt = '#,##0';
       } else {
         // Handle PR tanpa item
         worksheet.addRow([
@@ -825,16 +860,11 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
           "",
           "",
           "",
-          "",
           pr.urgensi,
           pr.divisi,
           pr.status,
           pr.dibuatOleh,
-          skemaOptions.find((s) => String(s.id_skema) === String(pr.skema))
-            ?.skema ??
-            pr.skemaLabel ??
-            pr.skema ??
-            "",
+          getSkemaLabel(pr),
         ]);
       }
     });
@@ -842,17 +872,17 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
     // Auto-fit columns based on max length of cell values
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
-      column.eachCell({ includeEmpty: true }, (cell) => {
+      column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
         const cellValue = cell.value ? String(cell.value) : "";
         maxLength = Math.max(maxLength, cellValue.length + 2);
       });
-      column.width = maxLength;
+      column.width = maxLength > 50 ? 50 : maxLength;
     });
 
     // Set row heights for better readability
     worksheet.eachRow((row, rowNumber) => {
-      row.height = rowNumber === 1 ? 22 : 18;
-      row.alignment = { vertical: "middle" };
+      row.height = rowNumber === 1 ? 25 : 20;
+      row.alignment = { vertical: "top", horizontal: "left", wrapText: true };
     });
 
     // Freeze header row
@@ -935,14 +965,12 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
     return createPortal(
       <div className="fixed bottom-6 right-6 z-50">
         <div
-          className={`bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in ${
-            toastType === "error" ? "border-red-400" : "border-green-200"
-          }`}
+          className={`bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in ${toastType === "error" ? "border-red-400" : "border-green-200"
+            }`}
         >
           <span
-            className={`font-medium ${
-              toastType === "error" ? "text-red-600" : "text-green-600"
-            }`}
+            className={`font-medium ${toastType === "error" ? "text-red-600" : "text-green-600"
+              }`}
           >
             {message}
           </span>
@@ -1004,7 +1032,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
 
   // Hitung summary status
   const totalPR = prData.length;
-  const selesaiCount = prData.filter((pr) => pr.status === "Diproses").length;
+  const selesaiCount = prData.filter((pr) => pr.status === "Processed").length;
   const gantungCount = prData.filter((pr) => pr.status === "Gantung").length;
   const menungguCount = prData.filter((pr) => pr.status === "Menunggu").length;
 
@@ -1046,7 +1074,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
           </div>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
             {/* --- Filter skema --- */}
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <Label htmlFor="filterSkemaId" className="text-xs font-medium">
                 Filter Skema
               </Label>
@@ -1055,7 +1083,6 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                   <SelectValue placeholder="Semua Skema" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Ganti value dari "" ke "all" */}
                   <SelectItem value="all">Semua Skema</SelectItem>
                   {skemaOptions.map((skema) => (
                     <SelectItem
@@ -1067,7 +1094,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
             {/* --- existing export mode filter --- */}
             <div className="flex items-center gap-2">
               <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
@@ -1194,22 +1221,30 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
             )}
           </CardHeader>
           <CardContent>
-            {/* Sticky horizontal scrollbar hanya di area tabel */}
             <div className="relative">
-              {/* Wrapper tabel dengan overflow-x */}
               <div
-  ref={tableWrapperRef}
-  className="overflow-x-auto overflow-y-auto"
-  style={{ 
-    maxHeight: "70vh",
-    scrollbarWidth: 'none', /* Firefox */
-    msOverflowStyle: 'none'  /* IE and Edge */
-  }}
->
+                ref={tableWrapperRef}
+                className="overflow-x-auto overflow-y-auto"
+                style={{
+                  maxHeight: "70vh",
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none'
+                }}
+              >
                 <Table className="border border-gray-300 min-w-[1200px]">
-                  <TableHeader>
-                    <TableRow className="bg-gray-50">
-                      <TableHead className="w-16 border border-gray-300 px-4 py-3 text-center align-middle">
+                  <TableHeader className="bg-gray-100">
+                    <TableRow>
+                      <TableHead
+                        className="w-16 border border-gray-300 px-4 py-3 text-center align-middle"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
                         <Checkbox
                           checked={
                             selectedPRs.length === paginatedData.length &&
@@ -1224,21 +1259,28 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           className="focus:ring-2 focus:ring-primary"
                         />
                       </TableHead>
-                      <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
+
+                      <TableHead
+                        className="min-w-[140px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* No. PR popover */}
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="h-auto p-0 font-medium"
-                            >
-                              No. PR
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              NO. PR
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                            <Label className="text-sm font-medium">
-                              Cari No. PR
-                            </Label>
+                            <Label className="text-sm font-medium">Cari No. PR</Label>
                             <Input
                               placeholder="Cari No. PR..."
                               value={noPRSearchTerm}
@@ -1253,10 +1295,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                                     .includes(noPRSearchTerm.toLowerCase())
                                 )
                                 .map((noPR) => (
-                                  <div
-                                    key={noPR}
-                                    className="flex items-center space-x-2"
-                                  >
+                                  <div key={noPR} className="flex items-center space-x-2">
                                     <Checkbox
                                       id={`noPR-${noPR}`}
                                       checked={filterNoPR.includes(noPR)}
@@ -1282,14 +1321,26 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
+
+                      <TableHead
+                        className="min-w-[140px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Tanggal popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Tanggal
+                              TANGGAL
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1347,14 +1398,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[180px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[180px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Daftar Barang popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Daftar Barang
+                              DAFTAR BARANG
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1373,14 +1435,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[90px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Quantity popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Quantity
+                              KUANTITAS
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1419,14 +1492,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[90px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Satuan popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Satuan
+                              SATUAN
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1484,14 +1568,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[160px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[160px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Keterangan popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Keterangan
+                              KETERANGAN
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1510,14 +1605,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Urgensi popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Urgensi
+                              URGENSI
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1575,14 +1681,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Divisi popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Divisi
+                              DIVISI
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1640,14 +1757,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Status popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Status
+                              STATUS
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1705,14 +1833,25 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
+                      <TableHead
+                        className="min-w-[120px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* Dibuat Oleh popover */}
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button
                               variant="ghost"
-                              className="h-auto p-0 font-medium"
+                              className="h-auto p-0 font-medium uppercase"
                             >
-                              Dibuat Oleh
+                              DIBUAT OLEH
                               <ChevronDown className="ml-1 h-4 w-4" />
                             </Button>
                           </PopoverTrigger>
@@ -1770,8 +1909,31 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">Skema</TableHead>
-                      <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">Aksi</TableHead>
+                      {/* <TableHead
+                        className="min-w-[120px] border border-gray-300 px-4 py-3 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        SKEMA
+                      </TableHead> */}
+                      <TableHead
+                        className="min-w-[120px] border border-gray-300 px-4 py-3 text-center uppercase"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        AKSI
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1802,7 +1964,7 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                               />
                             </TableCell>
                             <TableCell
-                              className="font-medium border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap"
+                              className="font-medium border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase"
                               rowSpan={validItems.length}
                             >
                               {pr.noPR}
@@ -1810,14 +1972,14 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                               {formatTanggal(pr.tanggalPR)}
                             </TableCell>
-                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{validItems[0]?.namaBarang}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">{validItems[0]?.namaBarang}</TableCell>
                             <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                               {parseFloat(validItems[0]?.quantityAwalPR) % 1 === 0
                                 ? parseInt(validItems[0]?.quantityAwalPR)
                                 : validItems[0]?.quantityAwalPR}
                             </TableCell>
-                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{validItems[0]?.satuan}</TableCell>
-                            <TableCell className="border border-gray-300 px-4 py-3 text-left">
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">{validItems[0]?.satuan}</TableCell>
+                            <TableCell className="border border-gray-300 px-4 py-3 text-left uppercase">
                               <div
                                 className="text-sm text-muted-foreground max-w-xs truncate"
                                 title={validItems[0]?.keterangan}
@@ -1825,26 +1987,26 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                                 {validItems[0]?.keterangan}
                               </div>
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                               {getUrgensiBadge(pr.urgensi)}
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                               {pr.divisi}
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                               {getStatusBadge(pr.status)}
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                               {pr.dibuatOleh}
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                            {/* <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                               {skemaOptions.find(
                                 (s) => String(s.id_skema) === String(pr.skema)
                               )?.skema ??
                                 pr.skemaLabel ??
                                 pr.skema ??
-                                ""}
-                            </TableCell>
+                                "-"}
+                            </TableCell> */}
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
                               <div className="flex space-x-1 justify-center">
                                 <Button
@@ -1857,16 +2019,16 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                               </div>
                             </TableCell>
                           </TableRow>
-                          {validItems.slice(1).map((item, index) => (
+                          {validItems.slice(1).map((item: any, index: number) => (
                             <TableRow key={`${pr.id}-item-${index + 1}`} className="hover:bg-gray-50 transition-colors">
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{item.namaBarang}</TableCell>
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">{item.namaBarang}</TableCell>
                               <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                                 {parseFloat(item.quantityAwalPR) % 1 === 0
                                   ? parseInt(item.quantityAwalPR)
                                   : item.quantityAwalPR}
                               </TableCell>
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{item.satuan}</TableCell>
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left">
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left uppercase">
                                 <div
                                   className="text-sm text-muted-foreground max-w-xs truncate"
                                   title={item.keterangan}
@@ -1883,28 +2045,29 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
                 </Table>
               </div>
               {/* Sticky horizontal scrollbar di bawah tabel */}
-               <div 
-              className="sticky bottom-0 left-0 right-0 z-30 bg-gray-100 border-t border-gray-300"
-              style={{ 
-                height: '16px',
-                overflowX: 'auto',
-                overflowY: 'hidden'
-              }}
-              onScroll={(e) => {
-                if (tableWrapperRef.current) {
-                  tableWrapperRef.current.scrollLeft = e.currentTarget.scrollLeft;
-                }
-              }}
-            >
-              <div 
-                style={{ 
-                  height: '1px',
-                  width: tableWrapperRef.current?.scrollWidth || '2000px'
+              <div
+                className="sticky bottom-0 left-0 right-0 z-30 bg-gray-100 border-t border-gray-300"
+                style={{
+                  height: '16px',
+                  overflowX: 'auto',
+                  overflowY: 'hidden'
                 }}
-              />
-            </div>
 
-            <style jsx>{`
+                onScroll={(e) => {
+                  if (tableWrapperRef.current) {
+                    tableWrapperRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                  }
+                }}
+              >
+                <div
+                  style={{
+                    height: '1px',
+                    width: tableWrapperRef.current?.scrollWidth || '2000px'
+                  }}
+                />
+              </div>
+
+              <style jsx>{`
               .sticky {
                 position: sticky !important;
               }
@@ -1920,6 +2083,14 @@ const sortedPRDataFinal = sortPRList(filteredPRData);
               
               div[class*="sticky"]::-webkit-scrollbar-track {
                 background: #e5e7eb;
+              }
+              /* Sticky table header, abu-abu seperti rekap full */
+              thead tr,
+              thead th,
+              .bg-gray-100 th,
+              .bg-gray-100 td {
+                background: #f3f4f6 !important;
+                border-bottom: 2px solid #d1d5db !important;
               }
             `}</style>
             </div>
@@ -2039,7 +2210,7 @@ function DeleteItemModal({
           Pilih Item PR yang akan dihapus
         </h2>
         <div className="space-y-4">
-          {prItems.map(({ prId, items }) => (
+          {prItems.map(({ prId, items }: any) => (
             <div key={prId}>
               <div className="font-semibold mb-1">
                 PR: {prData.find((pr: any) => pr.id === prId)?.noPR || prId}
@@ -2075,7 +2246,7 @@ function DeleteItemModal({
                               setSelectedIds([...selectedIds, valueId]);
                             } else {
                               setSelectedIds(
-                                selectedIds.filter((x) => x !== valueId)
+                                selectedIds.filter((x: string) => x !== valueId)
                               );
                             }
                           }}

@@ -45,14 +45,15 @@ async function getPRInfoByPO(conn, id_PO) {
 
 // Helper: cek apakah tanggalPO di antara tanggalPR dan estimasipo
 function getStatusTerima(tanggalPR, estimasipo, tanggalPO) {
-  if (!tanggalPR || !estimasipo || !tanggalPO) return "Tidak Tercapai";
+  if (!tanggalPR || !estimasipo || !tanggalPO) return "TIDAK TERCAPAI";
   // Normalisasi ke Date
   function toDateObj(t) {
-    if (/^\d{2}-\d{2}-\d{4}$/.test(t)) {
+    if (t instanceof Date) return t; // handle if already date object
+    if (typeof t === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(t)) {
       const [d, m, y] = t.split("-");
       return new Date(`${y}-${m}-${d}`);
     }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+    if (typeof t === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(t)) {
       return new Date(t);
     }
     return new Date(t);
@@ -60,27 +61,46 @@ function getStatusTerima(tanggalPR, estimasipo, tanggalPO) {
   const dPR = toDateObj(tanggalPR);
   const dEst = toDateObj(estimasipo);
   const dPO = toDateObj(tanggalPO);
-  if (isNaN(dPR.getTime()) || isNaN(dEst.getTime()) || isNaN(dPO.getTime())) return "Tidak Tercapai";
-  // dPO >= dPR && dPO <= dEst
+
+  // Set jam ke 00:00:00 untuk komparasi tanggal murni
+  dPR.setHours(0, 0, 0, 0);
+  dEst.setHours(0, 0, 0, 0);
+  dPO.setHours(0, 0, 0, 0);
+
+  if (isNaN(dPR.getTime()) || isNaN(dEst.getTime()) || isNaN(dPO.getTime())) return "TIDAK TERCAPAI";
+
+  // Logic: dPO between dPR and dEst (inclusive)
   if (dPO.getTime() >= dPR.getTime() && dPO.getTime() <= dEst.getTime()) {
-    return "SCHEDULE (Tercapai)";
+    return "SCHEDULE";
   }
-  return "Tidak Tercapai";
+  return "TIDAK TERCAPAI";
 }
 
-// Helper: update statusterima pada PO (id_PO)
+// Helper: update statusterima pada po_item (dan po optional)
 async function updateStatusTerimaPO(conn, id_PO) {
   // Ambil tanggalPO dari po
   const [[poRow]] = await conn.query("SELECT tanggalPO FROM po WHERE id_PO = ?", [id_PO]);
-  const tanggalPOVal = poRow?.tanggalPO;
-  // Ambil info PR terkait
-  const prInfo = await getPRInfoByPO(conn, id_PO);
-  let statusterima = "Tidak Tercapai";
-  if (prInfo && tanggalPOVal) {
-    statusterima = getStatusTerima(prInfo.tanggalPR, prInfo.estimasipo, tanggalPOVal);
-    await conn.query("UPDATE po SET statusterima = ? WHERE id_PO = ?", [statusterima, id_PO]);
+  if (!poRow || !poRow.tanggalPO) return;
+
+  const tanggalPOVal = poRow.tanggalPO;
+
+  // Ambil semua item PO ini link ke PR
+  const [items] = await conn.query(`
+    SELECT pi.id_POItem, pr.tanggalPR, pr.estimasipo 
+    FROM po_item pi
+    LEFT JOIN pr_item pri ON pi.id_PRItem = pri.id_PRItem
+    LEFT JOIN pr ON pri.id_PR = pr.id_PR
+    WHERE pi.id_PO = ?
+  `, [id_PO]);
+
+  for (const item of items) {
+    // Calculate status for each item
+    const status = getStatusTerima(item.tanggalPR, item.estimasipo, tanggalPOVal);
+    await conn.query("UPDATE po_item SET statusTerima = ? WHERE id_POItem = ?", [status, item.id_POItem]);
   }
-  return statusterima;
+
+  // Optional: Return something consistent
+  return "UPDATED_ITEMS";
 }
 
 // GET semua PO

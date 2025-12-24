@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import {
   Card,
   CardContent,
@@ -79,8 +81,8 @@ function formatInt(val: any) {
   return Number.isNaN(num)
     ? ""
     : num % 1 === 0
-    ? num.toString()
-    : num.toFixed(2);
+      ? num.toString()
+      : num.toFixed(2);
 }
 
 // ========================================
@@ -125,24 +127,32 @@ function parseNoBKB(noBKB: string | null | undefined) {
 // ========================================
 // 2. SORTING BKB TERBARU → TERLAMA
 // ========================================
+// ========================================
+// 2. SORTING BKB TERBARU → TERLAMA
+// ========================================
 function sortBKBList(filteredBKBData: any[]) {
-  const allValid = filteredBKBData.every(
-    (x) => typeof x.noBKB === "string" && parseNoBKB(x.noBKB)
-  );
+  return [...filteredBKBData].sort((a, b) => {
+    const pa = parseNoBKB(a.noBKB);
+    const pb = parseNoBKB(b.noBKB);
 
-  if (allValid) {
-    return [...filteredBKBData].sort((a, b) => {
-      const pa = parseNoBKB(a.noBKB)!;
-      const pb = parseNoBKB(b.noBKB)!;
+    // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
+    if (pa && pb) {
+      // Tahun ASC
+      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
 
-      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun; // DESC
-      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan; // DESC
-      return pa.urut - pb.urut; // DESC
-    });
-  }
+      // Bulan ASC
+      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
 
-  // fallback
-  return [...filteredBKBData].sort((a, b) => Number(b.id) - Number(a.id));
+      // Nomor urut ASC
+      return pa.urut - pb.urut;
+    }
+
+    // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
+    // Gunakan string comparison untuk tanggal YYYY-MM-DD
+    const dateA = a.tanggalBKB || "";
+    const dateB = b.tanggalBKB || "";
+    return dateA.localeCompare(dateB);
+  });
 }
 
 export default function BKBMonitoringPage() {
@@ -157,11 +167,22 @@ export default function BKBMonitoringPage() {
   const [btbMap, setBtbMap] = useState<Record<string, string>>({});
   const [divisiMap, setDivisiMap] = useState<Record<string, string>>({});
   const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
-  const [startDate, setStartDate] = useState(""); // Tambahkan ini
-  const [endDate, setEndDate] = useState("");     // Tambahkan ini
+  const [startDate, setStartDate] = useState<Date | null>(null); // Tambahkan ini
+  const [endDate, setEndDate] = useState<Date | null>(null);     // Tambahkan ini
+
+  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  useEffect(() => {
+    if (startDate === null && endDate === null) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setStartDate(firstDay);
+      setEndDate(lastDay);
+    }
+  }, [startDate, endDate]);
 
   // Tambahkan state untuk export
-   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+  const tableWrapperRef = React.useRef<HTMLDivElement>(null);
 
   // Sinkronkan scroll antara tabel dan scrollbar custom
   React.useEffect(() => {
@@ -310,7 +331,7 @@ export default function BKBMonitoringPage() {
       try {
         const user = JSON.parse(userRaw);
         setUserSkemaId(String(user.id_skema ?? user.skema ?? ""));
-      } catch {}
+      } catch { }
     }
   }, []);
 
@@ -336,11 +357,25 @@ export default function BKBMonitoringPage() {
     })
     // Filter berdasarkan rentang tanggal jika diisi
     .filter((row) => {
-      if (!startDate || !endDate) return true;
-      if (!row.tanggalBKB) return false;
-      // tanggalBKB bisa format yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
-      const tgl = row.tanggalBKB.split("T")[0];
-      return tgl >= startDate && tgl <= endDate;
+      let matchDateRange = true;
+      if (startDate && endDate) {
+        // row.tanggalBKB format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+        const tgl = (row.tanggalBKB || "").split("T")[0];
+        if (tgl) {
+          const parts = tgl.split("-");
+          const tglDate = new Date(
+            Number(parts[0]),
+            Number(parts[1]) - 1,
+            Number(parts[2])
+          );
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          matchDateRange = tglDate >= startDate && tglDate <= end;
+        } else {
+          matchDateRange = false;
+        }
+      }
+      return matchDateRange;
     });
 
   // --- SORTING: BKB TERBARU → TERLAMA (PAKAI PARSER) ---
@@ -390,15 +425,28 @@ export default function BKBMonitoringPage() {
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
-      cell.alignment = { horizontal: "left", vertical: "middle" };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFEEEEEE" },
+      };
+      cell.border = {
+        top: { style: "thin" },
+        right: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+      };
     });
 
     function formatTanggalExcel(tgl: string | null | undefined) {
       if (!tgl) return "";
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
       const [date] = tgl.split("T");
       const [y, m, d] = date.split("-");
       return y && m && d ? `${d}-${m}-${y}` : tgl;
     }
+
     function formatQtyExcel(val: any) {
       const num = Number(val);
       if (Number.isNaN(num)) return "";
@@ -409,15 +457,19 @@ export default function BKBMonitoringPage() {
     const grouped = {};
     exportBKBData.forEach((row) => {
       const key = row.id_bkb || row.noBKB || row.id;
+      // @ts-ignore
       if (!grouped[key]) grouped[key] = [];
+      // @ts-ignore
       grouped[key].push(row);
     });
 
-    Object.values(grouped).forEach((rows: any[]) => {
-      const first = rows[0];
-      rows.forEach((item, idx) => {
+    Object.values(grouped).forEach((rows: any) => {
+      const rowsArray = rows as any[];
+      const first = rowsArray[0];
+      rowsArray.forEach((item, idx) => {
         const ket = item.keterangan ?? "";
-        const ketShort = ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
+        // const ketShort = ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
+        const ketShort = ket; // Full text usually better for excel
         worksheet.addRow([
           idx === 0 ? first.noBKB : "",
           idx === 0 ? formatTanggalExcel(first.tanggalBKB) : "",
@@ -431,24 +483,22 @@ export default function BKBMonitoringPage() {
           idx === 0 ? (first.noPR || "-") : "",
         ]);
       });
-      // Set number format for quantity column
-      worksheet.getColumn(4).numFmt = '#,##0';
     });
 
     // auto fit kolom untuk best value
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
-      column.eachCell({ includeEmpty: true }, (cell) => {
+      column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
         const cellValue = cell.value ? String(cell.value) : "";
         maxLength = Math.max(maxLength, cellValue.length + 2);
       });
-      column.width = maxLength;
+      column.width = Math.min(maxLength, 50);
     });
 
     // Set row heights for better readability
     worksheet.eachRow((row, rowNumber) => {
-      row.height = rowNumber === 1 ? 22 : 18;
-      row.alignment = { vertical: "middle" };
+      row.height = rowNumber === 1 ? 25 : 20;
+      row.alignment = { vertical: "top", horizontal: "left", wrapText: true };
     });
 
     // Freeze header row
@@ -462,9 +512,8 @@ export default function BKBMonitoringPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `monitoring-bkb-${
-      new Date().toISOString().split("T")[0]
-    }.xlsx`;
+    a.download = `monitoring-bkb-${new Date().toISOString().split("T")[0]
+      }.xlsx`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -595,7 +644,7 @@ export default function BKBMonitoringPage() {
             Pilih Item BKB yang akan dikembalikan ke BTB
           </h2>
           <div className="space-y-4">
-            {bkbItems.map(({ bkbId, items }) => {
+            {bkbItems.map(({ bkbId, items }: any) => {
               const noBKB = items && items.length > 0 && items[0].noBKB ? items[0].noBKB : "-";
               return (
                 <div key={bkbId}>
@@ -757,21 +806,43 @@ export default function BKBMonitoringPage() {
             {/* Filter tanggal BKB */}
             <div className="flex items-center gap-2 mb-4">
               <Label className="text-sm font-medium">Tanggal BKB:</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="w-[140px]"
-                placeholder="Tanggal Awal"
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => setStartDate(date)}
+                selectsStart
+                startDate={startDate}
+                endDate={endDate}
+                dateFormat="yyyy-MM-dd"
+                placeholderText="Mulai"
+                className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+                maxDate={endDate || undefined}
+                isClearable
               />
               <span>-</span>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="w-[140px]"
-                placeholder="Tanggal Akhir"
+              <DatePicker
+                selected={endDate}
+                onChange={(date) => setEndDate(date)}
+                selectsEnd
+                startDate={startDate}
+                endDate={endDate}
+                dateFormat="yyyy-MM-dd"
+                placeholderText="Selesai"
+                className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+                minDate={startDate || undefined}
+                isClearable
               />
+              <style jsx global>{`
+                .react-datepicker__day.datepicker-red {
+                  color: #e53935 !important;
+                  font-weight: bold;
+                }
+                .react-datepicker-popper {
+                  position: absolute !important;
+                  top: 0 !important;
+                  left: 0 !important;
+                  z-index: 9999 !important;
+                }
+              `}</style>
             </div>
             {/* Search bar */}
             <div className="mb-4">
@@ -781,12 +852,28 @@ export default function BKBMonitoringPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="overflow-x-auto">
-              <Table className="border border-gray-300">
+            <div
+              className="overflow-auto"
+              style={{
+                maxHeight: "70vh", // adjust as needed
+                border: "1px solid #d1d5db",
+                borderRadius: "0.5rem",
+              }}
+            >
+              <Table className="border border-gray-300 min-w-[1400px]">
                 <TableHeader>
                   <TableRow className="border border-gray-300">
-                    {/* Checkbox header untuk export terpilih */}
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">
+                    {/* Checkbox header for export selected */}
+                    <TableHead
+                      className="border border-gray-300 text-center align-middle px-3 py-2"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {exportMode === "selected" && (
                         <Checkbox
                           checked={paginatedData.every((row) =>
@@ -807,18 +894,31 @@ export default function BKBMonitoringPage() {
                         />
                       )}
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">No. BKB</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Tanggal BKB</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Nama Barang</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Quantity BKB</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Satuan</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Keterangan</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Dikeluarkan Oleh</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Nama Penerima</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Divisi</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Refrensi Nomor PR</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2">Skema</TableHead>
-                    <TableHead className="border border-gray-300 text-center align-middle px-3 py-2 min-w-[80px]">Aksi</TableHead>
+                    {/* Make all header cells sticky */}
+                    {["NO. BKB", "TANGGAL BKB", "NAMA BARANG", "KUANTITAS BKB",
+                      "SATUAN",
+                      "KETERANGAN",
+                      "DIKELUARKAN OLEH",
+                      "NAMA PENERIMA",
+                      "DIVISI",
+                      "REFRENSI NOMOR PR",
+                      // "SKEMA",
+                      "AKSI",
+                    ].map((label, idx) => (
+                      <TableHead
+                        key={label}
+                        className="border border-gray-300 text-center align-middle px-3 py-2"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {label}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -828,18 +928,19 @@ export default function BKBMonitoringPage() {
                     </TableRow>
                   ) : (
                     (() => {
-                      // Group BKB by id_bkb
-                      const grouped: { [id_bkb: string]: any[] } = {};
+                      // Group BKB by id_bkb using Map to preserve order
+                      const grouped = new Map<string, any[]>();
                       paginatedData.forEach((row) => {
-                        const key = row.id_bkb;
-                        if (!grouped[key]) grouped[key] = [];
-                        grouped[key].push(row);
+                        const key = String(row.id_bkb);
+                        if (!grouped.has(key)) grouped.set(key, []);
+                        grouped.get(key)!.push(row);
                       });
-                      return Object.entries(grouped).map(([id_bkb, items]) => {
+
+                      return Array.from(grouped.entries()).map(([id_bkb, items]) => {
                         if (!items || items.length === 0) return null;
                         // Urutkan items ASC by id_bkb_item (atau id_bkbItem/id)
                         const sortedItems = [...items].sort((a, b) => {
-                          const getId = (x) => x.id_bkb_item ?? x.id_bkbItem ?? x.id;
+                          const getId = (x: any) => x.id_bkb_item ?? x.id_bkbItem ?? x.id;
                           return getId(a) - getId(b);
                         });
                         return (
@@ -861,7 +962,7 @@ export default function BKBMonitoringPage() {
                                 )}
                               </TableCell>
                               {/* No. BKB - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium uppercase">
                                 {items[0].noBKB}
                               </TableCell>
                               {/* Tanggal BKB - rowSpan */}
@@ -869,11 +970,11 @@ export default function BKBMonitoringPage() {
                                 {formatTanggalPas(items[0].tanggalBKB)}
                               </TableCell>
                               {/* Nama Barang - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].namaBarang}
                               </TableCell>
                               {/* Quantity - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                                 <Badge
                                   variant={
                                     Number(sortedItems[0].quantity) > 0
@@ -885,11 +986,11 @@ export default function BKBMonitoringPage() {
                                 </Badge>
                               </TableCell>
                               {/* Satuan - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].satuan}
                               </TableCell>
                               {/* Keterangan - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left uppercase">
                                 {sortedItems[0].keterangan ? (
                                   <span
                                     title={sortedItems[0].keterangan}
@@ -910,25 +1011,25 @@ export default function BKBMonitoringPage() {
                                 ) : "-"}
                               </TableCell>
                               {/* Dikeluarkan Oleh - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                 {userMap[String(items[0].dikeluarkanOleh)] ?? items[0].dikeluarkanOleh}
                               </TableCell>
                               {/* Diterima Oleh - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                 {(userMap[String(items[0].diterima_oleh)] ?? items[0].diterima_oleh) || "-"}
                               </TableCell>
                               {/* Divisi - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                 {items[0].divisi || "-"}
                               </TableCell>
                               {/* Refrensi Nomor PR - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                 {items[0].noPR || "-"}
                               </TableCell>
                               {/* Skema - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                              {/* <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                 {skemaMap[String(items[0].skema)] ?? items[0].skema}
-                              </TableCell>
+                              </TableCell> */}
                               {/* Aksi - rowSpan */}
                               <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
                                 <Button
@@ -944,11 +1045,11 @@ export default function BKBMonitoringPage() {
                             {sortedItems.slice(1).map((item, idx) => (
                               <TableRow key={`${id_bkb}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors">
                                 {/* Nama Barang - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
                                   {item.namaBarang}
                                 </TableCell>
                                 {/* Quantity - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
                                   <Badge
                                     variant={
                                       Number(item.quantity) > 0
@@ -960,11 +1061,11 @@ export default function BKBMonitoringPage() {
                                   </Badge>
                                 </TableCell>
                                 {/* Satuan - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
                                   {item.satuan}
                                 </TableCell>
                                 {/* Keterangan - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center">
+                                <TableCell className="border border-gray-300 px-4 py-3 text-left uppercase">
                                   {item.keterangan ? (
                                     <span
                                       title={item.keterangan}

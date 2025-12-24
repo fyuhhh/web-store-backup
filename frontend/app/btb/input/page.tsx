@@ -71,11 +71,70 @@ import {
 import { type POData, type PRData, type BTBData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
 
-// Tambahkan helper formatRupiahInput agar input biaya selalu tampil Rp
-function formatRupiahInput(val: any) {
-  if (val === undefined || val === "" || isNaN(val)) return "";
-  return "Rp " + Number(val).toLocaleString("id-ID");
+// Tambahkan helper parseNoPO dan sortPOList (sama seperti PO Monitoring)
+function parseNoPO(noPO: string | null | undefined) {
+  if (!noPO || typeof noPO !== "string") return null;
+  const s = noPO.trim().toUpperCase();
+  const regex = /^PO\/(E-?WALK|PSV)\/([A-Z0-9]+)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+  const match = s.match(regex);
+  if (!match) return null;
+  const [, brand, store, tahun2, bulanRomawi, urutStr] = match;
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+  return { tahun, bulan, urut, brand, store };
 }
+
+function parseNoPR(noPR: string | null | undefined) {
+  if (!noPR || typeof noPR !== "string") return null;
+  const s = noPR.trim().toUpperCase();
+  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+  const match = s.match(regex);
+  if (!match) return null;
+  const [, brand, tahun2, bulanRomawi, urutStr] = match;
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+  return { tahun, bulan, urut, brand };
+}
+
+function sortPOList(filteredPOData: any[]) {
+  return [...filteredPOData].sort((a, b) => {
+    const pa = parseNoPO(a.noPO);
+    const pb = parseNoPO(b.noPO);
+
+    // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
+    if (pa && pb) {
+      // Tahun ASC
+      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+
+      // Bulan ASC
+      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+
+      // Nomor urut ASC
+      return pa.urut - pb.urut;
+    }
+
+    // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
+    // Gunakan string comparison untuk tanggal YYYY-MM-DD
+    const dateA = a.tanggalPO || "";
+    const dateB = b.tanggalPO || "";
+    return dateA.localeCompare(dateB);
+  });
+}
+
+// ... existing code ...
+
+
+
 
 export default function BTBInputPage() {
   const [poData, setPoData] = useState<POData[]>([]);
@@ -91,7 +150,7 @@ export default function BTBInputPage() {
   // Pagination states for PO table
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+  const tableWrapperRef = React.useRef<HTMLDivElement>(null);
 
   // Sinkronkan scroll antara tabel dan scrollbar custom
   React.useEffect(() => {
@@ -118,6 +177,17 @@ export default function BTBInputPage() {
   // PO date range filter (start and end)
   const [poStartDate, setPoStartDate] = useState<Date | null>(null);
   const [poEndDate, setPoEndDate] = useState<Date | null>(null);
+
+  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  useEffect(() => {
+    if (poStartDate === null && poEndDate === null) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setPoStartDate(firstDay);
+      setPoEndDate(lastDay);
+    }
+  }, [poStartDate, poEndDate]);
 
   // Filter states
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
@@ -327,6 +397,11 @@ export default function BTBInputPage() {
           userList.map((u: any) => [String(u.id_user), u.nama_pengguna])
         );
 
+        // --- TAMBAHAN: Map Tanggal PR untuk sorting Group ---
+        const prDateMap = Object.fromEntries(
+          prList.map((p: any) => [String(p.id_PR), p.tanggalPR])
+        );
+
         // Mapping PO persis seperti monitoring PO
         const mappedPOs = (poList || []).map((po: any) => {
           // Group items by PR (noPR)
@@ -368,6 +443,19 @@ export default function BTBInputPage() {
             group.items.sort(
               (a: any, b: any) => Number(a.id ?? 0) - Number(b.id ?? 0)
             );
+          });
+
+          // --- SORTING GROUP: Berdasarkan No PR (ASC) agar urut sesuai input ---
+          poItemsGrouped.sort((a, b) => {
+            const pa = parseNoPR(a.noPR);
+            const pb = parseNoPR(b.noPR);
+            if (pa && pb) {
+              if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+              if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+              return pa.urut - pb.urut;
+            }
+            // Fallback: sort by string noPR
+            return (a.noPR || "").localeCompare(b.noPR || "");
           });
 
           // Build labels using maps
@@ -808,13 +896,16 @@ export default function BTBInputPage() {
   const handleBuatBTB = () => {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     // Ambil PO yang mengandung item terpilih
-    const selectedPOObjects = filteredPOData.filter((po) =>
+    let selectedPOObjects = filteredPOData.filter((po) =>
       po.poItems.some((poItem: any) =>
         poItem.items.some((item: any) =>
           selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
         )
       )
     );
+    // --- Pastikan urutan PO sesuai ID (ASC) ---
+    selectedPOObjects = sortPOList(selectedPOObjects);
+
     if (selectedPOObjects.length === 0) {
       alert("Pilih minimal satu item PO untuk dibuat BTB.");
       return;
@@ -1078,8 +1169,20 @@ export default function BTBInputPage() {
         // Assume po.tanggalPO is yyyy-mm-dd or yyyy-mm-ddTHH:mm:ss
         const tgl = (po.tanggalPO || "").split("T")[0];
         if (tgl) {
-          const tglDate = new Date(tgl);
-          matchDateRange = tglDate >= poStartDate && tglDate <= poEndDate;
+          const parts = tgl.split("-");
+          // Buat date object local time (00:00:00)
+          const tglDate = new Date(
+            Number(parts[0]),
+            Number(parts[1]) - 1,
+            Number(parts[2])
+          );
+          // Set poEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
+          const end = new Date(poEndDate);
+          end.setHours(23, 59, 59, 999);
+
+          matchDateRange = tglDate >= poStartDate && tglDate <= end;
+        } else {
+          matchDateRange = false;
         }
       }
 
@@ -1095,7 +1198,9 @@ export default function BTBInputPage() {
       );
     });
 
-  // --- SORTING: PO TERBARU → TERLAMA (PAKAI PARSER) ---
+
+
+  // --- SORTING: PO TERBARU → TERLAMA (PAKAI PARSER GLOBAL) ---
   const sortedPOData = sortPOList(filteredPOData);
 
   const totalPages = Math.max(
@@ -1133,68 +1238,6 @@ export default function BTBInputPage() {
     };
   }, []);
 
-  // ========================================
-  // 1. PARSER No. PO (E-WALK + PENTACITY)
-  // ========================================
-  function parseNoPO(noPO: string | null | undefined) {
-    if (!noPO || typeof noPO !== "string") return null;
-
-    const s = noPO.trim().toUpperCase();
-
-    // FORMAT:
-    // PO/E-WALK/WBL/25/XI/00001
-    // PO/PSV/WBL/25/XI/00001
-    //
-    // BRAND = E-WALK atau PSV
-    // STORE = WBL atau lainnya
-    const regex = /^PO\/(E-?WALK|PSV)\/([A-Z0-9]+)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
-    const match = s.match(regex);
-    if (!match) return null;
-
-    const [, brand, store, tahun2, bulanRomawi, urutStr] = match;
-
-    // Konversi bulan romawi
-    const bulanMap: Record<string, number> = {
-      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
-    };
-
-    const bulan = bulanMap[bulanRomawi] ?? 0;
-    const tahun = 2000 + parseInt(tahun2, 10);
-    const urut = parseInt(urutStr, 10);
-
-    return { tahun, bulan, urut, brand, store };
-  }
-
-  // ========================================
-  // 2. SORTING PO TERBARU → TERLAMA
-  // ========================================
-  function sortPOList(filteredPOData: any[]) {
-    const allValid = filteredPOData.every(
-      (po) => typeof po.noPO === "string" && parseNoPO(po.noPO)
-    );
-
-    if (allValid) {
-      return [...filteredPOData].sort((a, b) => {
-        const pa = parseNoPO(a.noPO)!;
-        const pb = parseNoPO(b.noPO)!;
-
-        // Tahun DESC
-        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
-
-        // Bulan DESC
-        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
-
-        // Urut DESC
-        return pa.urut - pb.urut;
-      });
-    }
-
-    // fallback jika format tidak valid
-    return [...filteredPOData].sort((a, b) => Number(b.id_PO ?? b.id) - Number(a.id_PO ?? a.id));
-  }
-
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -1202,10 +1245,9 @@ export default function BTBInputPage() {
         {notif && (
           <div
             className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
-              ${
-                notif.type === "success"
-                  ? "bg-green-600 text-white"
-                  : "bg-red-600 text-white"
+              ${notif.type === "success"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
               }`}
             style={{ minWidth: 280, maxWidth: 400 }}
           >
@@ -1285,26 +1327,30 @@ export default function BTBInputPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table className="border border-gray-300">
+              <div
+                className="overflow-auto"
+                style={{
+                  maxHeight: "70vh", // agar tabel bisa discroll vertikal jika data banyak
+                  border: "1px solid #d1d5db",
+                  borderRadius: "0.5rem",
+                }}
+              >
+                <Table className="border border-gray-300 min-w-[1400px]">
                   <TableHeader>
                     <TableRow>
                       {/* Tambahkan checkbox header untuk select all */}
-                      <TableHead className="w-12 border-r border-gray-300 text-center">
+                      <TableHead
+                        className="w-12 border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Checkbox
                           checked={
-                            paginatedData.length > 0 &&
-                            paginatedData.every((po) =>
-                              po.poItems.flatMap((poItem: any) =>
-                                poItem.items
-                                  .filter((item: any) => item.jumlahPO > 0)
-                                  .map((item: any) =>
-                                    selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
-                                  )
-                              ).every(Boolean)
-                            )
-                          }
-                          indeterminate={
                             paginatedData.some((po) =>
                               po.poItems.flatMap((poItem: any) =>
                                 poItem.items
@@ -1314,28 +1360,69 @@ export default function BTBInputPage() {
                                   )
                               ).some(Boolean)
                             ) &&
-                            !paginatedData.every((po) =>
-                              po.poItems.flatMap((poItem: any) =>
-                                poItem.items
-                                  .filter((item: any) => item.jumlahPO > 0)
-                                  .map((item: any) =>
-                                    selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
-                                  )
-                              ).every(Boolean)
-                            )
+                              !paginatedData.every((po) =>
+                                po.poItems.flatMap((poItem: any) =>
+                                  poItem.items
+                                    .filter((item: any) => item.jumlahPO > 0)
+                                    .map((item: any) =>
+                                      selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                    )
+                                ).every(Boolean)
+                              )
+                              ? "indeterminate"
+                              : paginatedData.every((po) =>
+                                po.poItems.flatMap((poItem: any) =>
+                                  poItem.items
+                                    .filter((item: any) => item.jumlahPO > 0)
+                                    .map((item: any) =>
+                                      selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                    )
+                                ).every(Boolean)
+                              )
                           }
                           onCheckedChange={(checked) =>
                             handleSelectAllItemsOnPage(checked === true, paginatedData)
                           }
                         />
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">No. PO</TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">Daftar Barang</TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        NO. PO
+                      </TableHead>
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        DAFTAR BARANG
+                      </TableHead>
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Quantity PO <ChevronDown className="w-4 h-4" />
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              KUANTITAS PO <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-48 p-2 bg-white">
@@ -1366,11 +1453,20 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Satuan <ChevronDown className="w-4 h-4" />
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              SATUAN <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-48 p-2 bg-white">
@@ -1411,11 +1507,20 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Keterangan <ChevronDown className="w-4 h-4" />
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              KETERANGAN <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-48 p-2 bg-white">
@@ -1429,11 +1534,20 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Harga Satuan <ChevronDown className="w-4 h-4" />
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              HARGA SATUAN <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-48 p-2 bg-white">
@@ -1464,11 +1578,20 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Total <ChevronDown className="w-4 h-4" />
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              TOTAL <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-48 p-2 bg-white">
@@ -1499,11 +1622,20 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Tanggal PO <ChevronDown className="w-4 h-4" />
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              TANGGAL PO <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-48 p-2 bg-white">
@@ -1549,7 +1681,16 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1604,7 +1745,16 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1654,7 +1804,16 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1709,7 +1868,16 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1754,7 +1922,16 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1806,7 +1983,16 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead className="border-r border-gray-300 text-center">
+                      {/* <TableHead
+                        className="border-r border-gray-300 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1">
@@ -1850,7 +2036,7 @@ export default function BTBInputPage() {
                             </div>
                           </PopoverContent>
                         </Popover>
-                      </TableHead>
+                      </TableHead> */}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1881,8 +2067,7 @@ export default function BTBInputPage() {
                                   className="px-2 py-2 border-r border-gray-300 align-middle text-center"
                                 >
                                   <Checkbox
-                                    checked={allGroupSelected}
-                                    indeterminate={someGroupSelected && !allGroupSelected}
+                                    checked={someGroupSelected && !allGroupSelected ? "indeterminate" : allGroupSelected}
                                     onCheckedChange={(checked) =>
                                       handleSelectPOGroup(po.id, checked === true, groupItemKeys)
                                     }
@@ -1893,13 +2078,13 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="font-medium px-4 py-2 border-r border-gray-300 align-middle text-left"
+                                  className="font-medium px-4 py-2 border-r border-gray-300 align-middle text-left uppercase"
                                 >
                                   {po.noPO}
                                 </TableCell>
                               )}
                               {/* Checkbox + Nama Barang */}
-                              <TableCell className="px-4 py-2 border-r border-gray-300 text-left min-w-[200px] flex items-left gap-2 justify-left">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 text-left min-w-[200px] flex items-left gap-2 justify-left uppercase">
                                 <Checkbox
                                   checked={selectedPOItemIds.includes(`${po.id}::${item.noPR}-${item.id}`)}
                                   onCheckedChange={(checked) =>
@@ -1911,10 +2096,10 @@ export default function BTBInputPage() {
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
                                 {item.jumlahPO}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
                                 {item.satuan}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words uppercase">
                                 <HoverCard>
                                   <HoverCardTrigger asChild>
                                     <div
@@ -1957,7 +2142,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[140px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[140px] uppercase"
                                 >
                                   {po.supplier}
                                 </TableCell>
@@ -1965,7 +2150,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px] uppercase"
                                 >
                                   {/* Status Pengiriman dari po.statusPengiriman */}
                                   {po.statusPengiriman}
@@ -1974,7 +2159,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px] uppercase"
                                 >
                                   {/* Status dari po.status */}
                                   {po.status}
@@ -1983,21 +2168,20 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px] uppercase"
                                 >
                                   {/* Diorder oleh dari po.orderedBy */}
                                   {po.orderedBy}
                                 </TableCell>
                               )}
-                              {itemIndex === 0 && (
+                              {/* {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[100px]"
+                                  className="text-center border-r border-gray-300 align-middle min-w-[100px] uppercase"
                                 >
-                                  {/* Skema dari po.id_skema, label dari skemaMap */}
                                   {skemaMap[String(po.skema)] ?? po.skema}
                                 </TableCell>
-                              )}
+                              )} */}
                             </TableRow>
                           ))}
                         </React.Fragment>
@@ -2104,18 +2288,18 @@ export default function BTBInputPage() {
                           value={
                             formData.tanggal
                               ? (() => {
-                                  const d =
-                                    formData.tanggal instanceof Date
-                                      ? formData.tanggal
-                                      : new Date(formData.tanggal);
-                                  return `${String(d.getDate()).padStart(
-                                    2,
-                                    "0"
-                                  )}-${String(d.getMonth() + 1).padStart(
-                                    2,
-                                    "0"
-                                  )}-${d.getFullYear()}`;
-                                })()
+                                const d =
+                                  formData.tanggal instanceof Date
+                                    ? formData.tanggal
+                                    : new Date(formData.tanggal);
+                                return `${String(d.getDate()).padStart(
+                                  2,
+                                  "0"
+                                )}-${String(d.getMonth() + 1).padStart(
+                                  2,
+                                  "0"
+                                )}-${d.getFullYear()}`;
+                              })()
                               : ""
                           }
                           readOnly
@@ -2131,11 +2315,11 @@ export default function BTBInputPage() {
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="bg-white font-semibold text-center h-12 border-b border-[#e5e7eb]">
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[200px]">Nama Barang</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[160px]">Quantity PO</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[180px]">Quantity Diterima</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[140px]">Satuan</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[220px]">Keterangan</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[200px] uppercase">NAMA BARANG</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[160px] uppercase">KUANTITAS PO</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[180px] uppercase">KUANTITAS DITERIMA</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[140px] uppercase">SATUAN</th>
+                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[220px] uppercase">KETERANGAN</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2144,7 +2328,7 @@ export default function BTBInputPage() {
                         .filter((item) => item.qtySisa > 0)
                         .map((item, idx) => (
                           <tr key={item.poItemId} className="border-b border-[#e5e7eb] text-center align-middle h-12">
-                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[200px]">{item.namaBarang}</td>
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[200px] uppercase">{item.namaBarang}</td>
                             <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[160px]">{item.qtySisa}</td>
                             <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[180px]">
                               <Input
@@ -2163,9 +2347,9 @@ export default function BTBInputPage() {
                                     val === ""
                                       ? ""
                                       : Math.max(
-                                          0,
-                                          Math.min(Number(val), item.qtySisa)
-                                        );
+                                        0,
+                                        Math.min(Number(val), item.qtySisa)
+                                      );
                                   setBtbInputQty((prev) => ({
                                     ...prev,
                                     [item.poItemId]: parsedVal,
@@ -2181,9 +2365,9 @@ export default function BTBInputPage() {
                                 }}
                               />
                             </td>
-                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[140px]">{item.satuan}</td>
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[140px] uppercase">{item.satuan}</td>
                             <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[220px]">
-                              <div className="text-muted-foreground max-w-xs truncate" title={item.keterangan}>
+                              <div className="text-muted-foreground max-w-xs truncate uppercase" title={item.keterangan}>
                                 {item.keterangan}
                               </div>
                             </td>

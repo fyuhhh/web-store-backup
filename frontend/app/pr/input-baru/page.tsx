@@ -78,7 +78,7 @@ export default function InputBaruPRPage() {
     const userId = userDataLocal.id_user || userDataLocal.id || null;
 
     if (userId) {
-      fetch(`http://192.168.10.10:5000/api/user`)
+      fetch(`http://localhost:5000/api/user`)
         .then((res) => res.json())
         .then((users) => {
           const user = users.find((u: any) => u.id_user === userId);
@@ -103,7 +103,7 @@ export default function InputBaruPRPage() {
     }
 
     // Fetch divisi dari backend
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setDivisiOptions(data);
@@ -111,7 +111,7 @@ export default function InputBaruPRPage() {
       .catch(() => setDivisiOptions([]));
 
     // Fetch urgensi dari backend
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setUrgensiOptions(data);
@@ -119,7 +119,7 @@ export default function InputBaruPRPage() {
       .catch(() => setUrgensiOptions([]));
 
     // Fetch satuan dari backend
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSatuanOptions(data);
@@ -127,7 +127,7 @@ export default function InputBaruPRPage() {
       .catch(() => setSatuanOptions([]));
 
     // Fetch skema dari backend
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSkemaOptions(data);
@@ -279,7 +279,7 @@ export default function InputBaruPRPage() {
 
     try {
       // 1. POST PR utama ke backend
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr", {
+      const prRes = await fetch("http://localhost:5000/api/pr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -302,7 +302,7 @@ export default function InputBaruPRPage() {
       // 2. POST setiap item ke pr_item dengan handling decimal
       for (const item of formData.items) {
         const jumlah = parseFloat(item.jumlah);
-        await fetch("http://192.168.10.10:5000/api/pr-item", {
+        await fetch("http://localhost:5000/api/pr-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -397,14 +397,14 @@ export default function InputBaruPRPage() {
   const handleAddDivisi = async () => {
     if (!newDivisi.trim()) return;
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/divisi", {
+      const res = await fetch("http://localhost:5000/api/divisi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: newDivisi }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch("http://localhost:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -412,21 +412,21 @@ export default function InputBaruPRPage() {
         setNewDivisi("");
         setShowAddDivisi(false);
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler tambah satuan
   const handleAddSatuan = async () => {
     if (!newSatuan.trim()) return;
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/satuan", {
+      const res = await fetch("http://localhost:5000/api/satuan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ satuan: newSatuan }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://192.168.10.10:5000/api/satuan")
+        fetch("http://localhost:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -434,7 +434,7 @@ export default function InputBaruPRPage() {
         setNewSatuan("");
         setShowAddSatuan(false);
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler hapus satuan
@@ -442,30 +442,30 @@ export default function InputBaruPRPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus satuan ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/satuan/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/satuan")
+        fetch("http://localhost:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
           });
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler edit satuan
   const handleEditSatuan = async (id: string) => {
     if (!editSatuanValue.trim()) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/satuan/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ satuan: editSatuanValue }),
       });
       if (res.ok) {
-        fetch("http://192.168.10.10s:5000/api/satuan")
+        fetch("http://localhosts:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -473,7 +473,7 @@ export default function InputBaruPRPage() {
         setEditSatuanId(null);
         setEditSatuanValue("");
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler hapus divisi
@@ -481,30 +481,30 @@ export default function InputBaruPRPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/divisi/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch("http://localhost:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
           });
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler edit divisi
   const handleEditDivisi = async (id: string) => {
     if (!editDivisiValue.trim()) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/divisi/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: editDivisiValue }),
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch("http://localhost:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -512,7 +512,7 @@ export default function InputBaruPRPage() {
         setEditDivisiId(null);
         setEditDivisiValue("");
       }
-    } catch {}
+    } catch { }
   };
 
   // Fungsi untuk memberi class pada weekend
@@ -551,10 +551,9 @@ export default function InputBaruPRPage() {
         {notif && (
           <div
             className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
-              ${
-                notif.type === "success"
-                  ? "bg-green-600 text-white"
-                  : "bg-red-600 text-white"
+              ${notif.type === "success"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
               }`}
             style={{ minWidth: 280, maxWidth: 400 }}
           >
@@ -601,7 +600,7 @@ export default function InputBaruPRPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, noPR: e.target.value })
                     }
-                    placeholder="PR/2024/001"
+                    placeholder="PR/E-WALK/25/XII/001"
                     required
                     className="w-full"
                   />
@@ -654,38 +653,24 @@ export default function InputBaruPRPage() {
                         overscrollBehavior: "contain",
                       }}
                     >
-                      {/* Search dan Tambah Divisi di dalam dropdown, sticky */}
                       <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                        {/* Input pencarian divisi */}
-                        <Input
-                          placeholder="Cari divisi..."
-                          value={divisiSearch}
-                          onChange={(e) => setDivisiSearch(e.target.value)}
-                          className="mb-2"
-                        />
-                        {/* Tombol tambah divisi */}
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mb-2 w-full"
-                          onClick={() => setShowAddDivisi((v) => !v)}
-                        >
-                          + Tambahkan Divisi
-                        </Button>
-                        {/* Input tambah divisi, tidak mempengaruhi pencarian */}
-                        {showAddDivisi && (
+                        {showAddDivisi ? (
                           <div className="flex items-center gap-2 mb-2">
                             <Input
                               placeholder="Ketikan divisi disini"
                               value={newDivisi}
                               onChange={(e) => setNewDivisi(e.target.value)}
                               className="w-[140px]"
+                              autoFocus
                             />
                             <Button
                               type="button"
                               size="sm"
-                              onClick={handleAddDivisi}
+                              onClick={async () => {
+                                await handleAddDivisi();
+                                setShowAddDivisi(false);
+                                setNewDivisi("");
+                              }}
                               className="bg-primary text-white"
                             >
                               Simpan
@@ -702,103 +687,140 @@ export default function InputBaruPRPage() {
                               Batal
                             </Button>
                           </div>
+                        ) : (
+                          <>
+                            <Input
+                              placeholder="Cari divisi..."
+                              value={divisiSearch}
+                              onChange={(e) => setDivisiSearch(e.target.value)}
+                              className="mb-2"
+                              disabled={showAddDivisi}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mb-2 w-full"
+                              onClick={() => {
+                                setShowAddDivisi(true);
+                                setDivisiSearch("");
+                              }}
+                              disabled={showAddDivisi}
+                            >
+                              + Tambahkan Divisi
+                            </Button>
+                          </>
                         )}
                       </div>
-                      {divisiOptions.length === 0 ? (
-                        <SelectItem value="__loading" disabled>
-                          Memuat...
-                        </SelectItem>
-                      ) : (
-                        divisiOptions
-                          .filter((div: any) =>
-                            div.divisi
-                              .toLowerCase()
-                              .includes(divisiSearch.toLowerCase())
-                          )
-                          .map((div: any) => (
-                            <div
-                              key={div.id_divisi}
-                              className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                            >
-                              {editDivisiId === String(div.id_divisi) ? (
-                                <>
-                                  <Input
-                                    value={editDivisiValue}
-                                    onChange={(e) =>
-                                      setEditDivisiValue(e.target.value)
-                                    }
-                                    className="w-[90px] h-7 text-xs"
-                                  />
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    className="px-2 py-1 text-xs bg-primary text-white"
-                                    onClick={() =>
-                                      handleEditDivisi(String(div.id_divisi))
-                                    }
-                                  >
-                                    Simpan
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    className="px-2 py-1 text-xs"
-                                    onClick={() => {
-                                      setEditDivisiId(null);
-                                      setEditDivisiValue("");
-                                    }}
-                                  >
-                                    Batal
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <SelectItem
+                      {/* Saat tambah divisi aktif, SEMUA pilihan divisi di bawah ini di-nonaktifkan */}
+                      {showAddDivisi
+                        ? null
+                        : (
+                          <>
+                            {divisiOptions.length === 0 ? (
+                              <SelectItem value="__loading" disabled>
+                                Memuat...
+                              </SelectItem>
+                            ) : (
+                              divisiOptions
+                                .filter((div: any) =>
+                                  div.divisi
+                                    .toLowerCase()
+                                    .includes(divisiSearch.toLowerCase())
+                                )
+                                .map((div: any) => (
+                                  <div
                                     key={div.id_divisi}
-                                    value={String(div.id_divisi)}
-                                    className="flex-1"
+                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
                                   >
-                                    {div.divisi}
-                                  </SelectItem>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    className="text-xs text-blue-600 px-1 py-0.5"
-                                    onClick={() => {
-                                      setEditDivisiId(String(div.id_divisi));
-                                      setEditDivisiValue(div.divisi);
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    className="text-xs text-red-600 px-1 py-0.5"
-                                    onClick={() =>
-                                      handleDeleteDivisi(String(div.id_divisi))
-                                    }
-                                  >
-                                    Hapus
-                                  </Button>
-                                </>
+                                    {editDivisiId === String(div.id_divisi) ? (
+                                      <>
+                                        <Input
+                                          value={editDivisiValue}
+                                          onChange={(e) =>
+                                            setEditDivisiValue(e.target.value)
+                                          }
+                                          className="w-[90px] h-7 text-xs"
+                                          disabled={showAddDivisi}
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          className="px-2 py-1 text-xs bg-primary text-white"
+                                          onClick={() =>
+                                            handleEditDivisi(String(div.id_divisi))
+                                          }
+                                          disabled={showAddDivisi}
+                                        >
+                                          Simpan
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="outline"
+                                          className="px-2 py-1 text-xs"
+                                          onClick={() => {
+                                            setEditDivisiId(null);
+                                            setEditDivisiValue("");
+                                          }}
+                                          disabled={showAddDivisi}
+                                        >
+                                          Batal
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <SelectItem
+                                          key={div.id_divisi}
+                                          value={String(div.id_divisi)}
+                                          className="flex-1"
+                                          disabled={showAddDivisi}
+                                        >
+                                          {div.divisi}
+                                        </SelectItem>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="ghost"
+                                          className="text-xs text-blue-600 px-1 py-0.5"
+                                          onClick={() => {
+                                            setEditDivisiId(String(div.id_divisi));
+                                            setEditDivisiValue(div.divisi);
+                                          }}
+                                          disabled={showAddDivisi}
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="ghost"
+                                          className="text-xs text-red-600 px-1 py-0.5"
+                                          onClick={() =>
+                                            handleDeleteDivisi(String(div.id_divisi))
+                                          }
+                                          disabled={showAddDivisi}
+                                        >
+                                          Hapus
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                ))
+                            )}
+                            {divisiOptions.length > 0 &&
+                              divisiOptions.filter((div: any) =>
+                                div.divisi
+                                  .toLowerCase()
+                                  .includes(divisiSearch.toLowerCase())
+                              ).length === 0 && (
+                                <SelectItem value="__notfound" disabled>
+                                  Data tidak ditemukan
+                                </SelectItem>
                               )}
-                            </div>
-                          ))
-                      )}
-                      {divisiOptions.length > 0 &&
-                        divisiOptions.filter((div: any) =>
-                          div.divisi
-                            .toLowerCase()
-                            .includes(divisiSearch.toLowerCase())
-                        ).length === 0 && (
-                          <SelectItem value="__notfound" disabled>
-                            Data tidak ditemukan
-                          </SelectItem>
-                        )}
+                          </>
+                        )
+                      }
                     </SelectContent>
                   </Select>
                 </div>
@@ -909,6 +931,7 @@ export default function InputBaruPRPage() {
                               value={satuanSearch}
                               onChange={(e) => setSatuanSearch(e.target.value)}
                               className="mb-2"
+                              disabled={showAddSatuan}
                             />
                             {/* Tombol tambah satuan */}
                             <Button
@@ -917,10 +940,11 @@ export default function InputBaruPRPage() {
                               size="sm"
                               className="mb-2 w-full"
                               onClick={() => setShowAddSatuan((v) => !v)}
+                              disabled={showAddSatuan}
                             >
                               + Tambahkan Satuan
                             </Button>
-                            {/* Input tambah satuan, tidak mempengaruhi pencarian */}
+                            {/* Input tambah satuan, hanya tampil saat showAddSatuan */}
                             {showAddSatuan && (
                               <div className="flex items-center gap-2 mb-2">
                                 <Input
@@ -932,7 +956,11 @@ export default function InputBaruPRPage() {
                                 <Button
                                   type="button"
                                   size="sm"
-                                  onClick={handleAddSatuan}
+                                  onClick={async () => {
+                                    await handleAddSatuan();
+                                    setShowAddSatuan(false);
+                                    setNewSatuan("");
+                                  }}
                                   className="bg-primary text-white"
                                 >
                                   Simpan
@@ -975,16 +1003,16 @@ export default function InputBaruPRPage() {
                                           setEditSatuanValue(e.target.value)
                                         }
                                         className="w-[90px] h-7 text-xs"
+                                        disabled={showAddSatuan}
                                       />
                                       <Button
                                         type="button"
                                         size="xs"
                                         className="px-2 py-1 text-xs bg-primary text-white"
                                         onClick={() =>
-                                          handleEditSatuan(
-                                            String(sat.id_satuan)
-                                          )
+                                          handleEditSatuan(String(sat.id_satuan))
                                         }
+                                        disabled={showAddSatuan}
                                       >
                                         Simpan
                                       </Button>
@@ -997,6 +1025,7 @@ export default function InputBaruPRPage() {
                                           setEditSatuanId(null);
                                           setEditSatuanValue("");
                                         }}
+                                        disabled={showAddSatuan}
                                       >
                                         Batal
                                       </Button>
@@ -1007,6 +1036,7 @@ export default function InputBaruPRPage() {
                                         key={sat.id_satuan}
                                         value={String(sat.id_satuan)}
                                         className="flex-1"
+                                        disabled={showAddSatuan}
                                       >
                                         {sat.satuan}
                                       </SelectItem>
@@ -1021,6 +1051,7 @@ export default function InputBaruPRPage() {
                                           );
                                           setEditSatuanValue(sat.satuan);
                                         }}
+                                        disabled={showAddSatuan}
                                       >
                                         Edit
                                       </Button>
@@ -1034,6 +1065,7 @@ export default function InputBaruPRPage() {
                                             String(sat.id_satuan)
                                           )
                                         }
+                                        disabled={showAddSatuan}
                                       >
                                         Hapus
                                       </Button>

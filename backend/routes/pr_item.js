@@ -12,6 +12,7 @@ router.get("/", async (req, res) => {
         satuan.satuan AS satuanLabel
       FROM pr_item
       LEFT JOIN satuan ON pr_item.id_satuan = satuan.id_satuan
+      ORDER BY pr_item.id_PRItem ASC -- <-- Tambahkan ASC di sini
     `);
     res.json(rows);
   } catch (err) {
@@ -38,9 +39,10 @@ router.get("/:id", async (req, res) => {
 router.get("/pr/:id_PR", async (req, res) => {
   const { id_PR } = req.params;
   try {
-    const [rows] = await db.query("SELECT * FROM pr_item WHERE id_PR = ?", [
-      id_PR,
-    ]);
+    const [rows] = await db.query(
+      "SELECT * FROM pr_item WHERE id_PR = ? ORDER BY id_PRItem ASC", // <-- Tambahkan ASC
+      [id_PR]
+    );
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });

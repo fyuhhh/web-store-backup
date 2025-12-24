@@ -105,20 +105,47 @@ function parseNoPO(noPO: string | null | undefined) {
   return { tahun, bulan, urut, brand, store };
 }
 
+// Tambahkan parseNoPR untuk sorting
+function parseNoPR(noPR: string | null | undefined) {
+  if (!noPR || typeof noPR !== "string") return null;
+  const s = noPR.trim().toUpperCase();
+  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+  const match = s.match(regex);
+  if (!match) return null;
+  const [, brand, tahun2, bulanRomawi, urutStr] = match;
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+  return { tahun, bulan, urut, brand };
+}
+
 function sortPOList(filteredPOData: any[]) {
-  const allValid = filteredPOData.every(
-    (po) => typeof po.noPO === "string" && parseNoPO(po.noPO)
-  );
-  if (allValid) {
-    return [...filteredPOData].sort((a, b) => {
-      const pa = parseNoPO(a.noPO)!;
-      const pb = parseNoPO(b.noPO)!;
+  return [...filteredPOData].sort((a, b) => {
+    const pa = parseNoPO(a.noPO);
+    const pb = parseNoPO(b.noPO);
+
+    // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
+    if (pa && pb) {
+      // Tahun ASC
       if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+
+      // Bulan ASC
       if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+
+      // Nomor urut ASC
       return pa.urut - pb.urut;
-    });
-  }
-  return [...filteredPOData].sort((a, b) => Number(b.id_PO ?? b.id) - Number(a.id_PO ?? a.id));
+    }
+
+    // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
+    // Gunakan string comparison untuk tanggal YYYY-MM-DD
+    const dateA = a.tanggalPO || "";
+    const dateB = b.tanggalPO || "";
+    return dateA.localeCompare(dateB);
+  });
 }
 
 export default function MonitoringPOPage() {
@@ -129,8 +156,19 @@ export default function MonitoringPOPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   // Filter states
-  const [filterEndDate, setFilterEndDate] = useState<string>(""); 
-  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<Date | null>(null);
+  const [filterStartDate, setFilterStartDate] = useState<Date | null>(null);
+
+  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  useEffect(() => {
+    if (filterStartDate === null && filterEndDate === null) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setFilterStartDate(firstDay);
+      setFilterEndDate(lastDay);
+    }
+  }, [filterStartDate, filterEndDate]);
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
   const [filterQtyMin, setFilterQtyMin] = useState<number | "">("");
   const [filterQtyMax, setFilterQtyMax] = useState<number | "">("");
@@ -172,7 +210,7 @@ export default function MonitoringPOPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
- // Sinkronkan scroll antara tabel dan scrollbar custom
+  // Sinkronkan scroll antara tabel dan scrollbar custom
   React.useEffect(() => {
     const tableDiv = tableWrapperRef.current;
     if (!tableDiv) return;
@@ -359,6 +397,11 @@ export default function MonitoringPOPage() {
           skemaList.map((s: any) => [String(s.id_skema), s.skema])
         );
 
+        // --- TAMBAHAN: Map Tanggal PR untuk sorting Group ---
+        const prDateMap = Object.fromEntries(
+          prList.map((p: any) => [String(p.id_PR), p.tanggalPR])
+        );
+
         // Group items by PR (noPR)
         const itemsForPO = (poItemList || []).filter(
           (pi: any) => String(pi.id_PO) === String(po.id_PO || po.id)
@@ -406,6 +449,27 @@ export default function MonitoringPOPage() {
           } else {
             poItemsGrouped[groupMap[key]].items.push(item);
           }
+        });
+
+        // --- SORTING GROUP: Berdasarkan No PR (ASC) agar urut sesuai input ---
+        poItemsGrouped.sort((a, b) => {
+          const pa = parseNoPR(a.noPR);
+          const pb = parseNoPR(b.noPR);
+          if (pa && pb) {
+            if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+            if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+            return pa.urut - pb.urut;
+          }
+          // Fallback: sort by string noPR
+          return (a.noPR || "").localeCompare(b.noPR || "");
+        });
+
+        // --- SORTING ITEM dalam Group: Berdasarkan ID Item (ASC) ---
+        // Agar "Barang 2, Kotak 2, Kotak 3" tidak acak
+        poItemsGrouped.forEach((group) => {
+          group.items.sort(
+            (a: any, b: any) => Number(a.id_PRItem ?? 0) - Number(b.id_PRItem ?? 0)
+          );
         });
 
         // Build labels using maps (prefer label maps, fallback to existing fields)
@@ -519,11 +583,10 @@ export default function MonitoringPOPage() {
     return createPortal(
       <div className="fixed bottom-6 right-6 z-50">
         <div
-          className={`border shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in ${
-            toastError
-              ? "bg-red-600 text-white border-red-600"
-              : "bg-white border-gray-200 text-green-600"
-          }`}
+          className={`border shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in ${toastError
+            ? "bg-red-600 text-white border-red-600"
+            : "bg-white border-gray-200 text-green-600"
+            }`}
         >
           <span className="font-medium">{message}</span>
           <Button size="sm" variant="ghost" onClick={onClose}>
@@ -873,11 +936,22 @@ export default function MonitoringPOPage() {
         if (filterStartDate && filterEndDate) {
           // po.tanggalPO format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
           const tglStr = (po.tanggalPO || "").split("T")[0];
-          const tglDate = tglStr ? new Date(tglStr) : null;
-          matchesDateRange =
-            tglDate &&
-            tglDate >= filterStartDate &&
-            tglDate <= filterEndDate;
+          if (tglStr) {
+            const parts = tglStr.split("-");
+            // Buat date object local time (00:00:00)
+            const tglDate = new Date(
+              Number(parts[0]),
+              Number(parts[1]) - 1,
+              Number(parts[2])
+            );
+            // Set filterEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
+            const end = new Date(filterEndDate);
+            end.setHours(23, 59, 59, 999);
+
+            matchesDateRange = tglDate >= filterStartDate && tglDate <= end;
+          } else {
+            matchesDateRange = false;
+          }
         }
 
         return (
@@ -956,8 +1030,8 @@ export default function MonitoringPOPage() {
       )
     )
   )
-      .filter((s) => s.trim() !== "")
-      .sort();
+    .filter((s) => s.trim() !== "")
+    .sort();
 
   const uniqueSuppliers = Array.from(
     new Set(poData.map((po) => String(po.supplier ?? "")))
@@ -1008,7 +1082,7 @@ export default function MonitoringPOPage() {
     if (exportMode === "range" && exportStartDate && exportEndDate) {
       // Use normalized ISO date for comparisons if available
       return filteredPOData.filter((po) => {
-        const d = po.tanggalPOISO || po.tanggalPO || "";
+        const d = po.tanggalPO || "";
         return d >= exportStartDate && d <= exportEndDate;
       });
     }
@@ -1016,29 +1090,25 @@ export default function MonitoringPOPage() {
   };
 
   const handleExport = async () => {
-    const exportPOData = getExportPOData();
+    const exportData = getExportPOData();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PO");
 
-    // Header sesuai urutan tabel monitoring PO terbaru
+    // Header sesuai urutan tabel monitoring PO
     const headers = [
       "No. PO",
-      "Daftar Barang",
+      "Tanggal PO",
+      "Estimasi Diterima",
+      "Supplier",
+      "Nama Barang",
       "Quantity PO",
       "Satuan",
-      "Keterangan",
       "Harga Satuan",
-      "Diskon (%)",
-      "Diskon (Rp)",
-      "PPN (%)",
-      "PPN (Rp)",
-      "Total Per Item",
-      "Grand Total",
-      "Ordered By",
-      "Nama Pembeli",
-      "Estimasi Diterima",
+      "Total Pembayaran",
+      "Status Permintaan",
       "Status Pengiriman",
       "Status",
+      "Diorder Oleh",
       "Skema",
     ];
 
@@ -1046,99 +1116,120 @@ export default function MonitoringPOPage() {
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
       cell.font = { bold: true };
-      cell.alignment = { horizontal: "left", vertical: "middle" };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFEEEEEE" },
+      };
+      cell.border = {
+        top: { style: "thin" },
+        right: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+      };
     });
 
-    // --- HELPER: format persen ---
-    function formatPersen(val: any) {
-      if (val === undefined || val === null || val === "") return "";
-      const num = Number(val);
-      if (isNaN(num)) return "";
-      return num % 1 === 0 ? `${num}%` : `${parseFloat(num.toFixed(2))}%`;
-    }
-
-    // Helper: format tanggal persis seperti frontend (tambah 2 hari, fallback jika gagal)
+    // Helper format tanggal persis seperti frontend
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      let dateObj;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
       if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-        dateObj = dayjs(tgl).add(2, "day");
-      } else if (tgl.includes("T")) {
-        dateObj = dayjs.utc(tgl).add(2, "day");
-      } else {
-        dateObj = dayjs(tgl).add(2, "day");
+        const [y, m, d] = tgl.split("-");
+        return `${d}-${m}-${y}`;
       }
-      return dateObj.isValid() ? dateObj.format("DD-MM-YYYY") : tgl ?? "";
+      const d = dayjs(tgl);
+      if (d.isValid()) {
+        return d.format("DD-MM-YYYY");
+      }
+      return tgl;
     }
 
-    function formatQtyExcel(val: any) {
-      const num = Number(val);
-      if (Number.isNaN(num)) return "";
-      return num % 1 === 0 ? num.toString() : num.toString();
-    }
-    function formatRupiah(val: any) {
-      if (val === undefined || val === "" || isNaN(val)) return "";
-      return "Rp " + Number(val).toLocaleString("id-ID");
-    }
+    // Add data rows
+    exportData.forEach((po) => {
+      // Flatten poItems
+      const flatItems: any[] = [];
+      if (po.poItems && po.poItems.length > 0) {
+        po.poItems.forEach((group: any) => {
+          if (group.items) {
+            flatItems.push(...group.items);
+          }
+        });
+      }
 
-    // Prepare and add data rows
-    exportPOData.forEach((po) => {
-      const allItems = po.poItems.flatMap((poItem) =>
-        poItem.items.map((item) => ({
-          ...item,
-          noPR: poItem.noPR,
-        }))
-      );
-      if (allItems.length === 0) return;
-
-      allItems.forEach((item, index) => {
+      if (flatItems.length > 0) {
+        flatItems.forEach((item: any, index: number) => {
+          worksheet.addRow([
+            index === 0 ? po.noPO : "",
+            index === 0 ? formatTanggalExcel(po.tanggalPO) : "",
+            index === 0 ? formatTanggalExcel(po.estimasiTanggalDiterima) : "",
+            index === 0 ? po.supplier : "",
+            item.namaBarang,
+            Number(item.jumlahPO || item.jumlahAsli || 0),
+            item.satuan,
+            Number(item.hargaSatuan || 0),
+            index === 0 ? Number(po.totalPembayaran || 0) : "",
+            index === 0 ? po.statusPermintaan : "",
+            index === 0 ? po.statusPengiriman : "",
+            index === 0 ? po.status : "",
+            index === 0 ? po.orderedBy : "",
+            index === 0 ? (skemaMap[String(po.skema)] || po.skema) : "",
+          ]);
+        });
+      } else {
         worksheet.addRow([
-          index === 0 ? po.noPO : "",
-          item.namaBarang,
-          formatQtyExcel(item.jumlahAsli),
-          item.satuan,
-          item.keterangan || "",
-          formatRupiah(item.hargaSatuan),
-          formatPersenExcel(item.diskonPersen),
-          item.diskonNominal
-            ? `Rp ${Number(item.diskonNominal).toLocaleString("id-ID")}`
-            : "",
-          formatPersenExcel(item.ppnItem),
-          item.ppnAmount
-            ? `Rp ${Number(item.ppnAmount).toLocaleString("id-ID")}`
-            : "",
-          typeof item.totalPerItem !== "undefined" &&
-          item.totalPerItem !== null
-            ? `Rp ${Number(item.totalPerItem).toLocaleString("id-ID")}`
-            : "",
-          index === 0 ? formatRupiah(po.totalPembayaran) : "",
-          index === 0 ? po.orderedBy ?? "" : "",
-          // --- TAMBAHAN: Nama Pembeli (ambil dari item pertama saja) ---
-          index === 0 ? allItems[0]?.namaPembeli ?? "" : "",
-          index === 0 ? formatTanggalExcel(po.estimasiTanggalTerima) : "",
-          index === 0 ? po.statusPengiriman ?? "" : "",
-          index === 0 ? po.status ?? "" : "",
-          index === 0 ? skemaMap[String(po.skema)] ?? po.skema ?? "" : "",
+          po.noPO,
+          formatTanggalExcel(po.tanggalPO),
+          formatTanggalExcel(po.estimasiTanggalDiterima),
+          po.supplier,
+          "",
+          "",
+          "",
+          "",
+          Number(po.totalPembayaran || 0),
+          po.statusPermintaan,
+          po.statusPengiriman,
+          po.status,
+          po.orderedBy,
+          skemaMap[String(po.skema)] || po.skema,
         ]);
-      });
+      }
     });
 
+    // Set number/currency formats
+    // Column 6: Quantity PO (#,##0)
+    // Column 8: Harga Satuan (Currency)
+    // Column 9: Total Pembayaran (Currency)
+    const currencyFmt = '_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)';
+    worksheet.getColumn(6).numFmt = '#,##0';
+    worksheet.getColumn(8).numFmt = currencyFmt;
+    worksheet.getColumn(9).numFmt = currencyFmt;
+
+    // Auto-fit columns based on max length of cell values
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
-      column.eachCell({ includeEmpty: true }, (cell) => {
+      column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
         const cellValue = cell.value ? String(cell.value) : "";
         maxLength = Math.max(maxLength, cellValue.length + 2);
       });
-      column.width = maxLength;
+      column.width = Math.min(maxLength, 50);
     });
 
+    // Set row heights for better readability
     worksheet.eachRow((row, rowNumber) => {
-      row.height = rowNumber === 1 ? 22 : 18;
-      row.alignment = { vertical: "middle" };
+      row.height = rowNumber === 1 ? 25 : 20;
+      row.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+      // Center align specific columns if needed
+      if (rowNumber > 1) {
+        row.getCell(2).alignment = { vertical: 'top', horizontal: 'center' }; // Tanggal
+        // row.getCell(6).alignment = { vertical: 'top', horizontal: 'right' }; // Qty (default for number)
+      }
     });
 
+    // Freeze header row
     worksheet.views = [{ state: "frozen", ySplit: 1 }];
 
+    // Download
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1146,7 +1237,8 @@ export default function MonitoringPOPage() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `monitoring-po-${new Date().toISOString().split("T")[0]}.xlsx`;
+    a.download = `monitoring-po-${new Date().toISOString().split("T")[0]
+      }.xlsx`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -1367,17 +1459,29 @@ export default function MonitoringPOPage() {
             )}
           </CardHeader>
           <CardContent>
-            <div 
+            {/* --- Make table scrollable with sticky header --- */}
+            <div
               ref={tableWrapperRef}
-              className="overflow-x-auto"
-              style={{ 
+              className="overflow-auto"
+              style={{
                 maxHeight: 600,
+                border: "1px solid #d1d5db",
+                borderRadius: "0.5rem",
               }}
             >
-              <Table className="border border-gray-300">
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="w-16 border border-gray-300 px-4 py-3 text-center align-middle">
+              <Table className="border-collapse border border-gray-300 table-auto min-w-[1800px]">
+                <TableHeader className="bg-gray-100">
+                  <TableRow>
+                    <TableHead
+                      className="border border-gray-300 px-4 py-3 text-center align-middle sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Checkbox Select All */}
                       <Checkbox
                         checked={
@@ -1393,7 +1497,16 @@ export default function MonitoringPOPage() {
                         className="focus:ring-2 focus:ring-primary"
                       />
                     </TableHead>
-                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* No. PO */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1446,7 +1559,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Tanggal PO */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1506,7 +1628,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Supplier */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1564,7 +1695,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[180px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[180px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Nama Barang */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1591,7 +1731,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Quantity PO */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1638,7 +1787,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Satuan */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1693,7 +1851,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[160px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[160px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Keterangan */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1720,7 +1887,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Harga Satuan */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1768,13 +1944,77 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     {/* Tambahan kolom baru untuk Diskon dan PPN */}
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">Diskon (%)</TableHead>
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">Diskon (Rp)</TableHead>
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">PPN (%)</TableHead>
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">PPN (Rp)</TableHead>
-                    <TableHead className="min-w-[110px] border border-gray-300 px-4 py-3 text-center">Total</TableHead>
-                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
-                      {/* Total */}
+                    <TableHead
+                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      Diskon (%)
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      Diskon (Rp)
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      PPN (%)
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      PPN (Rp)
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[110px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      Total
+                    </TableHead>
+                    <TableHead
+                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      {/* Grand Total */}
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1820,8 +2060,17 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
-                      {/* Diorder oleh */}
+                    <TableHead
+                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      {/* Ordered By */}
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -1881,10 +2130,28 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     {/* --- KOLOM BARU: Nama Pembeli --- */}
-                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       Nama Pembeli
                     </TableHead>
-                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Estimasi Diterima */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -1948,7 +2215,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Status Pengiriman */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -2010,7 +2286,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
+                    <TableHead
+                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       {/* Status */}
                       <Popover>
                         <PopoverTrigger asChild>
@@ -2065,8 +2350,16 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
-                      {/* Skema */}
+                    {/* <TableHead
+                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button
@@ -2083,17 +2376,17 @@ export default function MonitoringPOPage() {
                           </Label>
                           <Input
                             placeholder="Cari skema..."
-                            value={ skemaSearchTerm}
+                            value={skemaSearchTerm}
                             onChange={(e) => setSkemaSearchTerm(e.target.value)}
                             className="mb-2"
                           />
                           <div className="max-h-32 overflow-y-auto space-y-1">
                             {uniqueKode
-                              .filter(( s) =>
+                              .filter((s) =>
                                 String(s)
                                   .toLowerCase()
                                   .includes(skemaSearchTerm.toLowerCase())
-                                                           )
+                              )
                               .map((s) => (
                                 <div
                                   key={s}
@@ -2113,19 +2406,18 @@ export default function MonitoringPOPage() {
                                   />
                                   <Label htmlFor={`skema-${s}`} className="text-sm">{s}</Label>
                                 </div>
-                                                           ))}
+                              ))}
                           </div>
                         </PopoverContent>
                       </Popover>
-                    </TableHead>
+                    </TableHead> */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((po) => {
                     // Flatten all items from all poItems, urutan sesuai backend/input PO
-                    const allItems = po.poItems.flatMap((poItem) =>
-                     
-                      poItem.items.map((item) => ({
+                    const allItems = po.poItems.flatMap((poItem: any) =>
+                      poItem.items.map((item: any) => ({
                         ...item,
                         noPR: poItem.noPR,
                       }))
@@ -2133,7 +2425,7 @@ export default function MonitoringPOPage() {
 
                     return (
                       <React.Fragment key={po.id}>
-                        {allItems.map((item, itemIndex) => (
+                        {allItems.map((item: any, itemIndex: number) => (
                           <TableRow
                             key={`${po.id}-item-${itemIndex}`}
                             className="hover:bg-gray-50 transition-colors"
@@ -2161,7 +2453,7 @@ export default function MonitoringPOPage() {
                                 </TableCell>
                                 <TableCell
                                   key="noPO"
-                                  className="font-medium px-4 py-2 border-r border-gray-300 align-middle"
+                                  className="font-medium px-4 py-2 border-r border-gray-300 align-middle uppercase"
                                   rowSpan={allItems.length}
                                 >
                                   {po.noPO}
@@ -2169,31 +2461,31 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="tanggalPO"
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[120px]"
+                                  className="text-left border-r border-gray-300 align-middle min-w-[120px] uppercase"
                                 >
                                   {formatTanggal(po.tanggalPO)}
                                 </TableCell>
                                 <TableCell
                                   key="supplier"
                                   rowSpan={allItems.length}
-                                  className="text-left border-r border-gray-300 align-middle min-w-[140px]"
+                                  className="text-left border-r border-gray-300 align-middle min-w-[140px] uppercase"
                                 >
                                   {po.supplier}
                                 </TableCell>
                               </>
                             ) : null}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[200px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[200px] uppercase">
                               {item.namaBarang}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px] uppercase">
                               {/* --- Ubah: Quantity PO ambil dari jumlahAsli --- */}
                               {item.jumlahAsli}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
                               {item.satuan}
                             </TableCell>
                             <TableCell
-                              className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-[120px] whitespace-nowrap overflow-hidden text-ellipsis"
+                              className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-[120px] whitespace-nowrap overflow-hidden text-ellipsis uppercase"
                             >
                               {/* HoverCard untuk keterangan */}
                               <HoverCard>
@@ -2213,41 +2505,41 @@ export default function MonitoringPOPage() {
                                     {item.keterangan ? item.keterangan.slice(0, 20) : ""}
                                     {item.keterangan && item.keterangan.length > 20 ? "..." : ""}
                                   </span>
-                                </HoverCardTrigger> 
+                                </HoverCardTrigger>
                               </HoverCard>
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px] uppercase">
                               Rp {item.hargaSatuan?.toLocaleString("id-ID")}
                             </TableCell>
                             {/* Kolom baru: Diskon (%) */}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {formatPersen(item.diskonPersen)}
                             </TableCell>
                             {/* Kolom baru: Diskon (Rp) */}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {item.diskonNominal
                                 ? `Rp ${Number(
-                                    item.diskonNominal
-                                  ).toLocaleString("id-ID")}`
+                                  item.diskonNominal
+                                ).toLocaleString("id-ID")}`
                                 : ""}
                             </TableCell>
                             {/* Kolom baru: PPN (%) */}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {formatPersen(item.ppnItem)}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {item.ppnAmount
                                 ? `Rp ${Number(item.ppnAmount).toLocaleString(
-                                    "id-ID"
-                                  )}`
+                                  "id-ID"
+                                )}`
                                 : ""}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[110px]">
+                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[110px] uppercase">
                               {typeof item.totalPerItem !== "undefined" &&
-                              item.totalPerItem !== null
+                                item.totalPerItem !== null
                                 ? `Rp ${Number(
-                                    item.totalPerItem
-                                  ).toLocaleString("id-ID")}`
+                                  item.totalPerItem
+                                ).toLocaleString("id-ID")}`
                                 : ""}
                             </TableCell>
                             {itemIndex === 0 ? (
@@ -2255,7 +2547,7 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="totalPembayaran"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase"
                                 >
                                   Rp{" "}
                                   {po.totalPembayaran.toLocaleString("id-ID")}
@@ -2263,7 +2555,7 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="orderedBy"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
                                   {po.orderedBy ?? ""}
                                 </TableCell>
@@ -2271,38 +2563,38 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="namaPembeli"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase"
                                 >
                                   {allItems[0]?.namaPembeli ?? ""}
                                 </TableCell>
                                 <TableCell
                                   key="estimasiTanggalDiterima"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
                                 >
                                   {formatTanggal(po.estimasiTanggalTerima)}
                                 </TableCell>
                                 <TableCell
                                   key="statusPengiriman"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
                                 >
                                   {po.statusPengiriman ?? ""}
                                 </TableCell>
                                 <TableCell
                                   key="statusBadge"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px]"
+                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
                                   {getStatusBadge(po.status || "")}
                                 </TableCell>
-                                <TableCell
+                                {/* <TableCell
                                   key="skema"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border border-gray-300 align-middle text-center min-w-[100px]"
+                                  className="px-4 py-2 border border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
                                   {skemaMap[String(po.skema)] ?? po.skema ?? ""}
-                                </TableCell>
+                                </TableCell> */}
                               </>
                             ) : null}
                           </TableRow>
@@ -2331,10 +2623,10 @@ export default function MonitoringPOPage() {
                       onClick={() => setCurrentPage(page)}
                       isActive={currentPage === page}
                       className={`min-w-[32px] text-center rounded ${currentPage === page
-                          ? "bg-primary text-white font-bold"
-                          : "bg-white text-black"
+                        ? "bg-primary text-white font-bold"
+                        : "bg-white text-black"
                         }`}
-                      style={ {
+                      style={{
                         display: "inline-block",
                         margin: "0 2px",
                         padding: "4px 0",
@@ -2408,7 +2700,7 @@ function DeleteItemModal({
           Pilih Item PO yang akan dikembalikan ke PR
         </h2>
         <div className="space-y-4">
-          {poItems.map(({ poId, items }) => (
+          {poItems.map(({ poId, items }: any) => (
             <div key={poId}>
               <div className="font-semibold mb-1">
                 PO: {poData.find((po: any) => po.id === poId)?.noPO || poId}
@@ -2441,7 +2733,7 @@ function DeleteItemModal({
                               setSelectedIds([...selectedIds, valueId]);
                             } else {
                               setSelectedIds(
-                                selectedIds.filter((x) => x !== valueId)
+                                selectedIds.filter((x: string) => x !== valueId)
                               );
                             }
                           }}

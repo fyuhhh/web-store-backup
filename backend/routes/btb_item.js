@@ -65,6 +65,7 @@ router.post("/", async (req, res) => {
       keterangan,
       qty_sisa,
       biaya, // <-- tambahkan biaya
+      targetPencapaianPo, // <-- NEW field
     } = req.body;
 
     // --- FIX: pastikan jumlah_diterima dan qty_sisa integer ---
@@ -87,8 +88,8 @@ router.post("/", async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO btb_item 
-      (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa, biaya)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa, biaya, targetPencapaianPo)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_btb,
         id_POItem,
@@ -98,6 +99,7 @@ router.post("/", async (req, res) => {
         keterangan || "",
         qtySisaInt, // <-- integer
         biayaInt, // <-- biaya per item
+        targetPencapaianPo || null, // <-- NEW value
       ]
     );
     // Setelah insert, update biaya pada btb
