@@ -29,6 +29,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
+  PaginationEllipsis,
 } from "@/components/ui/pagination";
 import {
   Popover,
@@ -46,6 +47,29 @@ import "react-datepicker/dist/react-datepicker.css";
 
 export default function StatusPOPage() {
   const [prData, setPrData] = useState<any[]>([]);
+  // --- Vertical scroll button state and ref ---
+  const verticalScrollRef = React.useRef<HTMLDivElement>(null);
+  const [showScrollButtons, setShowScrollButtons] = useState(false);
+  useEffect(() => {
+    const checkScroll = () => {
+      const el = verticalScrollRef.current;
+      if (el) {
+        setShowScrollButtons(el.scrollHeight > el.clientHeight + 10);
+      }
+    };
+    checkScroll();
+    window.addEventListener("resize", checkScroll);
+    return () => window.removeEventListener("resize", checkScroll);
+  }, []);
+  // Add PO data state for PO creation logic
+  const [poData, setPoData] = useState<POData[]>(() => {
+    // Try to load from localStorage if available
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('poData');
+      if (stored) return JSON.parse(stored);
+    }
+    return [];
+  });
   const [prItemData, setPrItemData] = useState<any[]>([]);
   const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
   const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
@@ -57,8 +81,19 @@ export default function StatusPOPage() {
 
   // Filter states for table columns
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterEndDate, setFilterEndDate] = useState<string>(""); 
-  const [filterStartDate, setFilterStartDate] = useState<string>("");
+  const [filterEndDate, setFilterEndDate] = useState<Date | null>(null);
+  const [filterStartDate, setFilterStartDate] = useState<Date | null>(null);
+
+  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  useEffect(() => {
+    if (filterStartDate === null && filterEndDate === null) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setFilterStartDate(firstDay);
+      setFilterEndDate(lastDay);
+    }
+  }, [filterStartDate, filterEndDate]);
   const [filterNoPR, setFilterNoPR] = useState<string[]>([]);
   const [noPRSearchTerm, setNoPRSearchTerm] = useState("");
   const [filterTanggalPR, setFilterTanggalPR] = useState<string[]>([]);
@@ -88,27 +123,8 @@ export default function StatusPOPage() {
   // NEW: state untuk menyimpan item terpilih per PR (map: prId -> array of item ids)
   const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, string[]>>({});
   // Ref untuk sticky scrollbar
-  const tableWrapperRef = React.useRef<HTMLDivElement>(null);
-  const scrollBarRef = React.useRef<HTMLDivElement>(null);
+  // (Removed unused refs and sync effect)
 
-  // Sinkronkan scroll antara tabel dan scrollbar custom
-  React.useEffect(() => {
-    const tableDiv = tableWrapperRef.current;
-    const scrollDiv = scrollBarRef.current;
-    if (!tableDiv || !scrollDiv) return;
-    const onTableScroll = () => {
-      scrollDiv.scrollLeft = tableDiv.scrollLeft;
-    };
-    const onScrollBarScroll = () => {
-      tableDiv.scrollLeft = scrollDiv.scrollLeft;
-    };
-    tableDiv.addEventListener("scroll", onTableScroll);
-    scrollDiv.addEventListener("scroll", onScrollBarScroll);
-    return () => {
-      tableDiv.removeEventListener("scroll", onTableScroll);
-      scrollDiv.removeEventListener("scroll", onScrollBarScroll);
-    };
-  }, []);
 
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
@@ -537,11 +553,22 @@ export default function StatusPOPage() {
       if (filterStartDate && filterEndDate) {
         // pr.tanggalPR format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
         const tglStr = (pr.tanggalPR || "").split("T")[0];
-        const tglDate = tglStr ? new Date(tglStr) : null;
-        matchesDateRange =
-          tglDate &&
-          tglDate >= filterStartDate &&
-          tglDate <= filterEndDate;
+        if (tglStr) {
+          const parts = tglStr.split("-");
+          // Buat date object local time (00:00:00)
+          const tglDate = new Date(
+            Number(parts[0]),
+            Number(parts[1]) - 1,
+            Number(parts[2])
+          );
+          // Set filterEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
+          const end = new Date(filterEndDate);
+          end.setHours(23, 59, 59, 999);
+
+          matchesDateRange = tglDate >= filterStartDate && tglDate <= end;
+        } else {
+          matchesDateRange = false;
+        }
       }
 
       return (
@@ -560,8 +587,8 @@ export default function StatusPOPage() {
         matchesDateRange // <-- tambahkan ini
       );
     })
-    // --- SORTING: PR TERBARU → TERLAMA (PAKAI PARSER) ---
-    filteredPRs = sortPRList(filteredPRs);
+  // --- SORTING: PR TERBARU → TERLAMA (PAKAI PARSER) ---
+  filteredPRs = sortPRList(filteredPRs);
 
   // --- PAGINATION ---
   const totalPages = Math.ceil(filteredPRs.length / itemsPerPage);
@@ -647,16 +674,13 @@ export default function StatusPOPage() {
   // 2. SORTING PR TERBARU → TERLAMA
   // =====================================
   function sortPRList(filteredPRData: any[]) {
-    const allValid = filteredPRData.every(
-      (pr) => typeof pr.noPR === "string" && parseNoPR(pr.noPR)
-    );
+    return [...filteredPRData].sort((a, b) => {
+      const pa = parseNoPR(a.noPR);
+      const pb = parseNoPR(b.noPR);
 
-    if (allValid) {
-      return [...filteredPRData].sort((a, b) => {
-        const pa = parseNoPR(a.noPR)!;
-        const pb = parseNoPR(b.noPR)!;
-
-        // Tahun ASC → terlama di atas
+      // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
+      if (pa && pb) {
+        // Tahun ASC
         if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
 
         // Bulan ASC
@@ -664,11 +688,14 @@ export default function StatusPOPage() {
 
         // Nomor urut ASC
         return pa.urut - pb.urut;
-      });
-    }
+      }
 
-    // Fallback jika format tidak valid
-    return [...filteredPRData].sort((a, b) => Number(b.id_PR ?? b.id) - Number(a.id_PR ?? a.id));
+      // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
+      // Gunakan string comparison untuk tanggal YYYY-MM-DD
+      const dateA = a.tanggalPR || "";
+      const dateB = b.tanggalPR || "";
+      return dateA.localeCompare(dateB);
+    });
   }
 
   return (
@@ -788,709 +815,874 @@ export default function StatusPOPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div
-  ref={tableWrapperRef}
-  className="overflow-x-auto"
-  style={{ 
-    maxHeight: 600,
-    scrollbarWidth: 'none',
-    msOverflowStyle: 'none'
-  }}
->
-              <Table className="border border-gray-300 min-w-[1200px]">
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="w-16 border border-gray-300 px-4 py-3 text-center align-middle">
-                      <Checkbox
-                        checked={
-                          paginatedData.every((pr) => {
-                            const itemIds = (pr.items || [])
-                              .filter((item: any) => item.jumlah > 0)
-                              .map((item: any) => String(item.id));
-                            const selected =
-                              selectedItemsMap[String(pr.id_PR)] || [];
-                            return (
-                              itemIds.length > 0 &&
-                              itemIds.every((id: string) =>
-                                selected.includes(id)
-                              )
-                            );
-                          }) && paginatedData.length > 0
-                        }
-                        {...(paginatedData.some((pr) => {
-                          const itemIds = (pr.items || [])
-                            .filter((item: any) => item.jumlah > 0)
-                            .map((item: any) => String(item.id));
-                          const selected =
-                            selectedItemsMap[String(pr.id_PR)] || [];
-                          return (
-                            selected.length > 0 &&
-                            (selected.length < itemIds.length ||
-                              !itemIds.every((id: string) =>
-                                selected.includes(id)
-                              ))
-                          );
-                        })
-                          ? { indeterminate: true }
-                          : {})}
-                        onCheckedChange={handleSelectAll}
+            <div style={{ position: "relative" }}>
+              {/* Vertical scroll up button */}
+              {showScrollButtons && (
+                <button
+                  type="button"
+                  aria-label="Scroll Up"
+                  onClick={() => {
+                    if (verticalScrollRef.current) {
+                      verticalScrollRef.current.scrollBy({ top: -120, behavior: "smooth" });
+                    }
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: 0,
+                    zIndex: 40,
+                    background: "#e5e7eb",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "0.5rem 0.5rem 0 0",
+                    width: 32,
+                    height: 32,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                    cursor: "pointer"
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 12l5-5 5 5" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              )}
+              {/* Vertical scroll down button */}
+              {showScrollButtons && (
+                <button
+                  type="button"
+                  aria-label="Scroll Down"
+                  onClick={() => {
+                    if (verticalScrollRef.current) {
+                      verticalScrollRef.current.scrollBy({ top: 120, behavior: "smooth" });
+                    }
+                  }}
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 40,
+                    background: "#e5e7eb",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "0 0 0.5rem 0.5rem",
+                    width: 32,
+                    height: 32,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.04)",
+                    cursor: "pointer"
+                  }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M5 8l5 5 5-5" stroke="#333" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              )}
+              <div
+                ref={verticalScrollRef}
+                data-custom-vertical-scroll
+                style={{
+                  maxHeight: '70vh',
+                  overflowY: 'auto',
+                  overflowX: 'auto', // Explicit horizontal scroll
+                  borderRadius: '0.5rem',
+                  border: '1px solid #d1d5db',
+                }}
+              >
+                <Table className="border-collapse border border-gray-300 min-w-[1200px] table-auto">
+                  <TableHeader className="bg-gray-100">
+                    <TableRow>
+                      <TableHead
+                        className="w-16 border border-gray-300 px-4 py-3 text-center align-middle sticky-header-cell"
                         style={{
-                          boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
-                          border: "1.5px solid #bbb",
-                          borderRadius: 4,
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6", // bg-gray-100
+                          borderBottom: "2px solid #d1d5db",
                         }}
-                        className="focus:ring-2 focus:ring-primary"
-                      />
-                    </TableHead>
-                    {/* No. PR */}
-                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            No. PR
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari No. PR..."
-                            value={noPRSearchTerm}
-                            onChange={(e) => setNoPRSearchTerm(e.target.value)}
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueNoPR
-                              .filter((no) =>
-                                no
-                                  .toLowerCase()
-                                  .includes(noPRSearchTerm.toLowerCase())
-                              )
-                              .map((no) => (
-                                <div
-                                  key={no}
-                                  className="flex items-center space-x-2"
-                                >
+                      >
+                        {/* Checkbox Select All */}
+                        <Checkbox
+                          checked={
+                            (paginatedData.every((pr) => {
+                              const itemIds = (pr.items || [])
+                                .filter((item: any) => item.jumlah > 0)
+                                .map((item: any) => String(item.id));
+                              const selected =
+                                selectedItemsMap[String(pr.id_PR)] || [];
+                              return (
+                                itemIds.length > 0 &&
+                                itemIds.every((id: string) =>
+                                  selected.includes(id)
+                                )
+                              );
+                            }) && paginatedData.length > 0)
+                              ? true
+                              : paginatedData.some((pr) => {
+                                const itemIds = (pr.items || [])
+                                  .filter((item: any) => item.jumlah > 0)
+                                  .map((item: any) => String(item.id));
+                                const selected =
+                                  selectedItemsMap[String(pr.id_PR)] || [];
+                                return (
+                                  selected.length > 0 &&
+                                  (selected.length < itemIds.length ||
+                                    !itemIds.every((id: string) =>
+                                      selected.includes(id)
+                                    ))
+                                );
+                              })
+                                ? "indeterminate"
+                                : false
+                          }
+                          onCheckedChange={handleSelectAll}
+                          style={{
+                            boxShadow: "0 0 0 2px #bbb, 0 2px 8px #bbb8",
+                            border: "1.5px solid #bbb",
+                            borderRadius: 4,
+                          }}
+                          className="focus:ring-2 focus:ring-primary"
+                        />
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* No. PR */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              NO. PR
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari No. PR..."
+                              value={noPRSearchTerm}
+                              onChange={(e) => setNoPRSearchTerm(e.target.value)}
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueNoPR
+                                .filter((no) =>
+                                  no
+                                    .toLowerCase()
+                                    .includes(noPRSearchTerm.toLowerCase())
+                                )
+                                .map((no) => (
+                                  <div
+                                    key={no}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterNoPR.includes(no)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterNoPR([...filterNoPR, no]);
+                                        else
+                                          setFilterNoPR(
+                                            filterNoPR.filter((x) => x !== no)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{no}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        <div className="text-xs text-muted-foreground mt-1">(Terbaru di atas)</div>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Tanggal PR */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              TANGGAL PR
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari tanggal..."
+                              value={tanggalPRSearchTerm}
+                              onChange={(e) =>
+                                setTanggalPRSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueTanggalPR
+                                .filter((tgl) =>
+                                  tgl
+                                    .toLowerCase()
+                                    .includes(tanggalPRSearchTerm.toLowerCase())
+                                )
+                                .map((tgl) => (
+                                  <div
+                                    key={tgl}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterTanggalPR.includes(tgl)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterTanggalPR([
+                                            ...filterTanggalPR,
+                                            tgl,
+                                          ]);
+                                        else
+                                          setFilterTanggalPR(
+                                            filterTanggalPR.filter(
+                                              (x) => x !== tgl
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{tgl}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[180px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Nama Barang */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              NAMA BARANG
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari barang..."
+                              value={filterNamaBarang}
+                              onChange={(e) =>
+                                setFilterNamaBarang(e.target.value)
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Qty */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              KUANTITAS
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari Qty..."
+                              value={filterQtySearchTerm}
+                              onChange={(e) =>
+                                setFilterQtySearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueQty
+                                .filter((qty) =>
+                                  String(qty)
+                                    .toLowerCase()
+                                    .includes(filterQtySearchTerm.toLowerCase())
+                                )
+                                .map((qty) => (
+                                  <div
+                                    key={qty}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterQty.includes(qty)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterQty([...filterQty, qty]);
+                                        else
+                                          setFilterQty(
+                                            filterQty.filter((x) => x !== qty)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{qty}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Satuan */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              SATUAN
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari satuan..."
+                              value={satuanSearchTerm}
+                              onChange={(e) =>
+                                setSatuanSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueSatuan
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(satuanSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSatuan.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSatuan([...filterSatuan, s]);
+                                        else
+                                          setFilterSatuan(
+                                            filterSatuan.filter((x) => x !== s)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[160px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Keterangan */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              KETERANGAN
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari keterangan..."
+                              value={filterKeterangan}
+                              onChange={(e) =>
+                                setFilterKeterangan(e.target.value)
+                              }
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Urgensi */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              URGENSI
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari urgensi..."
+                              value={urgensiSearchTerm}
+                              onChange={(e) =>
+                                setUrgensiSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueUrgensi
+                                .filter((u) =>
+                                  u
+                                    .toLowerCase()
+                                    .includes(urgensiSearchTerm.toLowerCase())
+                                )
+                                .map((u) => (
+                                  <div
+                                    key={u}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterUrgensi.includes(u)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterUrgensi([...filterUrgensi, u]);
+                                        else
+                                          setFilterUrgensi(
+                                            filterUrgensi.filter((x) => x !== u)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{u}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Divisi */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              DIVISI
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari divisi..."
+                              value={divisiSearchTerm}
+                              onChange={(e) =>
+                                setDivisiSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueDivisi
+                                .filter((d) =>
+                                  d
+                                    .toLowerCase()
+                                    .includes(divisiSearchTerm.toLowerCase())
+                                )
+                                .map((d) => (
+                                  <div
+                                    key={d}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterDivisi.includes(d)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterDivisi([...filterDivisi, d]);
+                                        else
+                                          setFilterDivisi(
+                                            filterDivisi.filter((x) => x !== d)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{d}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Status */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              STATUS
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari status..."
+                              value={statusSearchTerm}
+                              onChange={(e) =>
+                                setStatusSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueStatus
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(statusSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterStatus.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterStatus([...filterStatus, s]);
+                                        else
+                                          setFilterStatus(
+                                            filterStatus.filter((x) => x !== s)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {/* Dibuat Oleh */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              DIBUAT OLEH
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari pembuat..."
+                              value={dibuatOlehSearchTerm}
+                              onChange={(e) =>
+                                setDibuatOlehSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueDibuatOleh
+                                .filter((d) =>
+                                  d
+                                    .toLowerCase()
+                                    .includes(dibuatOlehSearchTerm.toLowerCase())
+                                )
+                                .map((d) => (
+                                  <div
+                                    key={d}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterDibuatOleh.includes(d)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterDibuatOleh([
+                                            ...filterDibuatOleh,
+                                            d,
+                                          ]);
+                                        else
+                                          setFilterDibuatOleh(
+                                            filterDibuatOleh.filter(
+                                              (x) => x !== d
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{d}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      {/* <TableHead
+                        className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              SKEMA
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari skema..."
+                              value={skemaSearchTerm}
+                              onChange={(e) => setSkemaSearchTerm(e.target.value)}
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueSkema
+                                .filter((s) =>
+                                  String(s)
+                                    .toLowerCase()
+                                    .includes(skemaSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSkema.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSkema([...filterSkema, s]);
+                                        else
+                                          setFilterSkema(
+                                            filterSkema.filter((x) => x !== s)
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead> */}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedData.map((pr) => {
+                      const filteredItems =
+                        pr.items?.filter((item) => item.jumlah > 0) || [];
+                      if (filteredItems.length === 0) return null;
+                      const prId = String(pr.id_PR);
+                      const selectedItemIds = selectedItemsMap[prId] || [];
+                      return (
+                        <React.Fragment key={prId}>
+                          {filteredItems.map((item, idx) => (
+                            <TableRow key={`${prId}-item-${item.id}`} className="hover:bg-gray-50 transition-colors">
+                              {/* Checkbox PR-level hanya di baris pertama PR */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
                                   <Checkbox
-                                    checked={filterNoPR.includes(no)}
+                                    checked={
+                                      isAllItemsSelected(pr)
+                                        ? true
+                                        : isSomeItemsSelected(pr)
+                                          ? "indeterminate"
+                                          : false
+                                    }
                                     onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterNoPR([...filterNoPR, no]);
-                                      else
-                                        setFilterNoPR(
-                                          filterNoPR.filter((x) => x !== no)
-                                        );
+                                      const allItemIds = filteredItems.map((it) =>
+                                        String(it.id)
+                                      );
+                                      setSelectedItemsMap((prev) => ({
+                                        ...prev,
+                                        [prId]: checked ? allItemIds : [],
+                                      }));
+                                      setSelectedPRsForProcess((prev) =>
+                                        checked
+                                          ? prev.includes(prId)
+                                            ? prev
+                                            : [...prev, prId]
+                                          : prev.filter((id) => id !== prId)
+                                      );
                                     }}
                                   />
-                                  <Label className="text-sm">{no}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                      <div className="text-xs text-muted-foreground mt-1">(Terbaru di atas)</div>
-                    </TableHead>
-                    {/* Tanggal PR */}
-                    <TableHead className="min-w-[140px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Tanggal PR
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari tanggal..."
-                            value={tanggalPRSearchTerm}
-                            onChange={(e) =>
-                              setTanggalPRSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueTanggalPR
-                              .filter((tgl) =>
-                                tgl
-                                  .toLowerCase()
-                                  .includes(tanggalPRSearchTerm.toLowerCase())
-                              )
-                              .map((tgl) => (
-                                <div
-                                  key={tgl}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterTanggalPR.includes(tgl)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterTanggalPR([
-                                          ...filterTanggalPR,
-                                          tgl,
-                                        ]);
-                                      else
-                                        setFilterTanggalPR(
-                                          filterTanggalPR.filter(
-                                            (x) => x !== tgl
-                                          )
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{tgl}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Nama Barang */}
-                    <TableHead className="min-w-[180px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Nama Barang
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari barang..."
-                            value={filterNamaBarang}
-                            onChange={(e) =>
-                              setFilterNamaBarang(e.target.value)
-                            }
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Qty */}
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Quantity PR
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari Qty..."
-                            value={filterQtySearchTerm}
-                            onChange={(e) =>
-                              setFilterQtySearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueQty
-                              .filter((qty) =>
-                                String(qty)
-                                  .toLowerCase()
-                                  .includes(filterQtySearchTerm.toLowerCase())
-                              )
-                              .map((qty) => (
-                                <div
-                                  key={qty}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterQty.includes(qty)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterQty([...filterQty, qty]);
-                                      else
-                                        setFilterQty(
-                                          filterQty.filter((x) => x !== qty)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{qty}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Satuan */}
-                    <TableHead className="min-w-[90px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Satuan
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari satuan..."
-                            value={satuanSearchTerm}
-                            onChange={(e) =>
-                              setSatuanSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueSatuan
-                              .filter((s) =>
-                                s
-                                  .toLowerCase()
-                                  .includes(satuanSearchTerm.toLowerCase())
-                              )
-                              .map((s) => (
-                                <div
-                                  key={s}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterSatuan.includes(s)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterSatuan([...filterSatuan, s]);
-                                      else
-                                        setFilterSatuan(
-                                          filterSatuan.filter((x) => x !== s)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{s}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Keterangan */}
-                    <TableHead className="min-w-[160px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Keterangan
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari keterangan..."
-                            value={filterKeterangan}
-                            onChange={(e) =>
-                              setFilterKeterangan(e.target.value)
-                            }
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Urgensi */}
-                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Urgensi
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari urgensi..."
-                            value={urgensiSearchTerm}
-                            onChange={(e) =>
-                              setUrgensiSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueUrgensi
-                              .filter((u) =>
-                                u
-                                  .toLowerCase()
-                                  .includes(urgensiSearchTerm.toLowerCase())
-                              )
-                              .map((u) => (
-                                <div
-                                  key={u}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterUrgensi.includes(u)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterUrgensi([...filterUrgensi, u]);
-                                      else
-                                        setFilterUrgensi(
-                                          filterUrgensi.filter((x) => x !== u)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{u}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Divisi */}
-                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Divisi
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari divisi..."
-                            value={divisiSearchTerm}
-                            onChange={(e) =>
-                              setDivisiSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueDivisi
-                              .filter((d) =>
-                                d
-                                  .toLowerCase()
-                                  .includes(divisiSearchTerm.toLowerCase())
-                              )
-                              .map((d) => (
-                                <div
-                                  key={d}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterDivisi.includes(d)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterDivisi([...filterDivisi, d]);
-                                      else
-                                        setFilterDivisi(
-                                          filterDivisi.filter((x) => x !== d)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{d}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Status */}
-                    <TableHead className="min-w-[100px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Status
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari status..."
-                            value={statusSearchTerm}
-                            onChange={(e) =>
-                              setStatusSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueStatus
-                              .filter((s) =>
-                                s
-                                  .toLowerCase()
-                                  .includes(statusSearchTerm.toLowerCase())
-                              )
-                              .map((s) => (
-                                <div
-                                  key={s}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterStatus.includes(s)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterStatus([...filterStatus, s]);
-                                      else
-                                        setFilterStatus(
-                                          filterStatus.filter((x) => x !== s)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{s}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Dibuat Oleh */}
-                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Dibuat Oleh
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari pembuat..."
-                            value={dibuatOlehSearchTerm}
-                            onChange={(e) =>
-                              setDibuatOlehSearchTerm(e.target.value)
-                            }
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueDibuatOleh
-                              .filter((d) =>
-                                d
-                                  .toLowerCase()
-                                  .includes(dibuatOlehSearchTerm.toLowerCase())
-                              )
-                              .map((d) => (
-                                <div
-                                  key={d}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterDibuatOleh.includes(d)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterDibuatOleh([
-                                          ...filterDibuatOleh,
-                                          d,
-                                        ]);
-                                      else
-                                        setFilterDibuatOleh(
-                                          filterDibuatOleh.filter(
-                                            (x) => x !== d
-                                          )
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{d}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                    {/* Skema */}
-                    <TableHead className="min-w-[120px] border border-gray-300 px-4 py-3 text-center">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" className="h-auto p-0 font-medium">
-                            Skema
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-48 p-2 bg-white">
-                          <Input
-                            placeholder="Cari skema..."
-                            value={skemaSearchTerm}
-                            onChange={(e) => setSkemaSearchTerm(e.target.value)}
-                          />
-                          <div className="max-h-40 overflow-y-auto mt-2">
-                            {uniqueSkema
-                              .filter((s) =>
-                                String(s)
-                                  .toLowerCase()
-                                  .includes(skemaSearchTerm.toLowerCase())
-                              )
-                              .map((s) => (
-                                <div
-                                  key={s}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    checked={filterSkema.includes(s)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterSkema([...filterSkema, s]);
-                                      else
-                                        setFilterSkema(
-                                          filterSkema.filter((x) => x !== s)
-                                        );
-                                    }}
-                                  />
-                                  <Label className="text-sm">{s}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedData.map((pr) => {
-                    const filteredItems =
-                      pr.items?.filter((item) => item.jumlah > 0) || [];
-                    if (filteredItems.length === 0) return null;
-                    const prId = String(pr.id_PR);
-                    const selectedItemIds = selectedItemsMap[prId] || [];
-                    return (
-                      <React.Fragment key={prId}>
-                        {filteredItems.map((item, idx) => (
-                          <TableRow key={`${prId}-item-${item.id}`} className="hover:bg-gray-50 transition-colors">
-                            {/* Checkbox PR-level hanya di baris pertama PR */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                                </TableCell>
+                              ) : null}
+                              {/* No. PR hanya di baris pertama */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
+                                  {pr.noPR}
+                                </TableCell>
+                              ) : null}
+                              {/* Tanggal PR hanya di baris pertama */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  {formatTanggal(pr.tanggalPR)}
+                                </TableCell>
+                              ) : null}
+                              {/* Nama Barang */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
                                 <Checkbox
-                                  checked={isAllItemsSelected(pr)}
-                                  {...(isSomeItemsSelected(pr)
-                                    ? { indeterminate: true }
-                                    : {})}
+                                  checked={selectedItemIds.includes(
+                                    String(item.id)
+                                  )}
                                   onCheckedChange={(checked) => {
-                                    const allItemIds = filteredItems.map((it) =>
-                                      String(it.id)
-                                    );
-                                    setSelectedItemsMap((prev) => ({
-                                      ...prev,
-                                      [prId]: checked ? allItemIds : [],
-                                    }));
-                                    setSelectedPRsForProcess((prev) =>
-                                      checked
-                                        ? prev.includes(prId)
-                                          ? prev
-                                          : [...prev, prId]
-                                        : prev.filter((id) => id !== prId)
-                                    );
+                                    setSelectedItemsMap((prev) => {
+                                      const cur = new Set(prev[prId] || []);
+                                      if (checked) cur.add(String(item.id));
+                                      else cur.delete(String(item.id));
+                                      const newArr = Array.from(cur);
+                                      setSelectedPRsForProcess((prevPRs) => {
+                                        if (
+                                          newArr.length > 0 &&
+                                          !prevPRs.includes(prId)
+                                        )
+                                          return [...prevPRs, prId];
+                                        if (newArr.length === 0)
+                                          return prevPRs.filter(
+                                            (id) => id !== prId
+                                          );
+                                        return prevPRs;
+                                      });
+                                      return { ...prev, [prId]: newArr };
+                                    });
                                   }}
                                 />
+                                <span className="ml-2">{item.namaBarang}</span>
                               </TableCell>
-                            ) : null}
-                            {/* No. PR hanya di baris pertama */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                {pr.noPR}
+                              {/* Qty */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
+                                {Number(item.jumlah) % 1 === 0
+                                  ? parseInt(item.jumlah)
+                                  : item.jumlah}
                               </TableCell>
-                            ) : null}
-                            {/* Tanggal PR hanya di baris pertama */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                {formatTanggal(pr.tanggalPR)}
+                              {/* Satuan */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
+                              {/* Keterangan */}
+                              <TableCell className="border border-gray-300 px-4 py-3 text-left">
+                                <div
+                                  className="max-w-xs truncate text-sm text-muted-foreground"
+                                  title={item.keterangan}
+                                >
+                                  {/* Batasi maksimal 20 karakter */}
+                                  {item.keterangan && item.keterangan.length > 20
+                                    ? item.keterangan.slice(0, 20) + "..."
+                                    : item.keterangan}
+                                </div>
                               </TableCell>
-                            ) : null}
-                            {/* Nama Barang */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
-                              <Checkbox
-                                checked={selectedItemIds.includes(
-                                  String(item.id)
-                                )}
-                                onCheckedChange={(checked) => {
-                                  setSelectedItemsMap((prev) => {
-                                    const cur = new Set(prev[prId] || []);
-                                    if (checked) cur.add(String(item.id));
-                                    else cur.delete(String(item.id));
-                                    const newArr = Array.from(cur);
-                                    setSelectedPRsForProcess((prevPRs) => {
-                                      if (
-                                        newArr.length > 0 &&
-                                        !prevPRs.includes(prId)
-                                      )
-                                        return [...prevPRs, prId];
-                                      if (newArr.length === 0)
-                                        return prevPRs.filter(
-                                          (id) => id !== prId
-                                        );
-                                      return prevPRs;
-                                    });
-                                    return { ...prev, [prId]: newArr };
-                                  });
-                                }}
-                              />
-                              <span className="ml-2">{item.namaBarang}</span>
-                              </TableCell>
-                            {/* Qty */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
-                              {Number(item.jumlah) % 1 === 0
-                                ? parseInt(item.jumlah)
-                                : item.jumlah}
-                            </TableCell>
-                            {/* Satuan */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">{item.satuan}</TableCell>
-                            {/* Keterangan */}
-                            <TableCell className="border border-gray-300 px-4 py-3 text-left">
-                              <div
-                                className="max-w-xs truncate text-sm text-muted-foreground"
-                                title={item.keterangan}
-                              >
-                                {/* Batasi maksimal 20 karakter */}
-                                {item.keterangan && item.keterangan.length > 20
-                                  ? item.keterangan.slice(0, 20) + "..."
-                                  : item.keterangan}
-                              </div>
-                            </TableCell>
-                            {/* Urgensi hanya di baris pertama */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                {getUrgensiBadge(pr.urgensi)}
-                              </TableCell>
-                            ) : null}
-                            {/* Divisi hanya di baris pertama */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                {pr.divisi}
-                              </TableCell>
-                            ) : null}
-                            {/* Status hanya di baris pertama */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                {getStatusBadge(pr.status)}
-                              </TableCell>
-                            ) : null}
-                  {/* Dibuat Oleh hanya di baris pertama */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                {pr.dibuatOleh}
-                              </TableCell>
-                            ) : null}
-                            {/* Skema hanya di baris pertama */}
-                            {idx === 0 ? (
-                              <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
-                                {pr.skemaLabel || pr.skema}
-                              </TableCell>
-                            ) : null}
-                          </TableRow>
-                        ))}
-                      </React.Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-              {/* Sticky scrollbar baru - abu-abu rokok */}
-             <div 
-              className="sticky bottom-0 left-0 right-0 z-30 bg-gray-100 border-t border-gray-300"
-              style={{ 
-                height: '16px',
-                overflowX: 'auto',
-                overflowY: 'hidden'
-              }}
-              onScroll={(e) => {
-                if (tableWrapperRef.current) {
-                  tableWrapperRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                              {/* Urgensi hanya di baris pertama */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  {getUrgensiBadge(pr.urgensi)}
+                                </TableCell>
+                              ) : null}
+                              {/* Divisi hanya di baris pertama */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  {pr.divisi}
+                                </TableCell>
+                              ) : null}
+                              {/* Status hanya di baris pertama */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  {getStatusBadge(pr.status)}
+                                </TableCell>
+                              ) : null}
+                              {/* Dibuat Oleh hanya di baris pertama */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  {pr.dibuatOleh}
+                                </TableCell>
+                              ) : null}
+                              {/* Skema hanya di baris pertama */}
+                              {/* {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  {pr.skemaLabel || pr.skema}
+                                </TableCell>
+                              ) : null} */}
+                            </TableRow>
+                          ))}
+                        </React.Fragment>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              {/* Sticky scrollbar horizontal (optional, can be kept if needed) */}
+              {/* Removed fake sticky scrollbar */}
+              <style jsx>{`
+                .sticky {
+                  position: sticky !important;
                 }
-              }}
-            >
-              <div 
-                style={{ 
-                  height: '1px',
-                  width: tableWrapperRef.current?.scrollWidth || '2000px'
-                }}
-              />
-            </div>
-
-            <style jsx>{`
-              .sticky {
-                position: sticky !important;
-              }
-              
-              div[class*="sticky"]::-webkit-scrollbar {
-                height: 12px;
-              }
-              
-              div[class*="sticky"]::-webkit-scrollbar-thumb {
-                background-color: #8b8b8b;
-                border-radius: 6px;
-              }
-              
-              div[class*="sticky"]::-webkit-scrollbar-track {
-                background: #e5e7eb;
-              }
-            `}</style>
+                div[class*="sticky"]::-webkit-scrollbar {
+                  height: 12px;
+                }
+                div[class*="sticky"]::-webkit-scrollbar-thumb {
+                  background-color: #8b8b8b;
+                  border-radius: 6px;
+                }
+                div[class*="sticky"]::-webkit-scrollbar-track {
+                  background: #e5e7eb;
+                }
+                /* Custom vertical scrollbar for table */
+                [data-custom-vertical-scroll]::-webkit-scrollbar {
+                  width: 10px;
+                  height: 10px; /* Style horizontal scrollbar too */
+                }
+                [data-custom-vertical-scroll]::-webkit-scrollbar-thumb {
+                  background: #8b8b8b; /* Darker gray */
+                  border-radius: 6px;
+                }
+                [data-custom-vertical-scroll]::-webkit-scrollbar-track {
+                  background: #e5e7eb; /* Light gray */
+                }
+              `}</style>
             </div>
           </CardContent>
         </Card>
@@ -1579,6 +1771,6 @@ export default function StatusPOPage() {
           </PaginationContent>
         </Pagination>
       </div>
-    </MainLayout>
+    </MainLayout >
   );
 }

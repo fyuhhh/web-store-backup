@@ -3,32 +3,50 @@ import db from "../config/database.js";
 
 const router = express.Router();
 
-// Helper: hitung tanggal +N hari kerja (skip Sabtu/Minggu)
-function addWorkingDays(startDateStr, days) {
-  // Support dd-mm-yyyy dan yyyy-mm-dd
+// Helper: hitung tanggal +N hari kerja (skip Sabtu/Minggu & Libur DB)
+async function calculateEstimatePO(conn, startDateStr, days) {
+  // Parsing date
   let date;
   if (/^\d{2}-\d{2}-\d{4}$/.test(startDateStr)) {
     const [d, m, y] = startDateStr.split("-");
     date = new Date(`${y}-${m}-${d}`);
-  } else if (/^\d{4}-\d{2}-\d{2}$/.test(startDateStr)) {
-    date = new Date(startDateStr);
   } else {
     date = new Date(startDateStr);
   }
+
+  // Fetch holidays from DB (simple cache-less approach for now)
+  const [holidaysRaw] = await conn.query("SELECT tanggal FROM holidays");
+  // Set YYYY-MM-DD
+  const holidaySet = new Set(holidaysRaw.map(h => {
+    // Handle timezone issues by treating date string directly if possible, or robust parsing
+    // Assuming backend returns valid Date object or string
+    const d = new Date(h.tanggal);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  }));
+
   let added = 0;
   while (added < days) {
     date.setDate(date.getDate() + 1);
     const day = date.getDay();
-    if (day !== 0 && day !== 6) {
-      // 0 = Minggu, 6 = Sabtu
+
+    const cy = date.getFullYear();
+    const cm = String(date.getMonth() + 1).padStart(2, '0');
+    const cd = String(date.getDate()).padStart(2, '0');
+    const dateString = `${cy}-${cm}-${cd}`;
+
+    // 0=Minggu, 6=Sabtu
+    if (day !== 0 && day !== 6 && !holidaySet.has(dateString)) {
       added++;
     }
   }
-  // Return dd-mm-yyyy
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  return `${day}-${month}-${year}`;
+
+  const resDd = String(date.getDate()).padStart(2, "0");
+  const resMm = String(date.getMonth() + 1).padStart(2, "0");
+  const resYy = date.getFullYear();
+  return `${resDd}-${resMm}-${resYy}`;
 }
 
 // GET semua PR
@@ -45,6 +63,7 @@ router.get("/", async (req, res) => {
       LEFT JOIN skema ON pr.id_skema = skema.id_skema
       LEFT JOIN divisi ON pr.id_divisi = divisi.id_divisi
       LEFT JOIN urgensi ON pr.id_urgensi = urgensi.id_urgensi
+      ORDER BY pr.id_PR ASC
     `);
     res.json(rows);
   } catch (err) {
@@ -133,7 +152,13 @@ router.post("/", async (req, res) => {
   // --- Hitung estimasipo otomatis (3 hari kerja setelah tanggalPR) ---
   let estimasipo = null;
   if (tanggalPR) {
-    estimasipo = addWorkingDays(tanggalPR, 3);
+    try {
+      estimasipo = await calculateEstimatePO(db, tanggalPR, 3);
+    } catch (e) {
+      console.error("Error calculating estimate:", e);
+      // Fallback if db fails (shouldn't happen)
+      estimasipo = null;
+    }
   }
 
   try {

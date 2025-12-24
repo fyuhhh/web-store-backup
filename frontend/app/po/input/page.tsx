@@ -492,7 +492,7 @@ export default function InputPOPage() {
         setEditSupplierId(null);
         setEditSupplierValue("");
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler hapus supplier
@@ -508,7 +508,7 @@ export default function InputPOPage() {
           .then((res) => res.json())
           .then((data) => setSupplierOptions(data));
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler edit status pengiriman
@@ -532,7 +532,7 @@ export default function InputPOPage() {
         setEditStatusPengirimanId(null);
         setEditStatusPengirimanValue("");
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler hapus status pengiriman
@@ -551,12 +551,26 @@ export default function InputPOPage() {
           .then((res) => res.json())
           .then((data) => setStatusPengirimanOptions(data));
       }
-    } catch {}
+    } catch { }
   };
 
   // Handler submit PO
   const handleCreatePO = async () => {
-    if (!poFormData.supplier.trim()) {
+    // Pastikan tidak sedang menambah supplier/status pengiriman
+    if (showAddSupplier || showAddStatusPengiriman) {
+      setNotif({
+        type: "error",
+        message:
+          "Selesaikan penambahan Supplier/Status Pengiriman terlebih dahulu sebelum menyimpan PO.",
+      });
+      setTimeout(() => setNotif(null), 2500);
+      return;
+    }
+    // Perbaiki pengecekan supplier agar tidak error jika supplier bukan string
+    if (
+      !poFormData.supplier ||
+      (typeof poFormData.supplier === "string" && poFormData.supplier.trim() === "")
+    ) {
       setNotif({ type: "error", message: "Supplier harus diisi!" });
       setTimeout(() => setNotif(null), 2500);
       return;
@@ -566,7 +580,6 @@ export default function InputPOPage() {
       setTimeout(() => setNotif(null), 2500);
       return;
     }
-
     if (poItems.length === 0) {
       setNotif({ type: "error", message: "Minimal satu item harus dipilih!" });
       setTimeout(() => setNotif(null), 2500);
@@ -1035,16 +1048,16 @@ export default function InputPOPage() {
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
-              ...pItem,
-              items: pItem.items.map((i) =>
-                i.id === itemId
-                  ? {
-                      ...i,
-                      hargaSatuan: cleanValue,
-                    }
-                  : i
-              ),
-            }
+            ...pItem,
+            items: pItem.items.map((i) =>
+              i.id === itemId
+                ? {
+                  ...i,
+                  hargaSatuan: cleanValue,
+                }
+                : i
+            ),
+          }
           : pItem
       )
     );
@@ -1056,18 +1069,18 @@ export default function InputPOPage() {
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
-              ...pItem,
-              items: pItem.items.map((i) => {
-                if (i.id === itemId) {
-                  const maxQty = Number(i.jumlahAsli);
-                  // Pastikan hanya integer bulat, tidak ribuan/desimal
-                  let newQty = Math.max(0, Math.floor(Number(value)) || 0);
-                  if (newQty > maxQty) newQty = maxQty;
-                  return { ...i, jumlahPO: newQty };
-                }
-                return i;
-              }),
-            }
+            ...pItem,
+            items: pItem.items.map((i) => {
+              if (i.id === itemId) {
+                const maxQty = Number(i.jumlahAsli);
+                // Pastikan hanya integer bulat, tidak ribuan/desimal
+                let newQty = Math.max(0, Math.floor(Number(value)) || 0);
+                if (newQty > maxQty) newQty = maxQty;
+                return { ...i, jumlahPO: newQty };
+              }
+              return i;
+            }),
+          }
           : pItem
       )
     );
@@ -1091,47 +1104,47 @@ export default function InputPOPage() {
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
-              ...pItem,
-              items: pItem.items.map((i) => {
-                if (i.id === itemId) {
-                  // Hitung total diskon nominal dari persen
-                  // Support decimal hargaSatuan
-                  let harga = 0;
-                  if (typeof i.hargaSatuan === "string") {
-                    const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
-                    harga = parseFloat(normalized) || 0;
-                  } else {
-                    harga = Number(i.hargaSatuan) || 0;
-                  }
-                  const qty = Number(i.jumlahPO) || 0;
-                  const ppn = Number(i.ppnItem) || 0;
-                  const itemSubtotal = harga * qty;
-                  // Stack diskon persen
-                  let currentAmount = itemSubtotal;
-                  let diskonAmount = 0;
-                  const diskonPersenArr = value
-                    .split("+")
-                    .map((d) => d.trim())
-                    .filter((d) => d.endsWith("%"))
-                    .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-                    .filter((v) => v !== null && !isNaN(v));
-                  diskonPersenArr.forEach((persen) => {
-                    const amount = currentAmount * (persen / 100);
-                    diskonAmount += amount;
-                    currentAmount -= amount;
-                  });
-                  // Update diskonNominal (Rp) hasil konversi
-                  return {
-                    ...i,
-                    diskonPersen: value,
-                    diskonNominal: diskonAmount
-                      ? Math.round(diskonAmount).toString()
-                      : "",
-                  };
+            ...pItem,
+            items: pItem.items.map((i) => {
+              if (i.id === itemId) {
+                // Hitung total diskon nominal dari persen
+                // Support decimal hargaSatuan
+                let harga = 0;
+                if (typeof i.hargaSatuan === "string") {
+                  const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                  harga = parseFloat(normalized) || 0;
+                } else {
+                  harga = Number(i.hargaSatuan) || 0;
                 }
-                return i;
-              }),
-            }
+                const qty = Number(i.jumlahPO) || 0;
+                const ppn = Number(i.ppnItem) || 0;
+                const itemSubtotal = harga * qty;
+                // Stack diskon persen
+                let currentAmount = itemSubtotal;
+                let diskonAmount = 0;
+                const diskonPersenArr = value
+                  .split("+")
+                  .map((d) => d.trim())
+                  .filter((d) => d.endsWith("%"))
+                  .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
+                  .filter((v) => v !== null && !isNaN(v));
+                diskonPersenArr.forEach((persen) => {
+                  const amount = currentAmount * (persen / 100);
+                  diskonAmount += amount;
+                  currentAmount -= amount;
+                });
+                // Update diskonNominal (Rp) hasil konversi
+                return {
+                  ...i,
+                  diskonPersen: value,
+                  diskonNominal: diskonAmount
+                    ? Math.round(diskonAmount).toString()
+                    : "",
+                };
+              }
+              return i;
+            }),
+          }
           : pItem
       )
     );
@@ -1151,36 +1164,36 @@ export default function InputPOPage() {
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
-              ...pItem,
-              items: pItem.items.map((i) => {
-                if (i.id === itemId) {
-                  // Hitung diskon persen hasil konversi dari nominal
-                  let harga = 0;
-                  if (typeof i.hargaSatuan === "string") {
-                    const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
-                    harga = parseFloat(normalized) || 0;
-                  } else {
-                    harga = Number(i.hargaSatuan) || 0;
-                  }
-                  const qty = Number(i.jumlahPO) || 0;
-                  const itemSubtotal = harga * qty;
-                  // Support decimal diskonNominal
-                  const diskonNominal = parseFloat(value.replace(",", ".")) || 0;
-                  let diskonPersen = "";
-                  if (itemSubtotal > 0 && diskonNominal > 0) {
-                    const persen = (diskonNominal / itemSubtotal) * 100;
-                    diskonPersen =
-                      persen % 1 === 0 ? `${persen.toFixed(0)}%` : `${persen}%`;
-                  }
-                  return {
-                    ...i,
-                    diskonNominal: value,
-                    diskonPersen: diskonPersen,
-                  };
+            ...pItem,
+            items: pItem.items.map((i) => {
+              if (i.id === itemId) {
+                // Hitung diskon persen hasil konversi dari nominal
+                let harga = 0;
+                if (typeof i.hargaSatuan === "string") {
+                  const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                  harga = parseFloat(normalized) || 0;
+                } else {
+                  harga = Number(i.hargaSatuan) || 0;
                 }
-                return i;
-              }),
-            }
+                const qty = Number(i.jumlahPO) || 0;
+                const itemSubtotal = harga * qty;
+                // Support decimal diskonNominal
+                const diskonNominal = parseFloat(value.replace(",", ".")) || 0;
+                let diskonPersen = "";
+                if (itemSubtotal > 0 && diskonNominal > 0) {
+                  const persen = (diskonNominal / itemSubtotal) * 100;
+                  diskonPersen =
+                    persen % 1 === 0 ? `${persen.toFixed(0)}%` : `${persen}%`;
+                }
+                return {
+                  ...i,
+                  diskonNominal: value,
+                  diskonPersen: diskonPersen,
+                };
+              }
+              return i;
+            }),
+          }
           : pItem
       )
     );
@@ -1196,16 +1209,16 @@ export default function InputPOPage() {
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
-              ...pItem,
-              items: pItem.items.map((i) =>
-                i.id === itemId
-                  ? {
-                      ...i,
-                      ppnItem: value === "" ? "" : Number(value),
-                    }
-                  : i
-              ),
-            }
+            ...pItem,
+            items: pItem.items.map((i) =>
+              i.id === itemId
+                ? {
+                  ...i,
+                  ppnItem: value === "" ? "" : Number(value),
+                }
+                : i
+            ),
+          }
           : pItem
       )
     );
@@ -1296,10 +1309,9 @@ export default function InputPOPage() {
         {notif && (
           <div
             className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
-              ${
-                notif.type === "success"
-                  ? "bg-green-600 text-white"
-                  : "bg-red-600 text-white"
+              ${notif.type === "success"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
               }`}
             style={{ minWidth: 280, maxWidth: 400 }}
           >
@@ -1384,13 +1396,13 @@ export default function InputPOPage() {
                             ? typeof poFormData.tanggalPO === "string"
                               ? poFormData.tanggalPO
                               : `${String(
-                                  poFormData.tanggalPO.getDate()
-                                ).padStart(2, "0")}-${String(
-                                  poFormData.tanggalPO.getMonth() + 1
-                                ).padStart(
-                                  2,
-                                  "0"
-                                )}-${poFormData.tanggalPO.getFullYear()}`
+                                poFormData.tanggalPO.getDate()
+                              ).padStart(2, "0")}-${String(
+                                poFormData.tanggalPO.getMonth() + 1
+                              ).padStart(
+                                2,
+                                "0"
+                              )}-${poFormData.tanggalPO.getFullYear()}`
                             : ""
                         }
                         readOnly
@@ -1427,14 +1439,14 @@ export default function InputPOPage() {
                         value={
                           poFormData.estimasiTanggalDiterima
                             ? `${String(
-                                poFormData.estimasiTanggalDiterima.getDate()
-                              ).padStart(2, "0")}-${String(
-                                poFormData.estimasiTanggalDiterima.getMonth() +
-                                  1
-                              ).padStart(
-                                2,
-                                "0"
-                              )}-${poFormData.estimasiTanggalDiterima.getFullYear()}`
+                              poFormData.estimasiTanggalDiterima.getDate()
+                            ).padStart(2, "0")}-${String(
+                              poFormData.estimasiTanggalDiterima.getMonth() +
+                              1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}-${poFormData.estimasiTanggalDiterima.getFullYear()}`
                             : ""
                         }
                         readOnly
@@ -1463,28 +1475,14 @@ export default function InputPOPage() {
                     </SelectTrigger>
                     <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
                       <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                        <Input
-                          placeholder="Cari supplier..."
-                          value={supplierSearch}
-                          onChange={(e) => setSupplierSearch(e.target.value)}
-                          className="mb-2"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mb-2 w-full"
-                          onClick={() => setShowAddSupplier((v) => !v)}
-                        >
-                          + Tambahkan Supplier
-                        </Button>
-                        {showAddSupplier && (
+                        {showAddSupplier ? (
                           <div className="flex items-center gap-2 mb-2">
                             <Input
                               placeholder="Nama supplier baru"
                               value={newSupplier}
                               onChange={(e) => setNewSupplier(e.target.value)}
                               className="w-[140px]"
+                              autoFocus
                             />
                             <Button
                               type="button"
@@ -1506,109 +1504,136 @@ export default function InputPOPage() {
                               Batal
                             </Button>
                           </div>
+                        ) : (
+                          <>
+                            <Input
+                              placeholder="Cari supplier..."
+                              value={supplierSearch}
+                              onChange={(e) => setSupplierSearch(e.target.value)}
+                              className="mb-2"
+                              disabled={showAddSupplier}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mb-2 w-full"
+                              onClick={() => setShowAddSupplier(true)}
+                              disabled={showAddSupplier}
+                            >
+                              + Tambahkan Supplier
+                            </Button>
+                          </>
                         )}
                       </div>
-                      {supplierOptions.length === 0 ? (
-                        <SelectItem value="__loading" disabled>
-                          Memuat...
-                        </SelectItem>
-                      ) : (
-                        supplierOptions
-                          .filter((sup: any) =>
-                            sup.namaSupplier
-                              .toLowerCase()
-                              .includes(supplierSearch.toLowerCase())
-                          )
-                          .map((sup: any) => (
-                            <div
-                              key={sup.id_supplier}
-                              className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                            >
-                              {editSupplierId === String(sup.id_supplier) ? (
-                                <>
-                                  <Input
-                                    value={editSupplierValue}
-                                    onChange={(e) =>
-                                      setEditSupplierValue(e.target.value)
-                                    }
-                                    className="w-[90px] h-7 text-xs"
-                                  />
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    className="px-2 py-1 text-xs bg-primary text-white"
-                                    onClick={() =>
-                                      handleEditSupplier(
-                                        String(sup.id_supplier)
-                                      )
-                                    }
-                                  >
-                                    Simpan
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    className="px-2 py-1 text-xs"
-                                    onClick={() => {
-                                      setEditSupplierId(null);
-                                      setEditSupplierValue("");
-                                    }}
-                                  >
-                                    Batal
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <SelectItem
+                      {showAddSupplier
+                        ? null
+                        : (
+                          <>
+                            {supplierOptions.length === 0 ? (
+                              <SelectItem value="__loading" disabled>
+                                Memuat...
+                              </SelectItem>
+                            ) : (
+                              supplierOptions
+                                .filter((sup: any) =>
+                                  sup.namaSupplier
+                                    .toLowerCase()
+                                    .includes(supplierSearch.toLowerCase())
+                                )
+                                .map((sup: any) => (
+                                  <div
                                     key={sup.id_supplier}
-                                    value={String(sup.id_supplier)}
-                                    className="flex-1"
+                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
                                   >
-                                    {sup.namaSupplier}
-                                  </SelectItem>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    className="text-xs text-blue-600 px-1 py-0.5"
-                                    onClick={() => {
-                                      setEditSupplierId(
-                                        String(sup.id_supplier)
-                                      );
-                                      setEditSupplierValue(sup.namaSupplier);
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    className="text-xs text-red-600 px-1 py-0.5"
-                                    onClick={() =>
-                                      handleDeleteSupplier(
-                                        String(sup.id_supplier)
-                                      )
-                                    }
-                                  >
-                                    Hapus
-                                  </Button>
-                                </>
+                                    {editSupplierId === String(sup.id_supplier) ? (
+                                      <>
+                                        <Input
+                                          value={editSupplierValue}
+                                          onChange={(e) =>
+                                            setEditSupplierValue(e.target.value)
+                                          }
+                                          className="w-[90px] h-7 text-xs"
+                                          disabled={showAddSupplier}
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          className="px-2 py-1 text-xs bg-primary text-white"
+                                          onClick={() =>
+                                            handleEditSupplier(String(sup.id_supplier))
+                                          }
+                                          disabled={showAddSupplier}
+                                        >
+                                          Simpan
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="outline"
+                                          className="px-2 py-1 text-xs"
+                                          onClick={() => {
+                                            setEditSupplierId(null);
+                                            setEditSupplierValue("");
+                                          }}
+                                          disabled={showAddSupplier}
+                                        >
+                                          Batal
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <SelectItem
+                                          key={sup.id_supplier}
+                                          value={String(sup.id_supplier)}
+                                          className="flex-1"
+                                          disabled={showAddSupplier}
+                                        >
+                                          {sup.namaSupplier}
+                                        </SelectItem>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="ghost"
+                                          className="text-xs text-blue-600 px-1 py-0.5"
+                                          onClick={() => {
+                                            setEditSupplierId(String(sup.id_supplier));
+                                            setEditSupplierValue(sup.namaSupplier);
+                                          }}
+                                          disabled={showAddSupplier}
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="ghost"
+                                          className="text-xs text-red-600 px-1 py-0.5"
+                                          onClick={() =>
+                                            handleDeleteSupplier(String(sup.id_supplier))
+                                          }
+                                          disabled={showAddSupplier}
+                                        >
+                                          Hapus
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                ))
+                            )}
+                            {supplierOptions.length > 0 &&
+                              supplierOptions.filter((sup: any) =>
+                                sup.namaSupplier
+                                  .toLowerCase()
+                                  .includes(supplierSearch.toLowerCase())
+                              ).length === 0 && (
+                                <SelectItem value="__notfound" disabled>
+                                  Data tidak ditemukan
+                                </SelectItem>
                               )}
-                            </div>
-                          ))
-                      )}
-                      {supplierOptions.length > 0 &&
-                        supplierOptions.filter((sup: any) =>
-                          sup.namaSupplier
-                            .toLowerCase()
-                            .includes(supplierSearch.toLowerCase())
-                        ).length === 0 && (
-                          <SelectItem value="__notfound" disabled>
-                            Data tidak ditemukan
-                          </SelectItem>
-                        )}
+                          </>
+                        )
+                      }
                     </SelectContent>
                   </Select>
                 </div>
@@ -1632,32 +1657,14 @@ export default function InputPOPage() {
                     </SelectTrigger>
                     <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
                       <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                        <Input
-                          placeholder="Cari status pengiriman..."
-                          value={statusPengirimanSearch}
-                          onChange={(e) =>
-                            setStatusPengirimanSearch(e.target.value)
-                          }
-                          className="mb-2"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mb-2 w-full"
-                          onClick={() => setShowAddStatusPengiriman((v) => !v)}
-                        >
-                          + Tambahkan Status Pengiriman
-                        </Button>
-                        {showAddStatusPengiriman && (
+                        {showAddStatusPengiriman ? (
                           <div className="flex items-center gap-2 mb-2">
                             <Input
                               placeholder="Status pengiriman baru"
                               value={newStatusPengiriman}
-                              onChange={(e) =>
-                                setNewStatusPengiriman(e.target.value)
-                              }
+                              onChange={(e) => setNewStatusPengiriman(e.target.value)}
                               className="w-[140px]"
+                              autoFocus
                             />
                             <Button
                               type="button"
@@ -1679,114 +1686,136 @@ export default function InputPOPage() {
                               Batal
                             </Button>
                           </div>
+                        ) : (
+                          <>
+                            <Input
+                              placeholder="Cari status pengiriman..."
+                              value={statusPengirimanSearch}
+                              onChange={(e) => setStatusPengirimanSearch(e.target.value)}
+                              className="mb-2"
+                              disabled={showAddStatusPengiriman}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mb-2 w-full"
+                              onClick={() => setShowAddStatusPengiriman(true)}
+                              disabled={showAddStatusPengiriman}
+                            >
+                              + Tambahkan Status Pengiriman
+                            </Button>
+                          </>
                         )}
                       </div>
-                      {statusPengirimanOptions.length === 0 ? (
-                        <SelectItem value="__loading" disabled>
-                          Memuat...
-                        </SelectItem>
-                      ) : (
-                        statusPengirimanOptions
-                          .filter((opt: any) =>
-                            opt.status_pengiriman
-                              .toLowerCase()
-                              .includes(statusPengirimanSearch.toLowerCase())
-                          )
-                          .map((opt: any) => (
-                            <div
-                              key={opt.id_statusPengiriman}
-                              className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                            >
-                              {editStatusPengirimanId ===
-                              String(opt.id_statusPengiriman) ? (
-                                <>
-                                  <Input
-                                    value={editStatusPengirimanValue}
-                                    onChange={(e) =>
-                                      setEditStatusPengirimanValue(
-                                        e.target.value
-                                      )
-                                    }
-                                    className="w-[90px] h-7 text-xs"
-                                  />
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    className="px-2 py-1 text-xs bg-primary text-white"
-                                    onClick={() =>
-                                      handleEditStatusPengiriman(
-                                        String(opt.id_statusPengiriman)
-                                      )
-                                    }
-                                  >
-                                    Simpan
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="outline"
-                                    className="px-2 py-1 text-xs"
-                                    onClick={() => {
-                                      setEditStatusPengirimanId(null);
-                                      setEditStatusPengirimanValue("");
-                                    }}
-                                  >
-                                    Batal
-                                  </Button>
-                                </>
-                              ) : (
-                                <>
-                                  <SelectItem
+                      {showAddStatusPengiriman
+                        ? null
+                        : (
+                          <>
+                            {statusPengirimanOptions.length === 0 ? (
+                              <SelectItem value="__loading" disabled>
+                                Memuat...
+                              </SelectItem>
+                            ) : (
+                              statusPengirimanOptions
+                                .filter((opt: any) =>
+                                  opt.status_pengiriman
+                                    .toLowerCase()
+                                    .includes(statusPengirimanSearch.toLowerCase())
+                                )
+                                .map((opt: any) => (
+                                  <div
                                     key={opt.id_statusPengiriman}
-                                    value={String(opt.id_statusPengiriman)}
-                                    className="flex-1"
+                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
                                   >
-                                    {opt.status_pengiriman}
-                                  </SelectItem>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    className="text-xs text-blue-600 px-1 py-0.5"
-                                    onClick={() => {
-                                      setEditStatusPengirimanId(
-                                        String(opt.id_statusPengiriman)
-                                      );
-                                      setEditStatusPengirimanValue(
-                                        opt.status_pengiriman
-                                      );
-                                    }}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="xs"
-                                    variant="ghost"
-                                    className="text-xs text-red-600 px-1 py-0.5"
-                                    onClick={() =>
-                                      handleDeleteStatusPengiriman(
-                                        String(opt.id_statusPengiriman)
-                                      )
-                                    }
-                                  >
-                                    Hapus
-                                  </Button>
-                                </>
+                                    {editStatusPengirimanId === String(opt.id_statusPengiriman) ? (
+                                      <>
+                                        <Input
+                                          value={editStatusPengirimanValue}
+                                          onChange={(e) =>
+                                            setEditStatusPengirimanValue(e.target.value)
+                                          }
+                                          className="w-[90px] h-7 text-xs"
+                                          disabled={showAddStatusPengiriman}
+                                        />
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          className="px-2 py-1 text-xs bg-primary text-white"
+                                          onClick={() =>
+                                            handleEditStatusPengiriman(String(opt.id_statusPengiriman))
+                                          }
+                                          disabled={showAddStatusPengiriman}
+                                        >
+                                          Simpan
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="outline"
+                                          className="px-2 py-1 text-xs"
+                                          onClick={() => {
+                                            setEditStatusPengirimanId(null);
+                                            setEditStatusPengirimanValue("");
+                                          }}
+                                          disabled={showAddStatusPengiriman}
+                                        >
+                                          Batal
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <SelectItem
+                                          key={opt.id_statusPengiriman}
+                                          value={String(opt.id_statusPengiriman)}
+                                          className="flex-1"
+                                          disabled={showAddStatusPengiriman}
+                                        >
+                                          {opt.status_pengiriman}
+                                        </SelectItem>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="ghost"
+                                          className="text-xs text-blue-600 px-1 py-0.5"
+                                          onClick={() => {
+                                            setEditStatusPengirimanId(String(opt.id_statusPengiriman));
+                                            setEditStatusPengirimanValue(opt.status_pengiriman);
+                                          }}
+                                          disabled={showAddStatusPengiriman}
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="xs"
+                                          variant="ghost"
+                                          className="text-xs text-red-600 px-1 py-0.5"
+                                          onClick={() =>
+                                            handleDeleteStatusPengiriman(String(opt.id_statusPengiriman))
+                                          }
+                                          disabled={showAddStatusPengiriman}
+                                        >
+                                          Hapus
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                ))
+                            )}
+                            {statusPengirimanOptions.length > 0 &&
+                              statusPengirimanOptions.filter((opt: any) =>
+                                opt.status_pengiriman
+                                  .toLowerCase()
+                                  .includes(statusPengirimanSearch.toLowerCase())
+                              ).length === 0 && (
+                                <SelectItem value="__notfound" disabled>
+                                  Data tidak ditemukan
+                                </SelectItem>
                               )}
-                            </div>
-                          ))
-                      )}
-                      {statusPengirimanOptions.length > 0 &&
-                        statusPengirimanOptions.filter((opt: any) =>
-                          opt.status_pengiriman
-                            .toLowerCase()
-                            .includes(statusPengirimanSearch.toLowerCase())
-                        ).length === 0 && (
-                          <SelectItem value="__notfound" disabled>
-                            Data tidak ditemukan
-                          </SelectItem>
-                        )}
+                          </>
+                        )
+                      }
                     </SelectContent>
                   </Select>
                 </div>
@@ -1824,19 +1853,19 @@ export default function InputPOPage() {
                   <Table className="text-xs">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>No. PR</TableHead>
-                        <TableHead>Nama Barang</TableHead>
-                        <TableHead>Quantity</TableHead>
-                        <TableHead>Satuan</TableHead>
-                        <TableHead>Harga Satuan</TableHead>
-                        <TableHead>Diskon (%)</TableHead>
-                        <TableHead>Diskon (Rp)</TableHead>
-                        <TableHead>SUB (Setelah Diskon)</TableHead>
+                        <TableHead>NO. PR</TableHead>
+                        <TableHead>NAMA BARANG</TableHead>
+                        <TableHead>KUANTITAS</TableHead>
+                        <TableHead>SATUAN</TableHead>
+                        <TableHead>HARGA SATUAN</TableHead>
+                        <TableHead>DISKON (%)</TableHead>
+                        <TableHead>DISKON (RP)</TableHead>
+                        <TableHead>SUB (SETELAH DISKON)</TableHead>
                         <TableHead>PPN (%)</TableHead>
-                        <TableHead>PPN (Rp)</TableHead>
-                        <TableHead>Total Per Item</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Keterangan</TableHead>
+                        <TableHead>PPN (RP)</TableHead>
+                        <TableHead>TOTAL PER ITEM</TableHead>
+                        <TableHead>TOTAL</TableHead>
+                        <TableHead>KETERANGAN</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1903,8 +1932,8 @@ export default function InputPOPage() {
 
                           return (
                             <TableRow key={item.id}>
-                              <TableCell>{item.noPR}</TableCell>
-                              <TableCell>{item.namaBarang}</TableCell>
+                              <TableCell className="uppercase">{item.noPR}</TableCell>
+                              <TableCell className="uppercase">{item.namaBarang}</TableCell>
                               <TableCell>
                                 <Input
                                   type="number"
@@ -1931,7 +1960,7 @@ export default function InputPOPage() {
                                     : item.jumlahAsli}
                                 </span>
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="uppercase">
                                 {getSatuanLabel(item.id_satuan) ||
                                   item.satuanLabel ||
                                   item.satuan}
@@ -1979,8 +2008,8 @@ export default function InputPOPage() {
                                   value={
                                     item.diskonNominal
                                       ? `Rp. ${Number(
-                                          item.diskonNominal
-                                        ).toLocaleString("id-ID")}`
+                                        item.diskonNominal
+                                      ).toLocaleString("id-ID")}`
                                       : ""
                                   }
                                   onChange={(e) => {
@@ -1998,7 +2027,7 @@ export default function InputPOPage() {
                                   className="w-24 text-right"
                                   placeholder="Rp. 0"
                                 />
-                                                           </TableCell>
+                              </TableCell>
                               <TableCell>
                                 Rp {afterDiskon.toLocaleString("id-ID")}
                               </TableCell>
@@ -2027,7 +2056,7 @@ export default function InputPOPage() {
                               </TableCell>
                               <TableCell>
                                 <div
-                                  className="text-sm text-muted-foreground max-w-xs truncate"
+                                  className="text-sm text-muted-foreground max-w-xs truncate uppercase"
                                   title={item.keterangan}
                                 >
                                   {item.keterangan}
@@ -2097,7 +2126,7 @@ export default function InputPOPage() {
               {/* Baris 5: Ringkasan Perhitungan */}
               <div className="mt-4">
                 <h3 className="text-lg font-semibold mb-3">
-                                   Ringkasan Perhitungan
+                  Ringkasan Perhitungan
                 </h3>
                 <div className="border rounded-lg p-4 space-y-3">
                   {(() => {
@@ -2121,13 +2150,13 @@ export default function InputPOPage() {
                           <span>
                             Total PPN
                             {ppnIncluded ? "" : ""}:
-                                                   </span>
+                          </span>
                           <span className="text-success">
                             {ppnIncluded
                               ? "Rp " +
-                                calculations.totalPPN.toLocaleString("id-ID")
+                              calculations.totalPPN.toLocaleString("id-ID")
                               : "+Rp " +
-                                calculations.totalPPN.toLocaleString("id-ID")}
+                              calculations.totalPPN.toLocaleString("id-ID")}
                           </span>
                         </div>
                         <hr className="my-2" />

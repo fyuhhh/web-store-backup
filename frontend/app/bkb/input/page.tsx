@@ -44,6 +44,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import ReactDOM from "react-dom"; // tambahkan import ini jika belum ada
 dayjs.extend(utc);
 
 export default function BKBInputPage() {
@@ -51,8 +52,20 @@ export default function BKBInputPage() {
   const [btbData, setBtbData] = useState<BTBData[]>([]);
   // HAPUS: const [searchTerm, setSearchTerm] = useState("");
   // Tambahkan state untuk filter tanggal BTB (rentang)
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+
+  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  useEffect(() => {
+    if (startDate === null && endDate === null) {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setStartDate(firstDay);
+      setEndDate(lastDay);
+    }
+  }, [startDate, endDate]);
+
   // Tambahkan state untuk pencarian seperti monitoring BKB
   const [searchTerm, setSearchTerm] = useState("");
   const [filterSupplier, setFilterSupplier] = useState<string[]>([]);
@@ -88,7 +101,7 @@ export default function BKBInputPage() {
     message: string;
   } | null>(null);
   const router = useRouter(); // <-- tambahkan inisialisasi router
-   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
+  const tableWrapperRef = React.useRef<HTMLDivElement>(null);
 
   // Sinkronkan scroll antara tabel dan scrollbar custom
   React.useEffect(() => {
@@ -130,7 +143,7 @@ export default function BKBInputPage() {
         try {
           const user = JSON.parse(userRaw);
           userSchema = user.skema || ""; // <-- ambil dari skema, bukan schema
-        } catch {}
+        } catch { }
       }
       setBtbData(
         JSON.parse(storedBTB).filter(
@@ -153,7 +166,7 @@ export default function BKBInputPage() {
         }));
         setUserSchema(user.skema || ""); // <-- set userSchema state
         setUserSkemaId(String(user.id_skema ?? user.skema ?? "")); // Set id_skema user
-      } catch {}
+      } catch { }
     }
 
     // Ambil data BTB dari backend (persis monitoring BTB)
@@ -274,8 +287,8 @@ export default function BKBInputPage() {
     return Number.isNaN(num)
       ? ""
       : num % 1 === 0
-      ? num.toString()
-      : num.toFixed(2);
+        ? num.toString()
+        : num.toFixed(2);
   }
 
   // Unique values for filters
@@ -323,11 +336,25 @@ export default function BKBInputPage() {
     })
     // Filter berdasarkan rentang tanggal BTB jika diisi
     .filter((row) => {
-      if (!startDate || !endDate) return true;
-      if (!row.tanggalBTB) return false;
-      // tanggalBTB bisa format yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
-      const tgl = row.tanggalBTB.split("T")[0];
-      return tgl >= startDate && tgl <= endDate;
+      let matchDateRange = true;
+      if (startDate && endDate) {
+        // row.tanggalBTB format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+        const tgl = (row.tanggalBTB || "").split("T")[0];
+        if (tgl) {
+          const parts = tgl.split("-");
+          const tglDate = new Date(
+            Number(parts[0]),
+            Number(parts[1]) - 1,
+            Number(parts[2])
+          );
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          matchDateRange = tglDate >= startDate && tglDate <= end;
+        } else {
+          matchDateRange = false;
+        }
+      }
+      return matchDateRange;
     });
 
   // Ambil detail BTB terpilih
@@ -336,15 +363,15 @@ export default function BKBInputPage() {
   const selectedBarang = selectedBTB.flatMap((btb) =>
     btb.items && Array.isArray(btb.items) && btb.items.length > 0
       ? btb.items
-          .filter((item: any) => (item.sisa ?? item.jumlah) > 0)
-          .map((item: any) => ({
-            barang: item.barang,
-            jumlah: item.sisa ?? item.jumlah,
-            satuan: item.satuan,
-            btbId: btb.id,
-          }))
+        .filter((item: any) => (item.sisa ?? item.jumlah) > 0)
+        .map((item: any) => ({
+          barang: item.barang,
+          jumlah: item.sisa ?? item.jumlah,
+          satuan: item.satuan,
+          btbId: btb.id,
+        }))
       : btb.barang && (btb.sisa ?? btb.jumlah) > 0
-      ? [
+        ? [
           {
             barang: btb.barang,
             jumlah: btb.sisa ?? btb.jumlah,
@@ -352,7 +379,7 @@ export default function BKBInputPage() {
             btbId: btb.id,
           },
         ]
-      : []
+        : []
   );
 
   // Handler checkbox
@@ -381,9 +408,11 @@ export default function BKBInputPage() {
       return;
     }
     // Ambil barang yang dipilih dari backendBTBRows
-    const selectedItems = backendBTBRows.filter((row) =>
+    let selectedItems = backendBTBRows.filter((row) =>
       selectedBTBItemIds.includes(row.id)
     );
+    // --- Pastikan urutan item sesuai No BTB (ASC) ---
+    selectedItems = sortBTBList(selectedItems);
     // --- Ambil id_po dari item pertama (pastikan sudah ada di mapping!)
     const id_po = selectedItems[0]?.id_po || null;
 
@@ -489,7 +518,7 @@ export default function BKBInputPage() {
         const user = JSON.parse(userRaw);
         userId = user.id_user || user.id;
         userSkema = user.skema || "";
-      } catch {}
+      } catch { }
     }
 
     // Ambil id_btb parent dari barang pertama yang dipilih (pastikan sudah ada di formData.barang)
@@ -577,7 +606,7 @@ export default function BKBInputPage() {
       const sisa = getSisaBTB(formData.barang[idx]);
       let val = Number(value);
       if (val > sisa) val = sisa;
-      if (val < 1) val = 1;
+      if (val < 0) val = 0; // <-- ubah dari 1 ke 0 agar minimum 0
       setFormData((prev: any) => ({
         ...prev,
         barang: prev.barang.map((b: any, i: number) =>
@@ -599,10 +628,10 @@ export default function BKBInputPage() {
     const btb = backendBTBRows.find((b) => b.id === btbId);
     return btb
       ? {
-          noBTB: btb.noBTB,
-          tanggal: btb.tanggal,
-          supplier: btb.nama_supplier,
-        }
+        noBTB: btb.noBTB,
+        tanggal: btb.tanggal,
+        supplier: btb.nama_supplier,
+      }
       : { noBTB: btbId, tanggal: "", supplier: "" };
   }
 
@@ -618,14 +647,14 @@ export default function BKBInputPage() {
 
   // ========================================
   // 1. PARSER No. BTB (E-WALK + PENTA)
-  // ========================================
   function parseNoBTB(noBTB: string | null | undefined) {
     if (!noBTB || typeof noBTB !== "string") return null;
     const s = noBTB.trim().toUpperCase();
 
     // --- FORMAT 1: E-WALK ---
     // BTB/E-WALK/25/XI/001
-    const regexEwalk = /^BTB\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+    // Matches standard format from Monitoring BTB
+    const regexEwalk = /^BTB\/E-?WALK\/(\d{2})\/([A-Z0-9]+)\/(\d{1,5})$/;
 
     // --- FORMAT 2: PENTACITY ---
     // INV/BTB/25/XI/00001
@@ -646,6 +675,8 @@ export default function BKBInputPage() {
     const bulanMap: Record<string, number> = {
       I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
       VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+      // Extended support just in case
+      XIII: 13, XIV: 14, XV: 15, XVI: 16, XVII: 17, XVIII: 18, XIX: 19, XX: 20, XXI: 21
     };
 
     const bulan = bulanMap[bulanRomawi] ?? 0;
@@ -659,23 +690,21 @@ export default function BKBInputPage() {
   // 2. SORTING BTB TERBARU → TERLAMA
   // ========================================
   function sortBTBList(filteredBTBData: any[]) {
-    const allValid = filteredBTBData.every(
-      (x) => typeof x.noBTB === "string" && parseNoBTB(x.noBTB)
-    );
+    return [...filteredBTBData].sort((a, b) => {
+      // User suggestion: Sort numerically to avoid string issues ("10" < "2")
+      // We extract the LAST number component (Sequence) to ensure we sort by 001, 002, 003
+      // e.g. BTB/E-WALK/25/XXI/001 -> 1
+      const getSequence = (no: string) => {
+        if (!no) return 0;
+        const match = no.trim().match(/(\d+)$/); // Match digits at the end of string
+        return match ? parseInt(match[1], 10) : 0;
+      };
 
-    if (allValid) {
-      return [...filteredBTBData].sort((a, b) => {
-        const pa = parseNoBTB(a.noBTB)!;
-        const pb = parseNoBTB(b.noBTB)!;
+      const seqA = getSequence(a.noBTB);
+      const seqB = getSequence(b.noBTB);
 
-        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun; // DESC
-        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan; // DESC
-        return pa.urut - pb.urut; // DESC
-      });
-    }
-
-    // fallback
-    return [...filteredBTBData].sort((a, b) => Number(b.id) - Number(a.id));
+      return seqA - seqB; // Ascending (001, 002, 003)
+    });
   }
 
   // --- SORTING: BTB TERBARU → TERLAMA (PAKAI PARSER) ---
@@ -724,11 +753,10 @@ export default function BKBInputPage() {
           {/* Notifikasi */}
           {notif && (
             <div
-              className={`mb-4 px-4 py-2 rounded ${
-                notif.type === "success"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
+              className={`mb-4 px-4 py-2 rounded ${notif.type === "success"
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+                }`}
             >
               {notif.message}
               {/* Jika sukses, tampilkan tombol kembali ke monitoring */}
@@ -749,37 +777,35 @@ export default function BKBInputPage() {
             {/* Daftar Barang & Tabel di paling atas */}
             <div>
               <Label className="mb-2">Daftar Barang</Label>
-              <div className="border rounded-md p-2 overflow-x-auto">
+              <div className="border rounded-md p-2 overflow-x-auto" style={{ maxHeight: "70vh", border: "1px solid #d1d5db", borderRadius: "0.5rem" }}>
                 <Table className="w-full min-w-[1100px]">
                   <TableHeader>
                     <TableRow>
                       {/* Hapus checkbox group di form input BKB */}
-                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                        Nama Barang
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[140px]">
-                        No. BTB
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[120px]">
-                        Tanggal BTB
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                        Nama Supplier
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
-                        Quantity
-                      </TableHead>
-                      <TableHead className="border border-gray-300 text-center min-w-[90px]">
-                        Satuan
-                      </TableHead>
-                      {/* Tambahkan kolom Keterangan */}
-                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                        Keterangan
-                      </TableHead>
-                      {/* Tambahkan kolom Refrensi Nomor PR */}
-                      <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                        Refrensi Nomor PR
-                      </TableHead>
+                      {[
+                        "Nama Barang",
+                        "No. BTB",
+                        "Tanggal BTB",
+                        "Nama Supplier",
+                        "Quantity",
+                        "Satuan",
+                        "Keterangan",
+                        "Refrensi Nomor PR",
+                      ].map((label) => (
+                        <TableHead
+                          key={label}
+                          className="border border-gray-300 text-center"
+                          style={{
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 2,
+                            background: "#f3f4f6",
+                            borderBottom: "2px solid #d1d5db",
+                          }}
+                        >
+                          {label}
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -829,19 +855,19 @@ export default function BKBInputPage() {
                       return (
                         <TableRow key={idx}>
                           {/* Nama Barang */}
-                          <TableCell className="text-center align-middle px-4 py-3">{b.barang}</TableCell>
+                          <TableCell className="text-center align-middle px-4 py-3 uppercase">{b.barang}</TableCell>
                           {/* No. BTB */}
-                          <TableCell className="text-center align-middle">{btbInfo.noBTB}</TableCell>
+                          <TableCell className="text-center align-middle uppercase">{btbInfo.noBTB}</TableCell>
                           {/* Tanggal BTB */}
                           <TableCell className="text-center align-middle">{formatTanggalPas(btbRow?.tanggalBTB ?? "")}</TableCell>
                           {/* Nama Supplier */}
-                          <TableCell className="text-center align-middle">{btbRow?.nama_supplier ?? "-"}</TableCell>
+                          <TableCell className="text-center align-middle uppercase">{btbRow?.nama_supplier ?? "-"}</TableCell>
                           {/* Quantity */}
                           <TableCell className="text-center align-middle">
                             <div className="flex items-center gap-2 justify-center">
                               <Input
                                 type="number"
-                                min={1}
+                                min={1} // <-- ubah dari 1 ke 0
                                 max={sisa}
                                 value={formatInt(b.jumlah)}
                                 onChange={(e) =>
@@ -860,13 +886,15 @@ export default function BKBInputPage() {
                             </div>
                           </TableCell>
                           {/* Satuan */}
-                          <TableCell className="text-center align-middle">{satuanLabel}</TableCell>
+                          <TableCell className="text-center align-middle uppercase">{satuanLabel}</TableCell>
                           {/* Kolom baru: Keterangan dari b.keterangan */}
-                          <TableCell className="text-center align-middle">
-                            {b.keterangan || "-"}
+                          <TableCell className="text-center align-middle uppercase">
+                            {b.keterangan
+                              ? <KeteranganPopover text={b.keterangan} max={15} />
+                              : "-"}
                           </TableCell>
                           {/* Kolom baru: Refrensi Nomor PR */}
-                          <TableCell className="text-center align-middle">
+                          <TableCell className="text-center align-middle uppercase">
                             {noPR}
                           </TableCell>
                         </TableRow>
@@ -915,14 +943,14 @@ export default function BKBInputPage() {
                       value={
                         formData.tanggalBKB
                           ? `${String(formData.tanggalBKB.getDate()).padStart(
-                              2,
-                              "0"
-                            )}-${String(
-                              formData.tanggalBKB.getMonth() + 1
-                            ).padStart(
-                              2,
-                              "0"
-                            )}-${formData.tanggalBKB.getFullYear()}`
+                            2,
+                            "0"
+                          )}-${String(
+                            formData.tanggalBKB.getMonth() + 1
+                          ).padStart(
+                            2,
+                            "0"
+                          )}-${formData.tanggalBKB.getFullYear()}`
                           : ""
                       }
                       readOnly
@@ -1017,10 +1045,9 @@ export default function BKBInputPage() {
         {notif && (
           <div
             className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
-              ${
-                notif.type === "success"
-                  ? "bg-green-600 text-white"
-                  : "bg-red-600 text-white"
+              ${notif.type === "success"
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
               }`}
             style={{ minWidth: 280, maxWidth: 400 }}
           >
@@ -1037,21 +1064,43 @@ export default function BKBInputPage() {
         {!showForm && (
           <div className="flex items-center gap-2 mb-2">
             <Label className="text-sm font-medium">Tanggal BTB:</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="w-[140px]"
-              placeholder="Tanggal Awal"
+            <DatePicker
+              selected={startDate}
+              onChange={(date) => setStartDate(date)}
+              selectsStart
+              startDate={startDate}
+              endDate={endDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Mulai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              maxDate={endDate || undefined}
+              isClearable
             />
             <span>-</span>
-            <Input
-              type="date"
-              value={endDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="w-[140px]"
-              placeholder="Tanggal Akhir"
+            <DatePicker
+              selected={endDate}
+              onChange={(date) => setEndDate(date)}
+              selectsEnd
+              startDate={startDate}
+              endDate={endDate}
+              dateFormat="yyyy-MM-dd"
+              placeholderText="Selesai"
+              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+              minDate={startDate || undefined}
+              isClearable
             />
+            <style jsx global>{`
+              .react-datepicker__day.datepicker-red {
+                color: #e53935 !important;
+                font-weight: bold;
+              }
+              .react-datepicker-popper {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                z-index: 9999 !important;
+              }
+            `}</style>
           </div>
         )}
         {/* Tambahkan search bar seperti monitoring BKB */}
@@ -1096,42 +1145,141 @@ export default function BKBInputPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <Table className="border border-gray-300">
+            <div className="overflow-x-auto" style={{ maxHeight: "70vh", border: "1px solid #d1d5db", borderRadius: "0.5rem" }}>
+              <Table className="w-full min-w-[1100px]">
                 <TableHeader>
                   <TableRow>
-                    {/* Checkbox group (select all per BTB) di paling kiri, rowSpan */}
-                    <TableHead className="border border-gray-300 text-center w-12"></TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[140px]">
-                      No. BTB
+                    {/* Hapus checkbox group di form input BKB */}
+                    <TableHead
+                      className="border border-gray-300 text-center w-12"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    ></TableHead>
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[140px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      NO. BTB
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                      Nama Barang
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[160px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      NAMA BARANG
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[90px]">
-                      Quantity
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[90px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      KUANTITAS
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[90px]">
-                      Satuan
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[90px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      SATUAN
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[90px]">
-                      Sisa Stok
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[90px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      SISA STOK
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
-                      Biaya
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[120px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      BIAYA
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
-                      Tanggal BTB
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[120px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      TANGGAL BTB
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[160px]">
-                      Nama Supplier
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[160px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      NAMA SUPPLIER
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
-                      Nama Penerima
+                    <TableHead
+                      className="border border-gray-300 text-center min-w-[120px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      NAMA PENERIMA
                     </TableHead>
-                    <TableHead className="border border-gray-300 text-center min-w-[120px]">
-                      Skema
-                    </TableHead>
+                    {/* <TableHead
+                      className="border border-gray-300 text-center min-w-[120px] uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 2,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      SKEMA
+                    </TableHead> */}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1144,7 +1292,17 @@ export default function BKBInputPage() {
                   ) : (
                     (() => {
                       const grouped = groupBTBByIdBTB(paginatedBTBData);
-                      return Object.entries(grouped).map(([id_btb, items], idx) => {
+                      // CRITICAL FIX: Sort the groups explicitly by sequence number of the first item
+                      const sortedGroups = Object.entries(grouped).sort(([, itemsA], [, itemsB]) => {
+                        const getSeq = (items: any[]) => {
+                          const no = items[0]?.noBTB || "";
+                          const match = no.trim().match(/(\d+)$/);
+                          return match ? parseInt(match[1], 10) : 0;
+                        };
+                        return getSeq(itemsA) - getSeq(itemsB); // Ascending
+                      });
+
+                      return sortedGroups.map(([id_btb, items], idx) => {
                         if (!items || items.length === 0) return null;
                         // Urutkan items ASC by id_btb_item (atau id_btbItem/id)
                         const sortedItems = [...items].sort((a, b) => {
@@ -1163,7 +1321,7 @@ export default function BKBInputPage() {
                                       checked={items.every((itm) => selectedBTBItemIds.includes(itm.id))}
                                       {...(
                                         items.some((itm) => selectedBTBItemIds.includes(itm.id)) &&
-                                        !items.every((itm) => selectedBTBItemIds.includes(itm.id))
+                                          !items.every((itm) => selectedBTBItemIds.includes(itm.id))
                                           ? { indeterminate: true }
                                           : {}
                                       )}
@@ -1180,12 +1338,12 @@ export default function BKBInputPage() {
                                 )}
                                 {/* No. BTB (rowSpan) hanya di baris pertama */}
                                 {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium">
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium uppercase">
                                     {item.noBTB}
                                   </TableCell>
                                 )}
                                 {/* Nama Barang + Checkbox per item di sebelah kiri nama barang */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap flex items-center gap-2">
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap flex items-center gap-2 uppercase">
                                   <Checkbox
                                     checked={selectedBTBItemIds.includes(item.id)}
                                     onCheckedChange={(checked) => {
@@ -1199,7 +1357,7 @@ export default function BKBInputPage() {
                                   {formatInt(item.jumlah)}
                                 </TableCell>
                                 {/* Satuan */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
+                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap uppercase">
                                   {item.satuan}
                                 </TableCell>
                                 {/* Sisa Stok */}
@@ -1210,34 +1368,34 @@ export default function BKBInputPage() {
                                 </TableCell>
                                 {/* Biaya: hanya di baris pertama, rowSpan */}
                                 {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                     {formatRupiah(item.biaya)}
                                   </TableCell>
                                 )}
                                 {/* Tanggal BTB (rowSpan) hanya di baris pertama */}
                                 {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                     {formatTanggalPas(item.tanggalBTB)}
                                   </TableCell>
                                 )}
                                 {/* Nama Supplier (rowSpan) hanya di baris pertama */}
                                 {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                     {item.nama_supplier || "-"}
                                   </TableCell>
                                 )}
                                 {/* Diterima Oleh (rowSpan) hanya di baris pertama */}
                                 {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                     {userMap[String(item.diterimaOleh)] ?? item.diterimaOleh}
                                   </TableCell>
                                 )}
                                 {/* Skema (rowSpan) hanya di baris pertama */}
-                                {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                {/* {itemIdx === 0 && (
+                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                     {skemaMap[String(item.skema)] ?? item.skema}
                                   </TableCell>
-                                )}
+                                )} */}
                               </TableRow>
                             ))}
                           </React.Fragment>
@@ -1296,7 +1454,7 @@ export default function BKBInputPage() {
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+    </MainLayout >
   );
 }
 
@@ -1328,4 +1486,60 @@ function formatTanggalTambahSehari(tgl: string) {
 function formatTanggalPas(tgl: string) {
   if (!tgl) return "-";
   return dayjs.utc(tgl).local().format("DD-MM-YYYY");
+}
+
+// Komponen untuk popover keterangan (hover, abu-abu)
+function KeteranganPopover({ text, max = 15 }: { text: string; max?: number }) {
+  const [show, setShow] = React.useState(false);
+  const [pos, setPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const ref = React.useRef<HTMLSpanElement>(null);
+
+  if (!text) return "";
+  if (text.length <= max) return text;
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    setPos({
+      x: rect.left + window.scrollX,
+      y: rect.bottom + window.scrollY + 4,
+    });
+    setShow(true);
+  };
+  const handleMouseLeave = () => setShow(false);
+
+  return (
+    <>
+      <span
+        ref={ref}
+        className="cursor-pointer"
+        style={{
+          whiteSpace: "nowrap",
+          textDecoration: "underline dotted",
+          color: "#6b7280",
+        }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        {text.slice(0, max) + "..."}{" "}
+      </span>
+      {show &&
+        typeof window !== "undefined" &&
+        ReactDOM.createPortal(
+          <div
+            className="z-[9999] bg-gray-100 text-gray-700 border border-gray-300 rounded px-3 py-2 shadow-lg max-w-xs text-sm"
+            style={{
+              position: "absolute",
+              left: pos.x,
+              top: pos.y,
+              minWidth: 200,
+              whiteSpace: "pre-line",
+              pointerEvents: "none",
+            }}
+          >
+            {text}
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }

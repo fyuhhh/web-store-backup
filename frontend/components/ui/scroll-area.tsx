@@ -15,6 +15,7 @@ function ScrollArea({
       data-slot="scroll-area"
       className={cn('relative', className)}
       {...props}
+      
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
@@ -22,7 +23,8 @@ function ScrollArea({
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
+      <ScrollBar orientation="vertical" />
+      <ScrollBar orientation="horizontal" />
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )
@@ -40,9 +42,9 @@ function ScrollBar({
       className={cn(
         'flex touch-none p-px transition-colors select-none',
         orientation === 'vertical' &&
-          'h-full w-2.5 border-l border-l-transparent',
+          'h-full w-2.5 border-l border-l-transparent sticky-scrollbar',
         orientation === 'horizontal' &&
-          'h-2.5 flex-col border-t border-t-transparent',
+          'h-2.5 flex-col border-t border-t-transparent sticky-scrollbar',
         className,
       )}
       {...props}
@@ -54,5 +56,29 @@ function ScrollBar({
     </ScrollAreaPrimitive.ScrollAreaScrollbar>
   )
 }
+
+// Add CSS for sticky scrollbar
+<style>{`
+  .sticky-scrollbar {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+  }
+
+  .sticky-scrollbar::-webkit-scrollbar {
+    height: 12px;
+  }
+
+  .sticky-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 6px;
+  }
+
+  .sticky-scrollbar::-webkit-scrollbar-track {
+    background: #e5e7eb;
+  }
+`}</style>
 
 export { ScrollArea, ScrollBar }

@@ -81,6 +81,7 @@ router.post("/", async (req, res, next) => {
       namaPembeli, // <-- tambahkan di sini
       keterangan,
       id_satuan,
+      statusTerima, // <-- NEW field
     } = req.body;
 
     // Normalize decimals for all numeric fields
@@ -120,10 +121,49 @@ router.post("/", async (req, res, next) => {
         ? parseFloat(totalPerItem.replace(/\./g, "").replace(",", "."))
         : Number(totalPerItem) || 0;
 
+    // --- Auto-calculate statusTerima ---
+    let autoStatus = statusTerima || null;
+    if (id_PO && id_PRItem) {
+      try {
+        const [[poData]] = await db.query("SELECT tanggalPO FROM po WHERE id_PO = ?", [id_PO]);
+        const [[prData]] = await db.query(`
+            SELECT pr.tanggalPR, pr.estimasipo 
+            FROM pr_item pri
+            JOIN pr ON pri.id_PR = pr.id_PR
+            WHERE pri.id_PRItem = ?
+        `, [id_PRItem]);
+
+        if (poData?.tanggalPO && prData?.tanggalPR && prData?.estimasipo) {
+          const toDateObj = (t) => {
+            if (t instanceof Date) return t;
+            if (typeof t === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(t)) {
+              const [d, m, y] = t.split("-");
+              return new Date(`${y}-${m}-${d}`);
+            }
+            return new Date(t);
+          };
+          const dPO = toDateObj(poData.tanggalPO);
+          const dPR = toDateObj(prData.tanggalPR);
+          const dEst = toDateObj(prData.estimasipo);
+          dPO.setHours(0, 0, 0, 0);
+          dPR.setHours(0, 0, 0, 0);
+          dEst.setHours(0, 0, 0, 0);
+
+          if (dPO.getTime() >= dPR.getTime() && dPO.getTime() <= dEst.getTime()) {
+            autoStatus = "SCHEDULE";
+          } else {
+            autoStatus = "TIDAK TERCAPAI";
+          }
+        }
+      } catch (e) {
+        console.error("Auto status calc error:", e);
+      }
+    }
+
     const [result] = await db.query(
       `INSERT INTO po_item 
-        (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonPersen, diskonRupiah, ppnPersen, ppnRupiah, totalPerItem, namaPembeli, keterangan, id_satuan)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id_PO, id_PRItem, hargaSatuan, jumlahPO, jumlahAsli, diskonPersen, diskonRupiah, ppnPersen, ppnRupiah, totalPerItem, namaPembeli, keterangan, id_satuan, statusTerima)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_PO || null,
         id_PRItem || null,
@@ -138,6 +178,7 @@ router.post("/", async (req, res, next) => {
         namaPembeli || null, // <-- simpan namaPembeli
         keterangan || "",
         id_satuan || null,
+        autoStatus, // <-- NEW value
       ]
     );
     const insertId = result.insertId;
@@ -145,10 +186,10 @@ router.post("/", async (req, res, next) => {
       "SELECT * FROM po_item WHERE id_POItem = ?",
       [insertId]
     );
-    // --- update statusterima pada PO terkait ---
-    if (newRow && newRow.id_PO) {
-      await updateStatusTerimaPO(db, newRow.id_PO);
-    }
+    // --- update statusterima pada PO terkait (optional legacy support) ---
+    // if (newRow && newRow.id_PO) {
+    //   await updateStatusTerimaPO(db, newRow.id_PO);
+    // }
     res.status(201).json(newRow || { id_POItem: insertId });
   } catch (err) {
     next(err);
@@ -221,13 +262,14 @@ router.put("/:id", async (req, res, next) => {
       ` WHERE id_POItem = ?`;
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
     // Setelah update, update targetPencapaianPo pada semua BTB terkait PO ini
-    const [[poItem]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [id]);
-    if (poItem && poItem.id_PO) {
-      const [btbs] = await db.query("SELECT id_btb FROM btb WHERE id_po = ?", [poItem.id_PO]);
-      for (const btb of btbs) {
-        await updateTargetPencapaianPoByBTB(db, btb.id_btb);
-      }
-    }
+    // DISABLED: Logic moved to item level (btb_item)
+    // const [[poItem]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [id]);
+    // if (poItem && poItem.id_PO) {
+    //   const [btbs] = await db.query("SELECT id_btb FROM btb WHERE id_po = ?", [poItem.id_PO]);
+    //   for (const btb of btbs) {
+    //     await updateTargetPencapaianPoByBTB(db, btb.id_btb);
+    //   }
+    // }
     const [[updated]] = await db.query(
       "SELECT * FROM po_item WHERE id_POItem = ?",
       [id]
@@ -261,10 +303,12 @@ router.delete("/:id", async (req, res, next) => {
     ]);
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "PO item tidak ditemukan" });
-    // --- update statusterima pada PO terkait ---
-    if (poItemRow && poItemRow.id_PO) {
-      await updateStatusTerimaPO(db, poItemRow.id_PO);
-    }
+
+    // Optional: update header status if needed, but we are moving to item level logic
+    // if (poItemRow && poItemRow.id_PO) {
+    //   await updateStatusTerimaPO(db, poItemRow.id_PO);
+    // }
+
     res.json({ message: "PO item dihapus" });
   } catch (err) {
     next(err);

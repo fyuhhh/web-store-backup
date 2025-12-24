@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
   UserCircle,
+  Settings,
 } from "lucide-react";
 
 const menuItems = [
@@ -90,6 +91,13 @@ const menuItems = [
   //   href: "/evaluasi-supplier",
   //   icon: Users,
   // },
+  {
+    title: "Pengaturan",
+    icon: Settings,
+    submenu: [
+      { title: "Hari Libur", href: "/settings/holidays" },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -107,7 +115,7 @@ export function Sidebar() {
           const userObj = JSON.parse(userRaw);
           setRole(userObj.role);
           setUser(userObj);
-        } catch {}
+        } catch { }
       }
     }
   }, []);
@@ -197,6 +205,13 @@ export function Sidebar() {
         href: "/dashboard/rekap-full",
         icon: BarChart3,
       },
+      {
+        title: "Pengaturan",
+        icon: Settings,
+        submenu: [
+          { title: "Hari Libur", href: "/settings/holidays" },
+        ],
+      },
     ];
   } else if (
     (user &&
@@ -230,6 +245,13 @@ export function Sidebar() {
         title: "Rekap Keseluruhan",
         href: "/dashboard/rekap-full",
         icon: BarChart3,
+      },
+      {
+        title: "Pengaturan",
+        icon: Settings,
+        submenu: [
+          { title: "Hari Libur", href: "/settings/holidays" },
+        ],
       },
     ];
   }
@@ -299,7 +321,7 @@ export function Sidebar() {
                       className={cn(
                         "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group relative transition-all duration-200",
                         isActive &&
-                          "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
+                        "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
                         collapsed && "justify-center px-2"
                       )}
                       style={{
@@ -347,7 +369,7 @@ export function Sidebar() {
                                 className={cn(
                                   "w-full justify-start text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-150",
                                   pathname === subItem.href &&
-                                    "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+                                  "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
                                 )}
                                 style={{
                                   borderLeft:
@@ -373,7 +395,7 @@ export function Sidebar() {
                     className={cn(
                       "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group relative transition-all duration-200",
                       pathname === item.href &&
-                        "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
+                      "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
                       collapsed && "justify-center px-2"
                     )}
                     style={{

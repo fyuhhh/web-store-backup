@@ -18,6 +18,7 @@ import btbRoutes from "./routes/btb.js";
 import btbItemRoutes from "./routes/btb_item.js";
 import bkbRoutes from "./routes/bkb.js";
 import bkbItemRoutes from "./routes/bkb_item.js";
+import holidayRoutes, { ensureHolidaysTable } from "./routes/holiday.js";
 
 const app = express();
 app.use(cors());
@@ -48,6 +49,7 @@ app.use("/api/btb", btbRoutes);
 app.use("/api/btb-item", btbItemRoutes);
 app.use("/api/bkb", bkbRoutes);
 app.use("/api/bkb-item", bkbItemRoutes);
+app.use("/api/holidays", holidayRoutes);
 
 // === ADDED: debug endpoint to list registered routes ===
 app.get("/api/debug/routes", (req, res) => {
@@ -94,8 +96,8 @@ app.use((req, res) => {
 // === END ADDED ===
 
 // Pastikan superadmin ada sebelum server listen
-ensureSuperadmin().catch((err) => {
-  console.error("Gagal membuat superadmin:", err);
+Promise.all([ensureSuperadmin(), ensureHolidaysTable()]).catch((err) => {
+  console.error("Gagal inisialisasi system (superadmin/tables):", err);
 });
 
 // jalankan server
