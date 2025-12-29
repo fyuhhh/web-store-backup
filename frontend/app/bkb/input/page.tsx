@@ -1,10 +1,9 @@
 "use client";
 
-import React from "react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { MainLayout } from "@/components/layout/main-layout";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import "@/app/pr/input-baru/datepicker-red-weekend.css";
 import {
   Card,
   CardContent,
@@ -12,8 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -23,19 +27,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
-import type { BTBData } from "@/lib/dummy-data";
-import { MainLayout } from "@/components/layout/main-layout";
-import { useRouter } from "next/navigation";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
 import {
   Pagination,
   PaginationContent,
@@ -44,16 +38,135 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import ReactDOM from "react-dom"; // tambahkan import ini jika belum ada
+import * as ExcelJS from "exceljs";
+import { Checkbox } from "@/components/ui/checkbox";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import { Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
 dayjs.extend(utc);
 
-export default function BKBInputPage() {
-  // State
-  const [btbData, setBtbData] = useState<BTBData[]>([]);
-  // HAPUS: const [searchTerm, setSearchTerm] = useState("");
-  // Tambahkan state untuk filter tanggal BTB (rentang)
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
+// Helper format tanggal DD-MM-YYYY
+function formatTanggal(tgl: string | null | undefined) {
+  if (!tgl) return "-";
+  const [date] = tgl.split("T");
+  const [y, m, d] = date.split("-");
+  if (!y || !m || !d) return tgl;
+  return `${d}-${m}-${y}`;
+}
+
+// Tambah helper: tanggal +1 hari
+function formatTanggalTambahSehari(tgl: string) {
+  if (!tgl) return "-";
+  let dateObj;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+    dateObj = dayjs(tgl).add(1, "day");
+  } else if (tgl.includes("T")) {
+    dateObj = dayjs(tgl).add(1, "day");
+  } else {
+    dateObj = dayjs(tgl).add(1, "day");
+  }
+  return dateObj.format("DD-MM-YYYY");
+}
+
+function formatTanggalPas(tgl: string) {
+  if (!tgl) return "-";
+  return dayjs.utc(tgl).local().format("DD-MM-YYYY");
+}
+
+// Helper format integer tanpa .00
+function formatInt(val: any) {
+  if (val === undefined || val === null || val === "") return "";
+  const num = Number(val);
+  return Number.isNaN(num)
+    ? ""
+    : num % 1 === 0
+      ? num.toString()
+      : num.toFixed(2);
+}
+
+// ========================================
+// 1. PARSER No. BKB (E-WALK + PENTA)
+// ========================================
+function parseNoBKB(noBKB: string | null | undefined) {
+  if (!noBKB || typeof noBKB !== "string") return null;
+  const s = noBKB.trim().toUpperCase();
+
+  // --- FORMAT E-WALK ---
+  // BKB/E-WALK/25/XI/0001
+  const regexEwalk = /^BKB\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  // --- FORMAT PENTACITY ---
+  // INV/BKB/25/XI/00001
+  const regexPenta = /^INV\/BKB\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
+
+  let match = s.match(regexEwalk);
+  let brand = "E-WALK";
+
+  if (!match) {
+    match = s.match(regexPenta);
+    brand = "PENTA";
+  }
+
+  if (!match) return null;
+
+  const [, tahun2, bulanRomawi, urutStr] = match;
+
+  const bulanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+
+  const bulan = bulanMap[bulanRomawi] ?? 0;
+  const tahun = 2000 + parseInt(tahun2, 10);
+  const urut = parseInt(urutStr, 10);
+
+  return { tahun, bulan, urut, brand };
+}
+
+// ========================================
+// 2. SORTING BKB TERBARU → TERLAMA
+// ========================================
+// ========================================
+// 2. SORTING BKB TERBARU → TERLAMA
+// ========================================
+function sortBKBList(filteredBKBData: any[]) {
+  return [...filteredBKBData].sort((a, b) => {
+    const pa = parseNoBKB(a.noBKB);
+    const pb = parseNoBKB(b.noBKB);
+
+    // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
+    if (pa && pb) {
+      // Tahun ASC
+      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
+
+      // Bulan ASC
+      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
+
+      // Nomor urut ASC
+      return pa.urut - pb.urut;
+    }
+
+    // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
+    // Gunakan string comparison untuk tanggal YYYY-MM-DD
+    const dateA = a.tanggalBKB || "";
+    const dateB = b.tanggalBKB || "";
+    return dateA.localeCompare(dateB);
+  });
+}
+
+export default function BKBMonitoringPage() {
+  const [bkbRows, setBkbRows] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [userMap, setUserMap] = useState<Record<string, string>>({});
+  const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
+  const [satuanMap, setSatuanMap] = useState<Record<string, string>>({});
+  const [btbMap, setBtbMap] = useState<Record<string, string>>({});
+  const [divisiMap, setDivisiMap] = useState<Record<string, string>>({});
+  const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
+  const [startDate, setStartDate] = useState<Date | null>(null); // Tambahkan ini
+  const [endDate, setEndDate] = useState<Date | null>(null);     // Tambahkan ini
 
   // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
   useEffect(() => {
@@ -66,41 +179,7 @@ export default function BKBInputPage() {
     }
   }, [startDate, endDate]);
 
-  // Tambahkan state untuk pencarian seperti monitoring BKB
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterSupplier, setFilterSupplier] = useState<string[]>([]);
-  const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
-  const [filterKodeSupplier, setFilterKodeSupplier] = useState<string[]>([]);
-  const [kodeSupplierSearchTerm, setKodeSupplierSearchTerm] = useState("");
-  const [barangSearchTerm, setBarangSearchTerm] = useState("");
-  const [filterSatuan, setFilterSatuan] = useState<string[]>([]);
-  const [satuanSearchTerm, setSatuanSearchTerm] = useState("");
-  const [filterPeriode, setFilterPeriode] = useState("");
-  const [periodeSearchTerm, setPeriodeSearchTerm] = useState("");
-  const [filterTanggalBTB, setFilterTanggalBTB] = useState<string[]>([]);
-  const [tanggalBTBSearchTerm, setTanggalBTBSearchTerm] = useState("");
-  const [filterQtyMin, setFilterQtyMin] = useState<number | "">("");
-  const [filterQtyMax, setFilterQtyMax] = useState<number | "">("");
-  const [filterBiayaMin, setFilterBiayaMin] = useState<number | "">("");
-  const [filterBiayaMax, setFilterBiayaMax] = useState<number | "">("");
-  const [selectedBTBIds, setSelectedBTBIds] = useState<string[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<any>({
-    noBKB: "",
-    tanggalBKB: null as Date | null,
-    barang: [],
-    keterangan: "",
-    skema: "", // <-- tambah field skema
-    divisi: "", // <-- tambahkan field divisi
-  });
-  const [userNick, setUserNick] = useState("");
-  const [userSchema, setUserSchema] = useState<string>("");
-  const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
-  const [notif, setNotif] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
-  const router = useRouter(); // <-- tambahkan inisialisasi router
+  // Tambahkan state untuk export
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
 
   // Sinkronkan scroll antara tabel dan scrollbar custom
@@ -120,226 +199,166 @@ export default function BKBInputPage() {
       tableDiv.removeEventListener('scroll', handleTableScroll);
     };
   }, []);
+  const [exportMode, setExportMode] = useState<"all" | "selected" | "range">(
+    "all"
+  );
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+  const [selectedBKBIds, setSelectedBKBIds] = useState<string[]>([]);
 
-  // Tambahkan state untuk data BTB dari backend
-  const [backendBTBRows, setBackendBTBRows] = useState<any[]>([]);
-  const [userMap, setUserMap] = useState<Record<string, string>>({});
-  const [satuanMap, setSatuanMap] = useState<Record<string, string>>({});
-  const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
-  const [divisiMap, setDivisiMap] = useState<Record<string, string>>({}); // Tambah state mapping divisi
-  const [loading, setLoading] = useState(false);
-  const [prList, setPrList] = useState<any[]>([]); // <-- Tambah state PR
-  // Tambahkan state PO, PO Item, PR Item
-  const [poList, setPoList] = useState<any[]>([]);
-  const [poItemList, setPoItemList] = useState<any[]>([]);
-  const [prItemList, setPrItemList] = useState<any[]>([]);
+  // Tambahkan state untuk konfirmasi hapus dan toast
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
+  const [toastOpen, setToastOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState("");
 
+  // Fetch satuan list from backend and build mapping
   useEffect(() => {
-    const storedBTB = localStorage.getItem("btbData");
-    if (storedBTB) {
-      const userRaw = localStorage.getItem("userData");
-      let userSchema = "";
-      if (userRaw) {
-        try {
-          const user = JSON.parse(userRaw);
-          userSchema = user.skema || ""; // <-- ambil dari skema, bukan schema
-        } catch { }
-      }
-      setBtbData(
-        JSON.parse(storedBTB).filter(
-          (btb: any) => !userSchema || btb.skema === userSchema
-        )
-      );
-    }
-    setShowForm(false);
-    setSelectedBTBIds([]);
-    // Ambil user nick dan skema dari localStorage
-    const userRaw = localStorage.getItem("userData");
-    if (userRaw) {
-      try {
-        const user = JSON.parse(userRaw);
-        setUserNick(user.nick ?? user.username ?? "");
-        setFormData((prev: any) => ({
-          ...prev,
-          skema: user.skema || "",
-          divisi: user.divisi || "", // <-- set divisi otomatis dari user login jika ada
-        }));
-        setUserSchema(user.skema || ""); // <-- set userSchema state
-        setUserSkemaId(String(user.id_skema ?? user.skema ?? "")); // Set id_skema user
-      } catch { }
-    }
+    fetch("http://localhost:5000/api/satuan")
+      .then((res) => res.json())
+      .then((data) => {
+        const map: Record<string, string> = {};
+        data.forEach((s: any) => {
+          map[String(s.id_satuan)] = s.satuan;
+        });
+        setSatuanMap(map);
+      });
+  }, []);
 
-    // Ambil data BTB dari backend (persis monitoring BTB)
-    async function fetchBTBData() {
+  // Ambil data dari backend
+  useEffect(() => {
+    async function fetchBKBData() {
       setLoading(true);
       try {
-        const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, divisiRes] =
+        // Ambil semua BKB, BKB Item, User, Skema, Satuan, BTB, Divisi, PR
+        const [bkbRes, bkbItemRes, userRes, skemaRes, , btbRes, divisiRes, prRes] =
           await Promise.all([
-            fetch("http://localhost:5000/api/btb"),
-            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/bkb"),
+            fetch("http://localhost:5000/api/bkb-item"),
             fetch("http://localhost:5000/api/user"),
             fetch("http://localhost:5000/api/skema"),
             fetch("http://localhost:5000/api/satuan"),
+            fetch("http://localhost:5000/api/btb"),
             fetch("http://localhost:5000/api/divisi"),
+            fetch("http://localhost:5000/api/pr"),
           ]);
-        const btbList = await btbRes.json();
-        const btbItemList = await btbItemRes.json();
+        const bkbList = await bkbRes.json();
+        const bkbItemList = await bkbItemRes.json();
         const userList = await userRes.json();
         const skemaList = await skemaRes.json();
-        const satuanList = await satuanRes.json();
+        // satuanList tidak perlu, sudah di-fetch di atas
+        const btbList = await btbRes.json();
         const divisiList = await divisiRes.json();
+        const prList = await prRes.json();
 
-        // Mapping id_user -> nama_pengguna
+        // Buat mapping id_user -> nama_pengguna
         const userMapObj: Record<string, string> = {};
         userList.forEach((u: any) => {
           userMapObj[String(u.id_user)] = u.nama_pengguna;
         });
         setUserMap(userMapObj);
 
-        // Mapping id_skema -> skema label
+        // Buat mapping id_skema -> skema
         const skemaMapObj: Record<string, string> = {};
         skemaList.forEach((s: any) => {
           skemaMapObj[String(s.id_skema)] = s.skema;
         });
         setSkemaMap(skemaMapObj);
 
-        // Mapping id_satuan -> satuan label
-        const satuanMapObj: Record<string, string> = {};
-        satuanList.forEach((s: any) => {
-          satuanMapObj[String(s.id_satuan)] = s.satuan;
+        // Buat mapping id_btb_item -> no_btb (asal BTB)
+        const btbMapObj: Record<string, string> = {};
+        btbList.forEach((btb: any) => {
+          btbMapObj[String(btb.id_btb)] = btb.no_btb;
         });
-        setSatuanMap(satuanMapObj);
+        setBtbMap(btbMapObj);
 
-        // Mapping id_divisi -> nama_divisi
+        // Buat mapping id_divisi -> nama_divisi
         const divisiMapObj: Record<string, string> = {};
         divisiList.forEach((d: any) => {
-          // Support both "divisi" and "nama_divisi" field
-          divisiMapObj[String(d.id_divisi)] = d.divisi || d.nama_divisi || "";
+          divisiMapObj[String(d.id_divisi)] = d.nama_divisi;
         });
         setDivisiMap(divisiMapObj);
 
-        // Gabungkan: untuk setiap btb_item, cari parent btb
-        const rows = btbItemList.map((item: any) => {
-          const btb = btbList.find((b: any) => b.id_btb === item.id_btb);
+        // Buat mapping id_pr dan no_pr -> id_divisi dari PR
+        const prToDivisiMap: Record<string, string> = {};
+        prList.forEach((pr: any) => {
+          if (pr.id_pr && pr.id_divisi) prToDivisiMap[String(pr.id_pr)] = pr.id_divisi;
+          if (pr.no_pr && pr.id_divisi) prToDivisiMap[String(pr.no_pr)] = pr.id_divisi;
+        });
+
+        // Gabungkan: untuk setiap bkb_item, cari parent bkb dan label satuan
+        // Ambil divisi dari PR yang sama id_pr dengan BKB, fallback ke refrensiNoPr jika perlu
+        const rows = bkbItemList.map((item: any) => {
+          const bkb = bkbList.find((b: any) => b.id_bkb === item.id_bkb);
+          let divisiId = "";
+          if (bkb?.id_pr && prToDivisiMap[bkb.id_pr]) {
+            divisiId = prToDivisiMap[bkb.id_pr];
+          } else if (bkb?.refrensiNoPr && prToDivisiMap[bkb.refrensiNoPr]) {
+            divisiId = prToDivisiMap[bkb.refrensiNoPr];
+          }
           return {
-            id: item.id_btb_item,
-            id_btb: btb?.id_btb ?? null,
-            id_po: btb?.id_po ?? null,
-            noBTB: btb?.no_btb ?? "",
-            tanggalBTB: btb?.tanggal_btb ?? "",
-            tanggal: btb?.tanggal_diterima ?? "",
-            id_supplier: btb?.id_supplier ?? "",
-            nama_supplier: btb?.nama_supplier ?? "",
-            nama_barang: item.nama_barang ?? "",
-            jumlah: item.jumlah_diterima ?? "",
-            satuan:
-              satuanMapObj[String(item.id_satuan)] ?? item.satuanLabel ?? "",
-            id_satuan: item.id_satuan ?? null,
-            sisa: item.qty_sisa ?? "",
-            biaya: btb?.biaya ?? "",
-            diterimaOleh: btb?.id_user ?? "",
-            skema: btb?.id_skema ?? "",
-            keterangan: item.keterangan ?? "", // <-- tambahkan ini!
+            id: item.id_bkb_item,
+            id_bkb: item.id_bkb,
+            noBKB: bkb?.no_bkb ?? "",
+            tanggalBKB: bkb?.tanggal_bkb ?? "",
+            namaBarang: item.nama_barang ?? "",
+            quantity: item.jumlah_keluar ?? "",
+            satuan: satuanMap[String(item.id_satuan)] ?? "",
+            keterangan: item.keterangan ?? "",
+            dikeluarkanOleh: bkb?.dikeluarkan_oleh ?? "",
+            diterima_oleh: bkb?.diterima_oleh ?? "",
+            divisi: bkb?.divisi ?? "", // <-- ambil langsung dari bkb.divisi
+            skema: bkb?.id_skema ?? "",
+            noPR: bkb?.refrensiNoPr ?? "-",
           };
         });
-        setBackendBTBRows(rows);
+        setBkbRows(rows);
       } catch (err) {
-        setBackendBTBRows([]);
+        setBkbRows([]);
       }
       setLoading(false);
     }
-    fetchBTBData();
+    fetchBKBData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [satuanMap]); // refetch rows when satuanMap ready
 
-    // Ambil data PR, PO, PO Item, PR Item dari backend
-    fetch("http://localhost:5000/api/pr")
-      .then((res) => res.json())
-      .then((data) => setPrList(data));
-    fetch("http://localhost:5000/api/po")
-      .then((res) => res.json())
-      .then((data) => setPoList(data));
-    fetch("http://localhost:5000/api/po-item")
-      .then((res) => res.json())
-      .then((data) => setPoItemList(data));
-    fetch("http://localhost:5000/api/pr-item")
-      .then((res) => res.json())
-      .then((data) => setPrItemList(data));
+  // Ambil id_skema user dari localStorage
+  useEffect(() => {
+    const userRaw = localStorage.getItem("userData");
+    if (userRaw) {
+      try {
+        const user = JSON.parse(userRaw);
+        setUserSkemaId(String(user.id_skema ?? user.skema ?? ""));
+      } catch { }
+    }
   }, []);
 
-  // Helper format tanggal DD-MM-YYYY (sama seperti monitoring PO)
-  function formatTanggal(tgl: string | null | undefined) {
-    if (!tgl) return "-";
-    const [date] = tgl.split("T");
-    const [y, m, d] = date.split("-");
-    if (!y || !m || !d) return tgl;
-    return `${d}-${m}-${y}`;
-  }
-
-  // Helper format rupiah
-  function formatRupiah(val: any) {
-    if (val === undefined || val === "" || isNaN(val)) return "";
-    return "Rp " + Number(val).toLocaleString("id-ID");
-  }
-
-  // Helper untuk format integer tanpa .00
-  function formatInt(val: any) {
-    if (val === undefined || val === null || val === "") return "";
-    const num = Number(val);
-    return Number.isNaN(num)
-      ? ""
-      : num % 1 === 0
-        ? num.toString()
-        : num.toFixed(2);
-  }
-
-  // Unique values for filters
-  const uniqueSuppliers = Array.from(
-    new Set(
-      btbData.map((btb) => btb.supplier).filter((s) => s && s.trim() !== "")
-    )
-  ).sort();
-  const uniqueKodeSupplier = Array.from(
-    new Set(
-      btbData.map((btb) => btb.kodeSupplier).filter((k) => k && k.trim() !== "")
-    )
-  ).sort();
-  const uniqueSatuan = Array.from(
-    new Set(
-      btbData.map((btb) => btb.satuan).filter((s) => s && s.trim() !== "")
-    )
-  ).sort();
-  const uniquePeriode = Array.from(
-    new Set(btbData.map((btb) => btb.periode).filter(Boolean))
-  ).sort();
-  const uniqueTanggalBTB = Array.from(
-    new Set(btbData.map((btb) => btb.tanggal).filter(Boolean))
-  ).sort();
-
-  // Filtered data: hanya tampilkan BTB/items dengan stok > 0 dan skema sesuai user
-  const filteredBTBData = backendBTBRows
-    // Filter hanya BTB dengan id_skema sesuai user login
+  // Filter data
+  const filteredBKBDataRaw = bkbRows
+    // Filter hanya BKB dengan id_skema sesuai user login
     .filter((row) => !userSkemaId || String(row.skema) === String(userSkemaId))
-    // Filter hanya yang sisa stok > 0
-    .filter((row) => Number(row.sisa) > 0)
-    // Filter berdasarkan pencarian (searchTerm) seperti monitoring BKB
+    // Filter berdasarkan searchTerm
     .filter((row) => {
       if (!searchTerm) return true;
       const search = searchTerm.toLowerCase();
       return (
-        String(row.noBTB ?? "").toLowerCase().includes(search) ||
-        String(row.nama_barang ?? "").toLowerCase().includes(search) ||
-        String(row.nama_supplier ?? "").toLowerCase().includes(search) ||
+        String(row.noBKB ?? "").toLowerCase().includes(search) ||
+        String(row.namaBarang ?? "").toLowerCase().includes(search) ||
+        String(row.keterangan ?? "").toLowerCase().includes(search) ||
         String(row.satuan ?? "").toLowerCase().includes(search) ||
-        String(row.diterimaOleh ?? "").toLowerCase().includes(search) ||
-        String(row.tanggalBTB ?? "").toLowerCase().includes(search) ||
-        String(row.keterangan ?? "").toLowerCase().includes(search)
+        String(row.dikeluarkanOleh ?? "").toLowerCase().includes(search) ||
+        String(row.diterima_oleh ?? "").toLowerCase().includes(search) ||
+        String(row.divisi ?? "").toLowerCase().includes(search) ||
+        String(row.noPR ?? "").toLowerCase().includes(search) ||
+        String(row.tanggalBKB ?? "").toLowerCase().includes(search)
       );
     })
-    // Filter berdasarkan rentang tanggal BTB jika diisi
+    // Filter berdasarkan rentang tanggal jika diisi
     .filter((row) => {
       let matchDateRange = true;
       if (startDate && endDate) {
-        // row.tanggalBTB format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
-        const tgl = (row.tanggalBTB || "").split("T")[0];
+        // row.tanggalBKB format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
+        const tgl = (row.tanggalBKB || "").split("T")[0];
         if (tgl) {
           const parts = tgl.split("-");
           const tglDate = new Date(
@@ -357,811 +376,507 @@ export default function BKBInputPage() {
       return matchDateRange;
     });
 
-  // Ambil detail BTB terpilih
-  const selectedBTB = btbData.filter((btb) => selectedBTBIds.includes(btb.id));
-  // Gabungkan daftar barang dari semua BTB terpilih, hanya yang sisa > 0
-  const selectedBarang = selectedBTB.flatMap((btb) =>
-    btb.items && Array.isArray(btb.items) && btb.items.length > 0
-      ? btb.items
-        .filter((item: any) => (item.sisa ?? item.jumlah) > 0)
-        .map((item: any) => ({
-          barang: item.barang,
-          jumlah: item.sisa ?? item.jumlah,
-          satuan: item.satuan,
-          btbId: btb.id,
-        }))
-      : btb.barang && (btb.sisa ?? btb.jumlah) > 0
-        ? [
-          {
-            barang: btb.barang,
-            jumlah: btb.sisa ?? btb.jumlah,
-            satuan: btb.satuan,
-            btbId: btb.id,
-          },
-        ]
-        : []
-  );
-
-  // Handler checkbox
-  const handleSelectBTB = (btbId: string, checked: boolean) => {
-    setSelectedBTBIds((prev) =>
-      checked ? [...prev, btbId] : prev.filter((id) => id !== btbId)
-    );
-  };
-
-  // State untuk checkbox per item
-  const [selectedBTBItemIds, setSelectedBTBItemIds] = useState<string[]>(
-    []
-  );
-
-  // Handler checkbox per item
-  const handleSelectBTBItem = (itemId: string, checked: boolean) => {
-    setSelectedBTBItemIds((prev) =>
-      checked ? [...prev, itemId] : prev.filter((id) => id !== itemId)
-    );
-  };
-
-  // Handler Input BKB button
-  const handleInputBKB = () => {
-    if (selectedBTBItemIds.length === 0) {
-      alert("Pilih minimal satu barang BTB untuk dibuatkan BKB.");
-      return;
-    }
-    // Ambil barang yang dipilih dari backendBTBRows
-    let selectedItems = backendBTBRows.filter((row) =>
-      selectedBTBItemIds.includes(row.id)
-    );
-    // --- Pastikan urutan item sesuai No BTB (ASC) ---
-    selectedItems = sortBTBList(selectedItems);
-    // --- Ambil id_po dari item pertama (pastikan sudah ada di mapping!)
-    const id_po = selectedItems[0]?.id_po || null;
-
-    // --- Cari id_PR dari PO Item
-    let id_pr = null;
-    if (id_po && poItemList.length > 0) {
-      // Cari salah satu PO Item yang id_PO-nya sama
-      const poItem = poItemList.find((pi: any) => String(pi.id_PO) === String(id_po));
-      if (poItem && prItemList.length > 0) {
-        // Cari PR Item yang id_PRItem-nya sama
-        const prItem = prItemList.find((pri: any) => String(pri.id_PRItem) === String(poItem.id_PRItem));
-        if (prItem) {
-          id_pr = prItem.id_PR;
-        }
-      }
+  // --- SORTING: BKB TERBARU → TERLAMA (ROBUST NUMERIC) ---
+  const filteredBKBData = [...filteredBKBDataRaw].sort((a, b) => {
+    // Helper parser
+    function extractLastNumber(str: string | null | undefined): number {
+      if (!str || typeof str !== 'string') return 0;
+      const match = str.match(/(\d+)(?!.*\d)/);
+      return match ? parseInt(match[1], 10) : 0;
     }
 
-    // --- Cari id_divisi dari PR
-    let divisiOtomatis = "";
-    if (id_pr && prList.length > 0) {
-      const pr = prList.find((pr: any) =>
-        String(pr.id_PR) === String(id_pr)
-      );
-      if (pr && pr.id_divisi) divisiOtomatis = pr.id_divisi;
-    }
+    const numA = extractLastNumber(a.noBKB);
+    const numB = extractLastNumber(b.noBKB);
+    if (numA !== numB) return numA - numB;
 
-    // Fallback ke user login jika tidak ketemu
-    if (!divisiOtomatis) {
-      divisiOtomatis =
-        selectedItems[0]?.divisi ||
-        JSON.parse(localStorage.getItem("userData") || "{}").divisi ||
-        "";
-    }
+    const dateA = new Date(a.tanggalBKB || 0).getTime();
+    const dateB = new Date(b.tanggalBKB || 0).getTime();
+    return dateA - dateB;
+  });
 
-    setShowForm(true);
-    setFormData((prev: any) => ({
-      ...prev,
-      barang: selectedItems.map((row) => ({
-        barang: row.nama_barang,
-        jumlah: row.sisa ?? row.jumlah,
-        satuan: row.id_satuan ?? null,
-        satuanLabel: row.satuan ?? "",
-        btbId: row.id,
-        id_btb: row.id_btb,
-        asalBTB: row.noBTB,
-        tanggalBTB: row.tanggal,
-        supplier: row.nama_supplier,
-        skema: row.skema ?? "",
-        divisi: divisiOtomatis,
-        keterangan: row.keterangan ?? "", // <-- pastikan mapping keterangan dari backend
-      })),
-      sumberBTB: selectedItems.map((row) => row.noBTB),
-      skema: selectedItems[0]?.skema ||
-        JSON.parse(localStorage.getItem("userData") || "{}").skema ||
-        "",
-      divisi: divisiOtomatis,
-    }));
-  };
+  // --- Pagination removed: show all data ---
+  const paginatedData = filteredBKBData;
 
-  // Helper format tanggal ke yyyy-mm-dd untuk backend
-  function formatDateForBackend(date: Date | null) {
-    if (!date) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }
+  // Export Excel function
 
-  // Handler submit form BKB
-  const handleSubmitBKB = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.noBKB || !formData.tanggalBKB) {
-      setNotif({
-        type: "error",
-        message: "No BKB dan Tanggal BKB wajib diisi.",
+  // Export data sesuai filter dan mode
+  function getExportBKBData() {
+    if (exportMode === "all") return filteredBKBData;
+    if (exportMode === "selected") return filteredBKBData.filter((row) => selectedBKBIds.includes(row.id));
+    if (exportMode === "range") {
+      const start = exportStartDate ? new Date(exportStartDate) : null;
+      const end = exportEndDate ? new Date(exportEndDate) : null;
+      return filteredBKBData.filter((row) => {
+        if (!row.tanggalBKB) return false;
+        const tgl = new Date(row.tanggalBKB);
+        return (!start || tgl >= start) && (!end || tgl <= end);
       });
-      setTimeout(() => setNotif(null), 2500);
-      return;
     }
-    // Validasi stok cukup (pakai backendBTBRows, bukan btbData/localStorage)
-    for (const [idx, b] of formData.barang.entries()) {
-      const btb = backendBTBRows.find((row) => row.id === b.btbId);
-      let sisa = 0;
-      if (btb) {
-        sisa = btb.sisa ?? btb.jumlah;
-      }
-      if (b.jumlah > sisa) {
-        setNotif({
-          type: "error",
-          message: `Stok barang "${b.barang}" pada BTB tidak cukup!`,
-        });
-        setTimeout(() => setNotif(null), 2500);
-        return;
-      }
-    }
-
-    // Ambil user info dari localStorage
-    const userRaw = localStorage.getItem("userData");
-    let userId = null;
-    let userSkema = "";
-    if (userRaw) {
-      try {
-        const user = JSON.parse(userRaw);
-        userId = user.id_user || user.id;
-        userSkema = user.skema || "";
-      } catch { }
-    }
-
-    // Ambil id_btb parent dari barang pertama yang dipilih (pastikan sudah ada di formData.barang)
-    let id_btb = null;
-    if (formData.barang && formData.barang.length > 0) {
-      id_btb = formData.barang[0].id_btb || null;
-    }
-
-    // Ambil divisi dari formData (sudah otomatis)
-    // --- Ambil nama divisi dari mapping, fallback ke formData.divisi jika sudah nama ---
-    const divisi =
-      divisiMap[String(formData.divisi)] ||
-      formData.divisi ||
-      "";
-
-    // Siapkan payload untuk endpoint /api/bkb/full
-    const payload = {
-      no_bkb: formData.noBKB,
-      tanggal_bkb: formatDateForBackend(formData.tanggalBKB),
-      keterangan: formData.keterangan,
-      dibuat_oleh: userId,
-      dikeluarkan_oleh: userId,
-      diterima_oleh: formData.diterima_oleh || "",
-      skema: formData.skema, // <-- id_skema
-      id_btb: id_btb, // <-- parent id_btb
-      divisi: divisi, // <-- kirim nama divisi ke backend
-      barang: formData.barang.map((b: any) => {
-        const btb = backendBTBRows.find((row) => row.id === b.btbId);
-        return {
-          id_btb_item: b.btbId,
-          nama_barang: b.barang,
-          jumlah_keluar: b.jumlah,
-          satuan: b.satuan, // <-- id_satuan
-          keterangan: formData.keterangan,
-          tanggal: btb?.tanggal || "",
-        };
-      }),
-    };
-
-    // --- Tambahkan console log sebelum fetch ---
-    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", "http://localhost:5000/api/bkb/full");
-    console.log("BKB SUBMIT: id_btb yang dikirim:", id_btb);
-    console.log("BKB SUBMIT: payload:", payload);
-
-    try {
-      // Kirim ke endpoint /api/bkb/full agar backend insert bkb + bkb_item sekaligus
-      const res = await fetch("http://localhost:5000/api/bkb/full", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        setNotif({ type: "error", message: err.error || "Gagal simpan BKB" });
-        setTimeout(() => setNotif(null), 2500);
-        return;
-      }
-      setNotif({
-        type: "success",
-        message:
-          "BKB berhasil disimpan! Halaman akan direfresh...",
-      });
-      // Auto refresh halaman setelah submit sukses
-      setTimeout(() => {
-        window.location.reload();
-      }, 1200);
-    } catch (err: any) {
-      setNotif({ type: "error", message: "Gagal simpan BKB ke backend." });
-      setTimeout(() => setNotif(null), 2500);
-    }
-  };
-
-  // Helper format tanggal ke yyyy-mm-dd untuk backend
-  function formatDateForBackend(date: Date | null) {
-    if (!date) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return filteredBKBData;
   }
+  const handleExport = async () => {
+    const exportBKBData = getExportBKBData();
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Monitoring BKB");
 
-  // Handler barang di form (tidak perlu dropdown satuan)
-  const handleBarangChange = (idx: number, field: string, value: any) => {
-    if (field === "jumlah") {
-      const sisa = getSisaBTB(formData.barang[idx]);
-      let val = Number(value);
-      if (val > sisa) val = sisa;
-      if (val < 0) val = 0; // <-- ubah dari 1 ke 0 agar minimum 0
-      setFormData((prev: any) => ({
-        ...prev,
-        barang: prev.barang.map((b: any, i: number) =>
-          i === idx ? { ...b, [field]: val } : b
-        ),
-      }));
-    } else {
-      setFormData((prev: any) => ({
-        ...prev,
-        barang: prev.barang.map((b: any, i: number) =>
-          i === idx ? { ...b, [field]: value } : b
-        ),
-      }));
-    }
-  };
-
-  // Helper: get BTB info for a barang row (ambil dari backendBTBRows)
-  function getBTBInfo(btbId: string) {
-    const btb = backendBTBRows.find((b) => b.id === btbId);
-    return btb
-      ? {
-        noBTB: btb.noBTB,
-        tanggal: btb.tanggal,
-        supplier: btb.nama_supplier,
-      }
-      : { noBTB: btbId, tanggal: "", supplier: "" };
-  }
-
-  // Helper: get sisa BTB for a barang row
-  function getSisaBTB(b: any) {
-    const btb = backendBTBRows.find((row) => row.id === b.btbId);
-    return btb ? btb.sisa ?? btb.jumlah : 0;
-  }
-
-  // Tambahkan state untuk pagination daftar BTB
-  const [btbCurrentPage, setBtbCurrentPage] = useState(1);
-  const btbItemsPerPage = 10;
-
-  // ========================================
-  // 1. PARSER No. BTB (E-WALK + PENTA)
-  function parseNoBTB(noBTB: string | null | undefined) {
-    if (!noBTB || typeof noBTB !== "string") return null;
-    const s = noBTB.trim().toUpperCase();
-
-    // --- FORMAT 1: E-WALK ---
-    // BTB/E-WALK/25/XI/001
-    // Matches standard format from Monitoring BTB
-    const regexEwalk = /^BTB\/E-?WALK\/(\d{2})\/([A-Z0-9]+)\/(\d{1,5})$/;
-
-    // --- FORMAT 2: PENTACITY ---
-    // INV/BTB/25/XI/00001
-    const regexPenta = /^INV\/BTB\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
-    let match = s.match(regexEwalk);
-    let brand = "E-WALK";
-
-    if (!match) {
-      match = s.match(regexPenta);
-      brand = "PENTA";
-    }
-
-    if (!match) return null;
-
-    const [, tahun2, bulanRomawi, urutStr] = match;
-
-    const bulanMap: Record<string, number> = {
-      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
-      // Extended support just in case
-      XIII: 13, XIV: 14, XV: 15, XVI: 16, XVII: 17, XVIII: 18, XIX: 19, XX: 20, XXI: 21
-    };
-
-    const bulan = bulanMap[bulanRomawi] ?? 0;
-    const tahun = 2000 + parseInt(tahun2, 10);
-    const urut = parseInt(urutStr, 10);
-
-    return { tahun, bulan, urut, brand };
-  }
-
-  // ========================================
-  // 2. SORTING BTB TERBARU → TERLAMA
-  // ========================================
-  function sortBTBList(filteredBTBData: any[]) {
-    return [...filteredBTBData].sort((a, b) => {
-      // User suggestion: Sort numerically to avoid string issues ("10" < "2")
-      // We extract the LAST number component (Sequence) to ensure we sort by 001, 002, 003
-      // e.g. BTB/E-WALK/25/XXI/001 -> 1
-      const getSequence = (no: string) => {
-        if (!no) return 0;
-        const match = no.trim().match(/(\d+)$/); // Match digits at the end of string
-        return match ? parseInt(match[1], 10) : 0;
+    // Header sesuai tampilan frontend (grouped) - Exclude Skema
+    const headers = [
+      "No. BKB",
+      "Tanggal BKB",
+      "Nama Barang",
+      "Quantity BKB",
+      "Satuan",
+      "Keterangan",
+      "Dikeluarkan Oleh",
+      "Divisi",
+      "Refrensi Nomor PR",
+    ];
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFEEEEEE" },
       };
-
-      const seqA = getSequence(a.noBTB);
-      const seqB = getSequence(b.noBTB);
-
-      return seqA - seqB; // Ascending (001, 002, 003)
+      cell.border = {
+        top: { style: "thin" },
+        right: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+      };
     });
-  }
 
-  // --- SORTING: BTB TERBARU → TERLAMA (PAKAI PARSER) ---
-  const sortedBTBDataFinal = sortBTBList(filteredBTBData);
+    function formatTanggalExcel(tgl: string | null | undefined) {
+      if (!tgl) return "";
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
 
-  // --- Pagination logic untuk daftar BTB ---
-  const btbTotalPages = Math.max(
-    1,
-    Math.ceil(sortedBTBDataFinal.length / btbItemsPerPage)
-  );
-  const paginatedBTBData = sortedBTBDataFinal.slice(
-    (btbCurrentPage - 1) * btbItemsPerPage,
-    btbCurrentPage * btbItemsPerPage
-  );
+      let datePart = tgl;
+      if (tgl.includes("T")) datePart = tgl.split("T")[0];
 
-  // Auto-logout logic (testing: 5 detik idle)
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    const resetTimer = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        localStorage.removeItem("userData");
-        window.location.href = "/login";
-      }, 600000); // 5 detik idle
-    };
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        const [y, m, d] = datePart.split("-");
+        return `${d}-${m}-${y}`;
+      }
 
-    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
-    events.forEach((ev) => window.addEventListener(ev, resetTimer));
-    resetTimer();
+      const d = dayjs(tgl);
+      if (d.isValid()) return d.format("DD-MM-YYYY");
+      return tgl;
+    }
 
-    return () => {
-      clearTimeout(timer);
-      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
-    };
-  }, []);
-
-  // Pada form input BKB, Asal BTB dan Daftar Barang ambil dari formData.barang (hasil checkbox)
-  if (showForm) {
-    // Ambil label skema dari mapping
-    const skemaLabel =
-      skemaMap[String(formData.skema)] || formData.skema || "-";
-    return (
-      <MainLayout>
-        <div className="max-w-[1400px] px-4 mx-auto py-8">
-          <h1 className="text-2xl font-bold mb-4">Input BKB</h1>
-          {/* Notifikasi */}
-          {notif && (
-            <div
-              className={`mb-4 px-4 py-2 rounded ${notif.type === "success"
-                ? "bg-green-100 text-green-800"
-                : "bg-red-100 text-red-800"
-                }`}
-            >
-              {notif.message}
-              {/* Jika sukses, tampilkan tombol kembali ke monitoring */}
-              {notif.type === "success" && (
-                <div className="mt-2">
-                  <Button
-                    type="button"
-                    onClick={() => router.push("/bkb/monitoring")}
-                    className="bg-primary"
-                  >
-                    Kembali ke Monitoring BKB
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-          <form onSubmit={handleSubmitBKB} className="space-y-6">
-            {/* Daftar Barang & Tabel di paling atas */}
-            <div>
-              <Label className="mb-2">Daftar Barang</Label>
-              <div className="border rounded-md p-2 overflow-x-auto" style={{ maxHeight: "70vh", border: "1px solid #d1d5db", borderRadius: "0.5rem" }}>
-                <Table className="w-full min-w-[1100px]">
-                  <TableHeader>
-                    <TableRow>
-                      {/* Hapus checkbox group di form input BKB */}
-                      {[
-                        "Nama Barang",
-                        "No. BTB",
-                        "Tanggal BTB",
-                        "Nama Supplier",
-                        "Quantity",
-                        "Satuan",
-                        "Keterangan",
-                        "Refrensi Nomor PR",
-                      ].map((label) => (
-                        <TableHead
-                          key={label}
-                          className="border border-gray-300 text-center"
-                          style={{
-                            position: "sticky",
-                            top: 0,
-                            zIndex: 2,
-                            background: "#f3f4f6",
-                            borderBottom: "2px solid #d1d5db",
-                          }}
-                        >
-                          {label}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {formData.barang.map((b: any, idx: number) => {
-                      const sisa = getSisaBTB(b);
-                      const btbInfo = getBTBInfo(b.btbId);
-                      const satuanLabel =
-                        satuanMap[String(b.satuan)] ||
-                        b.satuanLabel ||
-                        b.satuan ||
-                        "-";
-                      const btbRow = backendBTBRows.find(
-                        (row) => row.id === b.btbId
-                      );
-                      // --- Cari refrensi nomor PR dari btbRow ---
-                      let noPR = "-";
-                      if (btbRow) {
-                        // Cek apakah ada field no_pr atau refrensiNoPr di btbRow
-                        noPR = btbRow.no_pr || btbRow.refrensiNoPr || "-";
-                        // Jika tidak ada, coba cari dari PO/PR mapping jika tersedia
-                        if (
-                          noPR === "-" &&
-                          poItemList.length > 0 &&
-                          prItemList.length > 0
-                        ) {
-                          // Cari PO Item dari id_po
-                          const poItem = poItemList.find(
-                            (pi: any) => String(pi.id_PO) === String(btbRow.id_po)
-                          );
-                          if (poItem) {
-                            // Cari PR Item dari id_PRItem
-                            const prItem = prItemList.find(
-                              (pri: any) =>
-                                String(pri.id_PRItem) === String(poItem.id_PRItem)
-                            );
-                            if (prItem) {
-                              // Cari PR dari id_PR
-                              const pr = prList.find(
-                                (pr: any) =>
-                                  String(pr.id_PR) === String(prItem.id_PR)
-                              );
-                              if (pr && pr.noPR) noPR = pr.noPR;
-                            }
-                          }
-                        }
-                      }
-                      return (
-                        <TableRow key={idx}>
-                          {/* Nama Barang */}
-                          <TableCell className="text-center align-middle px-4 py-3 uppercase">{b.barang}</TableCell>
-                          {/* No. BTB */}
-                          <TableCell className="text-center align-middle uppercase">{btbInfo.noBTB}</TableCell>
-                          {/* Tanggal BTB */}
-                          <TableCell className="text-center align-middle">{formatTanggalPas(btbRow?.tanggalBTB ?? "")}</TableCell>
-                          {/* Nama Supplier */}
-                          <TableCell className="text-center align-middle uppercase">{btbRow?.nama_supplier ?? "-"}</TableCell>
-                          {/* Quantity */}
-                          <TableCell className="text-center align-middle">
-                            <div className="flex items-center gap-2 justify-center">
-                              <Input
-                                type="number"
-                                min={1} // <-- ubah dari 1 ke 0
-                                max={sisa}
-                                value={formatInt(b.jumlah)}
-                                onChange={(e) =>
-                                  handleBarangChange(
-                                    idx,
-                                    "jumlah",
-                                    e.target.value
-                                  )
-                                }
-                                required
-                                className="w-24 text-base text-center"
-                              />
-                              <span className="text-xs text-muted-foreground">
-                                / {formatInt(sisa)}
-                              </span>
-                            </div>
-                          </TableCell>
-                          {/* Satuan */}
-                          <TableCell className="text-center align-middle uppercase">{satuanLabel}</TableCell>
-                          {/* Kolom baru: Keterangan dari b.keterangan */}
-                          <TableCell className="text-center align-middle uppercase">
-                            {b.keterangan
-                              ? <KeteranganPopover text={b.keterangan} max={15} />
-                              : "-"}
-                          </TableCell>
-                          {/* Kolom baru: Refrensi Nomor PR */}
-                          <TableCell className="text-center align-middle uppercase">
-                            {noPR}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-            {/* No BKB, Tanggal BKB, Nama Penerima */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 min-w-0">
-              <div className="flex flex-col min-w-0">
-                <Label className="mb-1">No BKB</Label>
-                <Input
-                  value={formData.noBKB}
-                  onChange={(e) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      noBKB: e.target.value,
-                    }))
-                  }
-                  required
-                  className="w-full text-base"
-                />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Tanggal BKB</Label>
-                <DatePicker
-                  id="tanggalBKB"
-                  selected={formData.tanggalBKB}
-                  onChange={(date) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      tanggalBKB: date,
-                    }))
-                  }
-                  dateFormat="dd-MM-yyyy"
-                  placeholderText="Pilih tanggal"
-                  className="w-full px-3 py-2 border rounded-md bg-white text-base"
-                  showMonthDropdown
-                  showYearDropdown
-                  dropdownMode="select"
-                  dayClassName={highlightWeekends}
-                  customInput={
-                    <Input
-                      value={
-                        formData.tanggalBKB
-                          ? `${String(formData.tanggalBKB.getDate()).padStart(
-                            2,
-                            "0"
-                          )}-${String(
-                            formData.tanggalBKB.getMonth() + 1
-                          ).padStart(
-                            2,
-                            "0"
-                          )}-${formData.tanggalBKB.getFullYear()}`
-                          : ""
-                      }
-                      readOnly
-                      className="w-full px-3 py-2 border rounded-md bg-white text-base"
-                    />
-                  }
-                  popperPlacement="right-start"
-                />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Nama Penerima</Label>
-                <Input
-                  value={formData.diterima_oleh || ""}
-                  onChange={e => setFormData((prev: any) => ({ ...prev, diterima_oleh: e.target.value }))}
-                  placeholder="Masukkan nama penerima"
-                  className="w-full text-base"
-                />
-                {/* Input skema tetap dikirim ke backend, tapi disembunyikan */}
-                <input type="hidden" name="skema" value={formData.skema} />
-              </div>
-            </div>
-            {/* Divisi dan Keterangan di bawahnya */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 min-w-0">
-              <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Divisi</Label>
-                <Input
-                  value={
-                    divisiMap[String(formData.divisi)] ||
-                    formData.divisi ||
-                    ""
-                  }
-                  readOnly
-                  className="w-full text-base bg-gray-100"
-                  placeholder="Divisi otomatis dari PR/user"
-                />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Keterangan</Label>
-                <Input
-                  value={formData.keterangan}
-                  onChange={(e) =>
-                    setFormData((prev: any) => ({
-                      ...prev,
-                      keterangan: e.target.value,
-                    }))
-                  }
-                  placeholder="Keterangan (opsional)"
-                  className="w-full text-base"
-                />
-              </div>
-            </div>
-            {/* Tombol Simpan/Batal */}
-            <div className="flex gap-2 justify-end">
-              <Button type="submit" className="bg-primary px-6 text-base">
-                Simpan BKB
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowForm(false);
-                  setSelectedBTBIds([]);
-                  localStorage.removeItem("selectedBTBForBKB");
-                }}
-                className="px-6 text-base"
-              >
-                Batal
-              </Button>
-            </div>
-          </form>
-        </div>
-      </MainLayout>
-    );
-  }
-
-  // --- Group BTB items by id_btb for table rendering (match monitoring BTB) ---
-  function groupBTBByIdBTB(data: any[]) {
-    const grouped: Record<string, any[]> = {};
-    data.forEach((row) => {
-      const key = row.id_btb || row.noBTB;
+    // Gabungkan baris berdasarkan id_bkb/noBKB
+    const grouped = {};
+    exportBKBData.forEach((row) => {
+      const key = row.id_bkb || row.noBKB || row.id;
+      // @ts-ignore
       if (!grouped[key]) grouped[key] = [];
+      // @ts-ignore
       grouped[key].push(row);
     });
-    return grouped;
+
+    Object.values(grouped).forEach((rows: any) => {
+      const rowsArray = rows as any[];
+      const first = rowsArray[0];
+      rowsArray.forEach((item, idx) => {
+        const ket = item.keterangan ?? "";
+        // const ketShort = ket.length > 20 ? ket.slice(0, 20) + "..." : ket;
+        const ketShort = ket; // Full text usually better for excel
+        worksheet.addRow([
+          idx === 0 ? first.noBKB : "",
+          idx === 0 ? formatTanggalExcel(first.tanggalBKB) : "",
+          item.namaBarang,
+          Number(item.quantity) || 0,
+          item.satuan ?? "",
+          ketShort,
+          idx === 0 ? (userMap[String(first.dikeluarkanOleh)] ?? first.dikeluarkanOleh ?? "") : "",
+          idx === 0 ? (first.divisi || "-") : "",
+          idx === 0 ? (first.noPR || "-") : "",
+        ]);
+
+        // Format Qty BKB (Col 4)
+        worksheet.getCell(worksheet.lastRow!.number, 4).numFmt = '#,##0';
+      });
+    });
+
+    // auto fit kolom untuk best value
+    worksheet.columns.forEach((column) => {
+      let maxLength = 10;
+      column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
+        const cellValue = cell.value ? String(cell.value) : "";
+        maxLength = Math.max(maxLength, cellValue.length + 2);
+      });
+      column.width = Math.min(maxLength, 50);
+    });
+
+    // Set row heights for better readability
+    worksheet.eachRow((row, rowNumber) => {
+      row.height = rowNumber === 1 ? 25 : 20;
+      row.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+    });
+
+    // Freeze header row
+    worksheet.views = [{ state: "frozen", ySplit: 1 }];
+
+    // Download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `monitoring-bkb-${new Date().toISOString().split("T")[0]
+      }.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Auto-close toast
+  useEffect(() => {
+    if (toastOpen) {
+      const timer = setTimeout(() => setToastOpen(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [toastOpen]);
+
+  // Modal konfirmasi hapus
+  function ConfirmModal({
+    open,
+    title,
+    description,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
+          <h2 className="text-lg font-semibold mb-2">{title}</h2>
+          <p className="text-sm text-muted-foreground mb-4">{description}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button variant="destructive" onClick={onConfirm}>
+              Hapus
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
   }
 
-  // Tabel BTB: urutan kolom sama seperti monitoring BTB
+  // Toast notifikasi
+  function Toast({ open, message, onClose }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed bottom-6 right-6 z-50">
+        <div className="bg-white border border-gray-200 shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in">
+          <span className="text-green-600 font-medium">{message}</span>
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+
+  // Restore-to-BTB modal and logic
+  const [restoreItemModalOpen, setRestoreItemModalOpen] = useState(false);
+  const [selectedBKBItemsForRestore, setSelectedBKBItemsForRestore] = useState<{ bkbId: string; items: any[] }[]>([]);
+  const [selectedItemIdsToRestore, setSelectedItemIdsToRestore] = useState<string[]>([]);
+
+  // Hapus BKB (multi/single) - restore ke BTB
+  const handleDelete = (ids: string[] | string) => {
+    // Ambil id_bkb unik dari baris yang dipilih
+    const idList = Array.isArray(ids) ? ids : [ids];
+    // Map id_bkb_item ke id_bkb (dari bkbRows)
+    const idBkbList = Array.from(
+      new Set(
+        idList
+          .map((id) => {
+            const row = bkbRows.find((r) => r.id === id);
+            if (row?.id_bkb) return row.id_bkb;
+            const fallback = bkbRows.find(
+              (r) => r.noBKB === row?.noBKB && r.tanggalBKB === row?.tanggalBKB
+            );
+            return fallback?.id_bkb;
+          })
+          .filter(Boolean)
+      )
+    );
+    // Ambil semua item BKB yang memiliki id_bkb yang sama
+    const bkbItems = Array.from(new Set(idBkbList)).map((bkbId) => ({
+      bkbId,
+      items: bkbRows.filter((row) => row.id_bkb === bkbId),
+    }));
+    setSelectedBKBItemsForRestore(bkbItems);
+    setSelectedItemIdsToRestore([]);
+    setRestoreItemModalOpen(true);
+  };
+
+  // Fungsi konfirmasi restore item ke BTB
+  const confirmRestoreItems = async () => {
+    setRestoreItemModalOpen(false);
+    try {
+      // Untuk setiap item yang dipilih, panggil endpoint restore ke BTB
+      for (const bkbItemId of selectedItemIdsToRestore) {
+        await fetch(`http://localhost:5000/api/bkb-item/restore-to-btb/${bkbItemId}`, {
+          method: "POST",
+        });
+      }
+      // Hapus item yang sudah direstore dari tampilan
+      setBkbRows((prev) => prev.filter((row) => !selectedItemIdsToRestore.includes(String(row.id))));
+      setSelectedBKBIds((prev) => prev.filter((id) => !selectedItemIdsToRestore.includes(String(id))));
+      setToastMsg("Item BKB berhasil dikembalikan ke BTB.");
+      setToastOpen(true);
+    } catch (error) {
+      setToastMsg("Terjadi kesalahan saat mengembalikan item ke BTB.");
+      setToastOpen(true);
+    }
+    setSelectedItemIdsToRestore([]);
+  };
+
+  // Modal restore item BKB ke BTB
+  function RestoreItemModal({
+    open,
+    bkbItems,
+    selectedIds,
+    setSelectedIds,
+    onConfirm,
+    onCancel,
+  }: any) {
+    if (!open) return null;
+    return createPortal(
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+        <div className="bg-white rounded-lg shadow-lg p-6 min-w-[420px] max-h-[80vh] overflow-y-auto">
+          <h2 className="text-lg font-semibold mb-2">
+            Pilih Item BKB yang akan dikembalikan ke BTB
+          </h2>
+          <div className="space-y-4">
+            {bkbItems.map(({ bkbId, items }: any) => {
+              const noBKB = items && items.length > 0 && items[0].noBKB ? items[0].noBKB : "-";
+              return (
+                <div key={bkbId}>
+                  <div className="font-semibold mb-1">BKB: {noBKB}</div>
+                  {items.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">Tidak ada item pada BKB ini.</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {items.map((item: any, idx: number) => {
+                        const keyId = item.id ? String(item.id) : `${item.namaBarang}-${item.quantity}-${idx}`;
+                        const valueId = item.id ? String(item.id) : "";
+                        return (
+                          <label key={keyId} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              value={valueId}
+                              checked={selectedIds.includes(valueId)}
+                              disabled={!valueId}
+                              onChange={(e) => {
+                                if (!valueId) return;
+                                if (e.target.checked) {
+                                  setSelectedIds([...selectedIds, valueId]);
+                                } else {
+                                  setSelectedIds(selectedIds.filter((x: string) => x !== valueId));
+                                }
+                              }}
+                            />
+                            <span>{item.namaBarang}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={onCancel}>
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={onConfirm}
+              disabled={selectedIds.length === 0}
+            >
+              Kembalikan ke BTB ({selectedIds.length})
+            </Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // state untuk keterangan
+  const [hoveredKeterangan, setHoveredKeterangan] = useState<string | null>(
+    null
+  );
+  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
+
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Notifikasi tengah layar */}
-        {notif && (
-          <div
-            className={`fixed left-1/2 top-16 z-50 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg text-center text-base font-semibold
-              ${notif.type === "success"
-                ? "bg-green-600 text-white"
-                : "bg-red-600 text-white"
-              }`}
-            style={{ minWidth: 280, maxWidth: 400 }}
-          >
-            {notif.message}
+        {/* Header */}
+        <div className="flex justify-between items-center flex-wrap gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              Monitoring BKB (Bukti Keluar Barang)
+            </h1>
+            <p className="text-muted-foreground">
+              Pantau pengeluaran barang dari BTB
+            </p>
           </div>
-        )}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Input BKB</h1>
-          <p className="text-muted-foreground">
-            Pilih barang BTB untuk dibuatkan Bukti Keluar Barang (BKB)
-          </p>
+          {/* Export section: align like Monitoring PR/PO */}
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
+                Mode Export
+              </Label>
+              <Select
+                value={exportMode}
+                onValueChange={(val) =>
+                  setExportMode(val as "all" | "selected" | "range")
+                }
+              >
+                <SelectTrigger id="exportMode" className="w-[140px] h-9">
+                  <SelectValue placeholder="Export Mode" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua</SelectItem>
+                  <SelectItem value="selected">Terpilih</SelectItem>
+                  <SelectItem value="range">Rentang Tanggal</SelectItem>
+                </SelectContent>
+              </Select>
+              {exportMode === "range" && (
+                <div className="flex items-center gap-2 ml-2">
+                  <Label className="text-xs font-medium">Tanggal</Label>
+                  <Input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    className="w-[130px] h-9"
+                    placeholder="Mulai"
+                  />
+                  <span className="mx-1">-</span>
+                  <Input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    className="w-[130px] h-9"
+                    placeholder="Akhir"
+                  />
+                </div>
+              )}
+              <Button
+                onClick={handleExport}
+                className="bg-primary hover:bg-primary/90 h-9 ml-2"
+                disabled={
+                  (exportMode === "selected" && selectedBKBIds.length === 0) ||
+                  (exportMode === "range" &&
+                    (!exportStartDate || !exportEndDate))
+                }
+              >
+                Export Excel
+              </Button>
+            </div>
+          </div>
         </div>
-        {/* Filter tanggal BTB */}
-        {!showForm && (
-          <div className="flex items-center gap-2 mb-2">
-            <Label className="text-sm font-medium">Tanggal BTB:</Label>
-            <DatePicker
-              selected={startDate}
-              onChange={(date) => setStartDate(date)}
-              selectsStart
-              startDate={startDate}
-              endDate={endDate}
-              dateFormat="yyyy-MM-dd"
-              placeholderText="Mulai"
-              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
-              maxDate={endDate || undefined}
-              isClearable
-            />
-            <span>-</span>
-            <DatePicker
-              selected={endDate}
-              onChange={(date) => setEndDate(date)}
-              selectsEnd
-              startDate={startDate}
-              endDate={endDate}
-              dateFormat="yyyy-MM-dd"
-              placeholderText="Selesai"
-              className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
-              minDate={startDate || undefined}
-              isClearable
-            />
-            <style jsx global>{`
-              .react-datepicker__day.datepicker-red {
-                color: #e53935 !important;
-                font-weight: bold;
-              }
-              .react-datepicker-popper {
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                z-index: 9999 !important;
-              }
-            `}</style>
-          </div>
-        )}
-        {/* Tambahkan search bar seperti monitoring BKB */}
-        {!showForm && (
-          <div className="flex items-center gap-2 mb-2">
-            <Input
-              placeholder="Cari semua kolom..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-[320px]"
-            />
-          </div>
-        )}
-        {/* Tombol Input BKB */}
-        <div className="mb-2 flex justify-end gap-2">
-          <Button
-            className="bg-primary hover:bg-primary/90"
-            onClick={handleInputBKB}
-            disabled={selectedBTBItemIds.length === 0}
-          >
-            Input BKB
-          </Button>
-        </div>
-        {/* Table */}
-        <Card>
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Daftar BTB</CardTitle>
+            <CardTitle>Daftar Bukti Keluar Barang</CardTitle>
             <CardDescription>
-              Total: {filteredBTBData.length} BTB Item
-              {filteredBTBData.length > 0 && (
+              Total: {filteredBKBData.length} BKB Item
+              {filteredBKBData.length > 0 && (
                 <>
                   {" | "}
-                  Menampilkan {(btbCurrentPage - 1) * btbItemsPerPage + 1}-
-                  {Math.min(
-                    btbCurrentPage * btbItemsPerPage,
-                    filteredBTBData.length
-                  )}
-                  {" dari "}
-                  {filteredBTBData.length} BTB Item
+                  Menampilkan Semua Data
                 </>
               )}
             </CardDescription>
+            {exportMode === "selected" && selectedBKBIds.length > 0 && (
+              <Button
+                variant="destructive"
+                className="mt-2"
+                onClick={() => handleDelete(selectedBKBIds)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Hapus BKB Terpilih ({selectedBKBIds.length})
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto" style={{ maxHeight: "70vh", border: "1px solid #d1d5db", borderRadius: "0.5rem" }}>
-              <Table className="w-full min-w-[1100px]">
+            {/* Filter tanggal BKB */}
+            <div className="flex items-center gap-2 mb-4">
+              <Label className="text-sm font-medium">Tanggal BKB:</Label>
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => setStartDate(date)}
+                selectsStart
+                startDate={startDate}
+                endDate={endDate}
+                dateFormat="yyyy-MM-dd"
+                placeholderText="Mulai"
+                className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+                maxDate={endDate || undefined}
+                isClearable
+              />
+              <span>-</span>
+              <DatePicker
+                selected={endDate}
+                onChange={(date) => setEndDate(date)}
+                selectsEnd
+                startDate={startDate}
+                endDate={endDate}
+                dateFormat="yyyy-MM-dd"
+                placeholderText="Selesai"
+                className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
+                minDate={startDate || undefined}
+                isClearable
+              />
+              <style jsx global>{`
+                .react-datepicker__day.datepicker-red {
+                  color: #e53935 !important;
+                  font-weight: bold;
+                }
+                .react-datepicker-popper {
+                  position: absolute !important;
+                  top: 0 !important;
+                  left: 0 !important;
+                  z-index: 9999 !important;
+                }
+              `}</style>
+            </div>
+            {/* Search bar */}
+            <div className="mb-4">
+              <Input
+                placeholder="Cari semua kolom..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div
+              className="overflow-auto"
+              style={{
+                maxHeight: "70vh", // adjust as needed
+                border: "1px solid #d1d5db",
+                borderRadius: "0.5rem",
+              }}
+            >
+              <Table className="border border-gray-300 min-w-[1400px]">
                 <TableHeader>
-                  <TableRow>
-                    {/* Hapus checkbox group di form input BKB */}
+                  <TableRow className="border border-gray-300">
+                    {/* Checkbox header for export selected */}
                     <TableHead
-                      className="border border-gray-300 text-center w-12"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    ></TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[140px] uppercase"
+                      className="border border-gray-300 text-center align-middle px-3 py-2"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1170,232 +885,217 @@ export default function BKBInputPage() {
                         borderBottom: "2px solid #d1d5db",
                       }}
                     >
-                      NO. BTB
+                      {exportMode === "selected" && (
+                        <Checkbox
+                          checked={paginatedData.every((row) =>
+                            selectedBKBIds.includes(row.id)
+                          )}
+                          onCheckedChange={(checked) => {
+                            const pageIds = paginatedData.map((row) => row.id);
+                            if (checked) {
+                              setSelectedBKBIds((prev) =>
+                                Array.from(new Set([...prev, ...pageIds]))
+                              );
+                            } else {
+                              setSelectedBKBIds((prev) =>
+                                prev.filter((id) => !pageIds.includes(id))
+                              );
+                            }
+                          }}
+                        />
+                      )}
                     </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[160px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      NAMA BARANG
-                    </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[90px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      KUANTITAS
-                    </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[90px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      SATUAN
-                    </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[90px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      SISA STOK
-                    </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[120px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      BIAYA
-                    </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[120px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      TANGGAL BTB
-                    </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[160px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      NAMA SUPPLIER
-                    </TableHead>
-                    <TableHead
-                      className="border border-gray-300 text-center min-w-[120px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      NAMA PENERIMA
-                    </TableHead>
-                    {/* <TableHead
-                      className="border border-gray-300 text-center min-w-[120px] uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 2,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      SKEMA
-                    </TableHead> */}
+                    {/* Make all header cells sticky */}
+                    {["NO. BKB", "TANGGAL BKB", "NAMA BARANG", "KUANTITAS BKB",
+                      "SATUAN",
+                      "KETERANGAN",
+                      "DIKELUARKAN OLEH",
+                      "NAMA PENERIMA",
+                      "DIVISI",
+                      "REFRENSI NOMOR PR",
+                      // "SKEMA",
+                      "AKSI",
+                    ].map((label, idx) => (
+                      <TableHead
+                        key={label}
+                        className="border border-gray-300 text-center align-middle px-3 py-2"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 2,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        {label}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={12} className="text-center py-4">
-                        Loading...
-                      </TableCell>
+                      <TableCell colSpan={12}>Loading...</TableCell>
                     </TableRow>
                   ) : (
                     (() => {
-                      const grouped = groupBTBByIdBTB(paginatedBTBData);
-                      // CRITICAL FIX: Sort the groups explicitly by sequence number of the first item
-                      const sortedGroups = Object.entries(grouped).sort(([, itemsA], [, itemsB]) => {
-                        const getSeq = (items: any[]) => {
-                          const no = items[0]?.noBTB || "";
-                          const match = no.trim().match(/(\d+)$/);
-                          return match ? parseInt(match[1], 10) : 0;
-                        };
-                        return getSeq(itemsA) - getSeq(itemsB); // Ascending
+                      // Group BKB by id_bkb using Map to preserve order
+                      const grouped = new Map<string, any[]>();
+                      paginatedData.forEach((row) => {
+                        const key = String(row.id_bkb);
+                        if (!grouped.has(key)) grouped.set(key, []);
+                        grouped.get(key)!.push(row);
                       });
 
-                      return sortedGroups.map(([id_btb, items], idx) => {
+                      return Array.from(grouped.entries()).map(([id_bkb, items]) => {
                         if (!items || items.length === 0) return null;
-                        // Urutkan items ASC by id_btb_item (atau id_btbItem/id)
+                        // Urutkan items ASC by id_bkb_item (atau id_bkbItem/id)
                         const sortedItems = [...items].sort((a, b) => {
-                          const getId = (x) => x.id_btb_item ?? x.id_btbItem ?? x.id;
+                          const getId = (x: any) => x.id_bkb_item ?? x.id_bkbItem ?? x.id;
                           return getId(a) - getId(b);
                         });
-                        const fragmentKey = id_btb || `id_btb-unknown-${idx}`;
                         return (
-                          <React.Fragment key={fragmentKey}>
-                            {sortedItems.map((item, itemIdx) => (
-                              <TableRow key={`${id_btb}-item-${itemIdx}`} className="hover:bg-gray-50 transition-colors">
-                                {/* Checkbox group (select all per BTB), hanya di baris pertama */}
-                                {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
-                                    <Checkbox
-                                      checked={items.every((itm) => selectedBTBItemIds.includes(itm.id))}
-                                      {...(
-                                        items.some((itm) => selectedBTBItemIds.includes(itm.id)) &&
-                                          !items.every((itm) => selectedBTBItemIds.includes(itm.id))
-                                          ? { indeterminate: true }
-                                          : {}
-                                      )}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          const idsToAdd = items.map((itm) => itm.id).filter((id) => !selectedBTBItemIds.includes(id));
-                                          setSelectedBTBItemIds((prev) => [...prev, ...idsToAdd]);
-                                        } else {
-                                          setSelectedBTBItemIds((prev) => prev.filter((id) => !items.map((itm) => itm.id).includes(id)));
-                                        }
-                                      }}
-                                    />
-                                  </TableCell>
-                                )}
-                                {/* No. BTB (rowSpan) hanya di baris pertama */}
-                                {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium uppercase">
-                                    {item.noBTB}
-                                  </TableCell>
-                                )}
-                                {/* Nama Barang + Checkbox per item di sebelah kiri nama barang */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap flex items-center gap-2 uppercase">
+                          <React.Fragment key={id_bkb}>
+                            <TableRow className="hover:bg-gray-50 transition-colors">
+                              {/* Checkbox hanya di baris pertama */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
+                                {exportMode === "selected" && (
                                   <Checkbox
-                                    checked={selectedBTBItemIds.includes(item.id)}
+                                    checked={selectedBKBIds.includes(items[0].id)}
                                     onCheckedChange={(checked) => {
-                                      handleSelectBTBItem(item.id, !!checked);
+                                      setSelectedBKBIds((prev) =>
+                                        checked
+                                          ? [...prev, items[0].id]
+                                          : prev.filter((id) => id !== items[0].id)
+                                      );
                                     }}
                                   />
-                                  <span>{item.nama_barang}</span>
+                                )}
+                              </TableCell>
+                              {/* No. BKB - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap font-medium uppercase">
+                                {items[0].noBKB}
+                              </TableCell>
+                              {/* Tanggal BKB - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
+                                {formatTanggalPas(items[0].tanggalBKB)}
+                              </TableCell>
+                              {/* Nama Barang - item pertama */}
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                {sortedItems[0].namaBarang}
+                              </TableCell>
+                              {/* Quantity - item pertama */}
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap">
+                                <Badge
+                                  variant={
+                                    Number(sortedItems[0].quantity) > 0
+                                      ? "default"
+                                      : "destructive"
+                                  }
+                                >
+                                  {formatInt(sortedItems[0].quantity)}
+                                </Badge>
+                              </TableCell>
+                              {/* Satuan - item pertama */}
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                {sortedItems[0].satuan}
+                              </TableCell>
+                              {/* Keterangan - item pertama */}
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left uppercase">
+                                {sortedItems[0].keterangan ? (
+                                  <span
+                                    title={sortedItems[0].keterangan}
+                                    style={{
+                                      cursor: "pointer",
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      maxWidth: 120,
+                                      display: "inline-block",
+                                      color: "#6b7280"
+                                    }}
+                                  >
+                                    {sortedItems[0].keterangan.length > 15
+                                      ? sortedItems[0].keterangan.slice(0, 15) + "..."
+                                      : sortedItems[0].keterangan}
+                                  </span>
+                                ) : "-"}
+                              </TableCell>
+                              {/* Dikeluarkan Oleh - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                                {userMap[String(items[0].dikeluarkanOleh)] ?? items[0].dikeluarkanOleh}
+                              </TableCell>
+                              {/* Diterima Oleh - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                                {(userMap[String(items[0].diterima_oleh)] ?? items[0].diterima_oleh) || "-"}
+                              </TableCell>
+                              {/* Divisi - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                                {items[0].divisi || "-"}
+                              </TableCell>
+                              {/* Refrensi Nomor PR - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                                {items[0].noPR || "-"}
+                              </TableCell>
+                              {/* Skema - rowSpan */}
+                              {/* <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
+                                {skemaMap[String(items[0].skema)] ?? items[0].skema}
+                              </TableCell> */}
+                              {/* Aksi - rowSpan */}
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDelete(items[0].id)}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                            {/* Baris item berikutnya */}
+                            {sortedItems.slice(1).map((item, idx) => (
+                              <TableRow key={`${id_bkb}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors">
+                                {/* Nama Barang - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                  {item.namaBarang}
                                 </TableCell>
-                                {/* Quantity */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                                  {formatInt(item.jumlah)}
-                                </TableCell>
-                                {/* Satuan */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap uppercase">
-                                  {item.satuan}
-                                </TableCell>
-                                {/* Sisa Stok */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-center whitespace-nowrap">
-                                  <Badge variant={Number(item.sisa) > 0 ? "default" : "destructive"}>
-                                    {formatInt(item.sisa)}
+                                {/* Quantity - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap">
+                                  <Badge
+                                    variant={
+                                      Number(item.quantity) > 0
+                                        ? "default"
+                                        : "destructive"
+                                    }
+                                  >
+                                    {formatInt(item.quantity)}
                                   </Badge>
                                 </TableCell>
-                                {/* Biaya: hanya di baris pertama, rowSpan */}
-                                {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
-                                    {formatRupiah(item.biaya)}
-                                  </TableCell>
-                                )}
-                                {/* Tanggal BTB (rowSpan) hanya di baris pertama */}
-                                {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
-                                    {formatTanggalPas(item.tanggalBTB)}
-                                  </TableCell>
-                                )}
-                                {/* Nama Supplier (rowSpan) hanya di baris pertama */}
-                                {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
-                                    {item.nama_supplier || "-"}
-                                  </TableCell>
-                                )}
-                                {/* Diterima Oleh (rowSpan) hanya di baris pertama */}
-                                {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
-                                    {userMap[String(item.diterimaOleh)] ?? item.diterimaOleh}
-                                  </TableCell>
-                                )}
-                                {/* Skema (rowSpan) hanya di baris pertama */}
-                                {/* {itemIdx === 0 && (
-                                  <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
-                                    {skemaMap[String(item.skema)] ?? item.skema}
-                                  </TableCell>
-                                )} */}
+                                {/* Satuan - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                  {item.satuan}
+                                </TableCell>
+                                {/* Keterangan - item berikutnya */}
+                                <TableCell className="border border-gray-300 px-3 py-1 text-left uppercase">
+                                  {item.keterangan ? (
+                                    <span
+                                      title={item.keterangan}
+                                      style={{
+                                        cursor: "pointer",
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        maxWidth: 120,
+                                        display: "inline-block",
+                                        color: "#6b7280"
+                                      }}
+                                    >
+                                      {item.keterangan.length > 15
+                                        ? item.keterangan.slice(0, 15) + "..."
+                                        : item.keterangan}
+                                    </span>
+                                  ) : "-"}
+                                </TableCell>
                               </TableRow>
                             ))}
                           </React.Fragment>
@@ -1405,141 +1105,57 @@ export default function BKBInputPage() {
                   )}
                 </TableBody>
               </Table>
-            </div>
-            {/* Pagination bawah tabel */}
-            <div className="mt-4">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        setBtbCurrentPage((prev) => Math.max(1, prev - 1))
-                      }
-                      className={
-                        btbCurrentPage === 1
-                          ? "pointer-events-none opacity-50"
-                          : ""
-                      }
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: btbTotalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setBtbCurrentPage(page)}
-                          isActive={btbCurrentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setBtbCurrentPage((prev) =>
-                          Math.min(btbTotalPages, prev + 1)
-                        )
-                      }
-                      className={
-                        btbCurrentPage === btbTotalPages
-                          ? "pointer-events-none opacity-50"
-                          : ""
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+              {/* Popover keterangan di luar tabel */}
+              {hoveredKeterangan && popoverPos && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: popoverPos.x,
+                    top: popoverPos.y + 8,
+                    zIndex: 100,
+                    background: "#f3f4f6",
+                    color: "#6b7280",
+                    borderRadius: 8,
+                    boxShadow: "0 2px 8px #0001",
+                    padding: "8px 14px",
+                    maxWidth: 400,
+                    fontSize: 14,
+                    pointerEvents: "none",
+                    transform: "translateX(-50%)",
+                  }}
+                >
+                  {hoveredKeterangan}
+                </div>
+              )}
             </div>
           </CardContent>
+          {/* Pagination removed */}
         </Card>
+        {/* Modal dan Toast */}
+        <ConfirmModal
+          open={confirmDeleteOpen}
+          title="Konfirmasi Kembalikan Item BKB ke BTB"
+          description={`Apakah Anda ingin mengembalikan item BKB ke BTB? Data BKB yang dikembalikan akan mengupdate stok BTB.`}
+          onConfirm={() => {
+            setConfirmDeleteOpen(false);
+            setRestoreItemModalOpen(true);
+          }}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+        <Toast
+          open={toastOpen}
+          message={toastMsg}
+          onClose={() => setToastOpen(false)}
+        />
+        <RestoreItemModal
+          open={restoreItemModalOpen}
+          bkbItems={selectedBKBItemsForRestore}
+          selectedIds={selectedItemIdsToRestore}
+          setSelectedIds={setSelectedItemIdsToRestore}
+          onConfirm={confirmRestoreItems}
+          onCancel={() => setRestoreItemModalOpen(false)}
+        />
       </div>
-    </MainLayout >
-  );
-}
-
-function highlightWeekends(date: Date) {
-  const day = date.getDay();
-  if (day === 0 || day === 6) return "datepicker-red";
-  return undefined;
-}
-
-function formatTanggalKurangSehari(tgl: string) {
-  if (!tgl) return "-";
-  let dateObj;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-    dateObj = dayjs(tgl).subtract(1, "day");
-  } else if (tgl.includes("T")) {
-    dateObj = dayjs(tgl).subtract(1, "day");
-  } else {
-    dateObj = dayjs(tgl).subtract(1, "day");
-  }
-  return dateObj.format("DD-MM-YYYY");
-}
-
-function formatTanggalTambahSehari(tgl: string) {
-  if (!tgl) return "-";
-  // Pastikan hanya tambah 1 hari, tidak double
-  return dayjs(tgl).add(1, "day").format("DD-MM-YYYY");
-}
-
-function formatTanggalPas(tgl: string) {
-  if (!tgl) return "-";
-  return dayjs.utc(tgl).local().format("DD-MM-YYYY");
-}
-
-// Komponen untuk popover keterangan (hover, abu-abu)
-function KeteranganPopover({ text, max = 15 }: { text: string; max?: number }) {
-  const [show, setShow] = React.useState(false);
-  const [pos, setPos] = React.useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const ref = React.useRef<HTMLSpanElement>(null);
-
-  if (!text) return "";
-  if (text.length <= max) return text;
-
-  const handleMouseEnter = (e: React.MouseEvent) => {
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    setPos({
-      x: rect.left + window.scrollX,
-      y: rect.bottom + window.scrollY + 4,
-    });
-    setShow(true);
-  };
-  const handleMouseLeave = () => setShow(false);
-
-  return (
-    <>
-      <span
-        ref={ref}
-        className="cursor-pointer"
-        style={{
-          whiteSpace: "nowrap",
-          textDecoration: "underline dotted",
-          color: "#6b7280",
-        }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        {text.slice(0, max) + "..."}{" "}
-      </span>
-      {show &&
-        typeof window !== "undefined" &&
-        ReactDOM.createPortal(
-          <div
-            className="z-[9999] bg-gray-100 text-gray-700 border border-gray-300 rounded px-3 py-2 shadow-lg max-w-xs text-sm"
-            style={{
-              position: "absolute",
-              left: pos.x,
-              top: pos.y,
-              minWidth: 200,
-              whiteSpace: "pre-line",
-              pointerEvents: "none",
-            }}
-          >
-            {text}
-          </div>,
-          document.body
-        )}
-    </>
+    </MainLayout>
   );
 }
