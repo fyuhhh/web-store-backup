@@ -2099,14 +2099,14 @@ export default function BTBInputPage() {
                               <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
                                 {item.satuan}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words uppercase">
+                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-nowrap overflow-hidden uppercase">
                                 <HoverCard>
                                   <HoverCardTrigger asChild>
                                     <div
                                       className="text-sm text-muted-foreground cursor-help"
                                       title={item.keterangan}
                                     >
-                                      {truncateText(item.keterangan, 35)}
+                                      {truncateText(item.keterangan, 10)}
                                     </div>
                                   </HoverCardTrigger>
                                 </HoverCard>

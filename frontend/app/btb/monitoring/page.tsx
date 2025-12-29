@@ -845,11 +845,8 @@ export default function BTBMonitoringPage() {
   const sortedBTBDataFinal = sortBTBList(filteredBTBData);
 
   // --- Pagination ---
-  const totalPages = Math.ceil(sortedBTBDataFinal.length / itemsPerPage);
-  const paginatedData = sortedBTBDataFinal.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const paginatedData = sortedBTBDataFinal; // Pagination removed
+
 
   // Tambahkan helper untuk status BTB per noBTB
   function getBTBStatus(items: any[]) {
@@ -998,10 +995,7 @@ export default function BTBMonitoringPage() {
               {filteredBTBData.length > 0 && (
                 <>
                   {" | "}
-                  Menampilkan {(currentPage - 1) * itemsPerPage + 1}-
-                  {Math.min(currentPage * itemsPerPage, filteredBTBData.length)}
-                  {" dari "}
-                  {filteredBTBData.length} BTB Item
+                  Menampilkan {filteredBTBData.length} BTB Item
                 </>
               )}
             </CardDescription>
@@ -1045,10 +1039,6 @@ export default function BTBMonitoringPage() {
                           checked={(() => {
                             const grouped: { [noBTB: string]: any[] } = {};
                             filteredBTBData
-                              .slice(
-                                (currentPage - 1) * itemsPerPage,
-                                currentPage * itemsPerPage
-                              )
                               .forEach((row) => {
                                 const key = row.noBTB;
                                 if (!grouped[key]) grouped[key] = [];
@@ -1060,10 +1050,6 @@ export default function BTBMonitoringPage() {
                           onCheckedChange={(checked) => {
                             const grouped: { [noBTB: string]: any[] } = {};
                             filteredBTBData
-                              .slice(
-                                (currentPage - 1) * itemsPerPage,
-                                currentPage * itemsPerPage
-                              )
                               .forEach((row) => {
                                 const key = row.noBTB;
                                 if (!grouped[key]) grouped[key] = [];
@@ -1517,7 +1503,7 @@ export default function BTBMonitoringPage() {
                           <React.Fragment key={noBTB}>
                             <TableRow className="hover:bg-gray-50 transition-colors border border-gray-300">
                               {/* Checkbox hanya di baris pertama */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle">
                                 {exportMode === "selected" && (
                                   <Checkbox
                                     checked={selectedBTBIds.includes(items[0].id)}
@@ -1528,33 +1514,33 @@ export default function BTBMonitoringPage() {
                                 )}
                               </TableCell>
                               {/* No. BTB - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap font-medium uppercase">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap font-medium uppercase">
                                 {items[0].noBTB}
                               </TableCell>
                               {/* Tanggal BTB - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                 {formatTanggalLebihSehari(items[0].tanggal)}
                               </TableCell>
                               {/* Nama Supplier - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
                                 {items[0].nama_supplier || "-"}
                               </TableCell>
                               {/* Nama Barang - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].nama_barang && sortedItems[0].nama_barang !== ""
                                   ? sortedItems[0].nama_barang
                                   : sortedItems[0].nama_supplier || "-"}
                               </TableCell>
                               {/* Quantity - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap">
                                 {formatInt(sortedItems[0].jumlah)}
                               </TableCell>
                               {/* Satuan - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].satuan}
                               </TableCell>
                               {/* Keterangan - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left uppercase">
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left uppercase">
                                 {sortedItems[0].keterangan ? (
                                   <span
                                     title={sortedItems[0].keterangan}
@@ -1568,30 +1554,30 @@ export default function BTBMonitoringPage() {
                                       color: "#6b7280"
                                     }}
                                   >
-                                    {sortedItems[0].keterangan.length > 15
-                                      ? sortedItems[0].keterangan.slice(0, 15) + "..."
+                                    {sortedItems[0].keterangan.length > 10
+                                      ? sortedItems[0].keterangan.slice(0, 10) + "..."
                                       : sortedItems[0].keterangan}
                                   </span>
                                 ) : "-"}
                               </TableCell>
                               {/* Biaya - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                 {formatRupiah(items[0].biaya)}
                               </TableCell>
                               {/* Diterima Oleh - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
                                 {userMap[String(items[0].diterimaOleh)] ?? items[0].diterimaOleh}
                               </TableCell>
                               {/* Skema - rowSpan */}
-                              {/* <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
+                              {/* <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
                                 {skemaMap[String(items[0].skema)] ?? items[0].skema}
                               </TableCell> */}
                               {/* Status - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
                                 {getBTBStatus(items)}
                               </TableCell>
                               {/* Aksi - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1607,21 +1593,21 @@ export default function BTBMonitoringPage() {
                               <TableRow key={`${noBTB}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors border border-gray-300">
                                 {/* Kolom yang di-rowSpan tidak ditampilkan lagi */}
                                 {/* Nama Barang - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
+                                <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
                                   {item.nama_barang && item.nama_barang !== ""
                                     ? item.nama_barang
                                     : item.nama_supplier || "-"}
                                 </TableCell>
                                 {/* Quantity - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
+                                <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap">
                                   {formatInt(item.jumlah)}
                                 </TableCell>
                                 {/* Satuan - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
+                                <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
                                   {item.satuan}
                                 </TableCell>
                                 {/* Keterangan - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-3 text-left uppercase">
+                                <TableCell className="border border-gray-300 px-4 py-2 text-left uppercase">
                                   {item.keterangan ? (
                                     <span
                                       title={item.keterangan}
@@ -1635,14 +1621,14 @@ export default function BTBMonitoringPage() {
                                         color: "#6b7280"
                                       }}
                                     >
-                                      {item.keterangan.length > 15
-                                        ? item.keterangan.slice(0, 15) + "..."
+                                      {item.keterangan.length > 10
+                                        ? item.keterangan.slice(0, 10) + "..."
                                         : item.keterangan}
                                     </span>
                                   ) : "-"}
                                 </TableCell>
                                 {/* Jika ingin tampilkan tanggal di baris item, tambahkan di sini:
-                      <TableCell className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                      <TableCell className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                         {formatTanggalLebihSehari(item.tanggal)}
                       </TableCell>
                       */}
@@ -1673,49 +1659,7 @@ export default function BTBMonitoringPage() {
             `}</style>
             </div>
           </CardContent>
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className={
-                    currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                  }
-                />
-              </PaginationItem>
-              {Array.from(
-                { length: Math.ceil(filteredBTBData.length / itemsPerPage) },
-                (_, i) => i + 1
-              ).map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    onClick={() => setCurrentPage(page)}
-                    isActive={currentPage === page}
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() =>
-                    setCurrentPage(
-                      Math.min(
-                        Math.ceil(filteredBTBData.length / itemsPerPage),
-                        currentPage + 1
-                      )
-                    )
-                  }
-                  className={
-                    currentPage ===
-                      Math.ceil(filteredBTBData.length / itemsPerPage)
-                      ? "pointer-events-none opacity-50"
-                      : ""
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+
         </Card>
         {/* Modal dan Toast */}
         <ConfirmModal

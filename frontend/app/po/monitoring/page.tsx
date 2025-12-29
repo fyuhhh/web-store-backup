@@ -987,12 +987,9 @@ export default function MonitoringPOPage() {
   const sortedPOData = sortPOList(filteredPOData);
 
   // Pagination logic
-  const totalPages = Math.ceil(sortedPOData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = sortedPOData.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
+  // Pagination logic removed
+  const startIndex = 0;
+  const paginatedData = sortedPOData;
 
   // Badge status
   const getStatusBadge = (status: string) => {
@@ -1473,7 +1470,7 @@ export default function MonitoringPOPage() {
                 <TableHeader className="bg-gray-100">
                   <TableRow>
                     <TableHead
-                      className="border border-gray-300 px-4 py-3 text-center align-middle sticky-header-cell uppercase"
+                      className="border border-gray-300 px-4 py-2 text-center align-middle sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1498,7 +1495,7 @@ export default function MonitoringPOPage() {
                       />
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                      className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1560,7 +1557,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[120px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1629,7 +1626,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1696,7 +1693,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[180px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[180px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1732,7 +1729,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1788,7 +1785,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1852,7 +1849,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[160px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[160px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1888,7 +1885,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[120px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1945,7 +1942,7 @@ export default function MonitoringPOPage() {
                     </TableHead>
                     {/* Tambahan kolom baru untuk Diskon dan PPN */}
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1957,7 +1954,7 @@ export default function MonitoringPOPage() {
                       Diskon (%)
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1969,7 +1966,7 @@ export default function MonitoringPOPage() {
                       Diskon (Rp)
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1981,7 +1978,7 @@ export default function MonitoringPOPage() {
                       PPN (%)
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -1993,7 +1990,7 @@ export default function MonitoringPOPage() {
                       PPN (Rp)
                     </TableHead>
                     <TableHead
-                      className="min-w-[110px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[110px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2005,7 +2002,7 @@ export default function MonitoringPOPage() {
                       Total
                     </TableHead>
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[120px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2061,7 +2058,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2131,7 +2128,7 @@ export default function MonitoringPOPage() {
                     </TableHead>
                     {/* --- KOLOM BARU: Nama Pembeli --- */}
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center uppercase"
+                      className="min-w-[120px] border border-gray-300 px-4 py-2 text-center uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2143,7 +2140,7 @@ export default function MonitoringPOPage() {
                       Nama Pembeli
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2216,7 +2213,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2287,7 +2284,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2351,7 +2348,7 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     {/* <TableHead
-                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
@@ -2435,7 +2432,7 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="checkbox"
                                   rowSpan={allItems.length}
-                                  className="border border-gray-300 px-4 py-3 text-center align-middle"
+                                  className="border border-gray-300 px-4 py-2 text-center align-middle"
                                 >
                                   <Checkbox
                                     checked={selectedPOs.includes(po.id)}
@@ -2502,8 +2499,8 @@ export default function MonitoringPOPage() {
                                       verticalAlign: "middle",
                                     }}
                                   >
-                                    {item.keterangan ? item.keterangan.slice(0, 20) : ""}
-                                    {item.keterangan && item.keterangan.length > 20 ? "..." : ""}
+                                    {item.keterangan ? item.keterangan.slice(0, 10) : ""}
+                                    {item.keterangan && item.keterangan.length > 10 ? "..." : ""}
                                   </span>
                                 </HoverCardTrigger>
                               </HoverCard>
@@ -2606,54 +2603,7 @@ export default function MonitoringPOPage() {
               </Table>
             </div>
           </CardContent>
-          <Pagination className="mt-4">
-            <PaginationContent className="px-2 gap-1">
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className={
-                    currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                  }
-                />
-              </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      onClick={() => setCurrentPage(page)}
-                      isActive={currentPage === page}
-                      className={`min-w-[32px] text-center rounded ${currentPage === page
-                        ? "bg-primary text-white font-bold"
-                        : "bg-white text-black"
-                        }`}
-                      style={{
-                        display: "inline-block",
-                        margin: "0 2px",
-                        padding: "4px 0",
-                        fontSize: "16px",
-                        boxShadow:
-                          currentPage === page ? "0 2px 8px #bbb8" : "none",
-                      }}
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
-              )}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() =>
-                    setCurrentPage(Math.min(totalPages, currentPage + 1))
-                  }
-                  className={
-                    currentPage === totalPages
-                      ? "pointer-events-none opacity-50"
-                      : ""
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+
         </Card>
         {/* --- Add modal and toast to the layout --- */}
         <ConfirmModal

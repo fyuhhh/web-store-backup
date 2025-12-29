@@ -86,6 +86,17 @@ router.post("/", async (req, res) => {
         .json({ error: "id_btb, id_POItem, nama_barang wajib diisi" });
     }
 
+    // --- FIX: Ambil jumlahPO dari po_item untuk hitung qt_sisa (Backorder) ---
+    let sisa = qtySisaInt; // Default jika tidak ada id_POItem
+    if (id_POItem) {
+      const [[poItemData]] = await db.query("SELECT jumlahPO FROM po_item WHERE id_POItem = ?", [id_POItem]);
+      if (poItemData) {
+        sisa = Math.max(0, Math.round(Number(poItemData.jumlahPO || 0)) - jumlahDiterimaInt);
+        // Update PO Item jumlahPO
+        await db.query("UPDATE po_item SET jumlahPO = ? WHERE id_POItem = ?", [sisa, id_POItem]);
+      }
+    }
+
     const [result] = await db.query(
       `INSERT INTO btb_item 
       (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa, biaya, targetPencapaianPo)
@@ -97,7 +108,7 @@ router.post("/", async (req, res) => {
         jumlahDiterimaInt, // <-- integer
         id_satuan || null,
         keterangan || "",
-        qtySisaInt, // <-- integer
+        sisa, // <-- qty_sisa = sisa PO (Backorder)
         biayaInt, // <-- biaya per item
         targetPencapaianPo || null, // <-- NEW value
       ]

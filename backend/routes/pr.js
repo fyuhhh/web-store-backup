@@ -31,7 +31,6 @@ async function calculateEstimatePO(conn, startDateStr, days) {
   while (added < days) {
     date.setDate(date.getDate() + 1);
     const day = date.getDay();
-
     const cy = date.getFullYear();
     const cm = String(date.getMonth() + 1).padStart(2, '0');
     const cd = String(date.getDate()).padStart(2, '0');
@@ -42,11 +41,11 @@ async function calculateEstimatePO(conn, startDateStr, days) {
       added++;
     }
   }
-
-  const resDd = String(date.getDate()).padStart(2, "0");
-  const resMm = String(date.getMonth() + 1).padStart(2, "0");
+  // Return as YYYY-MM-DD for MySQL DATE
   const resYy = date.getFullYear();
-  return `${resDd}-${resMm}-${resYy}`;
+  const resMm = String(date.getMonth() + 1).padStart(2, "0");
+  const resDd = String(date.getDate()).padStart(2, "0");
+  return `${resYy}-${resMm}-${resDd}`;
 }
 
 // GET semua PR

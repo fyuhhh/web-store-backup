@@ -591,12 +591,9 @@ export default function StatusPOPage() {
   filteredPRs = sortPRList(filteredPRs);
 
   // --- PAGINATION ---
-  const totalPages = Math.ceil(filteredPRs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filteredPRs.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
+  // --- PAGINATION REMOVED ---
+  const startIndex = 0;
+  const paginatedData = filteredPRs;
 
   // Auto-logout logic (testing: 5 detik idle)
   useEffect(() => {
@@ -891,7 +888,7 @@ export default function StatusPOPage() {
                   <TableHeader className="bg-gray-100">
                     <TableRow>
                       <TableHead
-                        className="w-16 border border-gray-300 px-4 py-3 text-center align-middle sticky-header-cell"
+                        className="w-16 border border-gray-300 px-4 py-2 text-center align-middle sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -944,7 +941,7 @@ export default function StatusPOPage() {
                         />
                       </TableHead>
                       <TableHead
-                        className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -999,7 +996,7 @@ export default function StatusPOPage() {
                         <div className="text-xs text-muted-foreground mt-1">(Terbaru di atas)</div>
                       </TableHead>
                       <TableHead
-                        className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1060,7 +1057,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[180px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[180px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1089,7 +1086,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1145,7 +1142,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1201,7 +1198,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[160px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[160px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1230,7 +1227,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1286,7 +1283,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1342,7 +1339,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1398,7 +1395,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[120px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1459,7 +1456,7 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       {/* <TableHead
-                        className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                        className="min-w-[120px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
@@ -1526,7 +1523,7 @@ export default function StatusPOPage() {
                             <TableRow key={`${prId}-item-${item.id}`} className="hover:bg-gray-50 transition-colors">
                               {/* Checkbox PR-level hanya di baris pertama PR */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle">
                                   <Checkbox
                                     checked={
                                       isAllItemsSelected(pr)
@@ -1556,18 +1553,18 @@ export default function StatusPOPage() {
                               ) : null}
                               {/* No. PR hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
                                   {pr.noPR}
                                 </TableCell>
                               ) : null}
                               {/* Tanggal PR hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                   {formatTanggal(pr.tanggalPR)}
                                 </TableCell>
                               ) : null}
                               {/* Nama Barang */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
                                 <Checkbox
                                   checked={selectedItemIds.includes(
                                     String(item.id)
@@ -1597,52 +1594,52 @@ export default function StatusPOPage() {
                                 <span className="ml-2">{item.namaBarang}</span>
                               </TableCell>
                               {/* Qty */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap">
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap">
                                 {Number(item.jumlah) % 1 === 0
                                   ? parseInt(item.jumlah)
                                   : item.jumlah}
                               </TableCell>
                               {/* Satuan */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
                               {/* Keterangan */}
-                              <TableCell className="border border-gray-300 px-4 py-3 text-left">
+                              <TableCell className="border border-gray-300 px-4 py-2 text-left">
                                 <div
                                   className="max-w-xs truncate text-sm text-muted-foreground"
                                   title={item.keterangan}
                                 >
                                   {/* Batasi maksimal 20 karakter */}
-                                  {item.keterangan && item.keterangan.length > 20
-                                    ? item.keterangan.slice(0, 20) + "..."
+                                  {item.keterangan && item.keterangan.length > 10
+                                    ? item.keterangan.slice(0, 10) + "..."
                                     : item.keterangan}
                                 </div>
                               </TableCell>
                               {/* Urgensi hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                   {getUrgensiBadge(pr.urgensi)}
                                 </TableCell>
                               ) : null}
                               {/* Divisi hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                   {pr.divisi}
                                 </TableCell>
                               ) : null}
                               {/* Status hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                   {getStatusBadge(pr.status)}
                                 </TableCell>
                               ) : null}
                               {/* Dibuat Oleh hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                   {pr.dibuatOleh}
                                 </TableCell>
                               ) : null}
                               {/* Skema hanya di baris pertama */}
                               {/* {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
                                   {pr.skemaLabel || pr.skema}
                                 </TableCell>
                               ) : null} */}
@@ -1687,89 +1684,7 @@ export default function StatusPOPage() {
           </CardContent>
         </Card>
 
-        {/* Pagination */}
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                className={
-                  currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                }
-              />
-            </PaginationItem>
-            {/* Show first page */}
-            <PaginationItem>
-              <PaginationLink
-                onClick={() => setCurrentPage(1)}
-                isActive={currentPage === 1}
-                className={currentPage === 1 ? "bg-primary text-white" : ""}
-              >
-                1
-              </PaginationLink>
-            </PaginationItem>
-            {/* Show ellipsis if needed */}
-            {totalPages > 4 && currentPage > 3 && (
-              <PaginationItem>
-                <PaginationEllipsis />
-              </PaginationItem>
-            )}
-            {/* Show middle pages */}
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(
-                (page) =>
-                  page !== 1 &&
-                  page !== totalPages &&
-                  page >= currentPage - 1 &&
-                  page <= currentPage + 1
-              )
-              .map((page) => (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    onClick={() => setCurrentPage(page)}
-                    isActive={currentPage === page}
-                    className={
-                      currentPage === page ? "bg-primary text-white" : ""
-                    }
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ))}
-            {/* Show ellipsis before last page if needed */}
-            {totalPages > 4 && currentPage < totalPages - 2 && (
-              <PaginationItem>
-                <PaginationEllipsis />
-              </PaginationItem>
-            )}
-            {/* Show last page if more than one page */}
-            {totalPages > 1 && (
-              <PaginationItem>
-                <PaginationLink
-                  onClick={() => setCurrentPage(totalPages)}
-                  isActive={currentPage === totalPages}
-                  className={
-                    currentPage === totalPages ? "bg-primary text-white" : ""
-                  }
-                >
-                  {totalPages}
-                </PaginationLink>
-              </PaginationItem>
-            )}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() =>
-                  setCurrentPage(Math.min(totalPages, currentPage + 1))
-                }
-                className={
-                  currentPage === totalPages
-                    ? "pointer-events-none opacity-50"
-                    : ""
-                }
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+
       </div>
     </MainLayout >
   );

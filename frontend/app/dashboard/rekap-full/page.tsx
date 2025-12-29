@@ -618,7 +618,15 @@ export default function RekapFullPage() {
                 skemaPRLabel: pr.id_skema
                   ? skemaMap[String(pr.id_skema)] || pr.id_skema
                   : "",
-                targetTanggalPO: pr.estimasipo || "",
+                targetTanggalPO: pr.estimasipo
+                  ? (() => {
+                    const d = new Date(pr.estimasipo);
+                    if (isNaN(d.getTime())) return pr.estimasipo;
+                    return `${d.getDate().toString().padStart(2, "0")}-${(
+                      d.getMonth() + 1
+                    ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                  })()
+                  : "",
                 delay: "",
                 status: pr.status ?? "", // <-- tetap pakai pr.status jika belum ada PO
                 // PO & BTB kosong
@@ -694,7 +702,15 @@ export default function RekapFullPage() {
                     skemaPRLabel: pr.id_skema
                       ? skemaMap[String(pr.id_skema)] || pr.id_skema
                       : "",
-                    targetTanggalPO: pr.estimasipo || "",
+                    targetTanggalPO: pr.estimasipo
+                      ? (() => {
+                        const d = new Date(pr.estimasipo);
+                        if (isNaN(d.getTime())) return pr.estimasipo;
+                        return `${d.getDate().toString().padStart(2, "0")}-${(
+                          d.getMonth() + 1
+                        ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                      })()
+                      : "",
                     delay: pr.tanggalPR && po?.tanggalPO
                       ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
                       : "",
@@ -819,11 +835,20 @@ export default function RekapFullPage() {
                       skemaPRLabel: pr.id_skema
                         ? skemaMap[String(pr.id_skema)] || pr.id_skema
                         : "",
-                      targetTanggalPO: pr.estimasipo || "",
+                      targetTanggalPO: pr.estimasipo
+                        ? (() => {
+                          const d = new Date(pr.estimasipo);
+                          if (isNaN(d.getTime())) return pr.estimasipo;
+                          return `${d.getDate().toString().padStart(2, "0")}-${(
+                            d.getMonth() + 1
+                          ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                        })()
+                        : "",
                       delay: btb?.delay ?? (pr.tanggalPR && po?.tanggalPO
                         ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
                         : ""),
-                      status: po?.statusterima ?? pr.status ?? "", // <-- ambil dari po.statusterima
+                      status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "", // <-- ambil dari poItem.statusTerima dulu
+                      id_POItem: poItem?.id_POItem || "", // <-- Pass item ID for BTB rows
                       noPO: po?.noPO || "",
                       tanggalPO: po?.tanggalPO
                         ? (() => {
@@ -1496,7 +1521,7 @@ export default function RekapFullPage() {
         return;
       }
       // Update statusterima di backend
-      await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
+      await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusTerima: newStatus }),
