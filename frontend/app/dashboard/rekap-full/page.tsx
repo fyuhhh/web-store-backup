@@ -190,7 +190,26 @@ function addWorkingDays(startDateStr: string, days: number) {
 function countWorkingDaysBetween(startDateStr: string, endDateStr: string) {
   let start = new Date(startDateStr);
   let end = new Date(endDateStr);
+
+  // Set jam ke 00:00:00 untuk perbandingan akurat
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  if (start.getTime() === end.getTime()) return 0;
+
+  const isWarning = start > end;
+  if (isWarning) {
+    // Swap untuk hitung selisih positif, nanti dikali -1
+    const temp = start;
+    start = end;
+    end = temp;
+  }
+
   let count = 0;
+  // Loop dari start sampai end (exclusive end untuk diff? User minta -1 jika beda 1 hari)
+  // Logic standard: diff 08 ke 09 adalah 1 hari.
+  // Loop while (start < end) akan menghitung benar.
+
   while (start < end) {
     start.setDate(start.getDate() + 1);
     const day = start.getDay();
@@ -199,8 +218,10 @@ function countWorkingDaysBetween(startDateStr: string, endDateStr: string) {
       count++;
     }
   }
-  return count;
+  return isWarning ? -count : count;
 }
+
+
 
 // Helper format tanggal dd-mm-yyyy +1 hari (fix: handle dd-mm-yyyy and yyyy-mm-dd)
 function formatTanggalTambahSehari(tgl: string) {
@@ -362,14 +383,14 @@ export default function RekapFullPage() {
           bkbRes,
           bkbItemRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
         ]);
 
         // Log the fetched data for verification
@@ -479,17 +500,17 @@ export default function RekapFullPage() {
         satuanRes,
         divisiRes,
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/supplier").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/user").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/skema").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman").then((r) =>
+        fetch("http://localhost:5000/api/supplier").then((r) => r.json()),
+        fetch("http://localhost:5000/api/user").then((r) => r.json()),
+        fetch("http://localhost:5000/api/skema").then((r) => r.json()),
+        fetch("http://localhost:5000/api/status-pengiriman").then((r) =>
           r.json()
         ),
-        fetch("http://192.168.10.10:5000/api/status-permintaan").then((r) =>
+        fetch("http://localhost:5000/api/status-permintaan").then((r) =>
           r.json()
         ),
-        fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
+        fetch("http://localhost:5000/api/satuan").then((r) => r.json()),
+        fetch("http://localhost:5000/api/divisi").then((r) => r.json()),
       ]);
       setSupplierMap(
         Object.fromEntries(
@@ -550,14 +571,14 @@ export default function RekapFullPage() {
           bkbRes,
           bkbItemRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr").then((r) => r.json()),
+          fetch("http://localhost:5000/api/pr-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po").then((r) => r.json()),
+          fetch("http://localhost:5000/api/po-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/btb-item").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb").then((r) => r.json()),
+          fetch("http://localhost:5000/api/bkb-item").then((r) => r.json()),
         ]);
 
         // Ensure data is in the correct array format
@@ -611,17 +632,13 @@ export default function RekapFullPage() {
                 skemaPRLabel: pr.id_skema
                   ? skemaMap[String(pr.id_skema)] || pr.id_skema
                   : "",
-                targetTanggalPO: pr.estimasipo
-                  ? (() => {
-                    const d = new Date(pr.estimasipo);
-                    if (isNaN(d.getTime())) return pr.estimasipo;
-                    return `${d.getDate().toString().padStart(2, "0")}-${(
-                      d.getMonth() + 1
-                    ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                  })()
-                  : "",
+                targetTanggalPO: pr.estimasipo || "",
                 delay: "",
-                status: pr.status ?? "", // <-- tetap pakai pr.status jika belum ada PO
+                status:
+                  pr.status &&
+                    !["Menunggu", "Gantung", "Diproses"].includes(pr.status)
+                    ? pr.status
+                    : "", // <-- request user: jangan tampilkan status otomatis (Gantung/Menunggu) jika belum ada PO
                 // PO & BTB kosong
                 noPO: "",
                 tanggalPO: "",
@@ -695,18 +712,8 @@ export default function RekapFullPage() {
                     skemaPRLabel: pr.id_skema
                       ? skemaMap[String(pr.id_skema)] || pr.id_skema
                       : "",
-                    targetTanggalPO: pr.estimasipo
-                      ? (() => {
-                        const d = new Date(pr.estimasipo);
-                        if (isNaN(d.getTime())) return pr.estimasipo;
-                        return `${d.getDate().toString().padStart(2, "0")}-${(
-                          d.getMonth() + 1
-                        ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                      })()
-                      : "",
-                    delay: pr.tanggalPR && po?.tanggalPO
-                      ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
-                      : "",
+                    targetTanggalPO: pr.estimasipo || "",
+                    delay: "",
                     status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "", // <-- ambil dari item.statusTerima
                     id_POItem: poItem?.id_POItem || "", // <-- Pass item ID
                     noPO: po?.noPO || "",
@@ -828,20 +835,14 @@ export default function RekapFullPage() {
                       skemaPRLabel: pr.id_skema
                         ? skemaMap[String(pr.id_skema)] || pr.id_skema
                         : "",
-                      targetTanggalPO: pr.estimasipo
+                      targetTanggalPO: pr.estimasipo || "",
+                      delay: po?.estimasiTanggalTerima && btb?.tanggal_btb
                         ? (() => {
-                          const d = new Date(pr.estimasipo);
-                          if (isNaN(d.getTime())) return pr.estimasipo;
-                          return `${d.getDate().toString().padStart(2, "0")}-${(
-                            d.getMonth() + 1
-                          ).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                          const days = countWorkingDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
+                          return String(days);
                         })()
                         : "",
-                      delay: btb?.delay ?? (pr.tanggalPR && po?.tanggalPO
-                        ? countWorkingDaysBetween(pr.tanggalPR, po.tanggalPO) + " Days"
-                        : ""),
-                      status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "", // <-- ambil dari poItem.statusTerima dulu
-                      id_POItem: poItem?.id_POItem || "", // <-- Pass item ID for BTB rows
+                      status: po?.statusterima ?? pr.status ?? "", // <-- ambil dari po.statusterima
                       noPO: po?.noPO || "",
                       tanggalPO: po?.tanggalPO
                         ? (() => {
@@ -944,7 +945,13 @@ export default function RekapFullPage() {
                       skemaBTB: btb?.id_skema
                         ? skemaMap[String(btb.id_skema)] || btb.id_skema
                         : "",
-                      targetPencapaianPO: btbItem?.targetPencapaianPo ?? btb?.targetPencapaianPo ?? "",
+                      targetPencapaianPO: (() => {
+                        if (!po?.estimasiTanggalTerima || !btb?.tanggal_btb) {
+                          return btbItem?.targetPencapaianPo ?? btb?.targetPencapaianPo ?? "";
+                        }
+                        const days = countWorkingDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
+                        return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
+                      })(),
                       id_btb_item: btbItem?.id_btb_item || "", // <-- Pass btb item ID
                       // === BTB mapping end ===
                     });
@@ -1540,8 +1547,9 @@ export default function RekapFullPage() {
         setEditingStatusLoading(false);
         return;
       }
-      // Update statusterima di backend
-      await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+
+      // Update statusTerima di po_item (backend)
+      await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusTerima: newStatus }),
@@ -1580,7 +1588,7 @@ export default function RekapFullPage() {
     }
 
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb-item/${targetId}`, {
+      await fetch(`http://localhost:5000/api/btb-item/${targetId}`, {
         method: "PUT", // PUT for item update
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: newTarget }),
@@ -1611,7 +1619,7 @@ export default function RekapFullPage() {
         return;
       }
 
-      await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+      await fetch(`http://localhost:5000/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusTerima: customVal }),
@@ -1645,7 +1653,7 @@ export default function RekapFullPage() {
     }
 
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb-item/${targetId}`, {
+      await fetch(`http://localhost:5000/api/btb-item/${targetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: customVal }),
@@ -1669,7 +1677,7 @@ export default function RekapFullPage() {
 
     setUpdatingTargetId(item.id_btb_item);
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb-item/${item.id_btb_item}`, {
+      await fetch(`http://localhost:5000/api/btb-item/${item.id_btb_item}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: "woke bos" }),
@@ -1689,7 +1697,7 @@ export default function RekapFullPage() {
 
   // Helper: mapping status Target Pencapaian PO ke warna background cell
   function getTargetPencapaianPoBg(status: string | undefined | null) {
-    if (!status) return "bg-red-100";
+    if (!status) return "";
     const s = status.trim().toUpperCase();
     if (s === "TERCAPAI") return "bg-green-100";
     if (s === "TIDAK TERCAPAI") return "bg-red-100";
@@ -1742,7 +1750,7 @@ export default function RekapFullPage() {
     setUpdatingStatusId(item.noPO);
     try {
       // Cari id_PO dari noPO (harus ada di data PO)
-      const poRes = await fetch("http://192.168.10.10:5000/api/po");
+      const poRes = await fetch("http://localhost:5000/api/po");
       const poList = await poRes.json();
       const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
       if (!po) {
@@ -1751,7 +1759,7 @@ export default function RekapFullPage() {
         return;
       }
       // Update statusterima di backend
-      await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
+      await fetch(`http://localhost:5000/api/po/${po.id_PO}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusterima: "woke bos" }),
