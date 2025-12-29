@@ -221,6 +221,17 @@ function countWorkingDaysBetween(startDateStr: string, endDateStr: string) {
   return isWarning ? -count : count;
 }
 
+// Fungsi menghitung selisih hari kalender (termasuk sabtu/minggu)
+function countCalendarDaysBetween(startDateStr: string, endDateStr: string) {
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  // Set jam ke 00:00:00 untuk perbandingan akurat
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  const diffTime = end.getTime() - start.getTime();
+  return Math.round(diffTime / (1000 * 60 * 60 * 24)); // Gunakan round untuk aman
+}
+
 
 
 // Helper format tanggal dd-mm-yyyy +1 hari (fix: handle dd-mm-yyyy and yyyy-mm-dd)
@@ -742,7 +753,7 @@ export default function RekapFullPage() {
                       ? supplierMap[String(po.id_supplier)] || ""
                       : "",
                     quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                    quantityPO: item.jumlah ?? "", // <-- ambil dari pr_item.jumlah
+                    quantityPO: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "", // <-- ambil dari po_item.jumlahPO
                     satuanPO:
                       item.id_satuan
                         ? satuanMap[String(item.id_satuan)] || item.id_satuan
@@ -838,7 +849,7 @@ export default function RekapFullPage() {
                       targetTanggalPO: pr.estimasipo || "",
                       delay: po?.estimasiTanggalTerima && btb?.tanggal_btb
                         ? (() => {
-                          const days = countWorkingDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
+                          const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
                           return String(days);
                         })()
                         : "",
@@ -882,7 +893,7 @@ export default function RekapFullPage() {
                         ? supplierMap[String(po.id_supplier)] || ""
                         : "",
                       quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                      quantityPO: item.jumlah ?? "",
+                      quantityPO: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
                       satuanPO:
                         item.id_satuan
                           ? satuanMap[String(item.id_satuan)] || item.id_satuan
@@ -961,12 +972,12 @@ export default function RekapFullPage() {
                       targetPencapaianPO: (() => {
                         // 1. Prioritas: Manual Item (btbItem.targetPencapaianPo)
                         if (btbItem?.targetPencapaianPo) return btbItem.targetPencapaianPo;
-                        // 2. Manual Level BTB (Legacy/Fallback)
-                        if (btb?.targetPencapaianPo) return btb.targetPencapaianPo;
+
+                        // 2. RETIRED: Fallback to Header (removed to avoid "Full Delivery" logic)
 
                         // 3. Hitung otomatis hanya jika BELUM ada manual dan tanggal lengkap
                         if (po?.estimasiTanggalTerima && btb?.tanggal_btb) {
-                          const days = countWorkingDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
+                          const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
                           return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
                         }
 
