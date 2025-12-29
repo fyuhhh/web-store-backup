@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { format } from "date-fns";
+import dayjs from "dayjs";
 import { Trash2, Plus } from "lucide-react";
 
 export default function HolidayPage() {
@@ -120,7 +120,7 @@ export default function HolidayPage() {
                                     ) : (
                                         holidays.map(h => (
                                             <TableRow key={h.id}>
-                                                <TableCell>{format(new Date(h.tanggal), "dd MMM yyyy")}</TableCell>
+                                                <TableCell>{dayjs(h.tanggal).format("DD MMM YYYY")}</TableCell>
                                                 <TableCell>{h.description}</TableCell>
                                                 <TableCell>
                                                     <Button variant="ghost" size="sm" onClick={() => handleDelete(h.id)}>
