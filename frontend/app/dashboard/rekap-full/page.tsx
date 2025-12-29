@@ -286,6 +286,13 @@ function getMonthNameCorrected(dateStr: string) {
   return months[monthIndex]; // Fix month index off by 1
 }
 
+function formatDateSimple(dateStr: string) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return `${d.getDate().toString().padStart(2, "0")}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getFullYear()}`;
+}
+
 // Helper untuk popover keterangan (hover, abu-abu, di luar tabel)
 function KeteranganPopover({ text, max = 20 }: { text: string; max?: number }) {
   const [show, setShow] = useState(false);
@@ -643,7 +650,7 @@ export default function RekapFullPage() {
                 skemaPRLabel: pr.id_skema
                   ? skemaMap[String(pr.id_skema)] || pr.id_skema
                   : "",
-                targetTanggalPO: pr.estimasipo || "",
+                targetTanggalPO: formatDateSimple(pr.estimasipo),
                 delay: "",
                 status:
                   pr.status &&
@@ -723,7 +730,7 @@ export default function RekapFullPage() {
                     skemaPRLabel: pr.id_skema
                       ? skemaMap[String(pr.id_skema)] || pr.id_skema
                       : "",
-                    targetTanggalPO: pr.estimasipo || "",
+                    targetTanggalPO: formatDateSimple(pr.estimasipo),
                     delay: "",
                     status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "", // <-- ambil dari item.statusTerima
                     id_POItem: poItem?.id_POItem || "", // <-- Pass item ID
@@ -846,7 +853,7 @@ export default function RekapFullPage() {
                       skemaPRLabel: pr.id_skema
                         ? skemaMap[String(pr.id_skema)] || pr.id_skema
                         : "",
-                      targetTanggalPO: pr.estimasipo || "",
+                      targetTanggalPO: formatDateSimple(pr.estimasipo),
                       delay: po?.estimasiTanggalTerima && btb?.tanggal_btb
                         ? (() => {
                           const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
