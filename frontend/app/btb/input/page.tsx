@@ -59,15 +59,7 @@ import {
   Download,
   ChevronDown,
 } from "lucide-react";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+// Pagination removed
 import { type POData, type PRData, type BTBData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
 
@@ -148,8 +140,7 @@ export default function BTBInputPage() {
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
 
   // Pagination states for PO table
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  // Pagination states removed
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
 
   // Sinkronkan scroll antara tabel dan scrollbar custom
@@ -299,27 +290,7 @@ export default function BTBInputPage() {
       });
   }, []);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    searchTerm,
-    filterNamaBarang,
-    filterQtyMin,
-    filterQtyMax,
-    filterSatuan,
-    filterKeterangan,
-    filterHargaSatuanMin,
-    filterHargaSatuanMax,
-    filterTotalMin,
-    filterTotalMax,
-    filterTanggalPO,
-    filterEstimasiDiterima,
-    filterSupplier,
-    filterStatusPengiriman,
-    filterStatus,
-    filterDiorderOleh,
-  ]);
+  // Reset to page 1 when filters change (logic removed)
 
   // Tambahkan state untuk data PO dari backend
   const [backendPOData, setBackendPOData] = useState<any[]>([]);
@@ -502,27 +473,7 @@ export default function BTBInputPage() {
     // ...existing code...
   }, []);
 
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    searchTerm,
-    filterNamaBarang,
-    filterQtyMin,
-    filterQtyMax,
-    filterSatuan,
-    filterKeterangan,
-    filterHargaSatuanMin,
-    filterHargaSatuanMax,
-    filterTotalMin,
-    filterTotalMax,
-    filterTanggalPO,
-    filterEstimasiDiterima,
-    filterSupplier,
-    filterStatusPengiriman,
-    filterStatus,
-    filterDiorderOleh,
-  ]);
+  // Reset to page 1 when filters change (logic removed)
 
   const loadData = () => {
     const storedPO = localStorage.getItem("poData");
@@ -834,7 +785,7 @@ export default function BTBInputPage() {
     setSelectedPO(null);
     setSelectedPOsForBTB([]);
     setSelectedPOs([]);
-    setCurrentPage(1);
+    // setCurrentPage(1); removed
     setSearchTerm("");
   };
 
@@ -1203,14 +1154,8 @@ export default function BTBInputPage() {
   // --- SORTING: PO TERBARU → TERLAMA (PAKAI PARSER GLOBAL) ---
   const sortedPOData = sortPOList(filteredPOData);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(sortedPOData.length / itemsPerPage)
-  );
-  const paginatedData = sortedPOData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  // Pagination logic removed
+  const paginatedData = sortedPOData;
 
   // --- Checkbox header untuk select all pada halaman (mirip monitoring BTB) ---
   const pagePOIds = paginatedData.map((po) => po.id);
@@ -1335,16 +1280,16 @@ export default function BTBInputPage() {
                   borderRadius: "0.5rem",
                 }}
               >
-                <Table className="border border-gray-300 min-w-[1400px]">
+                <Table className="border-collapse border border-gray-300 table-auto min-w-full">
                   <TableHeader>
                     <TableRow>
                       {/* Tambahkan checkbox header untuk select all */}
                       <TableHead
-                        className="w-12 border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 w-12 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1386,11 +1331,11 @@ export default function BTBInputPage() {
                         />
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1398,11 +1343,11 @@ export default function BTBInputPage() {
                         NO. PO
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1410,11 +1355,11 @@ export default function BTBInputPage() {
                         DAFTAR BARANG
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1454,11 +1399,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1508,11 +1453,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1535,11 +1480,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1579,11 +1524,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1623,11 +1568,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1682,11 +1627,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1746,11 +1691,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1805,11 +1750,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1869,11 +1814,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1923,11 +1868,11 @@ export default function BTBInputPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="border-r border-gray-300 text-center"
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1988,7 +1933,7 @@ export default function BTBInputPage() {
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -2064,7 +2009,7 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="px-2 py-2 border-r border-gray-300 align-middle text-center"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center uppercase"
                                 >
                                   <Checkbox
                                     checked={someGroupSelected && !allGroupSelected ? "indeterminate" : allGroupSelected}
@@ -2078,13 +2023,13 @@ export default function BTBInputPage() {
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="font-medium px-4 py-2 border-r border-gray-300 align-middle text-left uppercase"
+                                  className="font-medium px-3 py-1 border-r border-gray-300 align-middle text-left uppercase"
                                 >
                                   {po.noPO}
                                 </TableCell>
                               )}
                               {/* Checkbox + Nama Barang */}
-                              <TableCell className="px-4 py-2 border-r border-gray-300 text-left min-w-[200px] flex items-left gap-2 justify-left uppercase">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 text-left min-w-[200px] flex items-left gap-2 justify-left uppercase">
                                 <Checkbox
                                   checked={selectedPOItemIds.includes(`${po.id}::${item.noPR}-${item.id}`)}
                                   onCheckedChange={(checked) =>
@@ -2093,13 +2038,13 @@ export default function BTBInputPage() {
                                 />
                                 {item.namaBarang}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px]">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[80px]">
                                 {item.jumlahPO}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
                                 {item.satuan}
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words uppercase">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left max-w-xs whitespace-normal break-words uppercase">
                                 <HoverCard>
                                   <HoverCardTrigger asChild>
                                     <div
@@ -2111,13 +2056,13 @@ export default function BTBInputPage() {
                                   </HoverCardTrigger>
                                 </HoverCard>
                               </TableCell>
-                              <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px]">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px]">
                                 Rp {item.hargaSatuan.toLocaleString("id-ID")}
                               </TableCell>
                               {itemIndex === 0 ? (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px] font-semibold"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] font-semibold"
                                 >
                                   Rp{" "}
                                   {po.totalPembayaran.toLocaleString("id-ID")}
@@ -2190,42 +2135,6 @@ export default function BTBInputPage() {
                   </TableBody>
                 </Table>
               </div>
-              <Pagination className="mt-4">
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      className={
-                        currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                      }
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                        >
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage(Math.min(totalPages, currentPage + 1))
-                      }
-                      className={
-                        currentPage === totalPages
-                          ? "pointer-events-none opacity-50"
-                          : ""
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
             </CardContent>
           </Card>
         )}

@@ -61,15 +61,7 @@ import {
   Download,
   ChevronDown,
 } from "lucide-react";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+
 import { type POData, type PRData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
 function formatTanggal(tgl: string) {
@@ -207,8 +199,9 @@ export default function MonitoringPOPage() {
   const [filterSkema, setFilterSkema] = useState<string[]>([]);
 
   // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  // Pagination removed
+  // const [currentPage, setCurrentPage] = useState(1);
+  // const [itemsPerPage] = useState(10);
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
   // Sinkronkan scroll antara tabel dan scrollbar custom
   React.useEffect(() => {
@@ -583,7 +576,7 @@ export default function MonitoringPOPage() {
     return createPortal(
       <div className="fixed bottom-6 right-6 z-50">
         <div
-          className={`border shadow-lg rounded px-4 py-2 flex items-center gap-2 animate-fade-in ${toastError
+          className={`border shadow-lg rounded px-3 py-1 flex items-center gap-2 animate-fade-in ${toastError
             ? "bg-red-600 text-white border-red-600"
             : "bg-white border-gray-200 text-green-600"
             }`}
@@ -987,12 +980,10 @@ export default function MonitoringPOPage() {
   const sortedPOData = sortPOList(filteredPOData);
 
   // Pagination logic
-  const totalPages = Math.ceil(sortedPOData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = sortedPOData.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
+  // Pagination logic removed
+  // const totalPages = Math.ceil(sortedPOData.length / itemsPerPage);
+  // const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedData = sortedPOData;
 
   // Badge status
   const getStatusBadge = (status: string) => {
@@ -1333,7 +1324,7 @@ export default function MonitoringPOPage() {
               Lihat dan kelola Purchase Order yang sudah dibuat
             </p>
           </div>
-          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-3 bg-white px-3 py-1 rounded-lg border border-gray-200">
             <div className="flex items-center gap-2">
               <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
                 Mode Export
@@ -1464,20 +1455,20 @@ export default function MonitoringPOPage() {
               ref={tableWrapperRef}
               className="overflow-auto"
               style={{
-                maxHeight: 600,
+                maxHeight: "70vh",
                 border: "1px solid #d1d5db",
                 borderRadius: "0.5rem",
               }}
             >
-              <Table className="border-collapse border border-gray-300 table-auto min-w-[1800px]">
+              <Table className="border-collapse border border-gray-300 table-auto min-w-full">
                 <TableHeader className="bg-gray-100">
                   <TableRow>
                     <TableHead
-                      className="border border-gray-300 px-4 py-3 text-center align-middle sticky-header-cell uppercase"
+                      className="border border-gray-300 px-3 py-1 text-center align-middle sticky top-0 z-10 bg-gray-100 uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1498,11 +1489,11 @@ export default function MonitoringPOPage() {
                       />
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell"
+                      className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1560,11 +1551,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1629,11 +1620,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1696,11 +1687,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[180px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[180px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1732,11 +1723,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1788,11 +1779,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1852,11 +1843,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[160px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1888,11 +1879,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1945,11 +1936,11 @@ export default function MonitoringPOPage() {
                     </TableHead>
                     {/* Tambahan kolom baru untuk Diskon dan PPN */}
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1957,11 +1948,11 @@ export default function MonitoringPOPage() {
                       Diskon (%)
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1969,11 +1960,11 @@ export default function MonitoringPOPage() {
                       Diskon (Rp)
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1981,11 +1972,11 @@ export default function MonitoringPOPage() {
                       PPN (%)
                     </TableHead>
                     <TableHead
-                      className="min-w-[90px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1993,11 +1984,11 @@ export default function MonitoringPOPage() {
                       PPN (Rp)
                     </TableHead>
                     <TableHead
-                      className="min-w-[110px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[110px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2005,11 +1996,11 @@ export default function MonitoringPOPage() {
                       Total
                     </TableHead>
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2061,11 +2052,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2131,11 +2122,11 @@ export default function MonitoringPOPage() {
                     </TableHead>
                     {/* --- KOLOM BARU: Nama Pembeli --- */}
                     <TableHead
-                      className="min-w-[120px] border border-gray-300 px-4 py-3 text-center uppercase"
+                      className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2143,11 +2134,11 @@ export default function MonitoringPOPage() {
                       Nama Pembeli
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2216,11 +2207,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[140px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2287,11 +2278,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     <TableHead
-                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2351,11 +2342,11 @@ export default function MonitoringPOPage() {
                       </Popover>
                     </TableHead>
                     {/* <TableHead
-                      className="min-w-[100px] border border-gray-300 px-4 py-3 text-center sticky-header-cell uppercase"
+                      className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -2435,7 +2426,7 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="checkbox"
                                   rowSpan={allItems.length}
-                                  className="border border-gray-300 px-4 py-3 text-center align-middle"
+                                  className="border border-gray-300 px-3 py-1 text-center align-middle"
                                 >
                                   <Checkbox
                                     checked={selectedPOs.includes(po.id)}
@@ -2453,7 +2444,7 @@ export default function MonitoringPOPage() {
                                 </TableCell>
                                 <TableCell
                                   key="noPO"
-                                  className="font-medium px-4 py-2 border-r border-gray-300 align-middle uppercase"
+                                  className="font-medium px-3 py-1 border-r border-gray-300 align-middle uppercase"
                                   rowSpan={allItems.length}
                                 >
                                   {po.noPO}
@@ -2474,18 +2465,18 @@ export default function MonitoringPOPage() {
                                 </TableCell>
                               </>
                             ) : null}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[200px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[200px] uppercase">
                               {item.namaBarang}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[80px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[80px] uppercase">
                               {/* --- Ubah: Quantity PO ambil dari jumlahAsli --- */}
                               {item.jumlahAsli}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
                               {item.satuan}
                             </TableCell>
                             <TableCell
-                              className="px-4 py-2 border-r border-gray-300 align-middle text-left max-w-[120px] whitespace-nowrap overflow-hidden text-ellipsis uppercase"
+                              className="px-3 py-1 border-r border-gray-300 align-middle text-left max-w-[120px] whitespace-nowrap overflow-hidden text-ellipsis uppercase"
                             >
                               {/* HoverCard untuk keterangan */}
                               <HoverCard>
@@ -2508,15 +2499,15 @@ export default function MonitoringPOPage() {
                                 </HoverCardTrigger>
                               </HoverCard>
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[120px] uppercase">
                               Rp {item.hargaSatuan?.toLocaleString("id-ID")}
                             </TableCell>
                             {/* Kolom baru: Diskon (%) */}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {formatPersen(item.diskonPersen)}
                             </TableCell>
                             {/* Kolom baru: Diskon (Rp) */}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {item.diskonNominal
                                 ? `Rp ${Number(
                                   item.diskonNominal
@@ -2524,17 +2515,17 @@ export default function MonitoringPOPage() {
                                 : ""}
                             </TableCell>
                             {/* Kolom baru: PPN (%) */}
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {formatPersen(item.ppnItem)}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {item.ppnAmount
                                 ? `Rp ${Number(item.ppnAmount).toLocaleString(
                                   "id-ID"
                                 )}`
                                 : ""}
                             </TableCell>
-                            <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[110px] uppercase">
+                            <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[110px] uppercase">
                               {typeof item.totalPerItem !== "undefined" &&
                                 item.totalPerItem !== null
                                 ? `Rp ${Number(
@@ -2547,7 +2538,7 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="totalPembayaran"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase"
                                 >
                                   Rp{" "}
                                   {po.totalPembayaran.toLocaleString("id-ID")}
@@ -2555,7 +2546,7 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="orderedBy"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
                                   {po.orderedBy ?? ""}
                                 </TableCell>
@@ -2563,35 +2554,35 @@ export default function MonitoringPOPage() {
                                 <TableCell
                                   key="namaPembeli"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase"
                                 >
                                   {allItems[0]?.namaPembeli ?? ""}
                                 </TableCell>
                                 <TableCell
                                   key="estimasiTanggalDiterima"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
                                 >
                                   {formatTanggal(po.estimasiTanggalTerima)}
                                 </TableCell>
                                 <TableCell
                                   key="statusPengiriman"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
                                 >
                                   {po.statusPengiriman ?? ""}
                                 </TableCell>
                                 <TableCell
                                   key="statusBadge"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
                                   {getStatusBadge(po.status || "")}
                                 </TableCell>
                                 {/* <TableCell
                                   key="skema"
                                   rowSpan={allItems.length}
-                                  className="px-4 py-2 border border-gray-300 align-middle text-center min-w-[100px] uppercase"
+                                  className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
                                   {skemaMap[String(po.skema)] ?? po.skema ?? ""}
                                 </TableCell> */}
@@ -2606,54 +2597,7 @@ export default function MonitoringPOPage() {
               </Table>
             </div>
           </CardContent>
-          <Pagination className="mt-4">
-            <PaginationContent className="px-2 gap-1">
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  className={
-                    currentPage === 1 ? "pointer-events-none opacity-50" : ""
-                  }
-                />
-              </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      onClick={() => setCurrentPage(page)}
-                      isActive={currentPage === page}
-                      className={`min-w-[32px] text-center rounded ${currentPage === page
-                        ? "bg-primary text-white font-bold"
-                        : "bg-white text-black"
-                        }`}
-                      style={{
-                        display: "inline-block",
-                        margin: "0 2px",
-                        padding: "4px 0",
-                        fontSize: "16px",
-                        boxShadow:
-                          currentPage === page ? "0 2px 8px #bbb8" : "none",
-                      }}
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
-              )}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() =>
-                    setCurrentPage(Math.min(totalPages, currentPage + 1))
-                  }
-                  className={
-                    currentPage === totalPages
-                      ? "pointer-events-none opacity-50"
-                      : ""
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+
         </Card>
         {/* --- Add modal and toast to the layout --- */}
         <ConfirmModal
