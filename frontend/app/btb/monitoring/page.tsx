@@ -43,14 +43,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -168,8 +160,7 @@ export default function BTBMonitoringPage() {
   const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
 
   // Sinkronkan scroll antara tabel dan scrollbar custom
@@ -375,9 +366,7 @@ export default function BTBMonitoringPage() {
 
   // Checkbox select all (per halaman)
   const handleSelectAll = (checked: boolean) => {
-    const pageIds = filteredBTBData
-      .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-      .map((row) => row.id);
+    const pageIds = filteredBTBData.map((row) => row.id);
     if (checked) {
       setSelectedBTBIds((prev) => Array.from(new Set([...prev, ...pageIds])));
     } else {
@@ -595,6 +584,22 @@ export default function BTBMonitoringPage() {
         matchesBiayaMax &&
         matchesDateRange
       );
+    })
+    .sort((a, b) => {
+      // Helper parser
+      function extractLastNumber(str: string | null | undefined): number {
+        if (!str || typeof str !== 'string') return 0;
+        const match = str.match(/(\d+)(?!.*\d)/);
+        return match ? parseInt(match[1], 10) : 0;
+      }
+
+      const numA = extractLastNumber(a.noBTB);
+      const numB = extractLastNumber(b.noBTB);
+      if (numA !== numB) return numA - numB;
+
+      const dateA = new Date(a.tanggal || 0).getTime();
+      const dateB = new Date(b.tanggal || 0).getTime();
+      return dateA - dateB;
     });
 
   // Filter data untuk export
@@ -618,7 +623,7 @@ export default function BTBMonitoringPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring BTB");
 
-    // Header sesuai urutan tabel
+    // Header sesuai urutan tabel (Exclude Skema)
     const headers = [
       "No. BTB",
       "Tanggal BTB",
@@ -629,7 +634,6 @@ export default function BTBMonitoringPage() {
       "Keterangan",
       "Biaya",
       "Diterima Oleh",
-      "Skema",
       "Status",
     ];
 
@@ -653,20 +657,21 @@ export default function BTBMonitoringPage() {
     // Helper format tanggal persis UI string (DD-MM-YYYY)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
+      // Prioritize explicit substrings to avoid timezone shifts
       if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
-        const [y, m, d] = tgl.split("-");
+
+      let datePart = tgl;
+      if (tgl.includes("T")) datePart = tgl.split("T")[0];
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        const [y, m, d] = datePart.split("-");
         return `${d}-${m}-${y}`;
       }
+
       // Fallback dayjs format
       const d = dayjs(tgl);
       if (d.isValid()) return d.format("DD-MM-YYYY");
       return tgl;
-    }
-
-    function formatRupiahExcel(val: any) {
-      if (val === undefined || val === "" || isNaN(val)) return "";
-      return "Rp " + Number(val).toLocaleString("id-ID");
     }
 
     // Gabungkan baris berdasarkan id_btb
@@ -687,17 +692,25 @@ export default function BTBMonitoringPage() {
       rowsArray.forEach((item, idx) => {
         worksheet.addRow([
           idx === 0 ? first.noBTB : "",
-          idx === 0 ? formatTanggalExcel(first.tanggal) : "", // <-- FIX DATE
+          idx === 0 ? formatTanggalExcel(first.tanggal) : "",
           idx === 0 ? (first.nama_supplier ?? first.supplier ?? "") : "",
           item.nama_barang ?? "",
-          typeof item.jumlah === "number" ? item.jumlah : Number(item.jumlah) || 0,
+          Number(item.jumlah) || 0, // Column 5: Qty
           item.satuan ?? "",
           item.keterangan ?? "",
-          idx === 0 ? (typeof first.biaya === "number" ? first.biaya : Number(first.biaya) || 0) : "",
+          idx === 0 ? (Number(first.biaya) || 0) : "", // Column 8: Biaya
           idx === 0 ? (userMap[String(first.diterimaOleh)] ?? first.diterimaOleh ?? "") : "",
-          idx === 0 ? (skemaMap[String(first.skema)] ?? first.skema ?? "") : "",
           idx === 0 ? status : "",
         ]);
+
+        // Format Number Columns
+        // Col 5: Qty
+        worksheet.getCell(worksheet.lastRow!.number, 5).numFmt = '#,##0';
+
+        // Col 8: Biaya (Currency)
+        if (idx === 0) {
+          worksheet.getCell(worksheet.lastRow!.number, 8).numFmt = '_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)';
+        }
       });
     });
 
@@ -844,9 +857,9 @@ export default function BTBMonitoringPage() {
   // --- SORTING: BTB TERBARU → TERLAMA (PAKAI PARSER) ---
   const sortedBTBDataFinal = sortBTBList(filteredBTBData);
 
-  // --- Pagination ---
-  const paginatedData = sortedBTBDataFinal; // Pagination removed
-
+  // --- Pagination removed ---
+  // const totalPages = Math.ceil(sortedBTBDataFinal.length / itemsPerPage);
+  const paginatedData = sortedBTBDataFinal;
 
   // Tambahkan helper untuk status BTB per noBTB
   function getBTBStatus(items: any[]) {
@@ -855,15 +868,7 @@ export default function BTBMonitoringPage() {
     return items.every((item) => Number(item.sisa) === 0) ? "Closed" : "Open";
   }
 
-  // Reset ke halaman 1 saat searchTerm berubah
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm]);
 
-  // Reset ke halaman 1 saat filter tanggal berubah
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filterStartDate, filterEndDate]);
 
   return (
     <MainLayout>
@@ -992,12 +997,6 @@ export default function BTBMonitoringPage() {
             <CardTitle>Daftar Bukti Terima Barang</CardTitle>
             <CardDescription>
               Total: {filteredBTBData.length} BTB Item
-              {filteredBTBData.length > 0 && (
-                <>
-                  {" | "}
-                  Menampilkan {filteredBTBData.length} BTB Item
-                </>
-              )}
             </CardDescription>
             {exportMode === "selected" && selectedBTBIds.length > 0 && (
               <Button
@@ -1025,11 +1024,11 @@ export default function BTBMonitoringPage() {
                   <TableRow className="border border-gray-300">
                     {/* Checkbox header untuk export terpilih */}
                     <TableHead
-                      className="border border-gray-300 text-center"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1037,41 +1036,21 @@ export default function BTBMonitoringPage() {
                       {exportMode === "selected" && (
                         <Checkbox
                           checked={(() => {
-                            const grouped: { [noBTB: string]: any[] } = {};
-                            filteredBTBData
-                              .forEach((row) => {
-                                const key = row.noBTB;
-                                if (!grouped[key]) grouped[key] = [];
-                                grouped[key].push(row);
-                              });
-                            const pageIds = Object.values(grouped).map((items) => items[0].id);
-                            return pageIds.every((id) => selectedBTBIds.includes(id));
+                            if (filteredBTBData.length === 0) return false;
+                            const allIds = filteredBTBData.map(row => row.id);
+                            return allIds.every(id => selectedBTBIds.includes(id));
                           })()}
-                          onCheckedChange={(checked) => {
-                            const grouped: { [noBTB: string]: any[] } = {};
-                            filteredBTBData
-                              .forEach((row) => {
-                                const key = row.noBTB;
-                                if (!grouped[key]) grouped[key] = [];
-                                grouped[key].push(row);
-                              });
-                            const pageIds = Object.values(grouped).map((items) => items[0].id);
-                            if (checked) {
-                              setSelectedBTBIds((prev) => Array.from(new Set([...prev, ...pageIds])));
-                            } else {
-                              setSelectedBTBIds((prev) => prev.filter((id) => !pageIds.includes(id)));
-                            }
-                          }}
+                          onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
                         />
                       )}
                     </TableHead>
                     {/* No. BTB */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[140px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1093,11 +1072,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Tanggal BTB */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[120px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1159,11 +1138,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Nama Supplier */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[160px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1225,11 +1204,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Nama Barang */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[160px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1253,11 +1232,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Quantity */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[90px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1304,11 +1283,11 @@ export default function BTBMonitoringPage() {
           </TableHead> */}
                     {/* Satuan */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[90px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1365,11 +1344,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Keterangan */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[120px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1378,11 +1357,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Biaya */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[120px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1423,11 +1402,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Diterima Oleh */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[120px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1449,11 +1428,11 @@ export default function BTBMonitoringPage() {
                     </TableHead> */}
                     {/* Tambahkan kolom Status */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[90px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1462,11 +1441,11 @@ export default function BTBMonitoringPage() {
                     </TableHead>
                     {/* Aksi */}
                     <TableHead
-                      className="border border-gray-300 text-center min-w-[80px]"
+                      className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                       style={{
                         position: "sticky",
                         top: 0,
-                        zIndex: 2,
+                        zIndex: 10,
                         background: "#f3f4f6",
                         borderBottom: "2px solid #d1d5db",
                       }}
@@ -1503,7 +1482,7 @@ export default function BTBMonitoringPage() {
                           <React.Fragment key={noBTB}>
                             <TableRow className="hover:bg-gray-50 transition-colors border border-gray-300">
                               {/* Checkbox hanya di baris pertama */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle">
                                 {exportMode === "selected" && (
                                   <Checkbox
                                     checked={selectedBTBIds.includes(items[0].id)}
@@ -1514,33 +1493,33 @@ export default function BTBMonitoringPage() {
                                 )}
                               </TableCell>
                               {/* No. BTB - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap font-medium uppercase">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap font-medium uppercase">
                                 {items[0].noBTB}
                               </TableCell>
                               {/* Tanggal BTB - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap">
                                 {formatTanggalLebihSehari(items[0].tanggal)}
                               </TableCell>
                               {/* Nama Supplier - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap uppercase">
                                 {items[0].nama_supplier || "-"}
                               </TableCell>
                               {/* Nama Barang - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].nama_barang && sortedItems[0].nama_barang !== ""
                                   ? sortedItems[0].nama_barang
                                   : sortedItems[0].nama_supplier || "-"}
                               </TableCell>
                               {/* Quantity - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap">
                                 {formatInt(sortedItems[0].jumlah)}
                               </TableCell>
                               {/* Satuan - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].satuan}
                               </TableCell>
                               {/* Keterangan - item pertama */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left uppercase">
+                              <TableCell className="px-3 py-1 border-r border-gray-300 text-left uppercase">
                                 {sortedItems[0].keterangan ? (
                                   <span
                                     title={sortedItems[0].keterangan}
@@ -1561,11 +1540,11 @@ export default function BTBMonitoringPage() {
                                 ) : "-"}
                               </TableCell>
                               {/* Biaya - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap">
                                 {formatRupiah(items[0].biaya)}
                               </TableCell>
                               {/* Diterima Oleh - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap uppercase">
                                 {userMap[String(items[0].diterimaOleh)] ?? items[0].diterimaOleh}
                               </TableCell>
                               {/* Skema - rowSpan */}
@@ -1573,11 +1552,11 @@ export default function BTBMonitoringPage() {
                                 {skemaMap[String(items[0].skema)] ?? items[0].skema}
                               </TableCell> */}
                               {/* Status - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap uppercase">
                                 {getBTBStatus(items)}
                               </TableCell>
                               {/* Aksi - rowSpan */}
-                              <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle">
+                              <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1593,21 +1572,21 @@ export default function BTBMonitoringPage() {
                               <TableRow key={`${noBTB}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors border border-gray-300">
                                 {/* Kolom yang di-rowSpan tidak ditampilkan lagi */}
                                 {/* Nama Barang - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
+                                <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">
                                   {item.nama_barang && item.nama_barang !== ""
                                     ? item.nama_barang
                                     : item.nama_supplier || "-"}
                                 </TableCell>
                                 {/* Quantity - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap">
+                                <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap">
                                   {formatInt(item.jumlah)}
                                 </TableCell>
                                 {/* Satuan - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
+                                <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">
                                   {item.satuan}
                                 </TableCell>
                                 {/* Keterangan - item berikutnya */}
-                                <TableCell className="border border-gray-300 px-4 py-2 text-left uppercase">
+                                <TableCell className="px-3 py-1 border-r border-gray-300 text-left uppercase">
                                   {item.keterangan ? (
                                     <span
                                       title={item.keterangan}

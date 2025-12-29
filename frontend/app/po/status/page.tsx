@@ -22,15 +22,7 @@ import {
 import { Plus, ChevronDown } from "lucide-react";
 import type { PRData, POData } from "@/lib/dummy-data";
 import { Input } from "@/components/ui/input";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-  PaginationEllipsis,
-} from "@/components/ui/pagination";
+
 import {
   Popover,
   PopoverTrigger,
@@ -44,6 +36,7 @@ dayjs.extend(utc);
 // Tambahkan import react-datepicker
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import * as ExcelJS from "exceljs";
 
 export default function StatusPOPage() {
   const [prData, setPrData] = useState<any[]>([]);
@@ -116,9 +109,7 @@ export default function StatusPOPage() {
   const [skemaSearchTerm, setSkemaSearchTerm] = useState("");
 
   // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  // Ubah itemsPerPage ke 50
-  const [itemsPerPage] = useState(50);
+
 
   // NEW: state untuk menyimpan item terpilih per PR (map: prId -> array of item ids)
   const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, string[]>>({});
@@ -592,7 +583,6 @@ export default function StatusPOPage() {
 
   // --- PAGINATION ---
   // --- PAGINATION REMOVED ---
-  const startIndex = 0;
   const paginatedData = filteredPRs;
 
   // Auto-logout logic (testing: 5 detik idle)
@@ -637,63 +627,139 @@ export default function StatusPOPage() {
   // =====================================
   // 1. PARSER No. PR (E-WALK + PENTACITY)
   // =====================================
-  function parseNoPR(noPR: string | null | undefined) {
-    if (!noPR || typeof noPR !== "string") return null;
-
-    const s = noPR.trim().toUpperCase();
-
-    // FORMAT DITERIMA:
-    // PR/E-WALK/25/XI/001
-    // PR/PRQ/25/XI/00001
-    //
-    // Bagian kedua bisa E-WALK atau PRQ
-    const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
-    const match = s.match(regex);
-    if (!match) return null;
-
-    const [, brand, tahun2, bulanRomawi, urutStr] = match;
-
-    // Konversi bulan Romawi
-    const bulanMap: Record<string, number> = {
-      I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-      VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
-    };
-
-    const bulan = bulanMap[bulanRomawi] ?? 0;
-    const tahun = 2000 + parseInt(tahun2, 10);
-    const urut = parseInt(urutStr, 10);
-
-    return { tahun, bulan, urut, brand };
+  // =====================================
+  // 1. PARSER No. PR (ROBUST NUMERIC)
+  // =====================================
+  function extractLastNumber(str: string | null | undefined): number {
+    if (!str || typeof str !== 'string') return 0;
+    const match = str.match(/(\d+)(?!.*\d)/);
+    return match ? parseInt(match[1], 10) : 0;
   }
 
   // =====================================
-  // 2. SORTING PR TERBARU → TERLAMA
+  // 2. SORTING PR LIST
   // =====================================
   function sortPRList(filteredPRData: any[]) {
     return [...filteredPRData].sort((a, b) => {
-      const pa = parseNoPR(a.noPR);
-      const pb = parseNoPR(b.noPR);
+      // 1. Sort by Number (ASC)
+      const numA = extractLastNumber(a.noPR);
+      const numB = extractLastNumber(b.noPR);
+      if (numA !== numB) return numA - numB;
 
-      // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
-      if (pa && pb) {
-        // Tahun ASC
-        if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
-
-        // Bulan ASC
-        if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
-
-        // Nomor urut ASC
-        return pa.urut - pb.urut;
-      }
-
-      // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
-      // Gunakan string comparison untuk tanggal YYYY-MM-DD
-      const dateA = a.tanggalPR || "";
-      const dateB = b.tanggalPR || "";
-      return dateA.localeCompare(dateB);
+      // 2. If number same, sort by Date (ASC)
+      const dateA = new Date(a.tanggalPR || 0).getTime();
+      const dateB = new Date(b.tanggalPR || 0).getTime();
+      return dateA - dateB;
     });
   }
+
+  // Export to Excel
+  const handleExport = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Status PO");
+
+    // Header sesuai UI persis
+    const headers = [
+      "No. PR",
+      "Tanggal PR",
+      "Nama Barang",
+      "Kuantitas",
+      "Satuan",
+      "Keterangan",
+      "Urgensi",
+      "Divisi",
+      "Status",
+      "Dibuat Oleh",
+    ];
+
+    const headerRow = worksheet.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: "center", vertical: "middle" };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFEEEEEE" },
+      };
+      cell.border = {
+        top: { style: "thin" },
+        right: { style: "thin" },
+        bottom: { style: "thin" },
+        left: { style: "thin" },
+      };
+    });
+
+    // Helper format tanggal
+    function formatTanggalExcel(tgl: string) {
+      if (!tgl) return "";
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
+
+      let datePart = tgl;
+      if (tgl.includes("T")) datePart = tgl.split("T")[0];
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+        const [y, m, d] = datePart.split("-");
+        return `${d}-${m}-${y}`;
+      }
+      const d = dayjs(tgl);
+      if (d.isValid()) return d.format("DD-MM-YYYY");
+      return tgl;
+    }
+
+    filteredPRs.forEach((pr) => {
+      const validItems = pr.items && pr.items.length > 0 ? pr.items.filter((i: any) => i.jumlah > 0) : [];
+
+      if (validItems.length > 0) {
+        validItems.forEach((item, index) => {
+          worksheet.addRow([
+            index === 0 ? pr.noPR : "",
+            index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
+            item.namaBarang,
+            Number(item.jumlah),
+            item.satuan,
+            item.keterangan || "",
+            index === 0 ? pr.urgensi : "",
+            index === 0 ? pr.divisi : "",
+            index === 0 ? pr.status : "",
+            index === 0 ? pr.dibuatOleh : "",
+          ]);
+        });
+        worksheet.getColumn(4).numFmt = '#,##0';
+      } else {
+        worksheet.addRow([
+          pr.noPR,
+          formatTanggalExcel(pr.tanggalPR),
+          "",
+          "",
+          "",
+          "",
+          pr.urgensi,
+          pr.divisi,
+          pr.status,
+          pr.dibuatOleh,
+        ]);
+      }
+    });
+
+    // Auto fit
+    worksheet.columns.forEach((column) => {
+      let maxLength = 10;
+      column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
+        const cellValue = cell.value ? String(cell.value) : "";
+        maxLength = Math.max(maxLength, cellValue.length + 2);
+      });
+      column.width = Math.min(maxLength, 50);
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `status-po-${new Date().toISOString().split("T")[0]}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <MainLayout>
@@ -707,6 +773,9 @@ export default function StatusPOPage() {
             </p>
           </div>
           <div className="flex space-x-2">
+            <Button variant="outline" onClick={handleExport}>
+              Export Excel
+            </Button>
             {selectedPRsForProcess.length > 0 ? (
               <Button
                 onClick={async () => {
@@ -888,11 +957,11 @@ export default function StatusPOPage() {
                   <TableHeader className="bg-gray-100">
                     <TableRow>
                       <TableHead
-                        className="w-16 border border-gray-300 px-4 py-2 text-center align-middle sticky-header-cell"
+                        className="w-16 border border-gray-300 px-3 py-1 text-center align-middle sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6", // bg-gray-100
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -941,11 +1010,11 @@ export default function StatusPOPage() {
                         />
                       </TableHead>
                       <TableHead
-                        className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -996,11 +1065,11 @@ export default function StatusPOPage() {
                         <div className="text-xs text-muted-foreground mt-1">(Terbaru di atas)</div>
                       </TableHead>
                       <TableHead
-                        className="min-w-[140px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1057,11 +1126,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[180px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[180px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1086,11 +1155,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1142,11 +1211,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[90px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1198,11 +1267,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[160px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1227,11 +1296,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1283,11 +1352,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1339,11 +1408,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[100px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1395,11 +1464,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       <TableHead
-                        className="min-w-[120px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1456,11 +1525,11 @@ export default function StatusPOPage() {
                         </Popover>
                       </TableHead>
                       {/* <TableHead
-                        className="min-w-[120px] border border-gray-300 px-4 py-2 text-center sticky-header-cell"
+                        className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
                           position: "sticky",
                           top: 0,
-                          zIndex: 2,
+                          zIndex: 10,
                           background: "#f3f4f6",
                           borderBottom: "2px solid #d1d5db",
                         }}
@@ -1523,7 +1592,7 @@ export default function StatusPOPage() {
                             <TableRow key={`${prId}-item-${item.id}`} className="hover:bg-gray-50 transition-colors">
                               {/* Checkbox PR-level hanya di baris pertama PR */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
                                   <Checkbox
                                     checked={
                                       isAllItemsSelected(pr)
@@ -1553,18 +1622,18 @@ export default function StatusPOPage() {
                               ) : null}
                               {/* No. PR hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                                   {pr.noPR}
                                 </TableCell>
                               ) : null}
                               {/* Tanggal PR hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                   {formatTanggal(pr.tanggalPR)}
                                 </TableCell>
                               ) : null}
                               {/* Nama Barang */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
                                 <Checkbox
                                   checked={selectedItemIds.includes(
                                     String(item.id)
@@ -1594,15 +1663,15 @@ export default function StatusPOPage() {
                                 <span className="ml-2">{item.namaBarang}</span>
                               </TableCell>
                               {/* Qty */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap">
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap">
                                 {Number(item.jumlah) % 1 === 0
                                   ? parseInt(item.jumlah)
                                   : item.jumlah}
                               </TableCell>
                               {/* Satuan */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
                               {/* Keterangan */}
-                              <TableCell className="border border-gray-300 px-4 py-2 text-left">
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left">
                                 <div
                                   className="max-w-xs truncate text-sm text-muted-foreground"
                                   title={item.keterangan}
@@ -1615,31 +1684,31 @@ export default function StatusPOPage() {
                               </TableCell>
                               {/* Urgensi hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                   {getUrgensiBadge(pr.urgensi)}
                                 </TableCell>
                               ) : null}
                               {/* Divisi hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                   {pr.divisi}
                                 </TableCell>
                               ) : null}
                               {/* Status hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                   {getStatusBadge(pr.status)}
                                 </TableCell>
                               ) : null}
                               {/* Dibuat Oleh hanya di baris pertama */}
                               {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                   {pr.dibuatOleh}
                                 </TableCell>
                               ) : null}
                               {/* Skema hanya di baris pertama */}
                               {/* {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                   {pr.skemaLabel || pr.skema}
                                 </TableCell>
                               ) : null} */}
@@ -1684,6 +1753,7 @@ export default function StatusPOPage() {
           </CardContent>
         </Card>
 
+        {/* Pagination */}
 
       </div>
     </MainLayout >
