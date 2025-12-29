@@ -637,7 +637,7 @@ export default function RekapFullPage() {
                 hariPR: getDayName(pr.tanggalPR),
                 daftarBarangPR: item.namaBarang,
                 quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
-                quantityPR: item.jumlah ?? "",
+                quantityPO: item.jumlah ?? "",
                 satuanPR: item.id_satuan
                   ? satuanMap[String(item.id_satuan)] || item.id_satuan
                   : "",
@@ -760,7 +760,7 @@ export default function RekapFullPage() {
                       ? supplierMap[String(po.id_supplier)] || ""
                       : "",
                     quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                    quantityPO: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "", // <-- ambil dari po_item.jumlahPO
+                    quantityPO: item.jumlah ?? "",
                     satuanPO:
                       item.id_satuan
                         ? satuanMap[String(item.id_satuan)] || item.id_satuan
@@ -806,7 +806,7 @@ export default function RekapFullPage() {
                     namaBarangBTB: "",
                     quantityBTB: "",
                     satuanBTB: "",
-                    sisaStokBTB: "",
+                    sisaStokBTB: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
                     statusPermintaanByPR: "",
                     plan: pr.plan || "",
                     noPlan: "",
@@ -840,7 +840,7 @@ export default function RekapFullPage() {
                       hariPR: getDayName(pr.tanggalPR),
                       daftarBarangPR: item.namaBarang,
                       quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
-                      quantityPR: item.jumlah ?? "",
+                      quantityPO: item.jumlah ?? "",
                       satuanPR: item.id_satuan
                         ? satuanMap[String(item.id_satuan)] || item.id_satuan
                         : "",
@@ -900,7 +900,7 @@ export default function RekapFullPage() {
                         ? supplierMap[String(po.id_supplier)] || ""
                         : "",
                       quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                      quantityPO: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
+                      quantityPO: item.jumlah ?? "",
                       satuanPO:
                         item.id_satuan
                           ? satuanMap[String(item.id_satuan)] || item.id_satuan
@@ -968,7 +968,7 @@ export default function RekapFullPage() {
                           ? satuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
                           : "",
                       biayaBTB: btbItem?.biaya ?? btb?.biaya ?? "",
-                      sisaStokBTB: btbItem?.qty_sisa ?? "",
+                      sisaStokBTB: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
                       diterimaOleh: btb?.diterima_oleh
                         ? userMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                         : "",
