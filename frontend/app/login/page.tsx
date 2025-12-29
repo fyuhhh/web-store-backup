@@ -6,21 +6,21 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
+  CardDescription,
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+import { Lock, User, ArrowRight, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +30,10 @@ export default function LoginPage() {
       return;
     }
 
+    setIsLoading(true);
+
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/user/login", {
+      const res = await fetch("http://localhost:5000/api/user/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nama_pengguna: username, password }),
@@ -40,14 +42,14 @@ export default function LoginPage() {
 
       if (!res.ok) {
         setErrorMsg(data.message || "Login gagal");
+        setIsLoading(false);
         return;
       }
 
       // Simpan userData ke localStorage (simpan seluruh objek user)
       localStorage.setItem("userData", JSON.stringify(data.user));
 
-      // Mulai animasi fade-out sebelum redirect
-      setIsTransitioning(true);
+      // Beri sedikit delay untuk animasi loading
       setTimeout(() => {
         // Redirect sesuai role/peran
         if (data.user.id_peran === 5) {
@@ -56,7 +58,7 @@ export default function LoginPage() {
           router.push("/dashboard");
         } else if (
           (data.user.role ?? data.user.peran ?? "").toLowerCase() ===
-            "superadmin" ||
+          "superadmin" ||
           data.user.nama_pengguna?.toLowerCase() === "superadmin"
         ) {
           router.push("/kelola-akun");
@@ -67,109 +69,120 @@ export default function LoginPage() {
           router.push("/dashboard");
         } else if (
           (data.user.role ?? data.user.peran ?? "").toLowerCase() ===
-            "divisi" ||
+          "divisi" ||
           data.user.id_peran === 3
         ) {
-          // GANTI: redirect ke dashboard, BUKAN ke rekap-full
           router.push("/dashboard");
         } else {
           router.push("/dashboard");
         }
-      }, 600); // Durasi animasi 600ms
+      }, 800);
     } catch (err) {
       setErrorMsg("Terjadi kesalahan server.");
+      setIsLoading(false);
     }
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={`min-h-screen flex items-center justify-center p-4 transition-all duration-700 ${
-        isTransitioning
-          ? "opacity-0 scale-95 pointer-events-none"
-          : "opacity-100 scale-100"
-      }`}
-      style={{
-        background: "linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%)",
-      }}
-    >
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center space-y-3">
-          <h1 className="text-3xl font-extrabold text-primary tracking-tight">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 font-sans">
+      <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
+        <div className="mb-8 text-center space-y-2">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20 mb-4">
+            <ShieldCheck className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Sistem Monitoring
           </h1>
+          <p className="text-slate-500 text-sm">
+            Masuk untuk mengakses dashboard pengadaan.
+          </p>
         </div>
-        <Card
-          className="bg-white/80 border border-primary/20 shadow-xl rounded-2xl backdrop-blur-md"
-          style={{
-            boxShadow: "0 8px 32px #6366f11a",
-            border: "1px solid #e0e7ff",
-          }}
-        >
-          <CardHeader className="space-y-2">
-            <CardTitle className="text-2xl text-center font-semibold text-primary">
-              Masuk ke Sistem
+
+        <Card className="border-none shadow-xl shadow-slate-200/50 bg-white/80 backdrop-blur-xl ring-1 ring-slate-200">
+          <CardHeader className="space-y-1 pb-2">
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              Selamat Datang Kembali
             </CardTitle>
-            <CardDescription className="text-center text-muted-foreground">
-              Masukkan Nama Pengguna dan Kata Sandi Anda
+            <CardDescription>
+              Silakan masukkan kredensial akun Anda.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleLogin} className="space-y-5">
+          <CardContent className="pt-6">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="font-medium text-primary">
+                <Label htmlFor="username" className="text-slate-600 text-xs font-semibold uppercase tracking-wider">
                   Nama Pengguna
                 </Label>
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Masukkan Nama Pengguna"
-                  value={username}
-                  onChange={(e) => {
-                    setUsername(e.target.value);
-                    setErrorMsg("");
-                  }}
-                  required
-                  className="h-11 rounded-lg bg-muted/30 border-primary/30 focus:border-primary focus:ring-primary/30"
-                />
+                <div className="relative">
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="nama_pengguna"
+                    value={username}
+                    onChange={(e) => {
+                      setUsername(e.target.value);
+                      setErrorMsg("");
+                    }}
+                    required
+                    className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
+                  />
+                  <User className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="password" className="font-medium text-primary">
-                  Kata Sandi
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Masukkan Kata Sandi"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setErrorMsg("");
-                  }}
-                  required
-                  className="h-11 rounded-lg bg-muted/30 border-primary/30 focus:border-primary focus:ring-primary/30"
-                />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" classname="text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                    Kata Sandi
+                  </Label>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setErrorMsg("");
+                    }}
+                    required
+                    className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white focus:border-blue-500 focus:ring-blue-500/20 transition-all font-medium text-slate-800"
+                  />
+                  <Lock className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+                </div>
               </div>
+
               {errorMsg && (
-                <div className="text-red-500 text-sm text-center rounded-md bg-red-50 py-2">
+                <div className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                   {errorMsg}
                 </div>
               )}
+
               <Button
                 type="submit"
-                className="relative w-full h-11 overflow-hidden rounded-lg font-semibold text-white transition-all duration-500 ease-out
-             bg-gradient-to-r from-primary to-indigo-500 shadow-md
-             hover:scale-[1.03] hover:shadow-lg hover:shadow-indigo-400/30"
+                disabled={isLoading}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-600/25 transition-all active:scale-[0.98] mt-2 group"
               >
-                <span className="relative z-10">Masuk</span>
-                <span
-                  className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-primary to-indigo-500
-               opacity-0 group-hover:opacity-100 animate-gradient-move transition-opacity duration-500"
-                ></span>
+                {isLoading ? (
+                  "Memeriksa..."
+                ) : (
+                  <>
+                    Masuk
+                    <ArrowRight className="w-4 h-4 ml-2 opacity-70 group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
               </Button>
             </form>
           </CardContent>
         </Card>
+
+        <div className="mt-8 text-center">
+          <p className="text-xs text-slate-400">
+            &copy; {new Date().getFullYear()} Sistem Monitoring Internal.
+          </p>
+        </div>
       </div>
     </div>
   );
