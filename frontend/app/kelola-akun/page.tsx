@@ -60,7 +60,7 @@ export default function KelolaAkunPage() {
   // Ambil id_peran dari roleOptions dan mapping peran dari backend
   useEffect(() => {
     // Fetch peran dari backend
-    fetch("http://localhost:5000/api/peran")
+    fetch("http://192.168.10.10:5000/api/peran")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setRoleOptions(data); // [{id_peran, peran}]
@@ -68,7 +68,7 @@ export default function KelolaAkunPage() {
       .catch(() => setRoleOptions([]));
 
     // Fetch skema dari backend
-    fetch("http://localhost:5000/api/skema")
+    fetch("http://192.168.10.10:5000/api/skema")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSchemaOptions(data); // [{id_skema, skema}]
@@ -76,7 +76,7 @@ export default function KelolaAkunPage() {
       .catch(() => setSchemaOptions([]));
 
     // Fetch divisi dari backend
-    fetch("http://localhost:5000/api/divisi")
+    fetch("http://192.168.10.10:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setDivisiOptions(data); // [{id_divisi, divisi}]
@@ -84,7 +84,7 @@ export default function KelolaAkunPage() {
       .catch(() => setDivisiOptions([]));
 
     // Fetch akun dari backend
-    fetch("http://localhost:5000/api/user")
+    fetch("http://192.168.10.10:5000/api/user")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setAccounts(data);
@@ -145,7 +145,7 @@ export default function KelolaAkunPage() {
     try {
       const isDivisi =
         getPeranName(Number(form.role)).toLowerCase() === "divisi";
-      const res = await fetch("http://localhost:5000/api/user", {
+      const res = await fetch("http://192.168.10.10:5000/api/user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -162,7 +162,7 @@ export default function KelolaAkunPage() {
       } else {
         alert("Akun berhasil dibuat!");
         // Refresh daftar akun
-        fetch("http://localhost:5000/api/user")
+        fetch("http://192.168.10.10:5000/api/user")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setAccounts(data);
@@ -202,7 +202,7 @@ export default function KelolaAkunPage() {
       )
     ) {
       try {
-        const res = await fetch(`http://localhost:5000/api/user/${id}`, {
+        const res = await fetch(`http://192.168.10.10:5000/api/user/${id}`, {
           method: "DELETE",
         });
         const data = await res.json();
@@ -210,7 +210,7 @@ export default function KelolaAkunPage() {
           alert(data.message || "Gagal menghapus akun");
         } else {
           // Refresh daftar akun
-          fetch("http://localhost:5000/api/user")
+          fetch("http://192.168.10.10:5000/api/user")
             .then((res) => res.json())
             .then((data) => {
               if (Array.isArray(data)) setAccounts(data);
@@ -237,7 +237,7 @@ export default function KelolaAkunPage() {
     }
     try {
       const res = await fetch(
-        `http://localhost:5000/api/user/${editingIndex}`,
+        `http://192.168.10.10:5000/api/user/${editingIndex}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -255,7 +255,7 @@ export default function KelolaAkunPage() {
         alert(data.message || "Gagal update akun");
       } else {
         alert("Akun berhasil diupdate!");
-        fetch("http://localhost:5000/api/user")
+        fetch("http://192.168.10.10:5000/api/user")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setAccounts(data);
@@ -526,8 +526,8 @@ export default function KelolaAkunPage() {
                       type="submit"
                       disabled={loading}
                       className={`h-11 px-8 text-base font-semibold shadow-md transition-all ${editingIndex
-                          ? "bg-orange-500 hover:bg-orange-600"
-                          : "bg-blue-600 hover:bg-blue-700"
+                        ? "bg-orange-500 hover:bg-orange-600"
+                        : "bg-blue-600 hover:bg-blue-700"
                         }`}
                     >
                       {loading ? (
@@ -606,8 +606,8 @@ export default function KelolaAkunPage() {
                             <div className="flex gap-2">
                               <Badge
                                 className={`px-3 py-1 border shadow-sm font-medium ${getPeranName(acc.id_peran).toLowerCase() === "admin"
-                                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                                    : "bg-slate-50 text-slate-600 border-slate-200"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : "bg-slate-50 text-slate-600 border-slate-200"
                                   }`}
                                 variant="outline"
                               >

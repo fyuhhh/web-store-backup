@@ -33,7 +33,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/user/login", {
+      const res = await fetch("http://192.168.10.10:5000/api/user/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nama_pengguna: username, password }),
@@ -87,14 +87,11 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50 font-sans">
       <div className="w-full max-w-md animate-in fade-in zoom-in duration-500">
         <div className="mb-8 text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-600 shadow-lg shadow-blue-600/20 mb-4">
-            <ShieldCheck className="w-6 h-6 text-white" />
-          </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             Sistem Monitoring
           </h1>
           <p className="text-slate-500 text-sm">
-            Masuk untuk mengakses dashboard pengadaan.
+            Masuk untuk mengakses halaman utama.
           </p>
         </div>
 
@@ -132,7 +129,7 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" classname="text-slate-600 text-xs font-semibold uppercase tracking-wider">
+                  <Label htmlFor="password" className="text-slate-600 text-xs font-semibold uppercase tracking-wider">
                     Kata Sandi
                   </Label>
                 </div>
