@@ -842,7 +842,27 @@ export default function RekapFullPage() {
                           return String(days);
                         })()
                         : "",
-                      status: po?.statusterima ?? pr.status ?? "", // <-- ambil dari po.statusterima
+                      status: (() => {
+                        const existingStatus = poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "";
+                        // Jika sudah ada status manual dari item/po, gunakan itu dulu? 
+                        // User bilang "seharusnya tercapai dong", implies logic overrides manual or implies the default should be computed.
+                        // Kita coba compute dulu, if computed available use it? Or use computed if manual is empty?
+                        // User request: "narik dari poItem.statusTerima". 
+                        // Tapi user juga complain logic.
+                        // Let's implement: If poItem.statusTerima is filled, use it. If NOT, try to compute.
+                        // OR: Always compute if dates are present and override?
+                        // "Target tanggal po ... dan ternyata di PO ... berarti ... seharusnya tercapai dong"
+                        // This sounds like verification logic. Let's automate it similar to Target Pencapaian PO.
+
+                        // Cek tanggal
+                        if (pr.estimasipo && po?.tanggalPO) {
+                          const delay = countWorkingDaysBetween(pr.estimasipo, po.tanggalPO);
+                          // jika delay <= 0 berarti on time/early -> TERCAPAI
+                          return delay <= 0 ? "SCHEDULE" : "TIDAK TERCAPAI";
+                        }
+
+                        return existingStatus;
+                      })(),
                       noPO: po?.noPO || "",
                       tanggalPO: po?.tanggalPO
                         ? (() => {
