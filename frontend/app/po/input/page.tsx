@@ -431,10 +431,10 @@ export default function InputPOPage() {
 
   // Fetch supplier, status_pengiriman, status_permintaan dari backend
   useEffect(() => {
-    fetch("http://192.168.10.10:5000/api/supplier")
+    fetch("http://localhost:5000/api/supplier")
       .then((res) => res.json())
       .then((data) => setSupplierOptions(data));
-    fetch("http://192.168.10.10:5000/api/status-pengiriman")
+    fetch("http://localhost:5000/api/status-pengiriman")
       .then((res) => res.json())
       .then((data) => setStatusPengirimanOptions(data));
   }, []);
@@ -442,7 +442,7 @@ export default function InputPOPage() {
   // Handler tambah supplier
   const handleAddSupplier = async () => {
     if (!newSupplier.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/supplier", {
+    const res = await fetch("http://localhost:5000/api/supplier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ namaSupplier: newSupplier }),
@@ -459,7 +459,7 @@ export default function InputPOPage() {
   // Handler tambah status pengiriman
   const handleAddStatusPengiriman = async () => {
     if (!newStatusPengiriman.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/status-pengiriman", {
+    const res = await fetch("http://localhost:5000/api/status-pengiriman", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status_pengiriman: newStatusPengiriman }),
@@ -480,13 +480,13 @@ export default function InputPOPage() {
   const handleEditSupplier = async (id: string) => {
     if (!editSupplierValue.trim()) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/supplier/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ namaSupplier: editSupplierValue }),
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
+        fetch("http://localhost:5000/api/supplier")
           .then((res) => res.json())
           .then((data) => setSupplierOptions(data));
         setEditSupplierId(null);
@@ -500,11 +500,11 @@ export default function InputPOPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus supplier ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/supplier/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
+        fetch("http://localhost:5000/api/supplier")
           .then((res) => res.json())
           .then((data) => setSupplierOptions(data));
       }
@@ -516,7 +516,7 @@ export default function InputPOPage() {
     if (!editStatusPengirimanValue.trim()) return;
     try {
       const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
+        `http://localhost:5000/api/status-pengiriman/${id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -526,7 +526,7 @@ export default function InputPOPage() {
         }
       );
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
+        fetch("http://localhost:5000/api/status-pengiriman")
           .then((res) => res.json())
           .then((data) => setStatusPengirimanOptions(data));
         setEditStatusPengirimanId(null);
@@ -541,13 +541,13 @@ export default function InputPOPage() {
     if (!window.confirm("Yakin ingin menghapus status pengiriman ini?")) return;
     try {
       const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
+        `http://localhost:5000/api/status-pengiriman/${id}`,
         {
           method: "DELETE",
         }
       );
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
+        fetch("http://localhost:5000/api/status-pengiriman")
           .then((res) => res.json())
           .then((data) => setStatusPengirimanOptions(data));
       }
@@ -603,7 +603,7 @@ export default function InputPOPage() {
 
     try {
       // 1. POST PO ke backend
-      const poRes = await fetch("http://192.168.10.10:5000/api/po", {
+      const poRes = await fetch("http://localhost:5000/api/po", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -670,7 +670,7 @@ export default function InputPOPage() {
           const totalPerItem = afterDiskon + ppnRupiahValue;
 
           // A. Create PO Item
-          await fetch("http://192.168.10.10:5000/api/po-item", {
+          await fetch("http://localhost:5000/api/po-item", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -692,7 +692,7 @@ export default function InputPOPage() {
 
           // B. Get current PR Item data
           const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${item.id}`
+            `http://localhost:5000/api/pr-item/${item.id}`
           );
           const prItemData = await prItemRes.json();
 
@@ -700,7 +700,7 @@ export default function InputPOPage() {
           const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt);
 
           // C. Update PR Item with complete payload
-          await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
+          await fetch(`http://localhost:5000/api/pr-item/${item.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -722,14 +722,14 @@ export default function InputPOPage() {
       for (const prId of prIds) {
         // Ambil semua item PR dari backend
         const prItemRes = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
+          `http://localhost:5000/api/pr-item/pr/${prId}`
         );
         const prItems = await prItemRes.json();
         // Jika semua jumlah === 0 -> Telah Selesai, jika ada yang > 0 -> Gantung
         const allZero = prItems.every((item: any) => Number(item.jumlah) === 0);
         const newStatus = allZero ? "Telah Selesai" : "Gantung";
         // Ambil data PR lama
-        const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+        const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
         const prData = await prRes.json();
         // Kirim semua field PR lama + status baru, TANPA mengirim tanggalPR
         const payload = {
@@ -743,7 +743,7 @@ export default function InputPOPage() {
           createdAt: prData.createdAt,
         };
         console.log("PUT /api/pr payload:", payload);
-        await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+        await fetch(`http://localhost:5000/api/pr/${prId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -789,10 +789,10 @@ export default function InputPOPage() {
     const fetchPRData = async () => {
       // Fetch referensi satuan/divisi/urgensi jika perlu (optional)
       // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch("http://localhost:5000/api/pr");
       const prList = await prRes.json();
       // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
 
       // --- FIX: jangan pakai satuanMap di sini, hanya gunakan label/id langsung ---
@@ -863,13 +863,13 @@ export default function InputPOPage() {
 
   useEffect(() => {
     // Fetch referensi dari backend
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
   }, []);
@@ -885,10 +885,10 @@ export default function InputPOPage() {
         return;
 
       // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch("http://localhost:5000/api/pr");
       const prList = await prRes.json();
       // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch("http://localhost:5000/api/pr-item");
       const prItemList = await prItemRes.json();
 
       // Helper mapping dari id ke label
@@ -1558,7 +1558,7 @@ export default function InputPOPage() {
                                         />
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           className="px-2 py-1 text-xs bg-primary text-white"
                                           onClick={() =>
                                             handleEditSupplier(String(sup.id_supplier))
@@ -1569,7 +1569,7 @@ export default function InputPOPage() {
                                         </Button>
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           variant="outline"
                                           className="px-2 py-1 text-xs"
                                           onClick={() => {
@@ -1593,7 +1593,7 @@ export default function InputPOPage() {
                                         </SelectItem>
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           variant="ghost"
                                           className="text-xs text-blue-600 px-1 py-0.5"
                                           onClick={() => {
@@ -1606,7 +1606,7 @@ export default function InputPOPage() {
                                         </Button>
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           variant="ghost"
                                           className="text-xs text-red-600 px-1 py-0.5"
                                           onClick={() =>
@@ -1740,7 +1740,7 @@ export default function InputPOPage() {
                                         />
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           className="px-2 py-1 text-xs bg-primary text-white"
                                           onClick={() =>
                                             handleEditStatusPengiriman(String(opt.id_statusPengiriman))
@@ -1751,7 +1751,7 @@ export default function InputPOPage() {
                                         </Button>
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           variant="outline"
                                           className="px-2 py-1 text-xs"
                                           onClick={() => {
@@ -1775,7 +1775,7 @@ export default function InputPOPage() {
                                         </SelectItem>
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           variant="ghost"
                                           className="text-xs text-blue-600 px-1 py-0.5"
                                           onClick={() => {
@@ -1788,7 +1788,7 @@ export default function InputPOPage() {
                                         </Button>
                                         <Button
                                           type="button"
-                                          size="xs"
+                                          size="sm"
                                           variant="ghost"
                                           className="text-xs text-red-600 px-1 py-0.5"
                                           onClick={() =>
@@ -1853,19 +1853,18 @@ export default function InputPOPage() {
                   <Table className="text-xs">
                     <TableHeader>
                       <TableRow>
-                        <TableHead>NO. PR</TableHead>
-                        <TableHead>NAMA BARANG</TableHead>
-                        <TableHead>KUANTITAS</TableHead>
-                        <TableHead>SATUAN</TableHead>
-                        <TableHead>HARGA SATUAN</TableHead>
-                        <TableHead>DISKON (%)</TableHead>
-                        <TableHead>DISKON (RP)</TableHead>
-                        <TableHead>SUB (SETELAH DISKON)</TableHead>
-                        <TableHead>PPN (%)</TableHead>
-                        <TableHead>PPN (RP)</TableHead>
-                        <TableHead>TOTAL PER ITEM</TableHead>
-                        <TableHead>TOTAL</TableHead>
-                        <TableHead>KETERANGAN</TableHead>
+                        <TableHead className="py-2 h-8">NO. PR</TableHead>
+                        <TableHead className="py-2 h-8">NAMA BARANG</TableHead>
+                        <TableHead className="py-2 h-8">KUANTITAS</TableHead>
+                        <TableHead className="py-2 h-8">SATUAN</TableHead>
+                        <TableHead className="py-2 h-8">HARGA SATUAN</TableHead>
+                        <TableHead className="py-2 h-8">DISKON (%)</TableHead>
+                        <TableHead className="py-2 h-8">DISKON (RP)</TableHead>
+                        <TableHead className="py-2 h-8">SUB (SETELAH DISKON)</TableHead>
+                        <TableHead className="py-2 h-8">PPN (%)</TableHead>
+                        <TableHead className="py-2 h-8">PPN (RP)</TableHead>
+                        <TableHead className="py-2 h-8">TOTAL PER ITEM</TableHead>
+                        <TableHead className="py-2 h-8">KETERANGAN</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1932,9 +1931,9 @@ export default function InputPOPage() {
 
                           return (
                             <TableRow key={item.id}>
-                              <TableCell className="uppercase">{item.noPR}</TableCell>
-                              <TableCell className="uppercase">{item.namaBarang}</TableCell>
-                              <TableCell>
+                              <TableCell className="uppercase p-1 text-xs">{item.noPR}</TableCell>
+                              <TableCell className="uppercase p-1 text-xs">{item.namaBarang}</TableCell>
+                              <TableCell className="p-1">
                                 <Input
                                   type="number"
                                   value={
@@ -1951,7 +1950,7 @@ export default function InputPOPage() {
                                       e.target.value
                                     )
                                   }
-                                  className="w-20"
+                                  className="w-16 h-7 text-xs px-2"
                                 />
                                 <span className="text-xs text-muted-foreground ml-2">
                                   /{" "}
@@ -1960,12 +1959,12 @@ export default function InputPOPage() {
                                     : item.jumlahAsli}
                                 </span>
                               </TableCell>
-                              <TableCell className="uppercase">
+                              <TableCell className="uppercase p-1 text-xs">
                                 {getSatuanLabel(item.id_satuan) ||
                                   item.satuanLabel ||
                                   item.satuan}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1">
                                 <Input
                                   type="text"
                                   inputMode="decimal"
@@ -1982,12 +1981,12 @@ export default function InputPOPage() {
                                       e.target.value
                                     );
                                   }}
-                                  className="w-40 text-right"
+                                  className="w-32 h-7 text-xs text-right px-2"
                                   placeholder="Rp. 0"
                                   autoComplete="off"
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1">
                                 <Input
                                   type="text"
                                   value={item.diskonPersen ?? ""}
@@ -1998,11 +1997,11 @@ export default function InputPOPage() {
                                       e.target.value
                                     )
                                   }
-                                  className="w-20 text-right"
+                                  className="w-16 h-7 text-xs text-right px-2"
                                   placeholder="10%+5%"
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1">
                                 <Input
                                   type="text"
                                   value={
@@ -2024,14 +2023,14 @@ export default function InputPOPage() {
                                       raw
                                     );
                                   }}
-                                  className="w-24 text-right"
+                                  className="w-20 h-7 text-xs text-right px-2"
                                   placeholder="Rp. 0"
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1 text-xs">
                                 Rp {afterDiskon.toLocaleString("id-ID")}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1">
                                 <Input
                                   type="number"
                                   value={item.ppnItem ?? ""}
@@ -2044,19 +2043,19 @@ export default function InputPOPage() {
                                       e.target.value
                                     )
                                   }
-                                  className="w-16 text-right"
+                                  className="w-12 h-7 text-xs text-right px-2"
                                   placeholder="0"
                                 />
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1 text-xs">
                                 Rp {ppnAmount.toLocaleString("id-ID")}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1 text-xs">
                                 Rp {totalPerItem.toLocaleString("id-ID")}
                               </TableCell>
-                              <TableCell>
+                              <TableCell className="p-1 text-xs">
                                 <div
-                                  className="text-sm text-muted-foreground max-w-xs truncate uppercase"
+                                  className="text-muted-foreground max-w-xs truncate uppercase"
                                   title={item.keterangan}
                                 >
                                   {item.keterangan}
