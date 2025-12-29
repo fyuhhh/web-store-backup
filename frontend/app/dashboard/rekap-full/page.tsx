@@ -842,26 +842,19 @@ export default function RekapFullPage() {
                           return String(days);
                         })()
                         : "",
+                      id_POItem: poItem.id_POItem, // <-- Penting untuk edit status (was missing)
                       status: (() => {
-                        const existingStatus = poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "";
-                        // Jika sudah ada status manual dari item/po, gunakan itu dulu? 
-                        // User bilang "seharusnya tercapai dong", implies logic overrides manual or implies the default should be computed.
-                        // Kita coba compute dulu, if computed available use it? Or use computed if manual is empty?
-                        // User request: "narik dari poItem.statusTerima". 
-                        // Tapi user juga complain logic.
-                        // Let's implement: If poItem.statusTerima is filled, use it. If NOT, try to compute.
-                        // OR: Always compute if dates are present and override?
-                        // "Target tanggal po ... dan ternyata di PO ... berarti ... seharusnya tercapai dong"
-                        // This sounds like verification logic. Let's automate it similar to Target Pencapaian PO.
+                        // 1. Prioritas: Status Item Manual (poItem.statusTerima)
+                        if (poItem?.statusTerima) return poItem.statusTerima;
 
-                        // Cek tanggal
+                        // 2. Jika tidak ada manual, hitung otomatis dari tanggal (jika lengkap)
                         if (pr.estimasipo && po?.tanggalPO) {
                           const delay = countWorkingDaysBetween(pr.estimasipo, po.tanggalPO);
-                          // jika delay <= 0 berarti on time/early -> TERCAPAI
                           return delay <= 0 ? "SCHEDULE" : "TIDAK TERCAPAI";
                         }
 
-                        return existingStatus;
+                        // 3. Fallback ke status level header / PR
+                        return po?.statusterima ?? pr.status ?? "";
                       })(),
                       noPO: po?.noPO || "",
                       tanggalPO: po?.tanggalPO
@@ -966,11 +959,18 @@ export default function RekapFullPage() {
                         ? skemaMap[String(btb.id_skema)] || btb.id_skema
                         : "",
                       targetPencapaianPO: (() => {
-                        if (!po?.estimasiTanggalTerima || !btb?.tanggal_btb) {
-                          return btbItem?.targetPencapaianPo ?? btb?.targetPencapaianPo ?? "";
+                        // 1. Prioritas: Manual Item (btbItem.targetPencapaianPo)
+                        if (btbItem?.targetPencapaianPo) return btbItem.targetPencapaianPo;
+                        // 2. Manual Level BTB (Legacy/Fallback)
+                        if (btb?.targetPencapaianPo) return btb.targetPencapaianPo;
+
+                        // 3. Hitung otomatis hanya jika BELUM ada manual dan tanggal lengkap
+                        if (po?.estimasiTanggalTerima && btb?.tanggal_btb) {
+                          const days = countWorkingDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
+                          return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
                         }
-                        const days = countWorkingDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
-                        return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
+
+                        return "";
                       })(),
                       id_btb_item: btbItem?.id_btb_item || "", // <-- Pass btb item ID
                       // === BTB mapping end ===
@@ -1536,7 +1536,7 @@ export default function RekapFullPage() {
 
   // Handler klik kolom status: buka dropdown
   function handleStatusEditClick(item: any) {
-    if (!item.id_POItem) return; // Use item ID check
+    if (!item.id_POItem) return;
     setEditingStatusId(item.id);
     setEditingStatusValue(item.status || "");
     setCustomStatusInput("");
@@ -2087,110 +2087,107 @@ export default function RekapFullPage() {
                                       </TableCell>
                                     ) : null}
                                     {/* Status */}
-                                    {/* Status */}
-                                    {isFirstPO ? (
-                                      <TableCell
-                                        className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase cursor-pointer ${editingStatusId === item.id
-                                          ? "bg-gray-200"
-                                          : getStatusBg(item.status)
-                                          }`}
-                                        rowSpan={poGroup.rowSpan}
-                                        onClick={() => handleStatusEditClick(item)}
-                                        style={{ opacity: editingStatusLoading && editingStatusId === item.id ? 0.5 : 1 }}
-                                        title="Klik untuk edit status"
-                                      >
-                                        {editingStatusId === item.id ? (
-                                          <Popover open={true} onOpenChange={(open) => { if (!open) setEditingStatusId(null); }}>
-                                            <PopoverTrigger asChild>
-                                              <div className="cursor-pointer">{item.status || "Pilih Status"}</div>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-56 p-2 bg-white shadow-lg border rounded-md z-50">
-                                              {editingStatusValue === "Custom..." ? (
-                                                <form
-                                                  onSubmit={(e) => {
-                                                    e.preventDefault();
-                                                    handleCustomStatusSubmit(item);
-                                                  }}
-                                                  className="space-y-2"
-                                                >
-                                                  <Label className="text-xs font-medium">Status Custom</Label>
-                                                  <Input
-                                                    autoFocus
-                                                    className="h-8 text-xs uppercase"
-                                                    placeholder="Isi status..."
-                                                    value={customStatusInput}
-                                                    onChange={(e) => setCustomStatusInput(e.target.value)}
+                                    {/* Status - Per Item */}
+                                    <TableCell
+                                      className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase cursor-pointer ${editingStatusId === item.id
+                                        ? "bg-gray-200"
+                                        : getStatusBg(item.status)
+                                        }`}
+                                      onClick={() => handleStatusEditClick(item)}
+                                      style={{ opacity: editingStatusLoading && editingStatusId === item.id ? 0.5 : 1 }}
+                                      title="Klik untuk edit status"
+                                    >
+                                      {editingStatusId === item.id ? (
+                                        <Popover open={true} onOpenChange={(open) => { if (!open) setEditingStatusId(null); }}>
+                                          <PopoverTrigger asChild>
+                                            <div className="cursor-pointer">{item.status || "Pilih Status"}</div>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-56 p-2 bg-white shadow-lg border rounded-md z-50">
+                                            {editingStatusValue === "Custom..." ? (
+                                              <form
+                                                onSubmit={(e) => {
+                                                  e.preventDefault();
+                                                  handleCustomStatusSubmit(item);
+                                                }}
+                                                className="space-y-2"
+                                              >
+                                                <Label className="text-xs font-medium">Status Custom</Label>
+                                                <Input
+                                                  autoFocus
+                                                  className="h-8 text-xs uppercase"
+                                                  placeholder="Isi status..."
+                                                  value={customStatusInput}
+                                                  onChange={(e) => setCustomStatusInput(e.target.value)}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                />
+                                                <div className="flex justify-end gap-2">
+                                                  <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-7 text-xs"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setEditingStatusValue("");
+                                                      setCustomStatusInput("");
+                                                    }}
+                                                  >
+                                                    Batal
+                                                  </Button>
+                                                  <Button
+                                                    type="submit"
+                                                    size="sm"
+                                                    className="h-7 text-xs"
+                                                    disabled={!customStatusInput.trim()}
                                                     onClick={(e) => e.stopPropagation()}
-                                                  />
-                                                  <div className="flex justify-end gap-2">
-                                                    <Button
-                                                      type="button"
-                                                      size="sm"
-                                                      variant="ghost"
-                                                      className="h-7 text-xs"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEditingStatusValue("");
-                                                        setCustomStatusInput("");
-                                                      }}
-                                                    >
-                                                      Batal
-                                                    </Button>
-                                                    <Button
-                                                      type="submit"
-                                                      size="sm"
-                                                      className="h-7 text-xs"
-                                                      disabled={!customStatusInput.trim()}
-                                                      onClick={(e) => e.stopPropagation()}
-                                                    >
-                                                      Simpan
-                                                    </Button>
-                                                  </div>
-                                                </form>
-                                              ) : (
-                                                <div className="space-y-1">
-                                                  <Label className="text-xs font-medium px-2 text-muted-foreground">
-                                                    Pilih Status
-                                                  </Label>
-                                                  {statusOptions.map((opt) => {
-                                                    const isActive = item.status === opt;
-                                                    return (
-                                                      <div
-                                                        key={opt}
-                                                        className={`text-sm px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground flex items-center justify-between ${isActive ? "bg-accent font-medium text-accent-foreground" : ""
-                                                          }`}
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          handleStatusChange(opt, item);
-                                                        }}
-                                                      >
-                                                        {opt.toUpperCase()}
-                                                        {isActive && <span className="text-xs">✓</span>}
-                                                      </div>
-                                                    );
-                                                  })}
-                                                  <div className="pt-2 mt-2 border-t flex justify-end">
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      className="h-7 text-xs text-muted-foreground"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEditingStatusId(null);
-                                                      }}
-                                                    >
-                                                      Batal
-                                                    </Button>
-                                                  </div>
+                                                  >
+                                                    Simpan
+                                                  </Button>
                                                 </div>
-                                              )}
-                                            </PopoverContent>
-                                          </Popover>
-                                        ) : (
-                                          <span>{(item.status || "").toUpperCase()}</span>
-                                        )}
-                                      </TableCell>
-                                    ) : null}
+                                              </form>
+                                            ) : (
+                                              <div className="space-y-1">
+                                                <Label className="text-xs font-medium px-2 text-muted-foreground">
+                                                  Pilih Status
+                                                </Label>
+                                                {statusOptions.map((opt) => {
+                                                  const isActive = item.status === opt;
+                                                  return (
+                                                    <div
+                                                      key={opt}
+                                                      className={`text-sm px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground flex items-center justify-between ${isActive ? "bg-accent font-medium text-accent-foreground" : ""
+                                                        }`}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleStatusChange(opt, item);
+                                                      }}
+                                                    >
+                                                      {opt.toUpperCase()}
+                                                      {isActive && <span className="text-xs">✓</span>}
+                                                    </div>
+                                                  );
+                                                })}
+                                                <div className="pt-2 mt-2 border-t flex justify-end">
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 text-xs text-muted-foreground"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setEditingStatusId(null);
+                                                    }}
+                                                  >
+                                                    Batal
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </PopoverContent>
+                                        </Popover>
+                                      ) : (
+                                        <span>{(item.status || "").toUpperCase()}</span>
+                                      )}
+                                    </TableCell>
                                     {/* Skema PR */}
                                     {isFirstPR ? (
                                       <TableCell
