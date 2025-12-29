@@ -6,12 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import dayjs from "dayjs";
+import { Trash2, Plus, CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Trash2, Plus } from "lucide-react";
+import { id } from "date-fns/locale";
 
 export default function HolidayPage() {
     const [holidays, setHolidays] = useState<any[]>([]);
-    const [newDate, setNewDate] = useState("");
+    const [newDate, setNewDate] = useState<Date>();
     const [newDesc, setNewDesc] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -35,13 +40,14 @@ export default function HolidayPage() {
     async function handleAdd() {
         if (!newDate) return alert("Pilih tanggal!");
         try {
+            const formattedDate = format(newDate, "yyyy-MM-dd");
             const res = await fetch("http://192.168.10.10:5000/api/holidays", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tanggal: newDate, description: newDesc }),
+                body: JSON.stringify({ tanggal: formattedDate, description: newDesc }),
             });
             if (res.ok) {
-                setNewDate("");
+                setNewDate(undefined);
                 setNewDesc("");
                 fetchHolidays();
             } else {
@@ -73,13 +79,31 @@ export default function HolidayPage() {
                             <CardTitle>Tambah Hari Libur</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Tanggal</label>
-                                <Input
-                                    type="date"
-                                    value={newDate}
-                                    onChange={e => setNewDate(e.target.value)}
-                                />
+                            <div className="flex flex-col space-y-2">
+                                <label className="text-sm font-medium">Tanggal</label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !newDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {newDate ? format(newDate, "dd/MM/yyyy") : <span>Pilih tanggal</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={newDate}
+                                            onSelect={setNewDate}
+                                            initialFocus
+                                            locale={id}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Keterangan</label>
@@ -120,7 +144,7 @@ export default function HolidayPage() {
                                     ) : (
                                         holidays.map(h => (
                                             <TableRow key={h.id}>
-                                                <TableCell>{format(new Date(h.tanggal), "dd MMM yyyy")}</TableCell>
+                                                <TableCell>{dayjs(h.tanggal).format("DD MMM YYYY")}</TableCell>
                                                 <TableCell>{h.description}</TableCell>
                                                 <TableCell>
                                                     <Button variant="ghost" size="sm" onClick={() => handleDelete(h.id)}>
