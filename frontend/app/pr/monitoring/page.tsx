@@ -158,16 +158,16 @@ export default function MonitoringPRPage() {
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((res) => res.json())
       .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -192,9 +192,9 @@ export default function MonitoringPRPage() {
 
 
   const loadPRData = async () => {
-    const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+    const prRes = await fetch("http://localhost:5000/api/pr");
     const prList = await prRes.json();
-    const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+    const prItemRes = await fetch("http://localhost:5000/api/pr-item");
     const prItemList = await prItemRes.json();
 
     // LOG: Tampilkan tanggalPR yang diterima dari backend
@@ -270,7 +270,7 @@ export default function MonitoringPRPage() {
         pr.items.every((item: any) => Number(item.jumlah) === 0)
       ) {
         // Update status ke "Diproses"
-        await fetch(`http://192.168.10.10:5000/api/pr/${pr.id}`, {
+        await fetch(`http://localhost:5000/api/pr/${pr.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -362,7 +362,7 @@ export default function MonitoringPRPage() {
         }
         console.log("Deleting PR Item id_PRItem:", idToDelete);
         const resp = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/${idToDelete}`,
+          `http://localhost:5000/api/pr-item/${idToDelete}`,
           {
             method: "DELETE",
           }
@@ -391,7 +391,7 @@ export default function MonitoringPRPage() {
     try {
       let anyError = false;
       for (const id of deleteIds) {
-        const resp = await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
+        const resp = await fetch(`http://localhost:5000/api/pr/${id}`, { method: "DELETE" });
         const respJson = await resp.json().catch(() => ({}));
         if (!resp.ok) {
           // Show backend error message if PR cannot be deleted
@@ -401,7 +401,7 @@ export default function MonitoringPRPage() {
           anyError = true;
           continue;
         }
-        await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
+        await fetch(`http://localhost:5000/api/pr-item/by-pr/${id}`, {
           method: "DELETE",
         });
       }
@@ -600,24 +600,46 @@ export default function MonitoringPRPage() {
   // =====================================
   // 2. SORTING PR ROBUST (NUMERIC SEQ ASC)
   // =====================================
-  function extractLastNumber(str: string | null | undefined): number {
-    if (!str || typeof str !== 'string') return 0;
-    // Cari urutan angka terakhir di string
-    const match = str.match(/(\d+)(?!.*\d)/);
-    return match ? parseInt(match[1], 10) : 0;
+  // =====================================
+  // 1. PARSER No. PR (ROBUST NUMERIC)
+  // =====================================
+  function parsePRNumber(prNo: string) {
+    if (!prNo) return { year: 0, month: 0, seq: 0 };
+
+    const romanMap: { [key: string]: number } = {
+      'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+      'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
+    };
+
+    // Try to find year (2 digits) and month (roman)
+    // Regex: \/(\d{2})\/([IVX]+)\/
+    const matchMid = prNo.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+    let year = 0;
+    let month = 0;
+
+    if (matchMid) {
+      year = parseInt(matchMid[1], 10);
+      month = romanMap[matchMid[2]] || 0;
+    }
+
+    // Sequence: Last numeric part
+    const matchSeq = prNo.match(/(\d+)(?!.*\d)/);
+    let seq = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+    return { year, month, seq };
   }
 
   function sortPRList(filteredPRData: any[]) {
     return [...filteredPRData].sort((a, b) => {
-      // 1. Sort by Number (ASC)
-      const numA = extractLastNumber(a.noPR);
-      const numB = extractLastNumber(b.noPR);
-      if (numA !== numB) return numA - numB;
+      // 1. Sort by Year (ASC)
+      const pA = parsePRNumber(a.noPR);
+      const pB = parsePRNumber(b.noPR);
 
-      // 2. If number same, sort by Date (ASC)
-      const dateA = new Date(a.tanggalPR || 0).getTime();
-      const dateB = new Date(b.tanggalPR || 0).getTime();
-      return dateA - dateB;
+      if (pA.year !== pB.year) return pA.year - pB.year;
+      // 2. Sort by Month (ASC)
+      if (pA.month !== pB.month) return pA.month - pB.month;
+      // 3. Sort by Sequence (ASC)
+      return pA.seq - pB.seq;
     });
   }
 
@@ -2191,7 +2213,7 @@ function DeleteItemModal({
 const updatePRStatusToBackend = async (prId: string) => {
   // Ambil semua item PR dari backend
   const prItemsRes = await fetch(
-    `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
+    `http://localhost:5000/api/pr-item/pr/${prId}`
   );
   const prItems = prItemsRes.ok ? await prItemsRes.json() : [];
 
@@ -2221,10 +2243,10 @@ const updatePRStatusToBackend = async (prId: string) => {
   }
 
   // Ambil data PR lama
-  const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+  const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
   if (prRes.ok) {
     const prData = await prRes.json();
-    await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+    await fetch(`http://localhost:5000/api/pr/${prId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

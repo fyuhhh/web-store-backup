@@ -81,38 +81,56 @@ function formatTanggal(tgl: string) {
 
 // Tambahkan kembali fungsi sortPOList
 function parseNoPO(noPO: string | null | undefined) {
-  if (!noPO || typeof noPO !== "string") return null;
+  if (!noPO || typeof noPO !== "string") return { year: 0, month: 0, urut: 0 };
   const s = noPO.trim().toUpperCase();
-  const regex = /^PO\/(E-?WALK|PSV)\/([A-Z0-9]+)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-  const match = s.match(regex);
-  if (!match) return null;
-  const [, brand, store, tahun2, bulanRomawi, urutStr] = match;
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+
+  const romanMap: { [key: string]: number } = {
+    'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+    'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
   };
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
-  return { tahun, bulan, urut, brand, store };
+
+  // Try to find year (2 digits) and month (roman)
+  const matchMid = s.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+  let year = 0;
+  let month = 0;
+
+  if (matchMid) {
+    year = 2000 + parseInt(matchMid[1], 10);
+    month = romanMap[matchMid[2]] || 0;
+  }
+
+  // Sequence: Last numeric part
+  const matchSeq = s.match(/(\d+)(?!.*\d)/);
+  let urut = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+  return { year, month, urut };
 }
 
 // Tambahkan parseNoPR untuk sorting
 function parseNoPR(noPR: string | null | undefined) {
-  if (!noPR || typeof noPR !== "string") return null;
+  if (!noPR || typeof noPR !== "string") return { year: 0, month: 0, urut: 0 };
   const s = noPR.trim().toUpperCase();
-  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-  const match = s.match(regex);
-  if (!match) return null;
-  const [, brand, tahun2, bulanRomawi, urutStr] = match;
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+
+  const romanMap: { [key: string]: number } = {
+    'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+    'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
   };
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
-  return { tahun, bulan, urut, brand };
+
+  // Try to find year (2 digits) and month (roman)
+  const matchMid = s.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+  let year = 0;
+  let month = 0;
+
+  if (matchMid) {
+    year = 2000 + parseInt(matchMid[1], 10);
+    month = romanMap[matchMid[2]] || 0;
+  }
+
+  // Sequence: Last numeric part
+  const matchSeq = s.match(/(\d+)(?!.*\d)/);
+  let urut = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+  return { year, month, urut };
 }
 
 function sortPOList(filteredPOData: any[]) {
@@ -120,23 +138,12 @@ function sortPOList(filteredPOData: any[]) {
     const pa = parseNoPO(a.noPO);
     const pb = parseNoPO(b.noPO);
 
-    // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
-    if (pa && pb) {
-      // Tahun ASC
-      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
-
-      // Bulan ASC
-      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
-
-      // Nomor urut ASC
-      return pa.urut - pb.urut;
-    }
-
-    // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
-    // Gunakan string comparison untuk tanggal YYYY-MM-DD
-    const dateA = a.tanggalPO || "";
-    const dateB = b.tanggalPO || "";
-    return dateA.localeCompare(dateB);
+    // 1. Sort by Year (ASC)
+    if (pa.year !== pb.year) return pa.year - pb.year;
+    // 2. Sort by Month (ASC)
+    if (pa.month !== pb.month) return pa.month - pb.month;
+    // 3. Sort by Sequence (ASC)
+    return pa.urut - pb.urut;
   });
 }
 
@@ -249,15 +256,15 @@ export default function MonitoringPOPage() {
         skemaRes,
         userRes, // <-- tambahkan fetch user
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/po"),
-        fetch("http://192.168.10.10:5000/api/po-item"),
-        fetch("http://192.168.10.10:5000/api/pr-item"),
-        fetch("http://192.168.10.10:5000/api/pr"),
-        fetch("http://192.168.10.10:5000/api/supplier"),
-        fetch("http://192.168.10.10:5000/api/status-permintaan"),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-        fetch("http://192.168.10.10:5000/api/skema"),
-        fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+        fetch("http://localhost:5000/api/po"),
+        fetch("http://localhost:5000/api/po-item"),
+        fetch("http://localhost:5000/api/pr-item"),
+        fetch("http://localhost:5000/api/pr"),
+        fetch("http://localhost:5000/api/supplier"),
+        fetch("http://localhost:5000/api/status-permintaan"),
+        fetch("http://localhost:5000/api/status-pengiriman"),
+        fetch("http://localhost:5000/api/skema"),
+        fetch("http://localhost:5000/api/user"), // <-- fetch user
       ]);
 
       const [
@@ -448,13 +455,10 @@ export default function MonitoringPOPage() {
         poItemsGrouped.sort((a, b) => {
           const pa = parseNoPR(a.noPR);
           const pb = parseNoPR(b.noPR);
-          if (pa && pb) {
-            if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
-            if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
-            return pa.urut - pb.urut;
-          }
-          // Fallback: sort by string noPR
-          return (a.noPR || "").localeCompare(b.noPR || "");
+
+          if (pa.year !== pb.year) return pa.year - pb.year;
+          if (pa.month !== pb.month) return pa.month - pb.month;
+          return pa.urut - pb.urut;
         });
 
         // --- SORTING ITEM dalam Group: Berdasarkan ID Item (ASC) ---
@@ -629,7 +633,7 @@ export default function MonitoringPOPage() {
         if (mode === "restore") {
           // Ambil data PO item sebelum dihapus
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `http://localhost:5000/api/po-item/${itemId}`
           );
           if (!poItemRes.ok) continue;
           const poItem = await poItemRes.json();
@@ -641,7 +645,7 @@ export default function MonitoringPOPage() {
           } else if (poItem.id_PRItem) {
             // Fetch PR Item untuk dapatkan id_PR
             const prItemRes = await fetch(
-              `http://192.168.10.10:5000/api/pr-item/${poItem.id_PRItem}`
+              `http://localhost:5000/api/pr-item/${poItem.id_PRItem}`
             );
             if (prItemRes.ok) {
               const prItem = await prItemRes.json();
@@ -662,19 +666,19 @@ export default function MonitoringPOPage() {
         if (!itemId) continue;
         if (mode === "permanent") {
           // Hapus item PO secara permanen
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
         } else if (mode === "restore") {
           // --- RESTORE: Kembalikan item ke PR ---
           // Ambil data PO item
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `http://localhost:5000/api/po-item/${itemId}`
           );
           const poItem = await poItemRes.json();
 
           // Hapus item PO (cek error BTB)
-          const delRes = await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          const delRes = await fetch(`http://localhost:5000/api/po-item/${itemId}`, {
             method: "DELETE",
           });
           if (!delRes.ok) {
@@ -702,7 +706,7 @@ export default function MonitoringPOPage() {
           const prItemId = poItem.id_PRItem;
           // Cek apakah PRItem masih ada
           const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${prItemId}`
+            `http://localhost:5000/api/pr-item/${prItemId}`
           );
           let prItem = null;
           if (prItemRes.ok) {
@@ -710,7 +714,7 @@ export default function MonitoringPOPage() {
           }
           if (prItem && prItem.id_PRItem) {
             const newJumlah = Number(prItem.jumlah) + Number(poItem.jumlahPO);
-            await fetch(`http://192.168.10.10:5000/api/pr-item/${prItemId}`, {
+            await fetch(`http://localhost:5000/api/pr-item/${prItemId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -720,7 +724,7 @@ export default function MonitoringPOPage() {
             });
           } else {
             // PRItem sudah tidak ada, buat ulang
-            await fetch(`http://192.168.10.10:5000/api/pr-item`, {
+            await fetch(`http://localhost:5000/api/pr-item`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -744,12 +748,12 @@ export default function MonitoringPOPage() {
           // --- Tambahkan log sebelum fetch ---
           console.log("[DEBUG] Akan fetch PR untuk update status:", prId);
           // Ambil data PR lama
-          const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+          const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
           if (prRes.ok) {
             const prData = await prRes.json();
             // Kirim semua field PR lama + status baru "Gantung"
             // Pastikan field status dikirim dan tidak kosong
-            await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+            await fetch(`http://localhost:5000/api/pr/${prId}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -768,7 +772,7 @@ export default function MonitoringPOPage() {
         for (const poId of poIdsToCheck) {
           // Fetch semua item PO dari backend
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item`
+            `http://localhost:5000/api/po-item`
           );
           if (poItemRes.ok) {
             const poItems = await poItemRes.json();
@@ -780,7 +784,7 @@ export default function MonitoringPOPage() {
             );
             if (itemsMasihAda.length === 0) {
               // Hapus PO dari backend
-              await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
+              await fetch(`http://localhost:5000/api/po/${poId}`, {
                 method: "DELETE",
               });
             }
@@ -1268,7 +1272,7 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        const res = await fetch(`http://192.168.10.10:5000/api/po/${id}`, {
+        const res = await fetch(`http://localhost:5000/api/po/${id}`, {
           method: "DELETE",
         });
         if (!res.ok) {
@@ -2493,8 +2497,8 @@ export default function MonitoringPOPage() {
                                       verticalAlign: "middle",
                                     }}
                                   >
-                                    {item.keterangan ? item.keterangan.slice(0, 10) : ""}
-                                    {item.keterangan && item.keterangan.length > 10 ? "..." : ""}
+                                    {item.keterangan ? item.keterangan.slice(0, 20) : ""}
+                                    {item.keterangan && item.keterangan.length > 20 ? "..." : ""}
                                   </span>
                                 </HoverCardTrigger>
                               </HoverCard>

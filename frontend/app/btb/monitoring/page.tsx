@@ -89,42 +89,38 @@ function formatTanggalLebihSehari(tgl: string) {
 // ========================================
 // 1. PARSER No. BTB (E-WALK + PENTA)
 // ========================================
+// ========================================
+// 1. PARSER No. BTB (E-WALK + PENTA)
+// ========================================
 function parseNoBTB(noBTB: string | null | undefined) {
-  if (!noBTB || typeof noBTB !== "string") return null;
+  if (!noBTB || typeof noBTB !== "string") return { year: 0, month: 0, urut: 0 };
   const s = noBTB.trim().toUpperCase();
 
-  // --- FORMAT 1: E-WALK ---
-  // BTB/E-WALK/25/XI/001
-  const regexEwalk = /^BTB\/E-?WALK\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
-  // --- FORMAT 2: PENTACITY ---
-  // INV/BTB/25/XI/00001
-  const regexPenta = /^INV\/BTB\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-
-  let match = s.match(regexEwalk);
-  let brand = "E-WALK";
-
-  if (!match) {
-    match = s.match(regexPenta);
-    brand = "PENTA";
-  }
-
-  if (!match) return null;
-
-  const [, tahun2, bulanRomawi, urutStr] = match;
-
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  const romanMap: { [key: string]: number } = {
+    'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+    'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
   };
 
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
+  // Try to find year (2 digits) and month (roman)
+  const matchMid = s.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+  let year = 0;
+  let month = 0;
 
-  return { tahun, bulan, urut, brand };
+  if (matchMid) {
+    year = 2000 + parseInt(matchMid[1], 10);
+    month = romanMap[matchMid[2]] || 0;
+  }
+
+  // Sequence: Last numeric part
+  const matchSeq = s.match(/(\d+)(?!.*\d)/);
+  let urut = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+  return { year, month, urut };
 }
 
+// ========================================
+// 2. SORTING BTB TERBARU → TERLAMA
+// ========================================
 // ========================================
 // 2. SORTING BTB TERBARU → TERLAMA
 // ========================================
@@ -136,23 +132,12 @@ function sortBTBList(filteredBTBData: any[]) {
     const pa = parseNoBTB(a.noBTB);
     const pb = parseNoBTB(b.noBTB);
 
-    // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
-    if (pa && pb) {
-      // Tahun ASC
-      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
-
-      // Bulan ASC
-      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
-
-      // Nomor urut ASC
-      return pa.urut - pb.urut;
-    }
-
-    // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
-    // Gunakan string comparison untuk tanggal YYYY-MM-DD
-    const dateA = a.tanggal || "";
-    const dateB = b.tanggal || "";
-    return dateA.localeCompare(dateB);
+    // 1. Sort by Year (ASC)
+    if (pa.year !== pb.year) return pa.year - pb.year;
+    // 2. Sort by Month (ASC)
+    if (pa.month !== pb.month) return pa.month - pb.month;
+    // 3. Sort by Sequence (ASC)
+    return pa.urut - pb.urut;
   });
 }
 
@@ -322,17 +307,17 @@ export default function BTBMonitoringPage() {
       const poIdsToCheck = new Set<string>();
       for (const itemId of selectedItemIdsToRestore) {
         // Ambil data item BTB
-        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`);
+        const btbItemRes = await fetch(`http://localhost:5000/api/btb-item/${itemId}`);
         if (!btbItemRes.ok) continue;
         const btbItem = await btbItemRes.json();
         // Hapus item BTB
-        await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`, { method: "DELETE" });
+        await fetch(`http://localhost:5000/api/btb-item/${itemId}`, { method: "DELETE" });
         // Update jumlahPO di po_item (tambah kembali jumlah_diterima)
-        const poItemRes = await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`);
+        const poItemRes = await fetch(`http://localhost:5000/api/po-item/${btbItem.id_POItem}`);
         if (poItemRes.ok) {
           const poItem = await poItemRes.json();
           const newJumlahPO = Number(poItem.jumlahPO) + Number(btbItem.jumlah_diterima);
-          await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`, {
+          await fetch(`http://localhost:5000/api/po-item/${btbItem.id_POItem}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -344,12 +329,12 @@ export default function BTBMonitoringPage() {
       }
       // Hapus BTB parent jika semua item sudah dihapus
       for (const { btbId } of selectedBTBItemsForRestore) {
-        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item?id_btb=${btbId}`);
+        const btbItemRes = await fetch(`http://localhost:5000/api/btb-item?id_btb=${btbId}`);
         if (btbItemRes.ok) {
           const items = await btbItemRes.json();
           if (!items || items.length === 0) {
             // Hapus BTB parent pakai id_btb
-            await fetch(`http://192.168.10.10:5000/api/btb/${btbId}`, { method: "DELETE" });
+            await fetch(`http://localhost:5000/api/btb/${btbId}`, { method: "DELETE" });
           }
         }
       }
@@ -391,12 +376,12 @@ export default function BTBMonitoringPage() {
         // Ambil semua BTB, BTB Item, User, Skema, Satuan, dan BKB
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, bkbRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/bkb"), // <-- ambil semua BKB
+            fetch("http://localhost:5000/api/btb"),
+            fetch("http://localhost:5000/api/btb-item"),
+            fetch("http://localhost:5000/api/user"),
+            fetch("http://localhost:5000/api/skema"),
+            fetch("http://localhost:5000/api/satuan"),
+            fetch("http://localhost:5000/api/bkb"), // <-- ambil semua BKB
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -586,20 +571,15 @@ export default function BTBMonitoringPage() {
       );
     })
     .sort((a, b) => {
-      // Helper parser
-      function extractLastNumber(str: string | null | undefined): number {
-        if (!str || typeof str !== 'string') return 0;
-        const match = str.match(/(\d+)(?!.*\d)/);
-        return match ? parseInt(match[1], 10) : 0;
-      }
+      const pa = parseNoBTB(a.noBTB);
+      const pb = parseNoBTB(b.noBTB);
 
-      const numA = extractLastNumber(a.noBTB);
-      const numB = extractLastNumber(b.noBTB);
-      if (numA !== numB) return numA - numB;
-
-      const dateA = new Date(a.tanggal || 0).getTime();
-      const dateB = new Date(b.tanggal || 0).getTime();
-      return dateA - dateB;
+      // 1. Sort by Year (ASC)
+      if (pa.year !== pb.year) return pa.year - pb.year;
+      // 2. Sort by Month (ASC)
+      if (pa.month !== pb.month) return pa.month - pb.month;
+      // 3. Sort by Sequence (ASC)
+      return pa.urut - pb.urut;
     });
 
   // Filter data untuk export
@@ -1533,8 +1513,8 @@ export default function BTBMonitoringPage() {
                                       color: "#6b7280"
                                     }}
                                   >
-                                    {sortedItems[0].keterangan.length > 10
-                                      ? sortedItems[0].keterangan.slice(0, 10) + "..."
+                                    {sortedItems[0].keterangan.length > 15
+                                      ? sortedItems[0].keterangan.slice(0, 15) + "..."
                                       : sortedItems[0].keterangan}
                                   </span>
                                 ) : "-"}
@@ -1548,7 +1528,7 @@ export default function BTBMonitoringPage() {
                                 {userMap[String(items[0].diterimaOleh)] ?? items[0].diterimaOleh}
                               </TableCell>
                               {/* Skema - rowSpan */}
-                              {/* <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap uppercase">
+                              {/* <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
                                 {skemaMap[String(items[0].skema)] ?? items[0].skema}
                               </TableCell> */}
                               {/* Status - rowSpan */}
@@ -1600,14 +1580,14 @@ export default function BTBMonitoringPage() {
                                         color: "#6b7280"
                                       }}
                                     >
-                                      {item.keterangan.length > 10
-                                        ? item.keterangan.slice(0, 10) + "..."
+                                      {item.keterangan.length > 15
+                                        ? item.keterangan.slice(0, 15) + "..."
                                         : item.keterangan}
                                     </span>
                                   ) : "-"}
                                 </TableCell>
                                 {/* Jika ingin tampilkan tanggal di baris item, tambahkan di sini:
-                      <TableCell className="border border-gray-300 px-4 py-2 text-center align-middle whitespace-nowrap">
+                      <TableCell className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap">
                         {formatTanggalLebihSehari(item.tanggal)}
                       </TableCell>
                       */}
