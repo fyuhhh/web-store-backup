@@ -497,6 +497,46 @@ export default function RekapFullPage() {
           });
         });
 
+        // Helper to parse PR number
+        function parsePRNumber(prNo: string) {
+          if (!prNo) return { year: 0, month: 0, seq: 0 };
+
+          const romanMap: { [key: string]: number } = {
+            'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+            'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
+          };
+
+          // Try to find year (2 digits) and month (roman)
+          // Regex: \/(\d{2})\/([IVX]+)\/
+          const matchMid = prNo.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+          let year = 0;
+          let month = 0;
+
+          if (matchMid) {
+            year = parseInt(matchMid[1], 10);
+            month = romanMap[matchMid[2]] || 0;
+          }
+
+          // Sequence: Last numeric part
+          const matchSeq = prNo.match(/(\d+)(?!.*\d)/);
+          let seq = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+          return { year, month, seq };
+        }
+
+        // Sort rekapRows
+        rekapRows.sort((a, b) => {
+          // 1. Sort by Year (ASC)
+          const pA = parsePRNumber(a.noPR);
+          const pB = parsePRNumber(b.noPR);
+
+          if (pA.year !== pB.year) return pA.year - pB.year;
+          // 2. Sort by Month (ASC)
+          if (pA.month !== pB.month) return pA.month - pB.month;
+          // 3. Sort by Sequence (ASC)
+          return pA.seq - pB.seq;
+        });
+
         setRekapData(rekapRows);
       } catch (err) {
         setRekapData([]);
@@ -1144,20 +1184,42 @@ export default function RekapFullPage() {
     // For each PR group, further group by PR Item
     // CRITICAL FIX: Sort the groups explicitly by PR Sequence
     const sortedGroups = Object.entries(grouped).sort(([, itemsA], [, itemsB]) => {
-      const getSeq = (items: any[]) => {
-        const no = items[0]?.noPR || "";
-        // use robust regex for last number
-        const match = no.trim().match(/(\d+)(?!.*\d)/);
-        return match ? parseInt(match[1], 10) : 0;
-      };
-      // Primary: Number ASC
-      const diff = getSeq(itemsA) - getSeq(itemsB);
-      if (diff !== 0) return diff;
+      // Helper to parse PR number
+      const parsePR = (prNo: string) => {
+        if (!prNo) return { year: 0, month: 0, seq: 0 };
 
-      // Secondary: Date ASC
-      const dateA = new Date(itemsA[0]?.tanggalPR || 0).getTime();
-      const dateB = new Date(itemsB[0]?.tanggalPR || 0).getTime();
-      return dateA - dateB;
+        const romanMap: { [key: string]: number } = {
+          'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+          'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
+        };
+
+        // Try to find year (2 digits) and month (roman)
+        // Regex: \/(\d{2})\/([IVX]+)\/
+        const matchMid = prNo.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+        let year = 0;
+        let month = 0;
+
+        if (matchMid) {
+          year = parseInt(matchMid[1], 10);
+          month = romanMap[matchMid[2]] || 0;
+        }
+
+        // Sequence: Last numeric part
+        const matchSeq = prNo.match(/(\d+)(?!.*\d)/);
+        let seq = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+        return { year, month, seq };
+      };
+
+      const noA = itemsA[0]?.noPR || "";
+      const noB = itemsB[0]?.noPR || "";
+
+      const pA = parsePR(noA);
+      const pB = parsePR(noB);
+
+      if (pA.year !== pB.year) return pA.year - pB.year;
+      if (pA.month !== pB.month) return pA.month - pB.month;
+      return pA.seq - pB.seq;
     });
 
     return sortedGroups.map(([id_PR, items]) => {
