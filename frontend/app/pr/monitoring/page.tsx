@@ -58,12 +58,14 @@ import {
 
 import { type PRData } from "@/lib/dummy-data";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 export default function MonitoringPRPage() {
   const searchParams = useSearchParams();
   const highlight = searchParams.get("highlight");
 
   const [prData, setPrData] = useState<PRData[]>([]);
+  const [poItems, setPoItems] = useState<any[]>([]); // Added state for PO validation
   const [selectedPRs, setSelectedPRs] = useState<string[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -212,6 +214,13 @@ export default function MonitoringPRPage() {
     const prList = await prRes.json();
     const prItemRes = await fetch("http://localhost:5000/api/pr-item");
     const prItemList = await prItemRes.json();
+
+    // Fetch PO Items for validation
+    try {
+      const poItemRes = await fetch("http://localhost:5000/api/po-item");
+      const poItemList = await poItemRes.json();
+      setPoItems(Array.isArray(poItemList) ? poItemList : []);
+    } catch (e) { console.error("Failed to fetch PO items", e); }
 
     // LOG: Tampilkan tanggalPR yang diterima dari backend
     console.log(
@@ -1945,7 +1954,36 @@ export default function MonitoringPRPage() {
                               className="font-medium border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase"
                               rowSpan={validItems.length}
                             >
-                              {pr.noPR}
+                              {(() => {
+                                // Cek apakah PR ini sudah ada PO menggunakan poItems flat list
+                                const hasPO = poItems.some((pi: any) => String(pi.noPR) === String(pr.noPR));
+
+                                if (hasPO) {
+                                  return (
+                                    <div
+                                      className="cursor-pointer text-gray-500"
+                                      title="Tidak bisa edit karena PR sudah diproses PO"
+                                      onClick={() => {
+                                        if (toastOpen) return;
+                                        setToastMsg("Tidak bisa edit PR karena sudah diproses menjadi PO");
+                                        setToastType("error");
+                                        setToastOpen(true);
+                                      }}
+                                    >
+                                      {pr.noPR}
+                                    </div>
+                                  )
+                                } else {
+                                  return (
+                                    <Link
+                                      href={`/pr/edit/${pr.id}`}
+                                      className="text-blue-600 hover:underline hover:text-blue-800"
+                                    >
+                                      {pr.noPR}
+                                    </Link>
+                                  )
+                                }
+                              })()}
                             </TableCell>
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                               {formatTanggal(pr.tanggalPR)}

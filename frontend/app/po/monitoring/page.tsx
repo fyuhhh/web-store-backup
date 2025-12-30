@@ -62,6 +62,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 import { type POData, type PRData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
@@ -2469,7 +2470,13 @@ export default function MonitoringPOPage() {
                                   className="font-medium px-3 py-1 border-r border-gray-300 align-middle uppercase"
                                   rowSpan={allItems.length}
                                 >
-                                  {po.noPO}
+                                  <Link
+                                    href={`/po/edit/${po.id}`}
+                                    className="text-blue-600 hover:underline hover:text-blue-800"
+                                    title="Klik untuk mengedit PO"
+                                  >
+                                    {po.noPO}
+                                  </Link>
                                 </TableCell>
                                 <TableCell
                                   key="tanggalPO"

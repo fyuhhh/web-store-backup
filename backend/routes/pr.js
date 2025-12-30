@@ -31,6 +31,7 @@ async function calculateEstimatePO(conn, startDateStr, days) {
   while (added < days) {
     date.setDate(date.getDate() + 1);
     const day = date.getDay();
+
     const cy = date.getFullYear();
     const cm = String(date.getMonth() + 1).padStart(2, '0');
     const cd = String(date.getDate()).padStart(2, '0');
@@ -41,11 +42,11 @@ async function calculateEstimatePO(conn, startDateStr, days) {
       added++;
     }
   }
-  // Return as YYYY-MM-DD for MySQL DATE
-  const resYy = date.getFullYear();
-  const resMm = String(date.getMonth() + 1).padStart(2, "0");
+
   const resDd = String(date.getDate()).padStart(2, "0");
-  return `${resYy}-${resMm}-${resDd}`;
+  const resMm = String(date.getMonth() + 1).padStart(2, "0");
+  const resYy = date.getFullYear();
+  return `${resDd}-${resMm}-${resYy}`;
 }
 
 // GET semua PR
@@ -185,7 +186,7 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT PR (update sebagian field saja)
+// PUT PR (update full/partial)
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const payload = req.body;
@@ -196,8 +197,32 @@ router.put("/:id", async (req, res) => {
       return res.status(400).json({ message: "Tidak ada data untuk diupdate" });
     }
 
+    // 1. VALIDASI: Cek apakah PR sudah diproses menjadi PO
+    // Cari semua item dari PR ini
+    const [prItems] = await db.query(
+      "SELECT id_PRItem FROM pr_item WHERE id_PR = ?",
+      [id]
+    );
+
+    if (prItems.length > 0) {
+      const prItemIds = prItems.map((item) => item.id_PRItem);
+      // Cek apakah ada di po_item
+      const [poItems] = await db.query(
+        `SELECT * FROM po_item WHERE id_PRItem IN (${prItemIds
+          .map(() => "?")
+          .join(",")})`,
+        prItemIds
+      );
+
+      if (poItems.length > 0) {
+        return res
+          .status(400)
+          .json({ message: "PR tidak dapat diedit karena sudah diproses menjadi PO." });
+      }
+    }
+
     // === LOCK tanggalPR: hapus field tanggalPR dari payload agar tidak bisa diupdate ===
-    if ('tanggalPR' in payload) {
+    if ("tanggalPR" in payload) {
       delete payload.tanggalPR;
     }
 
@@ -219,7 +244,7 @@ router.put("/:id", async (req, res) => {
       payload.status = "Menunggu";
     }
 
-    // --- Hapus field yang tidak ada di tabel PR ---
+    // --- UPDATE DATA UTAMA PR ---
     const allowedFields = [
       "noPR",
       // "tanggalPR", // <-- JANGAN izinkan update tanggalPR
@@ -229,42 +254,53 @@ router.put("/:id", async (req, res) => {
       "dibuatOleh",
       "id_skema",
       "createdAt",
-      "plan", // <-- tambahkan plan
+      "plan",
     ];
+
+    // Siapkan body untuk update PR header
+    const updateHeader = {};
     for (const key of Object.keys(payload)) {
-      if (!allowedFields.includes(key)) {
-        delete payload[key];
+      if (allowedFields.includes(key)) {
+        updateHeader[key] = payload[key];
       }
     }
 
-    // Buat query dinamis
-    const fields = Object.keys(payload);
-    const values = Object.values(payload);
-
-    if (fields.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "Tidak ada field valid untuk update" });
+    if (Object.keys(updateHeader).length > 0) {
+      const fields = Object.keys(updateHeader);
+      const values = Object.values(updateHeader);
+      const sql = `UPDATE pr SET ${fields.map((f) => `${f} = ?`).join(", ")} WHERE id_PR = ?`;
+      await db.query(sql, [...values, id]);
     }
 
-    const sql = `
-      UPDATE pr
-      SET ${fields.map((f) => `${f} = ?`).join(", ")}
-      WHERE id_PR = ?
-    `;
+    // --- UPDATE ITEMS (JIKA ADA 'items' DI PAYLOAD) ---
+    // Strategi: Jika ada items, hapus semua item lama, insert baru (karena validasi PO kosong sudah lewat)
+    if (payload.items && Array.isArray(payload.items)) {
+      // 1. Hapus item lama
+      await db.query("DELETE FROM pr_item WHERE id_PR = ?", [id]);
 
-    await db.query(sql, [...values, id]);
+      // 2. Insert item baru
+      if (payload.items.length > 0) {
+        // Flatten items untuk bulk insert
+        const itemValues = payload.items.map((item) => [
+          id,
+          item.namaBarang,
+          item.jumlah,
+          item.jumlah, // quantityAwalPR = jumlah
+          item.id_satuan,
+          item.keterangan || "",
+          0, // quantityTerkirim default 0
+        ]);
+
+        const itemSql =
+          "INSERT INTO pr_item (id_PR, namaBarang, jumlah, quantityAwalPR, id_satuan, keterangan, quantityTerkirim) VALUES ?";
+        await db.query(itemSql, [itemValues]);
+      }
+    }
 
     // Ambil ulang data setelah update
-    const [[updated]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [
-      id,
-    ]);
-
-    if (!updated) {
-      return res.status(404).json({ message: "PR tidak ditemukan" });
-    }
-
+    const [[updated]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [id]);
     res.json(updated || { message: "PR berhasil diupdate" });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

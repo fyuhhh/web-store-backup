@@ -361,6 +361,50 @@ router.delete("/:id", async (req, res, next) => {
   }
 });
 
+// RESET PO ITEMS (Restore PR quantities & Delete PO Items)
+router.post("/reset-items/:id", async (req, res, next) => {
+  const { id } = req.params; // id_PO
+  let conn;
+  try {
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    // 1. Get all items in this PO
+    const [poItems] = await conn.query("SELECT * FROM po_item WHERE id_PO = ?", [id]);
+
+    for (const poItem of poItems) {
+      // 2. Restore quantity to PR Item
+      // Use id_PRItem from po_item to find matching pr_item
+      const [[prItem]] = await conn.query("SELECT * FROM pr_item WHERE id_PRItem = ?", [poItem.id_PRItem]);
+
+      if (prItem) {
+        // Restore: jumlah (remaining) = jumlah + jumlahPO (what was taken)
+        const restoredJumlah = parseFloat(prItem.jumlah) + parseFloat(poItem.jumlahPO);
+        await conn.query("UPDATE pr_item SET jumlah = ? WHERE id_PRItem = ?", [restoredJumlah, poItem.id_PRItem]);
+
+        // Find PR ID
+        const prId = prItem.id_PR;
+
+        // 3. Update PR Status if needed (Set to 'Diproses' if it was 'Telah Selesai' or 'Gantung')
+        // Since we are restoring items, it likely becomes 'open' again.
+        // Let's set it to 'Diproses' to be safe, filtering ensures we don't accidentally close it.
+        await conn.query("UPDATE pr SET status = 'Diproses' WHERE id_PR = ?", [prId]);
+      }
+    }
+
+    // 4. Delete PO Items
+    await conn.query("DELETE FROM po_item WHERE id_PO = ?", [id]);
+
+    await conn.commit();
+    res.json({ message: "PO Items reset successfully" });
+  } catch (err) {
+    if (conn) await conn.rollback();
+    next(err);
+  } finally {
+    if (conn) conn.release();
+  }
+});
+
 // Tambahkan export agar bisa di-import di file lain
 export { updateStatusTerimaPO };
 
