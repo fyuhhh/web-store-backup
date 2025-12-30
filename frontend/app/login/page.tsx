@@ -62,9 +62,10 @@ export default function LoginPage() {
           data.user.nama_pengguna?.toLowerCase() === "superadmin"
         ) {
           router.push("/kelola-akun");
+        } else if (data.user.id_peran === 2) {
+          router.push("/divisi/dashboard");
         } else if (
-          (data.user.role ?? data.user.peran ?? "").toLowerCase() === "admin" ||
-          data.user.id_peran === 2
+          (data.user.role ?? data.user.peran ?? "").toLowerCase() === "admin"
         ) {
           router.push("/dashboard");
         } else if (
@@ -177,7 +178,7 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center">
           <p className="text-xs text-slate-400">
-            &copy; {new Date().getFullYear()} Sistem Monitoring Purchasing & Store BSB Balikpapan
+            &copy; {new Date().getFullYear()} Sistem Monitoring Purchasing & Store - BSB Balikpapan
           </p>
         </div>
       </div>
