@@ -11,7 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, CheckCircle2, Clock, Package, ShoppingCart, FileText, Truck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Package, ShoppingCart, FileText, Truck, Users, Boxes, Store } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dayjs from "dayjs";
@@ -45,6 +46,17 @@ export default function DetailPesananPage() {
         BTB: false,
         BKB: false
     });
+
+    const [activeTab, setActiveTab] = useState("PR");
+
+    // Auto-switch tabs based on progress
+    useEffect(() => {
+        if (!isLoading) {
+            if (trackingStatus.BKB) setActiveTab("BKB");
+            else if (trackingStatus.BTB) setActiveTab("BTB");
+            else if (trackingStatus.PO) setActiveTab("PO");
+        }
+    }, [isLoading, trackingStatus]);
 
     const [progressWidth, setProgressWidth] = useState("0%");
     const [isAnimationDone, setIsAnimationDone] = useState(false);
@@ -131,6 +143,7 @@ export default function DetailPesananPage() {
                 }
                 // Enrich PR with Divisi Name
                 foundPR.nama_divisi = divisiMap[String(foundPR.id_divisi)] || foundPR.id_divisi;
+                foundPR.dibuatOlehName = userMap[String(foundPR.dibuatOleh)] || foundPR.dibuatOleh; // Enrich Created By Name
                 setPrData(foundPR);
 
                 // 2. PR Items Table
@@ -241,7 +254,8 @@ export default function DetailPesananPage() {
                         dikeluarkanOlehName: userMap[bkb.dikeluarkan_oleh] || "-",
                         diterimaOlehName: bkb.diterima_oleh || "-",
                         divisiName: bkb.divisi || "-", // BKB has divisi field usually
-                        satuanLabel: satuanMap[bki.id_satuan] || bki.satuanLabel || "-"
+                        satuanLabel: satuanMap[bki.id_satuan] || bki.satuanLabel || "-",
+                        sisa_btb: bki.sisa_btb // <-- Capture sisa_btb
                     };
                 }).filter(Boolean);
                 setBkbTable(bkbTableData);
@@ -312,6 +326,7 @@ export default function DetailPesananPage() {
                         </div>
                     </div>
                 </div>
+
 
                 {/* Tracking Stepper Card */}
                 <Card className="border-none shadow-lg bg-gradient-to-br from-white to-slate-50 overflow-hidden">
@@ -388,279 +403,423 @@ export default function DetailPesananPage() {
                     </CardContent>
                 </Card>
 
-                {/* 1. Details Tables - PR (Permintaan) */}
-                <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
-                    <CardHeader className="bg-slate-50/80 border-b pb-4 backdrop-blur-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-blue-100/50 rounded-xl text-blue-600 shadow-sm ring-1 ring-blue-100">
-                                <FileText className="h-5 w-5" />
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Card 1: Total Item Barang (Count Items) */}
+                    <Card className="bg-gradient-to-br from-white to-blue-50/50 border-l-4 border-l-blue-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
+                        <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-slate-500">Total Item</p>
+                                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                    <Boxes className="w-5 h-5" />
+                                </div>
                             </div>
                             <div>
-                                <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Permintaan (PR)</CardTitle>
-                                <CardDescription className="text-slate-500">Detail item yang diajukan dalam PR ini</CardDescription>
+                                <h3 className="text-2xl font-bold text-slate-900">
+                                    {prTable.length}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1">Item dalam PR</p>
                             </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader className="bg-slate-50/50">
-                                    <TableRow>
-                                        <TableHead className="w-[150px] text-left font-semibold text-slate-700">No. PR</TableHead>
-                                        <TableHead className="w-[120px] text-left font-semibold text-slate-700">Tanggal PR</TableHead>
-                                        <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Daftar Barang</TableHead>
-                                        <TableHead className="w-[100px] text-left font-semibold text-slate-700">Kuantitas</TableHead>
-                                        <TableHead className="w-[100px] text-left font-semibold text-slate-700">Satuan</TableHead>
-                                        <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Keterangan</TableHead>
-                                        <TableHead className="w-[150px] text-left font-semibold text-slate-700">Divisi</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {prTable.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                                                <div className="flex flex-col items-center justify-center gap-2">
-                                                    <FileText className="h-8 w-8 text-slate-300" />
-                                                    <p>Tidak ada data PR</p>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        prTable.map((row, i) => (
-                                            <TableRow key={i} className="hover:bg-blue-50/30 transition-colors">
-                                                <TableCell className="font-bold text-slate-900">{row.noPR}</TableCell>
-                                                <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggal).format("DD-MM-YYYY")}</TableCell>
-                                                <TableCell className="font-medium text-slate-800">{row.namaBarang}</TableCell>
-                                                <TableCell className="text-left font-medium text-slate-900">{Number(row.jumlah)}</TableCell>
-                                                <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
-                                                <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan || "-"}>{row.keterangan || "-"}</TableCell>
-                                                <TableCell><Badge variant="secondary" className="font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">{row.divisi}</Badge></TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
-                {/* 2. Details Tables - PO (Pemesanan) */}
-                {trackingStatus.PO && (
-                    <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
-                        <CardHeader className="bg-orange-50/50 border-b pb-4 backdrop-blur-sm">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-orange-100/50 rounded-xl text-orange-600 shadow-sm ring-1 ring-orange-100">
-                                    <ShoppingCart className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Pemesanan (PO)</CardTitle>
-                                    <CardDescription className="text-slate-500">Dokumen PO yang dibuat berdasarkan PR ini</CardDescription>
+                    {/* Card 2: Nama Supplier */}
+                    <Card className="bg-gradient-to-br from-white to-orange-50/50 border-l-4 border-l-orange-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
+                        <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-slate-500">Supplier</p>
+                                <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
+                                    <Store className="w-5 h-5" />
                                 </div>
                             </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader className="bg-slate-50/50">
-                                        <TableRow>
-                                            <TableHead className="min-w-[140px] text-left font-semibold text-slate-700">No. PO</TableHead>
-                                            <TableHead className="min-w-[110px] text-left font-semibold text-slate-700">Tanggal PO</TableHead>
-                                            <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Supplier</TableHead>
-                                            <TableHead className="min-w-[180px] text-left font-semibold text-slate-700">Daftar Barang</TableHead>
-                                            <TableHead className="min-w-[100px] text-left font-semibold text-slate-700">Quantity PO</TableHead>
-                                            <TableHead className="min-w-[80px] text-left font-semibold text-slate-700">Satuan</TableHead>
-                                            <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Keterangan</TableHead>
-                                            <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Harga Satuan</TableHead>
-                                            <TableHead className="min-w-[100px] text-left font-semibold text-slate-700">Diskon (%)</TableHead>
-                                            <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Diskon (Rp)</TableHead>
-                                            <TableHead className="min-w-[100px] text-left font-semibold text-slate-700">PPN (%)</TableHead>
-                                            <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">PPN (Rp)</TableHead>
-                                            <TableHead className="min-w-[130px] text-left font-bold text-slate-800">Total</TableHead>
-                                            <TableHead className="min-w-[140px] text-left font-bold bg-slate-50/80 text-slate-900">Grand Total</TableHead>
-                                            <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Ordered By</TableHead>
-                                            <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Nama Pembeli</TableHead>
-                                            <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Estimasi Diterima</TableHead>
-                                            <TableHead className="min-w-[140px] text-left font-semibold text-slate-700">Status Pengiriman</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {poTable.length === 0 ? (
+                            <div className="overflow-hidden">
+                                <h3 className="text-lg font-bold text-slate-900 truncate" title={poTable[0]?.supplierName || "-"}>
+                                    {poTable[0]?.supplierName || "-"}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1">Vendor Terpilih</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Card 3: Purchaser (Created By PR) */}
+                    <Card className="bg-gradient-to-br from-white to-purple-50/50 border-l-4 border-l-purple-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
+                        <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-slate-500">Purchaser</p>
+                                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                                    <Users className="w-5 h-5" />
+                                </div>
+                            </div>
+                            <div className="overflow-hidden">
+                                <h3 className="text-lg font-bold text-slate-900 truncate" title={prData?.dibuatOlehName || "-"}>
+                                    {prData?.dibuatOlehName || "-"}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1">Pembuat PR</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Card 4: Sisa Stok (dari BKB) */}
+                    <Card className="bg-gradient-to-br from-white to-green-50/50 border-l-4 border-l-green-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
+                        <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-slate-500">Sisa Stok</p>
+                                <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                                    <Package className="w-5 h-5" />
+                                </div>
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-slate-900">
+                                    {(() => {
+                                        const latestSisaMap = new Map();
+                                        bkbTable.forEach(item => {
+                                            if (item.id_btb_item) {
+                                                latestSisaMap.set(item.id_btb_item, Number(item.sisa_btb) || 0);
+                                            }
+                                        });
+                                        if (latestSisaMap.size === 0) return 0;
+                                        let totalSisa = 0;
+                                        latestSisaMap.forEach(val => totalSisa += val);
+                                        return totalSisa;
+                                    })()}
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-1">Stok Tersedia</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+
+                {/* Tabbed Detail Views */}
+                <Tabs defaultValue="PR" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4 bg-slate-100 p-1 rounded-xl mb-6">
+                        <TabsTrigger value="PR" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 font-medium">
+                            Rincian Permintaan (PR)
+                        </TabsTrigger>
+                        <TabsTrigger value="PO" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-orange-600 font-medium">
+                            Rincian Pemesanan (PO)
+                        </TabsTrigger>
+                        <TabsTrigger value="BTB" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-600 font-medium">
+                            Rincian Penerimaan (BTB)
+                        </TabsTrigger>
+                        <TabsTrigger value="BKB" className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-green-600 font-medium">
+                            Rincian Pengeluaran (BKB)
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* 1. PR Content */}
+                    <TabsContent value="PR" className="mt-0 space-y-4 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
+                        <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
+                            <CardHeader className="bg-slate-50/80 border-b pb-4 backdrop-blur-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-blue-100/50 rounded-xl text-blue-600 shadow-sm ring-1 ring-blue-100">
+                                        <FileText className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Permintaan (PR)</CardTitle>
+                                        <CardDescription className="text-slate-500">Detail item yang diajukan dalam PR ini</CardDescription>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader className="bg-slate-50/50">
                                             <TableRow>
-                                                <TableCell colSpan={18} className="text-center py-12 text-muted-foreground">
-                                                    <div className="flex flex-col items-center justify-center gap-2">
-                                                        <ShoppingCart className="h-8 w-8 text-slate-300" />
-                                                        <p>Tidak ada data PO</p>
-                                                    </div>
-                                                </TableCell>
+                                                <TableHead className="w-[150px] text-left font-semibold text-slate-700">No. PR</TableHead>
+                                                <TableHead className="w-[120px] text-left font-semibold text-slate-700">Tanggal PR</TableHead>
+                                                <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Daftar Barang</TableHead>
+                                                <TableHead className="w-[100px] text-left font-semibold text-slate-700">Kuantitas</TableHead>
+                                                <TableHead className="w-[100px] text-left font-semibold text-slate-700">Satuan</TableHead>
+                                                <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Keterangan</TableHead>
+                                                <TableHead className="w-[150px] text-left font-semibold text-slate-700">Divisi</TableHead>
                                             </TableRow>
-                                        ) : (
-                                            poTable.map((row, i) => (
-                                                <TableRow key={i} className="hover:bg-orange-50/30 transition-colors">
-                                                    <TableCell className="font-bold text-slate-900">{row.noPO}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggalPO).format("DD-MM-YYYY")}</TableCell>
-                                                    <TableCell className="font-normal text-slate-700">{row.supplierName}</TableCell>
-                                                    <TableCell className="font-medium text-slate-800">{row.namaBarang}</TableCell>
-                                                    <TableCell className="text-left font-medium text-slate-900">{Number(row.qtyPO)}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
-                                                    <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan}>{row.keterangan}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-700">{row.hargaSatuan !== undefined ? `Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}` : "-"}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.diskonPersen !== undefined ? `${row.diskonPersen}%` : "-"}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.diskonRupiah !== undefined ? `Rp ${Number(row.diskonRupiah).toLocaleString('id-ID')}` : "-"}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.ppnPersen !== undefined ? `${row.ppnPersen}%` : "-"}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.ppnRupiah !== undefined ? `Rp ${Number(row.ppnRupiah).toLocaleString('id-ID')}` : "-"}</TableCell>
-                                                    <TableCell className="text-left font-semibold text-blue-700">{row.totalPerItem !== undefined ? `Rp ${Number(row.totalPerItem).toLocaleString('id-ID')}` : "-"}</TableCell>
-                                                    <TableCell className="text-left font-bold bg-slate-50/50 text-slate-900">{row.grandTotal !== undefined ? `Rp ${Number(row.grandTotal).toLocaleString('id-ID')}` : "-"}</TableCell>
-                                                    <TableCell className="text-muted-foreground font-normal">{row.orderedByName}</TableCell>
-                                                    <TableCell className="text-muted-foreground font-normal">{row.namaPembeli}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.estimasiTerima ? dayjs(row.estimasiTerima).format("DD-MM-YYYY") : "-"}</TableCell>
-                                                    <TableCell className="text-left">
-                                                        {row.statusPengiriman && row.statusPengiriman !== "-" ? (
-                                                            <Badge variant="outline" className={cn(
-                                                                "whitespace-nowrap font-medium px-2.5 py-0.5 rounded-full border",
-                                                                row.statusPengiriman.toLowerCase().includes("terima")
-                                                                    ? "border-green-200 text-green-700 bg-green-50 shadow-sm"
-                                                                    : row.statusPengiriman.toLowerCase().includes("proses") || row.statusPengiriman.toLowerCase().includes("kirim")
-                                                                        ? "border-blue-200 text-blue-700 bg-blue-50 shadow-sm"
-                                                                        : "border-slate-200 text-slate-600 bg-slate-50"
-                                                            )}>
-                                                                {row.statusPengiriman}
-                                                            </Badge>
-                                                        ) : <span className="text-muted-foreground text-sm">-</span>}
+                                        </TableHeader>
+                                        <TableBody>
+                                            {prTable.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                                                        <div className="flex flex-col items-center justify-center gap-2">
+                                                            <FileText className="h-8 w-8 text-slate-300" />
+                                                            <p>Tidak ada data PR</p>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
+                                            ) : (
+                                                prTable.map((row, i) => (
+                                                    <TableRow key={i} className="hover:bg-blue-50/30 transition-colors">
+                                                        <TableCell className="font-bold text-slate-900">{row.noPR}</TableCell>
+                                                        <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggal).format("DD-MM-YYYY")}</TableCell>
+                                                        <TableCell className="font-medium text-slate-800">{row.namaBarang}</TableCell>
+                                                        <TableCell className="text-left font-medium text-slate-900">{Number(row.jumlah)}</TableCell>
+                                                        <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
+                                                        <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan || "-"}>{row.keterangan || "-"}</TableCell>
+                                                        <TableCell><Badge variant="secondary" className="font-medium bg-slate-100 text-slate-700 hover:bg-slate-200">{row.divisi}</Badge></TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* 3. Details Tables - BTB (Penerimaan) */}
-                {trackingStatus.BTB && (
-                    <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
-                        <CardHeader className="bg-blue-50/50 border-b pb-4 backdrop-blur-sm">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-blue-100/50 rounded-xl text-blue-600 shadow-sm ring-1 ring-blue-100">
-                                    <Package className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Penerimaan (BTB)</CardTitle>
-                                    <CardDescription className="text-slate-500">Barang yang telah diterima gudang (BTB)</CardDescription>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader className="bg-slate-50/50">
-                                        <TableRow>
-                                            <TableHead className="w-[150px] text-left font-semibold text-slate-700">No. BTB</TableHead>
-                                            <TableHead className="w-[120px] text-left font-semibold text-slate-700">Tanggal BTB</TableHead>
-                                            <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Nama Supplier</TableHead>
-                                            <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Nama Barang</TableHead>
-                                            <TableHead className="w-[100px] text-left font-semibold text-slate-700">Qty Awal</TableHead>
-                                            <TableHead className="w-[100px] text-left font-semibold text-slate-700">Satuan</TableHead>
-                                            <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Keterangan</TableHead>
-                                            <TableHead className="w-[120px] text-left font-semibold text-slate-700">Biaya</TableHead>
-                                            <TableHead className="w-[150px] text-left font-semibold text-slate-700">Diterima Oleh</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {btbTable.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                                                    <div className="flex flex-col items-center justify-center gap-2">
-                                                        <Package className="h-8 w-8 text-slate-300" />
-                                                        <p>Tidak ada data BTB</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            btbTable.map((row, i) => (
-                                                <TableRow key={i} className="hover:bg-blue-50/30 transition-colors">
-                                                    <TableCell className="font-bold text-slate-900">{row.noBTB}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggal).format("DD-MM-YYYY")}</TableCell>
-                                                    <TableCell className="font-normal text-slate-700">{row.supplierName}</TableCell>
-                                                    <TableCell className="font-medium text-slate-800">{row.nama_barang}</TableCell>
-                                                    <TableCell className="text-left font-medium text-slate-900">{Number(row.jumlah_diterima)}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
-                                                    <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan}>{row.keterangan || "-"}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-700">{row.biaya ? `Rp ${Number(row.biaya).toLocaleString('id-ID')}` : "-"}</TableCell>
-                                                    <TableCell className="text-muted-foreground font-normal">{row.diterimaOlehName}</TableCell>
+                    {/* 2. PO Content */}
+                    <TabsContent value="PO" className="mt-0 space-y-4 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
+                        {!trackingStatus.PO ? (
+                            <Card className="border-dashed border-2 shadow-none bg-slate-50/50">
+                                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                                    <div className="p-4 bg-orange-100/50 rounded-full mb-4 ring-1 ring-orange-200/50">
+                                        <ShoppingCart className="w-8 h-8 text-orange-400/70" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-700">Belum Sampai Tahap Pemesanan</h3>
+                                    <p className="text-sm text-slate-500 max-w-sm mt-1">Barang masih dalam proses persetujuan atau belum dibuatkan PO.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
+                                <CardHeader className="bg-orange-50/50 border-b pb-4 backdrop-blur-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 bg-orange-100/50 rounded-xl text-orange-600 shadow-sm ring-1 ring-orange-100">
+                                            <ShoppingCart className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Pemesanan (PO)</CardTitle>
+                                            <CardDescription className="text-slate-500">Dokumen PO yang dibuat berdasarkan PR ini</CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50/50">
+                                                <TableRow>
+                                                    <TableHead className="min-w-[140px] text-left font-semibold text-slate-700">No. PO</TableHead>
+                                                    <TableHead className="min-w-[110px] text-left font-semibold text-slate-700">Tanggal PO</TableHead>
+                                                    <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Supplier</TableHead>
+                                                    <TableHead className="min-w-[180px] text-left font-semibold text-slate-700">Daftar Barang</TableHead>
+                                                    <TableHead className="min-w-[100px] text-left font-semibold text-slate-700">Quantity PO</TableHead>
+                                                    <TableHead className="min-w-[80px] text-left font-semibold text-slate-700">Satuan</TableHead>
+                                                    <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Keterangan</TableHead>
+                                                    <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Harga Satuan</TableHead>
+                                                    <TableHead className="min-w-[100px] text-left font-semibold text-slate-700">Diskon (%)</TableHead>
+                                                    <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Diskon (Rp)</TableHead>
+                                                    <TableHead className="min-w-[100px] text-left font-semibold text-slate-700">PPN (%)</TableHead>
+                                                    <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">PPN (Rp)</TableHead>
+                                                    <TableHead className="min-w-[130px] text-left font-bold text-slate-800">Total</TableHead>
+                                                    <TableHead className="min-w-[140px] text-left font-bold bg-slate-50/80 text-slate-900">Grand Total</TableHead>
+                                                    <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Ordered By</TableHead>
+                                                    <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Nama Pembeli</TableHead>
+                                                    <TableHead className="min-w-[120px] text-left font-semibold text-slate-700">Estimasi Diterima</TableHead>
+                                                    <TableHead className="min-w-[140px] text-left font-semibold text-slate-700">Status Pengiriman</TableHead>
                                                 </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {poTable.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={18} className="text-center py-12 text-muted-foreground">
+                                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                                <ShoppingCart className="h-8 w-8 text-slate-300" />
+                                                                <p>Tidak ada data PO</p>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    poTable.map((row, i) => (
+                                                        <TableRow key={i} className="hover:bg-orange-50/30 transition-colors">
+                                                            <TableCell className="font-bold text-slate-900">{row.noPO}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggalPO).format("DD-MM-YYYY")}</TableCell>
+                                                            <TableCell className="font-normal text-slate-700">{row.supplierName}</TableCell>
+                                                            <TableCell className="font-medium text-slate-800">{row.namaBarang}</TableCell>
+                                                            <TableCell className="text-left font-medium text-slate-900">{Number(row.qtyPO)}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
+                                                            <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan}>{row.keterangan}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-700">{row.hargaSatuan !== undefined ? `Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}` : "-"}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.diskonPersen !== undefined ? `${row.diskonPersen}%` : "-"}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.diskonRupiah !== undefined ? `Rp ${Number(row.diskonRupiah).toLocaleString('id-ID')}` : "-"}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.ppnPersen !== undefined ? `${row.ppnPersen}%` : "-"}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.ppnRupiah !== undefined ? `Rp ${Number(row.ppnRupiah).toLocaleString('id-ID')}` : "-"}</TableCell>
+                                                            <TableCell className="text-left font-semibold text-blue-700">{row.totalPerItem !== undefined ? `Rp ${Number(row.totalPerItem).toLocaleString('id-ID')}` : "-"}</TableCell>
+                                                            <TableCell className="text-left font-bold bg-slate-50/50 text-slate-900">{row.grandTotal !== undefined ? `Rp ${Number(row.grandTotal).toLocaleString('id-ID')}` : "-"}</TableCell>
+                                                            <TableCell className="text-muted-foreground font-normal">{row.orderedByName}</TableCell>
+                                                            <TableCell className="text-muted-foreground font-normal">{row.namaPembeli}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.estimasiTerima ? dayjs(row.estimasiTerima).format("DD-MM-YYYY") : "-"}</TableCell>
+                                                            <TableCell className="text-left">
+                                                                {row.statusPengiriman && row.statusPengiriman !== "-" ? (
+                                                                    <Badge variant="outline" className={cn(
+                                                                        "whitespace-nowrap font-medium px-2.5 py-0.5 rounded-full border",
+                                                                        row.statusPengiriman.toLowerCase().includes("terima")
+                                                                            ? "border-green-200 text-green-700 bg-green-50 shadow-sm"
+                                                                            : row.statusPengiriman.toLowerCase().includes("proses") || row.statusPengiriman.toLowerCase().includes("kirim")
+                                                                                ? "border-blue-200 text-blue-700 bg-blue-50 shadow-sm"
+                                                                                : "border-slate-200 text-slate-600 bg-slate-50"
+                                                                    )}>
+                                                                        {row.statusPengiriman}
+                                                                    </Badge>
+                                                                ) : <span className="text-muted-foreground text-sm">-</span>}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </TabsContent>
 
-                {/* 4. Details Tables - BKB (Pengeluaran) */}
-                {trackingStatus.BKB && (
-                    <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
-                        <CardHeader className="bg-green-50/50 border-b pb-4 backdrop-blur-sm">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2.5 bg-green-100/50 rounded-xl text-green-600 shadow-sm ring-1 ring-green-100">
-                                    <Truck className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Pengeluaran (BKB)</CardTitle>
-                                    <CardDescription className="text-slate-500">Barang yang telah dikeluarkan (BKB)</CardDescription>
-                                </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader className="bg-slate-50/50">
-                                        <TableRow>
-                                            <TableHead className="w-[150px] text-left font-semibold text-slate-700">No. BKB</TableHead>
-                                            <TableHead className="w-[120px] text-left font-semibold text-slate-700">Tanggal BKB</TableHead>
-                                            <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Nama Barang</TableHead>
-                                            <TableHead className="w-[100px] text-left font-semibold text-slate-700">Quantity</TableHead>
-                                            <TableHead className="w-[100px] text-left font-semibold text-slate-700">Satuan</TableHead>
-                                            <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Keterangan</TableHead>
-                                            <TableHead className="w-[150px] text-left font-semibold text-slate-700">Dikeluarkan Oleh</TableHead>
-                                            <TableHead className="w-[150px] text-left font-semibold text-slate-700">Diterima Oleh</TableHead>
-                                            <TableHead className="w-[150px] text-left font-semibold text-slate-700">Divisi</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {bkbTable.length === 0 ? (
-                                            <TableRow>
-                                                <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                                                    <div className="flex flex-col items-center justify-center gap-2">
-                                                        <Truck className="h-8 w-8 text-slate-300" />
-                                                        <p>Tidak ada data BKB</p>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            bkbTable.map((row, i) => (
-                                                <TableRow key={i} className="hover:bg-green-50/30 transition-colors">
-                                                    <TableCell className="font-bold text-slate-900">{row.noBKB}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggalBKB).format("DD-MM-YYYY")}</TableCell>
-                                                    <TableCell className="font-medium text-slate-800">{row.nama_barang}</TableCell>
-                                                    <TableCell className="text-left font-medium text-slate-900">{Number(row.jumlah_keluar)}</TableCell>
-                                                    <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
-                                                    <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan}>{row.keterangan || "-"}</TableCell>
-                                                    <TableCell className="text-muted-foreground font-normal">{row.dikeluarkanOlehName}</TableCell>
-                                                    <TableCell className="text-muted-foreground font-normal">{row.diterimaOlehName}</TableCell>
-                                                    <TableCell><Badge variant="outline" className="font-medium bg-slate-50 text-slate-600 border-slate-200">{row.divisiName}</Badge></TableCell>
+                    {/* 3. BTB Content */}
+                    <TabsContent value="BTB" className="mt-0 space-y-4 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
+                        {!trackingStatus.BTB ? (
+                            <Card className="border-dashed border-2 shadow-none bg-slate-50/50">
+                                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                                    <div className="p-4 bg-blue-100/50 rounded-full mb-4 ring-1 ring-blue-200/50">
+                                        <Package className="w-8 h-8 text-blue-400/70" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-700">Belum Sampai Tahap Penerimaan</h3>
+                                    <p className="text-sm text-slate-500 max-w-sm mt-1">Barang belum diterima di gudang atau belum ada data penerimaan.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
+                                <CardHeader className="bg-blue-50/50 border-b pb-4 backdrop-blur-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 bg-blue-100/50 rounded-xl text-blue-600 shadow-sm ring-1 ring-blue-100">
+                                            <Package className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Penerimaan (BTB)</CardTitle>
+                                            <CardDescription className="text-slate-500">Barang yang telah diterima gudang (BTB)</CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50/50">
+                                                <TableRow>
+                                                    <TableHead className="w-[150px] text-left font-semibold text-slate-700">No. BTB</TableHead>
+                                                    <TableHead className="w-[120px] text-left font-semibold text-slate-700">Tanggal BTB</TableHead>
+                                                    <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Nama Supplier</TableHead>
+                                                    <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Nama Barang</TableHead>
+                                                    <TableHead className="w-[100px] text-left font-semibold text-slate-700">Qty Awal</TableHead>
+                                                    <TableHead className="w-[100px] text-left font-semibold text-slate-700">Satuan</TableHead>
+                                                    <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Keterangan</TableHead>
+                                                    <TableHead className="w-[120px] text-left font-semibold text-slate-700">Biaya</TableHead>
+                                                    <TableHead className="w-[150px] text-left font-semibold text-slate-700">Diterima Oleh</TableHead>
                                                 </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
+                                            </TableHeader>
+                                            <TableBody>
+                                                {btbTable.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                                <Package className="h-8 w-8 text-slate-300" />
+                                                                <p>Tidak ada data BTB</p>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    btbTable.map((row, i) => (
+                                                        <TableRow key={i} className="hover:bg-blue-50/30 transition-colors">
+                                                            <TableCell className="font-bold text-slate-900">{row.noBTB}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggal).format("DD-MM-YYYY")}</TableCell>
+                                                            <TableCell className="font-normal text-slate-700">{row.supplierName}</TableCell>
+                                                            <TableCell className="font-medium text-slate-800">{row.nama_barang}</TableCell>
+                                                            <TableCell className="text-left font-medium text-slate-900">{Number(row.jumlah_diterima)}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
+                                                            <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan}>{row.keterangan || "-"}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-700">{row.biaya ? `Rp ${Number(row.biaya).toLocaleString('id-ID')}` : "-"}</TableCell>
+                                                            <TableCell className="text-muted-foreground font-normal">{row.diterimaOlehName}</TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </TabsContent>
+
+                    {/* 4. BKB Content */}
+                    <TabsContent value="BKB" className="mt-0 space-y-4 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
+                        {!trackingStatus.BKB ? (
+                            <Card className="border-dashed border-2 shadow-none bg-slate-50/50">
+                                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                                    <div className="p-4 bg-green-100/50 rounded-full mb-4 ring-1 ring-green-200/50">
+                                        <Truck className="w-8 h-8 text-green-400/70" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-slate-700">Belum Sampai Tahap Pengeluaran</h3>
+                                    <p className="text-sm text-slate-500 max-w-sm mt-1">Barang belum dikeluarkan dari gudang.</p>
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="border-none shadow-md bg-white overflow-hidden ring-1 ring-slate-900/5 transition-all hover:shadow-lg">
+                                <CardHeader className="bg-green-50/50 border-b pb-4 backdrop-blur-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2.5 bg-green-100/50 rounded-xl text-green-600 shadow-sm ring-1 ring-green-100">
+                                            <Truck className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-bold tracking-tight text-slate-800">Rincian Pengeluaran (BKB)</CardTitle>
+                                            <CardDescription className="text-slate-500">Barang yang telah dikeluarkan (BKB)</CardDescription>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader className="bg-slate-50/50">
+                                                <TableRow>
+                                                    <TableHead className="w-[150px] text-left font-semibold text-slate-700">No. BKB</TableHead>
+                                                    <TableHead className="w-[120px] text-left font-semibold text-slate-700">Tanggal BKB</TableHead>
+                                                    <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Nama Barang</TableHead>
+                                                    <TableHead className="w-[100px] text-left font-semibold text-slate-700">Quantity</TableHead>
+                                                    <TableHead className="w-[100px] text-left font-semibold text-slate-700">Satuan</TableHead>
+                                                    <TableHead className="min-w-[150px] text-left font-semibold text-slate-700">Keterangan</TableHead>
+                                                    <TableHead className="w-[150px] text-left font-semibold text-slate-700">Dikeluarkan Oleh</TableHead>
+                                                    <TableHead className="w-[150px] text-left font-semibold text-slate-700">Diterima Oleh</TableHead>
+                                                    <TableHead className="w-[150px] text-left font-semibold text-slate-700">Divisi</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {bkbTable.length === 0 ? (
+                                                    <TableRow>
+                                                        <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
+                                                            <div className="flex flex-col items-center justify-center gap-2">
+                                                                <Truck className="h-8 w-8 text-slate-300" />
+                                                                <p>Tidak ada data BKB</p>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ) : (
+                                                    bkbTable.map((row, i) => (
+                                                        <TableRow key={i} className="hover:bg-green-50/30 transition-colors">
+                                                            <TableCell className="font-bold text-slate-900">{row.noBKB}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggalBKB).format("DD-MM-YYYY")}</TableCell>
+                                                            <TableCell className="font-medium text-slate-800">{row.nama_barang}</TableCell>
+                                                            <TableCell className="text-left font-medium text-slate-900">{Number(row.jumlah_keluar)}</TableCell>
+                                                            <TableCell className="text-left font-normal text-slate-600">{row.satuanLabel}</TableCell>
+                                                            <TableCell className="text-muted-foreground text-sm max-w-[200px] truncate" title={row.keterangan}>{row.keterangan || "-"}</TableCell>
+                                                            <TableCell className="text-muted-foreground font-normal">{row.dikeluarkanOlehName}</TableCell>
+                                                            <TableCell className="text-muted-foreground font-normal">{row.diterimaOlehName}</TableCell>
+                                                            <TableCell><Badge variant="outline" className="font-medium bg-slate-50 text-slate-600 border-slate-200">{row.divisiName}</Badge></TableCell>
+                                                        </TableRow>
+                                                    ))
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </TabsContent>
+                </Tabs>
+
             </div>
-        </MainLayout>
+        </MainLayout >
     );
 }
