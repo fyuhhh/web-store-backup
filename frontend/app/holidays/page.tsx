@@ -1,165 +1,402 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { MainLayout } from "@/components/layout/main-layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import dayjs from "dayjs";
-import { Trash2, Plus, CalendarIcon } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { id } from "date-fns/locale";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  LayoutDashboard,
+  FileText,
+  ShoppingCart,
+  Package,
+  PackageOpen,
+  Calculator,
+  Target,
+  BarChart3,
+  DollarSign,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+  UserCircle,
+  Settings,
+} from "lucide-react";
 
-export default function HolidayPage() {
-    const [holidays, setHolidays] = useState<any[]>([]);
-    const [newDate, setNewDate] = useState<Date>();
-    const [newDesc, setNewDesc] = useState("");
-    const [loading, setLoading] = useState(false);
+const menuItems = [
+  {
+    title: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "PR (Purchase Request)",
+    icon: FileText,
+    submenu: [
+      { title: "Input PR", href: "/pr/input-baru" },
+      { title: "Monitoring PR", href: "/pr/monitoring" },
+    ],
+  },
+  {
+    title: "PO (Purchase Order)",
+    icon: ShoppingCart,
+    submenu: [
+      { title: "Input PO", href: "/po/status" },
+      { title: "Monitoring PO", href: "/po/monitoring" },
+    ],
+  },
+  {
+    title: "BTB",
+    icon: Package,
+    submenu: [
+      { title: "Input BTB", href: "/btb/input" },
+      { title: "Monitoring BTB", href: "/btb/monitoring" },
+    ],
+  },
+  {
+    title: "BKB",
+    icon: PackageOpen,
+    submenu: [
+      { title: "Input BKB", href: "/bkb/input" },
+      { title: "Monitoring BKB", href: "/bkb/monitoring" },
+    ],
+  },
+  {
+    title: "Rekap Keseluruhan",
+    href: "/dashboard/rekap-full",
+    icon: BarChart3,
+  },
+  // {
+  //   title: "Biaya Plan",
+  //   href: "/biaya-plan",
+  //   icon: Calculator,
+  // },
+  // {
+  //   title: "Rekap Sasaran Mutu",
+  //   href: "/rekap-sasaran-mutu",
+  //   icon: Target,
+  // },
+  // {
+  //   title: "Analisa Sasaran Mutu",
+  //   href: "/analisa-sasaran-mutu",
+  //   icon: BarChart3,
+  // },
+  // {
+  //   title: "Cost Supplier",
+  //   href: "/cost-supplier",
+  //   icon: DollarSign,
+  // },
+  // {
+  //   title: "Data Evaluasi Supplier",
+  //   href: "/evaluasi-supplier",
+  //   icon: Users,
+  // },
+  {
+    title: "Pengaturan",
+    icon: Settings,
+    submenu: [
+      { title: "Hari Libur", href: "/holidays" },
+    ],
+  },
+];
 
-    useEffect(() => {
-        fetchHolidays();
-    }, []);
+export function Sidebar() {
+  const [collapsed, setCollapsed] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const pathname = usePathname();
+  const [role, setRole] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
 
-    async function fetchHolidays() {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userRaw = localStorage.getItem("userData");
+      if (userRaw) {
         try {
-            setLoading(true);
-            const res = await fetch("http://192.168.10.10:5000/api/holidays");
-            const data = await res.json();
-            setHolidays(Array.isArray(data) ? data : []);
-        } catch (err) {
-            console.error("Failed to fetch holidays", err);
-        } finally {
-            setLoading(false);
-        }
+          const userObj = JSON.parse(userRaw);
+          setRole(userObj.role);
+          setUser(userObj);
+        } catch { }
+      }
     }
+  }, []);
 
-    async function handleAdd() {
-        if (!newDate) return alert("Pilih tanggal!");
-        try {
-            const formattedDate = format(newDate, "yyyy-MM-dd");
-            const res = await fetch("http://192.168.10.10:5000/api/holidays", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tanggal: formattedDate, description: newDesc }),
-            });
-            if (res.ok) {
-                setNewDate(undefined);
-                setNewDesc("");
-                fetchHolidays();
-            } else {
-                alert("Gagal menambah hari libur");
-            }
-        } catch (err) {
-            console.error(err);
-        }
+  // Buka sidebar otomatis setelah login (transisi animasi)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (localStorage.getItem("sidebarShouldOpen") === "true") {
+        setCollapsed(true); // Mulai dari collapsed
+        setTimeout(() => {
+          setCollapsed(false); // Buka dengan animasi
+          localStorage.removeItem("sidebarShouldOpen");
+        }, 150); // Delay kecil agar transisi terlihat
+      }
     }
+  }, []);
 
-    async function handleDelete(id: number) {
-        if (!confirm("Hapus hari libur ini?")) return;
-        try {
-            await fetch(`http://192.168.10.10:5000/api/holidays/${id}`, { method: "DELETE" });
-            fetchHolidays();
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    return (
-        <MainLayout>
-            <div className="p-6">
-                <h1 className="text-2xl font-bold mb-6">Pengaturan Hari Libur</h1>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Tambah Hari Libur</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex flex-col space-y-2">
-                                <label className="text-sm font-medium">Tanggal</label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !newDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {newDate ? format(newDate, "dd/MM/yyyy") : <span>Pilih tanggal</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar
-                                            mode="single"
-                                            selected={newDate}
-                                            onSelect={setNewDate}
-                                            initialFocus
-                                            locale={id}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Keterangan</label>
-                                <Input
-                                    value={newDesc}
-                                    onChange={e => setNewDesc(e.target.value)}
-                                    placeholder="Contoh: Libur Nasional, Cuti Bersama..."
-                                />
-                            </div>
-                            <Button onClick={handleAdd}>
-                                <Plus className="mr-2 h-4 w-4" /> Tambah
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Daftar Hari Libur</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Tanggal</TableHead>
-                                        <TableHead>Keterangan</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="text-center">Loading...</TableCell>
-                                        </TableRow>
-                                    ) : holidays.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="text-center text-gray-500">Belum ada data hari libur</TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        holidays.map(h => (
-                                            <TableRow key={h.id}>
-                                                <TableCell>{dayjs(h.tanggal).format("DD MMM YYYY")}</TableCell>
-                                                <TableCell>{h.description}</TableCell>
-                                                <TableCell>
-                                                    <Button variant="ghost" size="sm" onClick={() => handleDelete(h.id)}>
-                                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                </div>
-            </div>
-        </MainLayout>
+  const toggleExpanded = (title: string) => {
+    setExpandedItems((prev) =>
+      prev.includes(title)
+        ? prev.filter((item) => item !== title)
+        : [...prev, title]
     );
+  };
+
+  // Filter menu sesuai id_peran
+  const id_peran = user?.id_peran;
+  let filteredMenu = menuItems;
+
+  if (id_peran === 2) {
+    // Menu khusus Divisi (id_peran = 2)
+    filteredMenu = [
+      {
+        title: "Dashboard",
+        href: "/divisi/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "Pesanan Anda",
+        href: "/divisi/pesanan-anda",
+        icon: ShoppingCart,
+      },
+    ];
+  } else if (id_peran === 3) {
+    // Dashboard, PR, BTB, BKB, Rekap Full
+    filteredMenu = [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "PR (Purchase Request)",
+        icon: FileText,
+        submenu: [
+          { title: "Input PR", href: "/pr/input-baru" },
+          { title: "Monitoring PR", href: "/pr/monitoring" },
+        ],
+      },
+      {
+        title: "BTB",
+        icon: Package,
+        submenu: [
+          { title: "Input BTB", href: "/btb/input" },
+          { title: "Monitoring BTB", href: "/btb/monitoring" },
+        ],
+      },
+      {
+        title: "BKB",
+        icon: PackageOpen,
+        submenu: [
+          { title: "Input BKB", href: "/bkb/input" },
+          { title: "Monitoring BKB", href: "/bkb/monitoring" },
+        ],
+      },
+      {
+        title: "Rekap Keseluruhan",
+        href: "/dashboard/rekap-full",
+        icon: BarChart3,
+      },
+    ];
+  } else if (id_peran === 4) {
+    // Dashboard, PO, Rekap Full
+    filteredMenu = [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "PO (Purchase Order)",
+        icon: ShoppingCart,
+        submenu: [
+          { title: "Input PO", href: "/po/status" },
+          { title: "Monitoring PO", href: "/po/monitoring" },
+          { title: "Rekap PO", href: "/po/rekap" },
+        ],
+      },
+      {
+        title: "Rekap Keseluruhan",
+        href: "/dashboard/rekap-full",
+        icon: BarChart3,
+      },
+      {
+        title: "Pengaturan",
+        icon: Settings,
+        submenu: [
+          { title: "Hari Libur", href: "/settings/holidays" },
+        ],
+      },
+    ];
+  } else if (
+    (user &&
+      (user.id_peran === 3 || (user.role ?? "").toLowerCase() === "divisi")) ||
+    (role && role.toLowerCase() === "divisi")
+  ) {
+    // Fallback untuk divisi lama
+    filteredMenu = [
+      {
+        title: "Dashboard",
+        href: "/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "PR (Purchase Request)",
+        icon: FileText,
+        submenu: [
+          { title: "Input PR", href: "/pr/input-baru" },
+          { title: "Monitoring PR", href: "/pr/monitoring" },
+        ],
+      },
+      {
+        title: "BKB",
+        icon: PackageOpen,
+        submenu: [
+          { title: "Input BKB", href: "/bkb/input" },
+          { title: "Monitoring BKB", href: "/bkb/monitoring" },
+        ],
+      },
+      {
+        title: "Rekap Keseluruhan",
+        href: "/dashboard/rekap-full",
+        icon: BarChart3,
+      },
+      {
+        title: "Pengaturan",
+        icon: Settings,
+        submenu: [
+          { title: "Hari Libur", href: "/settings/holidays" },
+        ],
+      },
+    ];
+  }
+
+  return (
+    <div
+      className={cn(
+        "relative bg-white border-r border-slate-100 flex flex-col h-full transition-all duration-300 shadow-sm z-50",
+        collapsed ? "w-20" : "w-72"
+      )}
+    >
+      {/* Header / Logo Area */}
+      <div className="flex h-20 items-center px-6 border-b border-slate-50">
+        <div className={cn("flex items-center gap-3 w-full", collapsed && "justify-center")}>
+          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-blue-200 shadow-lg">
+            <LayoutDashboard className="h-6 w-6 text-white" />
+          </div>
+          {!collapsed && (
+            <span className="text-xl font-bold text-slate-800 tracking-tight">Monitoring</span>
+          )}
+        </div>
+      </div>
+
+      {/* User info simplified or removed if redundant, keeping it simple as per request image */}
+
+      <ScrollArea className="flex-1 py-6 px-4">
+        <nav className="space-y-1">
+          {filteredMenu.map((item) => {
+            const isExpanded = expandedItems.includes(item.title);
+            const isActive =
+              pathname === item.href ||
+              (item.submenu &&
+                item.submenu.some((sub) => pathname === sub.href));
+
+            if (item.submenu) {
+              if (role && role !== "admin") return null; // Assuming logic
+              // Adjusted logic: `role` handling was a bit loose in original, keeping it same.
+
+              return (
+                <div key={item.title} className="mb-2">
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start relative transition-all duration-200 rounded-xl h-12 px-4 mb-1",
+                      isActive
+                        ? "bg-blue-50 text-blue-600 font-bold hover:bg-blue-100"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                      collapsed && "justify-center px-0"
+                    )}
+                    onClick={() => !collapsed && toggleExpanded(item.title)}
+                  >
+                    <item.icon className={cn("h-5 w-5 shrink-0 transition-colors", isActive ? "text-blue-600" : "text-slate-400")} />
+                    {!collapsed && (
+                      <>
+                        <span className="ml-3 text-base">{item.title}</span>
+                        <ChevronRight
+                          className={cn(
+                            "ml-auto h-4 w-4 transition-transform text-slate-300",
+                            isExpanded && "rotate-90 text-blue-500"
+                          )}
+                        />
+                      </>
+                    )}
+                  </Button>
+                  {/* Submenu */}
+                  {!collapsed && (
+                    <div
+                      className={cn(
+                        "ml-4 pl-4 border-l-2 border-slate-100 space-y-1 overflow-hidden transition-all duration-300",
+                        isExpanded ? "max-h-96 opacity-100 mt-2" : "max-h-0 opacity-0"
+                      )}
+                    >
+                      {isExpanded &&
+                        item.submenu.map((subItem) => (
+                          <Link key={subItem.href} href={subItem.href} className="block">
+                            <div
+                              className={cn(
+                                "w-full flex items-center h-10 px-4 rounded-lg text-sm transition-all duration-150 cursor-pointer",
+                                pathname === subItem.href
+                                  ? "bg-blue-600 text-white shadow-md font-medium"
+                                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                              )}
+                            >
+                              {subItem.title}
+                            </div>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <Link key={item.href} href={item.href} className="block mb-2">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start relative transition-all duration-200 rounded-xl h-12 px-4",
+                    pathname === item.href
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-200 hover:bg-blue-700 hover:text-white"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                    collapsed && "justify-center px-0"
+                  )}
+                >
+                  <item.icon className={cn("h-5 w-5 shrink-0", pathname === item.href ? "text-white" : "text-slate-400")} />
+                  {!collapsed && (
+                    <span className="ml-3 text-base">{item.title}</span>
+                  )}
+                </Button>
+              </Link>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+
+      {/* Toggle Button at Bottom */}
+      <div className="p-4 border-t border-slate-50">
+        <Button
+          variant="ghost"
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl"
+        >
+          {collapsed ? <ChevronRight className="h-5 w-5" /> : (
+            <div className="flex items-center gap-2">
+              <ChevronLeft className="h-5 w-5" />
+              <span className="text-sm font-medium">Minimize</span>
+            </div>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
 }
