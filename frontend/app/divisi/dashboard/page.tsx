@@ -112,7 +112,12 @@ export default function DivisiDashboardPage() {
 
                     if (isComplete) completedCount++;
 
-                    return { ...pr, isComplete, itemCount: items.length };
+                    return {
+                        ...pr,
+                        isComplete,
+                        itemCount: items.length,
+                        firstItemName: items.length > 0 ? items[0].namaBarang : "-"
+                    };
                 });
 
                 // Sort by Date Descending
@@ -242,7 +247,7 @@ export default function DivisiDashboardPage() {
 
                 {/* Recent Activity Table */}
                 <Card className="shadow-md border-slate-200">
-                    <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 border-b py-3">
+                    <CardHeader className="flex flex-row items-center justify-between bg-slate-100 border-b py-4">
                         <div className="flex flex-col gap-1">
                             <CardTitle className="text-lg font-bold text-slate-800">Aktivitas Terkini</CardTitle>
                             <CardDescription className="text-xs">Daftar permintaan barang terbaru dari divisi Anda</CardDescription>
@@ -269,6 +274,7 @@ export default function DivisiDashboardPage() {
                                 <TableRow>
                                     <TableHead className="w-[180px]">No. PR</TableHead>
                                     <TableHead>Tanggal</TableHead>
+                                    <TableHead>Barang</TableHead>
                                     <TableHead>Jumlah Item</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
@@ -277,22 +283,29 @@ export default function DivisiDashboardPage() {
                             <TableBody>
                                 {filteredRecent.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                                        <TableCell colSpan={6} className="text-center py-10 text-muted-foreground">
                                             {searchTerm ? "Tidak ditemukan pesanan yang cocok." : "Belum ada aktivitas pesanan."}
                                         </TableCell>
                                     </TableRow>
                                 ) : (
                                     filteredRecent.map((pr: any) => (
-                                        <TableRow key={pr.id_PR} className="hover:bg-slate-50/50 cursor-pointer" onClick={() => router.push(`/divisi/pesanan-anda/${encodeURIComponent(pr.noPR)}`)}>
+                                        <TableRow key={pr.id_PR} className="hover:bg-slate-50/80 cursor-pointer transition-colors" onClick={() => router.push(`/divisi/pesanan-anda/${encodeURIComponent(pr.noPR)}`)}>
                                             <TableCell className="font-medium text-blue-600">{pr.noPR}</TableCell>
                                             <TableCell>{dayjs(pr.tanggalPR).format("DD MMM YYYY")}</TableCell>
+                                            <TableCell className="font-medium text-slate-700 max-w-[200px] truncate" title={pr.firstItemName}>
+                                                {pr.firstItemName}
+                                            </TableCell>
                                             <TableCell>
-                                                <Badge variant="secondary" className="font-normal">
+                                                <Badge variant="secondary" className="font-normal bg-slate-100 text-slate-600">
                                                     {pr.itemCount} Barang
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={pr.isComplete ? "bg-green-100 text-green-700 hover:bg-green-100 border-green-200" : "bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200"}>
+                                                <Badge className={
+                                                    pr.isComplete
+                                                        ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 shadow-none"
+                                                        : "bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 shadow-none"
+                                                }>
                                                     {pr.isComplete ? "Selesai" : "Proses"}
                                                 </Badge>
                                             </TableCell>
