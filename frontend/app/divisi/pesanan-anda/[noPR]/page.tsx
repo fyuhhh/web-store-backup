@@ -46,6 +46,38 @@ export default function DetailPesananPage() {
         BKB: false
     });
 
+    const [progressWidth, setProgressWidth] = useState("0%");
+    const [isAnimationDone, setIsAnimationDone] = useState(false);
+
+    useEffect(() => {
+        const runAnimation = async () => {
+            // Reset state
+            setProgressWidth("0%");
+            setIsAnimationDone(false);
+
+            // Initial delay before starting
+            await new Promise(r => setTimeout(r, 100));
+
+            // Determine final target width
+            const targetWidth = trackingStatus.BKB ? "100%" :
+                trackingStatus.BTB ? "66%" :
+                    trackingStatus.PO ? "33%" : "0%";
+
+            // Trigger animation
+            setProgressWidth(targetWidth);
+
+            // Wait for animation execution (match CSS duration)
+            await new Promise(r => setTimeout(r, 1500));
+
+            // Animation complete
+            setIsAnimationDone(true);
+        };
+
+        if (!isLoading) {
+            runAnimation();
+        }
+    }, [trackingStatus, isLoading]);
+
     useEffect(() => {
         if (!noPR) return;
 
@@ -297,11 +329,9 @@ export default function DetailPesananPage() {
 
                             {/* Connection Lines Active Progress */}
                             <div
-                                className="absolute top-1/2 left-0 h-1 bg-blue-500 -translate-y-1/2 rounded-full z-0 transition-all duration-1000 ease-out"
+                                className="absolute top-1/2 left-0 h-1 bg-blue-500 -translate-y-1/2 rounded-full z-0 transition-all duration-[1500ms] ease-in-out"
                                 style={{
-                                    width: trackingStatus.BKB ? "100%" :
-                                        trackingStatus.BTB ? "66%" :
-                                            trackingStatus.PO ? "33%" : "0%"
+                                    width: progressWidth
                                 }}
                             ></div>
 
@@ -340,8 +370,8 @@ export default function DetailPesananPage() {
                                                 {step.label}
                                             </p>
 
-                                            {isLatestActive && (
-                                                <div className="mt-1 animate-in fade-in zoom-in duration-500">
+                                            {isLatestActive && isAnimationDone && (
+                                                <div className="mt-1 animate-in fade-in zoom-in slide-in-from-bottom-2 duration-500 ease-out fill-mode-both">
                                                     <span className="text-[11px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full shadow-md shadow-blue-200 block w-fit whitespace-nowrap">
                                                         {statusText}
                                                     </span>
