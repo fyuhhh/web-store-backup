@@ -57,8 +57,8 @@ import {
   Plus,
   Edit,
   Trash2,
-  Search,
-  Download,
+import { useSearchParams } from "next/navigation";
+Download,
   ChevronDown,
 } from "lucide-react";
 
@@ -148,6 +148,9 @@ function sortPOList(filteredPOData: any[]) {
 }
 
 export default function MonitoringPOPage() {
+  const searchParams = useSearchParams();
+  const highlight = searchParams.get("highlight");
+
   const [poData, setPoData] = useState<POData[]>([]);
   const [prData, setPrData] = useState<PRData[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
@@ -168,6 +171,18 @@ export default function MonitoringPOPage() {
       setFilterEndDate(lastDay);
     }
   }, [filterStartDate, filterEndDate]);
+
+  useEffect(() => {
+    if (highlight && poData.length > 0) {
+      setTimeout(() => {
+        const element = document.getElementById(highlight);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+    }
+  }, [highlight, poData]);
+
   const [filterNamaBarang, setFilterNamaBarang] = useState("");
   const [filterQtyMin, setFilterQtyMin] = useState<number | "">("");
   const [filterQtyMax, setFilterQtyMax] = useState<number | "">("");
@@ -2423,7 +2438,9 @@ export default function MonitoringPOPage() {
                         {allItems.map((item: any, itemIndex: number) => (
                           <TableRow
                             key={`${po.id}-item-${itemIndex}`}
-                            className="hover:bg-gray-50 transition-colors"
+                            id={itemIndex === 0 ? (po.noPO || "") : undefined}
+                            className={`hover:bg-gray-50 transition-colors ${highlight && po.noPO === highlight ? "bg-yellow-100" : ""
+                              }`}
                           >
                             {itemIndex === 0 ? (
                               <>

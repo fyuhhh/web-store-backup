@@ -177,7 +177,7 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center">
           <p className="text-xs text-slate-400">
-            &copy; {new Date().getFullYear()} Sistem Monitoring Internal.
+            &copy; {new Date().getFullYear()} Sistem Monitoring Purchasing & Store BSB Balikpapan
           </p>
         </div>
       </div>

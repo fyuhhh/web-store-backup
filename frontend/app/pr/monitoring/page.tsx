@@ -57,8 +57,12 @@ import {
 } from "lucide-react";
 
 import { type PRData } from "@/lib/dummy-data";
+import { useSearchParams } from "next/navigation";
 
 export default function MonitoringPRPage() {
+  const searchParams = useSearchParams();
+  const highlight = searchParams.get("highlight");
+
   const [prData, setPrData] = useState<PRData[]>([]);
   const [selectedPRs, setSelectedPRs] = useState<string[]>([]);
 
@@ -79,6 +83,18 @@ export default function MonitoringPRPage() {
       setFilterEndDate(lastDay);
     }
   }, [filterStartDate, filterEndDate]);
+
+  useEffect(() => {
+    if (highlight && prData.length > 0) {
+      setTimeout(() => {
+        const element = document.getElementById(highlight);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+    }
+  }, [highlight, prData]);
+
   // Hapus state filterQty dan filterQtySearchTerm
   // const [filterQty, setFilterQty] = useState<number[]>([]);
   // const [filterQtySearchTerm, setFilterQtySearchTerm] = useState("");
@@ -1906,7 +1922,11 @@ export default function MonitoringPRPage() {
 
                       return (
                         <React.Fragment key={pr.id}>
-                          <TableRow className="hover:bg-gray-50 transition-colors">
+                          <TableRow
+                            id={pr.noPR}
+                            className={`hover:bg-gray-50 transition-colors ${highlight && pr.noPR === highlight ? "bg-yellow-100" : ""
+                              }`}
+                          >
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-left align-middle">
                               <Checkbox
                                 checked={selectedPRs.includes(pr.id)}

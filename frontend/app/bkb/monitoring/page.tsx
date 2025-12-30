@@ -45,6 +45,7 @@ import utc from "dayjs/plugin/utc";
 import { Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
 dayjs.extend(utc);
+import { useSearchParams } from "next/navigation";
 
 // Helper format tanggal DD-MM-YYYY
 function formatTanggal(tgl: string | null | undefined) {
@@ -133,6 +134,9 @@ function sortBKBList(filteredBKBData: any[]) {
 }
 
 export default function BKBMonitoringPage() {
+  const searchParams = useSearchParams();
+  const highlight = searchParams.get("highlight");
+
   const [bkbRows, setBkbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -155,6 +159,18 @@ export default function BKBMonitoringPage() {
       setEndDate(lastDay);
     }
   }, [startDate, endDate]);
+
+
+  useEffect(() => {
+    if (highlight && bkbRows.length > 0) {
+      setTimeout(() => {
+        const element = document.getElementById(highlight);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+    }
+  }, [highlight, bkbRows]);
 
   // Tambahkan state untuk export
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
@@ -933,7 +949,11 @@ export default function BKBMonitoringPage() {
                         });
                         return (
                           <React.Fragment key={id_bkb}>
-                            <TableRow className="hover:bg-gray-50 transition-colors">
+                            <TableRow
+                              id={items[0].noBKB}
+                              className={`hover:bg-gray-50 transition-colors ${highlight && items[0].noBKB === highlight ? "bg-yellow-100" : ""
+                                }`}
+                            >
                               {/* Checkbox hanya di baris pertama */}
                               <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
                                 {exportMode === "selected" && (
