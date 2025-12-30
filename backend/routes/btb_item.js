@@ -108,7 +108,7 @@ router.post("/", async (req, res) => {
         jumlahDiterimaInt, // <-- integer
         id_satuan || null,
         keterangan || "",
-        sisa, // <-- qty_sisa = sisa PO (Backorder)
+        jumlahDiterimaInt, // <-- qty_sisa = jumlah yang diterima (Stok Awal dari BTB ini)
         biayaInt, // <-- biaya per item
         targetPencapaianPo || null, // <-- NEW value
       ]

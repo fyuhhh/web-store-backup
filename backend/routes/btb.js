@@ -399,7 +399,8 @@ router.post("/full", async (req, res) => {
           jumlah_diterima || 0,
           id_satuan || null,
           keterangan || "",
-          sisa, // <-- qty_sisa = sisa PO (Backorder)
+          keterangan || "",
+          jumlah_diterima, // <-- qty_sisa = jumlah yang diterima (Stok Awal dari BTB ini)
           biayaPerItem, // <-- biaya per item proporsional
         ]
       );

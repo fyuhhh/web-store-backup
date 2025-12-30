@@ -49,6 +49,9 @@ export default function BKBInputPage() {
   const [endDate, setEndDate] = useState<Date | null>(null);
 
   // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
+  // REMOVED: Default filter date removed to show ALL available stock by default
+  /*
   useEffect(() => {
     if (startDate === null && endDate === null) {
       const now = new Date();
@@ -58,6 +61,7 @@ export default function BKBInputPage() {
       setEndDate(lastDay);
     }
   }, [startDate, endDate]);
+  */
 
   // Tambahkan state untuk pencarian seperti monitoring BKB
   const [searchTerm, setSearchTerm] = useState("");
