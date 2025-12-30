@@ -2093,7 +2093,16 @@ export default function RekapFullPage() {
                                     {/* No. PR */}
                                     {isFirstPR ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
-                                        {(item.noPR || "").toUpperCase()}
+                                        <span
+                                          className="cursor-pointer text-blue-600 hover:underline"
+                                          onClick={() => {
+                                            if (item.noPR) {
+                                              window.location.href = `/pr/monitoring?highlight=${encodeURIComponent(item.noPR)}`;
+                                            }
+                                          }}
+                                        >
+                                          {(item.noPR || "").toUpperCase()}
+                                        </span>
                                       </TableCell>
                                     ) : null}
                                     {/* Tanggal PR */}
@@ -2281,7 +2290,16 @@ export default function RekapFullPage() {
                                     {/* No. PO */}
                                     {isFirstPO ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
-                                        {(item.noPO || "").toUpperCase()}
+                                        <span
+                                          className="cursor-pointer text-blue-600 hover:underline"
+                                          onClick={() => {
+                                            if (item.noPO) {
+                                              window.location.href = `/po/monitoring?highlight=${encodeURIComponent(item.noPO)}`;
+                                            }
+                                          }}
+                                        >
+                                          {(item.noPO || "").toUpperCase()}
+                                        </span>
                                       </TableCell>
                                     ) : null}
                                     {/* Tanggal PO */}
@@ -2476,7 +2494,16 @@ export default function RekapFullPage() {
                                     {/* No. BTB */}
                                     {isFirstBTB ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={btbGroup.rowSpan}>
-                                        {(item.noBTB || "").toUpperCase()}
+                                        <span
+                                          className="cursor-pointer text-blue-600 hover:underline"
+                                          onClick={() => {
+                                            if (item.noBTB) {
+                                              window.location.href = `/btb/monitoring?highlight=${encodeURIComponent(item.noBTB)}`;
+                                            }
+                                          }}
+                                        >
+                                          {(item.noBTB || "").toUpperCase()}
+                                        </span>
                                       </TableCell>
                                     ) : null}
                                     {/* Tanggal BTB */}

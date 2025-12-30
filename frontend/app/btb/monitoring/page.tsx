@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
+import { useSearchParams } from "next/navigation";
 
 import { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
@@ -142,6 +143,9 @@ function sortBTBList(filteredBTBData: any[]) {
 }
 
 export default function BTBMonitoringPage() {
+  const searchParams = useSearchParams();
+  const highlight = searchParams.get("highlight");
+
   const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -180,6 +184,18 @@ export default function BTBMonitoringPage() {
       setFilterEndDate(lastDay);
     }
   }, [filterStartDate, filterEndDate]);
+
+  useEffect(() => {
+    if (highlight && btbRows.length > 0) {
+      setTimeout(() => {
+        const element = document.getElementById(highlight);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 500);
+    }
+  }, [highlight, btbRows]);
+
   const [filterSupplier, setFilterSupplier] = useState<string[]>([]);
   const [supplierSearchTerm, setSupplierSearchTerm] = useState("");
   const [barangSearchTerm, setBarangSearchTerm] = useState("");
@@ -1460,7 +1476,11 @@ export default function BTBMonitoringPage() {
                         });
                         return (
                           <React.Fragment key={noBTB}>
-                            <TableRow className="hover:bg-gray-50 transition-colors border border-gray-300">
+                            <TableRow
+                              id={items[0].noBTB}
+                              className={`hover:bg-gray-50 transition-colors border border-gray-300 ${highlight && items[0].noBTB === highlight ? "bg-yellow-100" : ""
+                                }`}
+                            >
                               {/* Checkbox hanya di baris pertama */}
                               <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle">
                                 {exportMode === "selected" && (

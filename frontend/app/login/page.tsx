@@ -91,7 +91,7 @@ export default function LoginPage() {
             Sistem Monitoring
           </h1>
           <p className="text-slate-500 text-sm">
-            Masuk untuk mengakses dashboard pengadaan.
+            Masuk untuk mengakses halaman utama.
           </p>
         </div>
 
@@ -177,7 +177,7 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center">
           <p className="text-xs text-slate-400">
-            &copy; {new Date().getFullYear()} Sistem Monitoring Internal.
+            &copy; {new Date().getFullYear()} Sistem Monitoring Purchasing & Store BSB Balikpapan
           </p>
         </div>
       </div>
