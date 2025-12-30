@@ -2105,7 +2105,7 @@ export default function RekapFullPage() {
                                     {isFirstPR ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
                                         <span
-                                          className="cursor-pointer text-blue-600 hover:underline"
+                                          className="cursor-pointer font-bold text-black hover:text-blue-600 hover:underline"
                                           onClick={() => {
                                             if (item.noPR) {
                                               window.location.href = `/pr/monitoring?highlight=${encodeURIComponent(item.noPR)}`;
@@ -2302,7 +2302,7 @@ export default function RekapFullPage() {
                                     {isFirstPO ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
                                         <span
-                                          className="cursor-pointer text-blue-600 hover:underline"
+                                          className="cursor-pointer font-bold text-black hover:text-blue-600 hover:underline"
                                           onClick={() => {
                                             if (item.noPO) {
                                               window.location.href = `/po/monitoring?highlight=${encodeURIComponent(item.noPO)}`;
@@ -2506,7 +2506,7 @@ export default function RekapFullPage() {
                                     {isFirstBTB ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={btbGroup.rowSpan}>
                                         <span
-                                          className="cursor-pointer text-blue-600 hover:underline"
+                                          className="cursor-pointer font-bold text-black hover:text-blue-600 hover:underline"
                                           onClick={() => {
                                             if (item.noBTB) {
                                               window.location.href = `/btb/monitoring?highlight=${encodeURIComponent(item.noBTB)}`;
