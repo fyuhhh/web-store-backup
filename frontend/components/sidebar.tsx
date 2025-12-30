@@ -145,7 +145,21 @@ export function Sidebar() {
   const id_peran = user?.id_peran;
   let filteredMenu = menuItems;
 
-  if (id_peran === 3) {
+  if (id_peran === 2) {
+    // Menu khusus Divisi (id_peran = 2)
+    filteredMenu = [
+      {
+        title: "Dashboard",
+        href: "/divisi/dashboard",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "Pesanan Anda",
+        href: "/divisi/pesanan-anda",
+        icon: ShoppingCart,
+      },
+    ];
+  } else if (id_peran === 3) {
     // Dashboard, PR, BTB, BKB, Rekap Full
     filteredMenu = [
       {
@@ -259,167 +273,129 @@ export function Sidebar() {
   return (
     <div
       className={cn(
-        "relative bg-sidebar border-r border-sidebar-border transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
+        "relative bg-white border-r border-slate-100 flex flex-col h-full transition-all duration-300 shadow-sm z-50",
+        collapsed ? "w-20" : "w-72"
       )}
     >
-      {/* Avatar & Username */}
-      <div className="flex flex-col items-center py-4 border-b border-sidebar-border">
-        <div className="flex items-center space-x-2">
-          <UserCircle className="h-8 w-8 text-sidebar-foreground" />
+      {/* Header / Logo Area */}
+      <div className="flex h-20 items-center px-6 border-b border-slate-50">
+        <div className={cn("flex items-center gap-3 w-full", collapsed && "justify-center")}>
+          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-blue-200 shadow-lg">
+            <LayoutDashboard className="h-6 w-6 text-white" />
+          </div>
           {!collapsed && (
-            <span className="font-semibold text-sidebar-foreground text-base">
-              {user?.nama_pengguna || "User"}
-            </span>
+            <span className="text-xl font-bold text-slate-800 tracking-tight">Monitoring</span>
           )}
         </div>
       </div>
 
-      <div className="flex h-full flex-col">
-        <div className="flex h-16 items-center justify-between px-4 bg-sidebar">
-          <div
-            className={cn(
-              "flex items-center space-x-2",
-              collapsed && "justify-center"
-            )}
-          >
-            {!collapsed && (
-              <span className="text-lg font-semibold text-sidebar-foreground">
-                Monitoring App
-              </span>
-            )}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCollapsed(!collapsed)}
-            className="text-sidebar-foreground hover:bg-sidebar-accent"
-          >
-            {collapsed ? (
-              <ChevronRight className="h-4 w-4" />
-            ) : (
-              <ChevronLeft className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-        <ScrollArea className="flex-1 px-3 py-4">
-          <nav className="space-y-2">
-            {filteredMenu.map((item) => {
-              const isExpanded = expandedItems.includes(item.title);
-              const isActive =
-                pathname === item.href ||
-                (item.submenu &&
-                  item.submenu.some((sub) => pathname === sub.href));
+      {/* User info simplified or removed if redundant, keeping it simple as per request image */}
 
-              if (item.submenu) {
-                // Untuk divisi, tidak ada submenu
-                if (role && role !== "admin") return null;
-                return (
-                  <div key={item.title}>
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group relative transition-all duration-200",
-                        isActive &&
-                        "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
-                        collapsed && "justify-center px-2"
-                      )}
-                      style={{
-                        position: "relative",
-                        overflow: "hidden",
-                      }}
-                      onClick={() => !collapsed && toggleExpanded(item.title)}
-                    >
-                      {/* Active bar indicator */}
-                      {isActive && !collapsed && (
-                        <span
-                          className="absolute left-0 top-0 h-full w-1 rounded-r bg-gradient-to-b from-blue-400 to-blue-700"
-                          style={{ zIndex: 2 }}
-                        />
-                      )}
-                      <item.icon className="h-4 w-4 z-10" />
-                      {!collapsed && (
-                        <>
-                          <span className="ml-2 z-10">{item.title}</span>
-                          <ChevronRight
-                            className={cn(
-                              "ml-auto h-4 w-4 transition-transform z-10",
-                              isExpanded && "rotate-90"
-                            )}
-                          />
-                        </>
-                      )}
-                    </Button>
-                    {/* Animated submenu */}
-                    {!collapsed && (
-                      <div
-                        className={cn(
-                          "ml-6 overflow-hidden transition-all duration-300",
-                          isExpanded
-                            ? "max-h-40 opacity-100"
-                            : "max-h-0 opacity-0"
-                        )}
-                        style={{ transitionProperty: "max-height, opacity" }}
-                      >
-                        {isExpanded &&
-                          item.submenu.map((subItem) => (
-                            <Link key={subItem.href} href={subItem.href}>
-                              <Button
-                                variant="ghost"
-                                className={cn(
-                                  "w-full justify-start text-sm text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-150",
-                                  pathname === subItem.href &&
-                                  "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-                                )}
-                                style={{
-                                  borderLeft:
-                                    pathname === subItem.href
-                                      ? "3px solid #3396D3"
-                                      : "3px solid transparent",
-                                }}
-                              >
-                                {subItem.title}
-                              </Button>
-                            </Link>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              }
+      <ScrollArea className="flex-1 py-6 px-4">
+        <nav className="space-y-1">
+          {filteredMenu.map((item) => {
+            const isExpanded = expandedItems.includes(item.title);
+            const isActive =
+              pathname === item.href ||
+              (item.submenu &&
+                item.submenu.some((sub) => pathname === sub.href));
+
+            if (item.submenu) {
+              if (role && role !== "admin") return null; // Assuming logic
+              // Adjusted logic: `role` handling was a bit loose in original, keeping it same.
 
               return (
-                <Link key={item.href} href={item.href}>
+                <div key={item.title} className="mb-2">
                   <Button
                     variant="ghost"
                     className={cn(
-                      "w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group relative transition-all duration-200",
-                      pathname === item.href &&
-                      "bg-sidebar-primary text-sidebar-primary-foreground font-bold",
-                      collapsed && "justify-center px-2"
+                      "w-full justify-start relative transition-all duration-200 rounded-xl h-12 px-4 mb-1",
+                      isActive
+                        ? "bg-blue-50 text-blue-600 font-bold hover:bg-blue-100"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                      collapsed && "justify-center px-0"
                     )}
-                    style={{
-                      position: "relative",
-                      overflow: "hidden",
-                    }}
+                    onClick={() => !collapsed && toggleExpanded(item.title)}
                   >
-                    {/* Active bar indicator */}
-                    {pathname === item.href && !collapsed && (
-                      <span
-                        className="absolute left-0 top-0 h-full w-1 rounded-r bg-gradient-to-b from-blue-400 to-blue-700"
-                        style={{ zIndex: 2 }}
-                      />
-                    )}
-                    <item.icon className="h-4 w-4 z-10" />
+                    <item.icon className={cn("h-5 w-5 shrink-0 transition-colors", isActive ? "text-blue-600" : "text-slate-400")} />
                     {!collapsed && (
-                      <span className="ml-2 z-10">{item.title}</span>
+                      <>
+                        <span className="ml-3 text-base">{item.title}</span>
+                        <ChevronRight
+                          className={cn(
+                            "ml-auto h-4 w-4 transition-transform text-slate-300",
+                            isExpanded && "rotate-90 text-blue-500"
+                          )}
+                        />
+                      </>
                     )}
                   </Button>
-                </Link>
+                  {/* Submenu */}
+                  {!collapsed && (
+                    <div
+                      className={cn(
+                        "ml-4 pl-4 border-l-2 border-slate-100 space-y-1 overflow-hidden transition-all duration-300",
+                        isExpanded ? "max-h-96 opacity-100 mt-2" : "max-h-0 opacity-0"
+                      )}
+                    >
+                      {isExpanded &&
+                        item.submenu.map((subItem) => (
+                          <Link key={subItem.href} href={subItem.href} className="block">
+                            <div
+                              className={cn(
+                                "w-full flex items-center h-10 px-4 rounded-lg text-sm transition-all duration-150 cursor-pointer",
+                                pathname === subItem.href
+                                  ? "bg-blue-600 text-white shadow-md font-medium"
+                                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                              )}
+                            >
+                              {subItem.title}
+                            </div>
+                          </Link>
+                        ))}
+                    </div>
+                  )}
+                </div>
               );
-            })}
-          </nav>
-        </ScrollArea>
+            }
+
+            return (
+              <Link key={item.href} href={item.href} className="block mb-2">
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start relative transition-all duration-200 rounded-xl h-12 px-4",
+                    pathname === item.href
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-200 hover:bg-blue-700 hover:text-white"
+                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
+                    collapsed && "justify-center px-0"
+                  )}
+                >
+                  <item.icon className={cn("h-5 w-5 shrink-0", pathname === item.href ? "text-white" : "text-slate-400")} />
+                  {!collapsed && (
+                    <span className="ml-3 text-base">{item.title}</span>
+                  )}
+                </Button>
+              </Link>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+
+      {/* Toggle Button at Bottom */}
+      <div className="p-4 border-t border-slate-50">
+        <Button
+          variant="ghost"
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl"
+        >
+          {collapsed ? <ChevronRight className="h-5 w-5" /> : (
+            <div className="flex items-center gap-2">
+              <ChevronLeft className="h-5 w-5" />
+              <span className="text-sm font-medium">Minimize</span>
+            </div>
+          )}
+        </Button>
       </div>
     </div>
   );
