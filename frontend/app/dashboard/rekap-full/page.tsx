@@ -807,10 +807,12 @@ export default function RekapFullPage() {
                         : "",
                     hargaSatuanPO: poItem?.hargaSatuan ?? "",
                     diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
-                      ? (Number(poItem.diskonPersen) % 1 === 0
-                        ? Number(poItem.diskonPersen).toString()
-                        : Number(poItem.diskonPersen).toFixed(2)
-                      ) + "%"
+                      ? (() => {
+                        const val = String(poItem.diskonPersen);
+                        if (val.includes('+') || val.endsWith('%')) return val;
+                        const num = Number(val);
+                        return isNaN(num) ? val : (num % 1 === 0 ? num.toString() : num.toFixed(2)) + "%";
+                      })()
                       : "",
                     diskonRp: po?.originalDiskon ?? "",
                     ppnPersen: poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
@@ -819,7 +821,7 @@ export default function RekapFullPage() {
                         : Number(poItem.ppnPersen).toFixed(2)
                       ) + "%"
                       : "",
-                    ppnRp: po?.ppnAmount ?? "",
+                    ppnRp: poItem?.ppnRupiah ?? "",
                     // total per item (hitung dari hargaSatuan & jumlah serta diskon/ppn di POItem)
                     totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
                     tanggalEstimasiDiterima: po?.estimasiTanggalTerima
@@ -947,10 +949,12 @@ export default function RekapFullPage() {
                           : "",
                       hargaSatuanPO: poItem?.hargaSatuan ?? "",
                       diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
-                        ? (Number(poItem.diskonPersen) % 1 === 0
-                          ? Number(poItem.diskonPersen).toString()
-                          : Number(poItem.diskonPersen).toFixed(2)
-                        ) + "%"
+                        ? (() => {
+                          const val = String(poItem.diskonPersen);
+                          if (val.includes('+') || val.endsWith('%')) return val;
+                          const num = Number(val);
+                          return isNaN(num) ? val : (num % 1 === 0 ? num.toString() : num.toFixed(2)) + "%";
+                        })()
                         : "",
                       diskonRp: po?.originalDiskon ?? "",
                       ppnPersen: poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
@@ -959,7 +963,7 @@ export default function RekapFullPage() {
                           : Number(poItem.ppnPersen).toFixed(2)
                         ) + "%"
                         : "",
-                      ppnRp: po?.ppnAmount ?? "",
+                      ppnRp: poItem?.ppnRupiah ?? "",
                       // total per item (hitung dari hargaSatuan & jumlah serta diskon/ppn di POItem)
                       totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
                       tanggalEstimasiDiterima: po?.estimasiTanggalTerima

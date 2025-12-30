@@ -633,19 +633,30 @@ export default function InputPOPage() {
           const jumlahPOInt = Math.floor(Number(item.jumlahPO)) || 0;
           const jumlahAsliInt = Math.floor(Number(item.jumlahAsli)) || 0;
 
+
+          // --- FIX: Normalisasi hargaSatuan (remove dots, comma->dot) ---
+          let hargaNormalized = 0;
+          if (typeof item.hargaSatuan === "string") {
+            hargaNormalized = parseFloat(item.hargaSatuan.replace(/\./g, "").replace(",", ".")) || 0;
+          } else {
+            hargaNormalized = Number(item.hargaSatuan) || 0;
+          }
+
           // --- Ambil nilai diskon dan ppn per item ---
-          // Diskon (%) hanya angka pertama dari item.diskonPersen
-          let diskonPersenValue = 0;
+          // Diskon (%) - Keep as string ("10%+20%") or parse if simple number
+          let diskonPersenValue: string | number = 0;
           if (item.diskonPersen && typeof item.diskonPersen === "string") {
-            const match = item.diskonPersen.match(/(\d+(\.\d+)?)/);
-            diskonPersenValue = match ? parseFloat(match[1]) : 0;
+            // Diskon (%): Always send as string. 
+            // Valid inputs: "10", "10%", "10%+20%", etc.
+            // Backend handles string storage.
+            diskonPersenValue = item.diskonPersen;
           }
           // Diskon (Rp)
           const diskonRupiahValue = Number(item.diskonNominal) || 0;
           // PPN (%) dari item.ppnItem
           const ppnPersenValue = Number(item.ppnItem) || 0;
           // PPN (Rp): hitung dari afterDiskon * (ppnPersen/100)
-          const harga = Number(item.hargaSatuan) || 0;
+          const harga = hargaNormalized; // Gunakan yang sudah dinormalisasi
           const qty = Number(item.jumlahPO) || 0;
           const itemSubtotal = harga * qty;
           let diskonAmount = 0;

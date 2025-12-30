@@ -28,7 +28,41 @@ router.get("/", async (req, res, next) => {
           : 0,
       // namaPembeli sudah otomatis ikut dari SELECT *
     }));
-    res.json(fixedRows);
+
+    // --- Recalculate totalPerItem if it is 0/null but harga & qty exist ---
+    const recalcRows = fixedRows.map((row) => {
+      let finalTotal = Number(row.totalPerItem) || 0;
+      if (finalTotal === 0 && row.hargaSatuan > 0 && (row.jumlahPO > 0 || row.jumlahAsli > 0)) {
+        const qty = row.jumlahPO > 0 ? row.jumlahPO : row.jumlahAsli;
+        const subtotal = row.hargaSatuan * qty;
+        // PPN/Diskon
+        let diskonAmount = Number(row.diskonRupiah) || 0;
+        if (row.diskonPersen) {
+          // Parse stacked discount "50%+20%" -> apply 50% then 20%
+          const parts = String(row.diskonPersen).split("+");
+          let currentTotal = subtotal;
+          for (const part of parts) {
+            const val = parseFloat(part.replace("%", "").replace(",", ".")) || 0;
+            if (val > 0) {
+              currentTotal -= currentTotal * (val / 100);
+            }
+          }
+          diskonAmount = subtotal - currentTotal;
+        }
+        const afterDiskon = Math.max(0, subtotal - diskonAmount);
+        let ppnAmount = Number(row.ppnRupiah) || 0;
+        if (row.ppnPersen > 0) {
+          ppnAmount += afterDiskon * (row.ppnPersen / 100);
+        }
+        finalTotal = afterDiskon + ppnAmount;
+      }
+      return {
+        ...row,
+        totalPerItem: finalTotal
+      };
+    });
+
+    res.json(recalcRows);
   } catch (err) {
     next(err);
   }
@@ -98,11 +132,11 @@ router.post("/", async (req, res, next) => {
         ? parseFloat(jumlahAsli.replace(/\./g, "").replace(",", "."))
         : Number(jumlahAsli) || 0;
     let diskonPersenValue = diskonPersen;
-    if (typeof diskonPersen === "string" && diskonPersen.includes("%")) {
-      const match = diskonPersen.match(/(\d+(\.\d+)?)/);
-      diskonPersenValue = match ? parseFloat(match[1].replace(",", ".")) : 0;
-    } else if (typeof diskonPersen === "string") {
-      diskonPersenValue = parseFloat(diskonPersen.replace(",", ".")) || 0;
+    // Store as string if possible
+    if (typeof diskonPersen === "string") {
+      diskonPersenValue = diskonPersen;
+    } else {
+      diskonPersenValue = String(diskonPersen || 0);
     }
     const diskonRupiahValue =
       typeof diskonRupiah === "string"
@@ -217,18 +251,11 @@ router.put("/:id", async (req, res, next) => {
         typeof payload.jumlahAsli === "string"
           ? parseFloat(payload.jumlahAsli.replace(/\./g, "").replace(",", "."))
           : Number(payload.jumlahAsli) || 0;
-    if (
-      payload.diskonPersen &&
-      typeof payload.diskonPersen === "string" &&
-      payload.diskonPersen.includes("%")
-    ) {
-      const match = payload.diskonPersen.match(/(\d+(\.\d+)?)/);
-      payload.diskonPersen = match ? parseFloat(match[1].replace(",", ".")) : 0;
-    } else if (
-      payload.diskonPersen &&
-      typeof payload.diskonPersen === "string"
-    ) {
-      payload.diskonPersen = parseFloat(payload.diskonPersen.replace(",", ".")) || 0;
+    if (payload.diskonPersen) {
+      // Keep as string
+      if (typeof payload.diskonPersen !== 'string') {
+        payload.diskonPersen = String(payload.diskonPersen);
+      }
     }
     if (payload.diskonRupiah)
       payload.diskonRupiah =

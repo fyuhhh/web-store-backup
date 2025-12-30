@@ -600,24 +600,46 @@ export default function MonitoringPRPage() {
   // =====================================
   // 2. SORTING PR ROBUST (NUMERIC SEQ ASC)
   // =====================================
-  function extractLastNumber(str: string | null | undefined): number {
-    if (!str || typeof str !== 'string') return 0;
-    // Cari urutan angka terakhir di string
-    const match = str.match(/(\d+)(?!.*\d)/);
-    return match ? parseInt(match[1], 10) : 0;
+  // =====================================
+  // 1. PARSER No. PR (ROBUST NUMERIC)
+  // =====================================
+  function parsePRNumber(prNo: string) {
+    if (!prNo) return { year: 0, month: 0, seq: 0 };
+
+    const romanMap: { [key: string]: number } = {
+      'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+      'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
+    };
+
+    // Try to find year (2 digits) and month (roman)
+    // Regex: \/(\d{2})\/([IVX]+)\/
+    const matchMid = prNo.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+    let year = 0;
+    let month = 0;
+
+    if (matchMid) {
+      year = parseInt(matchMid[1], 10);
+      month = romanMap[matchMid[2]] || 0;
+    }
+
+    // Sequence: Last numeric part
+    const matchSeq = prNo.match(/(\d+)(?!.*\d)/);
+    let seq = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+    return { year, month, seq };
   }
 
   function sortPRList(filteredPRData: any[]) {
     return [...filteredPRData].sort((a, b) => {
-      // 1. Sort by Number (ASC)
-      const numA = extractLastNumber(a.noPR);
-      const numB = extractLastNumber(b.noPR);
-      if (numA !== numB) return numA - numB;
+      // 1. Sort by Year (ASC)
+      const pA = parsePRNumber(a.noPR);
+      const pB = parsePRNumber(b.noPR);
 
-      // 2. If number same, sort by Date (ASC)
-      const dateA = new Date(a.tanggalPR || 0).getTime();
-      const dateB = new Date(b.tanggalPR || 0).getTime();
-      return dateA - dateB;
+      if (pA.year !== pB.year) return pA.year - pB.year;
+      // 2. Sort by Month (ASC)
+      if (pA.month !== pB.month) return pA.month - pB.month;
+      // 3. Sort by Sequence (ASC)
+      return pA.seq - pB.seq;
     });
   }
 

@@ -81,38 +81,56 @@ function formatTanggal(tgl: string) {
 
 // Tambahkan kembali fungsi sortPOList
 function parseNoPO(noPO: string | null | undefined) {
-  if (!noPO || typeof noPO !== "string") return null;
+  if (!noPO || typeof noPO !== "string") return { year: 0, month: 0, urut: 0 };
   const s = noPO.trim().toUpperCase();
-  const regex = /^PO\/(E-?WALK|PSV)\/([A-Z0-9]+)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-  const match = s.match(regex);
-  if (!match) return null;
-  const [, brand, store, tahun2, bulanRomawi, urutStr] = match;
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+
+  const romanMap: { [key: string]: number } = {
+    'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+    'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
   };
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
-  return { tahun, bulan, urut, brand, store };
+
+  // Try to find year (2 digits) and month (roman)
+  const matchMid = s.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+  let year = 0;
+  let month = 0;
+
+  if (matchMid) {
+    year = 2000 + parseInt(matchMid[1], 10);
+    month = romanMap[matchMid[2]] || 0;
+  }
+
+  // Sequence: Last numeric part
+  const matchSeq = s.match(/(\d+)(?!.*\d)/);
+  let urut = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+  return { year, month, urut };
 }
 
 // Tambahkan parseNoPR untuk sorting
 function parseNoPR(noPR: string | null | undefined) {
-  if (!noPR || typeof noPR !== "string") return null;
+  if (!noPR || typeof noPR !== "string") return { year: 0, month: 0, urut: 0 };
   const s = noPR.trim().toUpperCase();
-  const regex = /^PR\/(E-?WALK|PRQ)\/(\d{2})\/([IVXLCDM]{1,4})\/(\d{1,5})$/;
-  const match = s.match(regex);
-  if (!match) return null;
-  const [, brand, tahun2, bulanRomawi, urutStr] = match;
-  const bulanMap: Record<string, number> = {
-    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
-    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+
+  const romanMap: { [key: string]: number } = {
+    'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+    'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
   };
-  const bulan = bulanMap[bulanRomawi] ?? 0;
-  const tahun = 2000 + parseInt(tahun2, 10);
-  const urut = parseInt(urutStr, 10);
-  return { tahun, bulan, urut, brand };
+
+  // Try to find year (2 digits) and month (roman)
+  const matchMid = s.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+  let year = 0;
+  let month = 0;
+
+  if (matchMid) {
+    year = 2000 + parseInt(matchMid[1], 10);
+    month = romanMap[matchMid[2]] || 0;
+  }
+
+  // Sequence: Last numeric part
+  const matchSeq = s.match(/(\d+)(?!.*\d)/);
+  let urut = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+  return { year, month, urut };
 }
 
 function sortPOList(filteredPOData: any[]) {
@@ -120,23 +138,12 @@ function sortPOList(filteredPOData: any[]) {
     const pa = parseNoPO(a.noPO);
     const pb = parseNoPO(b.noPO);
 
-    // Jika keduanya punya format valid, urutkan berdasarkan komponen ID (ASC / Terkecil -> Terbesar)
-    if (pa && pb) {
-      // Tahun ASC
-      if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
-
-      // Bulan ASC
-      if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
-
-      // Nomor urut ASC
-      return pa.urut - pb.urut;
-    }
-
-    // Fallback: jika salah satu atau keduanya tidak valid, urutkan tanggal (ASC / Terlama -> Terbaru)
-    // Gunakan string comparison untuk tanggal YYYY-MM-DD
-    const dateA = a.tanggalPO || "";
-    const dateB = b.tanggalPO || "";
-    return dateA.localeCompare(dateB);
+    // 1. Sort by Year (ASC)
+    if (pa.year !== pb.year) return pa.year - pb.year;
+    // 2. Sort by Month (ASC)
+    if (pa.month !== pb.month) return pa.month - pb.month;
+    // 3. Sort by Sequence (ASC)
+    return pa.urut - pb.urut;
   });
 }
 
@@ -448,13 +455,10 @@ export default function MonitoringPOPage() {
         poItemsGrouped.sort((a, b) => {
           const pa = parseNoPR(a.noPR);
           const pb = parseNoPR(b.noPR);
-          if (pa && pb) {
-            if (pa.tahun !== pb.tahun) return pa.tahun - pb.tahun;
-            if (pa.bulan !== pb.bulan) return pa.bulan - pb.bulan;
-            return pa.urut - pb.urut;
-          }
-          // Fallback: sort by string noPR
-          return (a.noPR || "").localeCompare(b.noPR || "");
+
+          if (pa.year !== pb.year) return pa.year - pb.year;
+          if (pa.month !== pb.month) return pa.month - pb.month;
+          return pa.urut - pb.urut;
         });
 
         // --- SORTING ITEM dalam Group: Berdasarkan ID Item (ASC) ---
@@ -2493,8 +2497,8 @@ export default function MonitoringPOPage() {
                                       verticalAlign: "middle",
                                     }}
                                   >
-                                    {item.keterangan ? item.keterangan.slice(0, 10) : ""}
-                                    {item.keterangan && item.keterangan.length > 10 ? "..." : ""}
+                                    {item.keterangan ? item.keterangan.slice(0, 20) : ""}
+                                    {item.keterangan && item.keterangan.length > 20 ? "..." : ""}
                                   </span>
                                 </HoverCardTrigger>
                               </HoverCard>
@@ -2504,7 +2508,8 @@ export default function MonitoringPOPage() {
                             </TableCell>
                             {/* Kolom baru: Diskon (%) */}
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
-                              {formatPersen(item.diskonPersen)}
+                              {/* If stacked discount, show as is. Else format. */}
+                              {String(item.diskonPersen).includes('+') ? item.diskonPersen : formatPersen(item.diskonPersen)}
                             </TableCell>
                             {/* Kolom baru: Diskon (Rp) */}
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
