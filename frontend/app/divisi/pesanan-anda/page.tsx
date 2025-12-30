@@ -23,8 +23,10 @@ import { Search, ChevronRight, Package, Calendar } from "lucide-react";
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import 'dayjs/locale/id';
+import { useRouter } from "next/navigation";
 
 export default function PesananAndaPage() {
+    const router = useRouter();
     const [items, setItems] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [userDivisiId, setUserDivisiId] = useState<number | null>(null);
@@ -135,7 +137,7 @@ export default function PesananAndaPage() {
                 </div>
 
                 <Card className="shadow-lg border-slate-200 bg-white">
-                    <CardHeader className="bg-white border-b border-slate-100 py-5">
+                    <CardHeader className="bg-slate-100 border-b border-slate-200 py-5">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="space-y-1">
                                 <CardTitle className="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -150,7 +152,7 @@ export default function PesananAndaPage() {
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                                 <Input
                                     placeholder="Cari PR, Barang, atau Keterangan..."
-                                    className="pl-9 bg-slate-50 border-slate-200 focus:bg-white transition-all"
+                                    className="pl-9 bg-white border-slate-200 focus:bg-white transition-all shadow-sm"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -188,15 +190,16 @@ export default function PesananAndaPage() {
                                     </TableHeader>
                                     <TableBody>
                                         {filteredItems.map((item, index) => (
-                                            <TableRow key={`${item.id_PR}-${item.id_PRItem}-${index}`} className="group hover:bg-slate-50/80 transition-colors border-b border-slate-100">
+                                            <TableRow
+                                                key={`${item.id_PR}-${item.id_PRItem}-${index}`}
+                                                className="group hover:bg-slate-50/80 transition-colors border-b border-slate-100 cursor-pointer"
+                                                onClick={() => router.push(`/divisi/pesanan-anda/${encodeURIComponent(item.noPR)}`)}
+                                            >
                                                 <TableCell className="font-medium text-slate-900 pl-6 align-top py-4">
-                                                    <a
-                                                        href={`/divisi/pesanan-anda/${encodeURIComponent(item.noPR)}`}
-                                                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 font-semibold transition-colors"
-                                                    >
+                                                    <div className="flex items-center gap-1 text-blue-600 group-hover:text-blue-700 font-semibold transition-colors">
                                                         {item.noPR}
-                                                        <ChevronRight className="w-3 h-3 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                                                    </a>
+                                                        <ChevronRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-blue-500" />
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-slate-500 align-top py-4">
                                                     <div className="flex items-center gap-2">

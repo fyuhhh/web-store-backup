@@ -272,7 +272,12 @@ export default function DetailPesananPage() {
                     </Button>
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight">Detail Pesanan</h1>
-                        <p className="text-muted-foreground text-sm">Lacak status PR: <span className="font-mono font-medium text-foreground">{noPR}</span></p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className="text-sm font-medium text-slate-500">Lacak status PR:</span>
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-sm font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                                {noPR}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -282,7 +287,7 @@ export default function DetailPesananPage() {
                     <CardHeader className="pb-2">
                         <CardTitle className="text-lg">Status Terkini</CardTitle>
                         <CardDescription>
-                            Posisi terakhir dokumen dalam alur pengadaan
+                            Posisi terakhir barang dalam alur
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6 pb-8">
@@ -290,7 +295,7 @@ export default function DetailPesananPage() {
                             {/* Connection Lines Background */}
                             <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -translate-y-1/2 rounded-full z-0"></div>
 
-                            {/* Connection Lines Active Progress - calculated roughly based on active steps */}
+                            {/* Connection Lines Active Progress */}
                             <div
                                 className="absolute top-1/2 left-0 h-1 bg-blue-500 -translate-y-1/2 rounded-full z-0 transition-all duration-1000 ease-out"
                                 style={{
@@ -303,6 +308,18 @@ export default function DetailPesananPage() {
                             {/* Steps */}
                             {steps.map((step, index) => {
                                 const Icon = step.icon;
+                                // Find the last active step index
+                                const latestActiveIndex = steps.map(s => s.active).lastIndexOf(true);
+                                const isLatestActive = index === latestActiveIndex;
+
+                                let statusText = "";
+                                if (isLatestActive) {
+                                    if (step.id === "PR") statusText = "Telah Dibuatkan PR";
+                                    else if (step.id === "PO") statusText = "Telah Diorder";
+                                    else if (step.id === "BTB") statusText = "Telah Diterima";
+                                    else if (step.id === "BKB") statusText = "Telah Keluar dari Store";
+                                }
+
                                 return (
                                     <div key={step.id} className="relative z-10 flex flex-col items-center gap-3">
                                         <div
@@ -315,17 +332,20 @@ export default function DetailPesananPage() {
                                         >
                                             <Icon className="w-5 h-5" />
                                         </div>
-                                        <div className="absolute top-14 w-32 text-center">
+                                        <div className="absolute top-14 w-40 text-center flex flex-col items-center">
                                             <p className={cn(
                                                 "text-sm font-semibold transition-colors duration-300",
                                                 step.active ? "text-blue-700" : "text-slate-500"
                                             )}>
                                                 {step.label}
                                             </p>
-                                            {step.active && (
-                                                <p className="text-[10px] text-blue-600/70 font-medium bg-blue-50 inline-block px-1.5 py-0.5 rounded-full mt-1">
-                                                    Tersedia
-                                                </p>
+
+                                            {isLatestActive && (
+                                                <div className="mt-1 animate-in fade-in zoom-in duration-500">
+                                                    <span className="text-[11px] font-bold text-white bg-blue-600 px-2 py-0.5 rounded-full shadow-md shadow-blue-200 block w-fit whitespace-nowrap">
+                                                        {statusText}
+                                                    </span>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -334,7 +354,7 @@ export default function DetailPesananPage() {
                         </div>
 
                         {/* Spacer for labels */}
-                        <div className="h-12"></div>
+                        <div className="h-16"></div>
                     </CardContent>
                 </Card>
 
