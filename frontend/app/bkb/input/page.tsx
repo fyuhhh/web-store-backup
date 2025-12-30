@@ -30,7 +30,14 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import type { BTBData } from "@/lib/dummy-data";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useRouter } from "next/navigation";
@@ -129,7 +136,21 @@ export default function BKBInputPage() {
   // Tambahkan state PO, PO Item, PR Item
   const [poList, setPoList] = useState<any[]>([]);
   const [poItemList, setPoItemList] = useState<any[]>([]);
+
   const [prItemList, setPrItemList] = useState<any[]>([]);
+
+  // Tambahkan state untuk dropdown divisi
+  const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
+
+  const [divisiSearch, setDivisiSearch] = useState("");
+
+  // Tambahkan state untuk tambah divisi
+  const [showAddDivisi, setShowAddDivisi] = useState(false);
+  const [newDivisi, setNewDivisi] = useState("");
+
+  // Tambahkan state untuk edit divisi
+  const [editDivisiId, setEditDivisiId] = useState<string | null>(null);
+  const [editDivisiValue, setEditDivisiValue] = useState("");
 
   useEffect(() => {
     const storedBTB = localStorage.getItem("btbData");
@@ -184,7 +205,28 @@ export default function BKBInputPage() {
         const userList = await userRes.json();
         const skemaList = await skemaRes.json();
         const satuanList = await satuanRes.json();
+
         const divisiList = await divisiRes.json();
+
+        // Populate divisi options
+        if (Array.isArray(divisiList)) {
+          setDivisiOptions(divisiList);
+
+          // Initial fix: If formData.divisi is set (from localStorage) but is Name, convert to ID
+          setFormData((prev: any) => {
+            const currentDiv = prev.divisi;
+            if (!currentDiv) return prev;
+            // Check if it matches an ID directly
+            const isId = divisiList.some((d: any) => String(d.id_divisi) === String(currentDiv));
+            if (isId) return prev;
+
+            // Try to find by name
+            const found = divisiList.find((d: any) =>
+              (d.divisi || d.nama_divisi || "").toLowerCase() === String(currentDiv).toLowerCase()
+            );
+            return found ? { ...prev, divisi: String(found.id_divisi) } : prev;
+          });
+        }
 
         // Mapping id_user -> nama_pengguna
         const userMapObj: Record<string, string> = {};
@@ -444,6 +486,19 @@ export default function BKBInputPage() {
         "";
     }
 
+    // Resolve divisiOtomatis to ID if it is a Name
+    if (divisiOtomatis && divisiOptions.length > 0) {
+      const isId = divisiOptions.some((d: any) => String(d.id_divisi) === String(divisiOtomatis));
+      if (!isId) {
+        const found = divisiOptions.find((d: any) =>
+          (d.divisi || d.nama_divisi || "").toLowerCase() === String(divisiOtomatis).toLowerCase()
+        );
+        if (found) {
+          divisiOtomatis = String(found.id_divisi);
+        }
+      }
+    }
+
     setShowForm(true);
     setFormData((prev: any) => ({
       ...prev,
@@ -467,6 +522,69 @@ export default function BKBInputPage() {
         "",
       divisi: divisiOtomatis,
     }));
+  };
+
+  // Handler tambah divisi
+  const handleAddDivisi = async () => {
+    if (!newDivisi.trim()) return;
+    try {
+      const res = await fetch("http://192.168.10.10:5000/api/divisi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ divisi: newDivisi }),
+      });
+      if (res.ok) {
+        // Refresh data
+        fetch("http://192.168.10.10:5000/api/divisi")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setDivisiOptions(data);
+          });
+        setNewDivisi("");
+        setShowAddDivisi(false);
+      }
+    } catch { }
+  };
+
+  // Handler hapus divisi
+  const handleDeleteDivisi = async (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!id) return;
+    if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
+    try {
+      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetch("http://192.168.10.10:5000/api/divisi")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setDivisiOptions(data);
+          });
+      }
+    } catch { }
+  };
+
+  // Handler edit divisi
+  const handleEditDivisi = async (id: string) => {
+    if (!editDivisiValue.trim()) return;
+    try {
+      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ divisi: editDivisiValue }),
+      });
+      if (res.ok) {
+        fetch("http://192.168.10.10:5000/api/divisi")
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data)) setDivisiOptions(data);
+          });
+        setEditDivisiId(null);
+        setEditDivisiValue("");
+      }
+    } catch { }
   };
 
   // Helper format tanggal ke yyyy-mm-dd untuk backend
@@ -526,10 +644,12 @@ export default function BKBInputPage() {
 
     // Ambil divisi dari formData (sudah otomatis)
     // --- Ambil nama divisi dari mapping, fallback ke formData.divisi jika sudah nama ---
+    // --- Ambil nama divisi dari divisiOptions (terupdate) agar support edit nama ---
+    const selectedDivisi = divisiOptions.find(
+      (d: any) => String(d.id_divisi) === String(formData.divisi)
+    );
     const divisi =
-      divisiMap[String(formData.divisi)] ||
-      formData.divisi ||
-      "";
+      selectedDivisi?.divisi || selectedDivisi?.nama_divisi || formData.divisi || "";
 
     // Siapkan payload untuk endpoint /api/bkb/full
     const payload = {
@@ -947,16 +1067,183 @@ export default function BKBInputPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 min-w-0">
               <div className="flex flex-col min-w-0">
                 <Label className="mb-1">Divisi</Label>
-                <Input
-                  value={
-                    divisiMap[String(formData.divisi)] ||
-                    formData.divisi ||
-                    ""
+                <Select
+                  value={String(formData.divisi)}
+                  onValueChange={(val) =>
+                    setFormData((prev: any) => ({ ...prev, divisi: val }))
                   }
-                  readOnly
-                  className="w-full text-base bg-gray-100"
-                  placeholder="Divisi otomatis dari PR/user"
-                />
+                >
+                  <SelectTrigger className="w-full text-base bg-white">
+                    <SelectValue placeholder="Pilih Divisi" />
+                  </SelectTrigger>
+                  <SelectContent
+                    className="max-h-[300px] bg-white z-[9999]"
+                    style={{
+                      scrollbarWidth: "auto",
+                      scrollbarColor: "#bbb #fff",
+                      overscrollBehavior: "contain",
+                    }}
+                  >
+                    <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100">
+                      {showAddDivisi ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            placeholder="Ketikan divisi disini"
+                            value={newDivisi}
+                            onChange={(e) => setNewDivisi(e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              e.stopPropagation();
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              await handleAddDivisi();
+                            }}
+                            className="bg-primary text-white h-8 text-xs"
+                          >
+                            Simpan
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setShowAddDivisi(false);
+                              setNewDivisi("");
+                            }}
+                            className="h-8 text-xs"
+                          >
+                            Batal
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <Input
+                            placeholder="Cari divisi..."
+                            value={divisiSearch}
+                            onChange={(e) => setDivisiSearch(e.target.value)}
+                            className="mb-2 h-8 text-sm"
+                            onKeyDown={(e) => e.stopPropagation()}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-8 text-xs"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setShowAddDivisi(true);
+                              setDivisiSearch("");
+                            }}
+                          >
+                            + Tambahkan Divisi
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                    {divisiOptions.length === 0 ? (
+                      <SelectItem value="__loading" disabled>
+                        Memuat...
+                      </SelectItem>
+                    ) : (
+                      divisiOptions
+                        .filter((d: any) =>
+                          (d.divisi || d.nama_divisi || "")
+                            .toLowerCase()
+                            .includes(divisiSearch.toLowerCase())
+                        )
+                        .map((div: any) => (
+                          <div
+                            key={div.id_divisi}
+                            className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50 bg-white"
+                          >
+                            {editDivisiId === String(div.id_divisi) ? (
+                              <div className="flex flex-1 items-center gap-2" onClick={(e) => e.preventDefault()}>
+                                <Input
+                                  value={editDivisiValue}
+                                  onChange={(e) =>
+                                    setEditDivisiValue(e.target.value)
+                                  }
+                                  className="h-7 text-xs flex-1"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="px-2 h-7 text-xs bg-primary text-white"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleEditDivisi(String(div.id_divisi));
+                                  }}
+                                >
+                                  Simpan
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="px-2 h-7 text-xs"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setEditDivisiId(null);
+                                    setEditDivisiValue("");
+                                  }}
+                                >
+                                  Batal
+                                </Button>
+                              </div>
+                            ) : (
+                              <>
+                                <SelectItem
+                                  value={String(div.id_divisi)}
+                                  className="flex-1 cursor-pointer"
+                                >
+                                  {div.divisi || div.nama_divisi || ""}
+                                </SelectItem>
+                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setEditDivisiId(String(div.id_divisi));
+                                      setEditDivisiValue(div.divisi || div.nama_divisi || "");
+                                    }}
+                                  >
+                                    <span className="text-[10px] font-bold">Edit</span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                    onClick={(e) => handleDeleteDivisi(String(div.id_divisi), e)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        ))
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-col min-w-0">
                 <Label className="mb-1">Keterangan</Label>
