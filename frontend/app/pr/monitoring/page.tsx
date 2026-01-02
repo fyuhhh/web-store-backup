@@ -1932,14 +1932,29 @@ export default function MonitoringPRPage() {
                                 <Tooltip>
                                   <TooltipTrigger asChild>
                                     <span
-                                      onClick={() => (window.location.href = `/pr/input-baru?id=${pr.id}`)}
-                                      className="cursor-pointer hover:text-blue-600 transition-colors duration-200"
+                                      onClick={() => {
+                                        if (pr.status !== "Menunggu") {
+                                          setToastMsg("Tidak dapat edit, hapus PO terlebih dahulu");
+                                          setToastType("error");
+                                          setToastOpen(true);
+                                        } else {
+                                          window.location.href = `/pr/input-baru?id=${pr.id}`;
+                                        }
+                                      }}
+                                      className={`cursor-pointer transition-colors duration-200 ${pr.status !== "Menunggu"
+                                        ? "hover:text-red-500 text-gray-700"
+                                        : "hover:text-blue-600"
+                                        }`}
                                     >
                                       {pr.noPR}
                                     </span>
                                   </TooltipTrigger>
                                   <TooltipContent>
-                                    <p>Klik untuk edit</p>
+                                    <p>
+                                      {pr.status !== "Menunggu"
+                                        ? "Tidak dapat edit, hapus PO terlebih dahulu"
+                                        : "Klik untuk edit"}
+                                    </p>
                                   </TooltipContent>
                                 </Tooltip>
                               </TooltipProvider>

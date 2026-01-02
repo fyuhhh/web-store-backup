@@ -369,8 +369,23 @@ router.delete("/:id", async (req, res, next) => {
           "Item PO tidak bisa dikembalikan ke PR karena sudah diproses menjadi BTB. Silakan kembalikan/dihapus BTB terlebih dahulu.",
       });
     }
-    // Ambil id_PO sebelum hapus
-    const [[poItemRow]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [id]);
+    // Ambil id_PO, id_PRItem, dan jumlahPO sebelum hapus untuk restore PR
+    const [[poItemRow]] = await db.query("SELECT id_PO, id_PRItem, jumlahPO FROM po_item WHERE id_POItem = ?", [id]);
+
+    if (poItemRow && poItemRow.id_PRItem) {
+      // Restore quantity to PR Item
+      await db.query(
+        "UPDATE pr_item SET jumlah = jumlah + ? WHERE id_PRItem = ?",
+        [poItemRow.jumlahPO, poItemRow.id_PRItem]
+      );
+
+      // Update PR status to 'Diproses' if needed (to reopen it if it was finished)
+      const [[prItem]] = await db.query("SELECT id_PR FROM pr_item WHERE id_PRItem = ?", [poItemRow.id_PRItem]);
+      if (prItem) {
+        await db.query("UPDATE pr SET status = 'Diproses' WHERE id_PR = ?", [prItem.id_PR]);
+      }
+    }
+
     const [result] = await db.query("DELETE FROM po_item WHERE id_POItem = ?", [
       id,
     ]);

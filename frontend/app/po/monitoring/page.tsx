@@ -279,6 +279,7 @@ export default function MonitoringPOPage() {
         statusPengirimanRes,
         skemaRes,
         userRes, // <-- tambahkan fetch user
+        btbRes, // <-- fetch BTB
       ] = await Promise.all([
         fetch("http://192.168.10.10:5000/api/po"),
         fetch("http://192.168.10.10:5000/api/po-item"),
@@ -289,6 +290,7 @@ export default function MonitoringPOPage() {
         fetch("http://192.168.10.10:5000/api/status-pengiriman"),
         fetch("http://192.168.10.10:5000/api/skema"),
         fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
+        fetch("http://192.168.10.10:5000/api/btb"), // <-- fetch BTB
       ]);
 
       const [
@@ -301,6 +303,7 @@ export default function MonitoringPOPage() {
         statusPengirimanList,
         skemaList,
         userList, // <-- userList
+        btbList, // <-- btbList
       ] = await Promise.all([
         poRes.json(),
         poItemRes.json(),
@@ -311,7 +314,13 @@ export default function MonitoringPOPage() {
         statusPengirimanRes.json(),
         skemaRes.json(),
         userRes.json(), // <-- userList
+        btbRes.json(), // <-- btbList
       ]);
+
+      // Create Set of PO IDs that have BTB
+      const processedPOIds = new Set(
+        Array.isArray(btbList) ? btbList.map((btb: any) => String(btb.id_po)) : []
+      );
 
       // LOG: Data PO raw dari backend
       console.log("PO RAW dari backend:", poList);
@@ -524,6 +533,7 @@ export default function MonitoringPOPage() {
           orderedBy: orderedByName, // <-- tampilkan nama user
           skema: po.id_skema ?? "", // <-- simpan id_skema, bukan label
           rawSkemaId: po.id_skema ?? null, // <-- id_skema untuk filter
+          isProcessed: processedPOIds.has(String(po.id_PO ?? po.id)), // <-- Flag if processed
         };
       });
 
@@ -737,15 +747,8 @@ export default function MonitoringPOPage() {
             prItem = await prItemRes.json();
           }
           if (prItem && prItem.id_PRItem) {
-            const newJumlah = Number(prItem.jumlah) + Number(poItem.jumlahPO);
-            await fetch(`http://192.168.10.10:5000/api/pr-item/${prItemId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...prItem,
-                jumlah: newJumlah,
-              }),
-            });
+            // Backend already restores the quantity on PO Item deletion.
+            // Do NOT manually update here, otherwise it will add up twice.
           } else {
             // PRItem sudah tidak ada, buat ulang
             await fetch(`http://192.168.10.10:5000/api/pr-item`, {
@@ -1533,7 +1536,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            No. PO
+                            NO. PO
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1595,7 +1598,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Tanggal PO
+                            TANGGAL PO
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1664,7 +1667,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Supplier
+                            SUPPLIER
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1731,7 +1734,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Daftar Barang
+                            DAFTAR BARANG
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1767,7 +1770,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Quantity PO
+                            QUANTITY PO
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1823,7 +1826,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Satuan
+                            SATUAN
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1887,7 +1890,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Keterangan
+                            KETERANGAN
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1923,7 +1926,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Harga Satuan
+                            HARGA SATUAN
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -1973,7 +1976,7 @@ export default function MonitoringPOPage() {
                         borderBottom: "2px solid #d1d5db",
                       }}
                     >
-                      Diskon (%)
+                      DISKON (%)
                     </TableHead>
                     <TableHead
                       className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
@@ -1985,7 +1988,7 @@ export default function MonitoringPOPage() {
                         borderBottom: "2px solid #d1d5db",
                       }}
                     >
-                      Diskon (Rp)
+                      DISKON (RP)
                     </TableHead>
                     <TableHead
                       className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
@@ -2009,7 +2012,7 @@ export default function MonitoringPOPage() {
                         borderBottom: "2px solid #d1d5db",
                       }}
                     >
-                      PPN (Rp)
+                      PPN (RP)
                     </TableHead>
                     <TableHead
                       className="min-w-[110px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
@@ -2021,7 +2024,7 @@ export default function MonitoringPOPage() {
                         borderBottom: "2px solid #d1d5db",
                       }}
                     >
-                      Total
+                      TOTAL
                     </TableHead>
                     <TableHead
                       className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
@@ -2040,7 +2043,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Grand Total
+                            GRAND TOTAL
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -2096,7 +2099,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Ordered By
+                            ORDERED BY
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -2159,7 +2162,7 @@ export default function MonitoringPOPage() {
                         borderBottom: "2px solid #d1d5db",
                       }}
                     >
-                      Nama Pembeli
+                      NAMA PEMBELI
                     </TableHead>
                     <TableHead
                       className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
@@ -2178,7 +2181,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Estimasi Diterima
+                            ESTIMASI DITERIMA
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -2251,7 +2254,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Status Pengiriman
+                            STATUS PENGIRIMAN
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -2322,7 +2325,7 @@ export default function MonitoringPOPage() {
                             variant="ghost"
                             className="h-auto p-0 font-medium"
                           >
-                            Status
+                            STATUS
                             <ChevronDown className="ml-1 h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
@@ -2481,14 +2484,29 @@ export default function MonitoringPOPage() {
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span
-                                          onClick={() => (window.location.href = `/po/input?id=${po.id}`)}
-                                          className="cursor-pointer hover:text-blue-600 transition-colors duration-200"
+                                          onClick={() => {
+                                            if ((po as any).isProcessed) {
+                                              setToastMsg("Tidak dapat edit, hapus BTB terlebih dahulu");
+                                              setToastError(true);
+                                              setToastOpen(true);
+                                            } else {
+                                              window.location.href = `/po/input?id=${po.id}`;
+                                            }
+                                          }}
+                                          className={`cursor-pointer transition-colors duration-200 ${(po as any).isProcessed
+                                            ? "hover:text-red-500 text-gray-700"
+                                            : "hover:text-blue-600"
+                                            }`}
                                         >
                                           {po.noPO}
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>Klik untuk edit</p>
+                                        <p>
+                                          {(po as any).isProcessed
+                                            ? "Tidak dapat edit, hapus BTB terlebih dahulu"
+                                            : "Klik untuk edit"}
+                                        </p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -2564,6 +2582,7 @@ export default function MonitoringPOPage() {
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {formatPersen(item.ppnItem)}
                             </TableCell>
+                            {/* Kolom baru: PPN (Rp) */}
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {item.ppnAmount
                                 ? `Rp ${Number(item.ppnAmount).toLocaleString(
@@ -2604,36 +2623,33 @@ export default function MonitoringPOPage() {
                                 >
                                   {allItems[0]?.namaPembeli ?? ""}
                                 </TableCell>
-                                <TableCell
-                                  key="estimasiTanggalDiterima"
-                                  rowSpan={allItems.length}
-                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
-                                >
-                                  {formatTanggal(po.estimasiTanggalTerima)}
-                                </TableCell>
-                                <TableCell
-                                  key="statusPengiriman"
-                                  rowSpan={allItems.length}
-                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
-                                >
-                                  {po.statusPengiriman ?? ""}
-                                </TableCell>
-                                <TableCell
-                                  key="statusBadge"
-                                  rowSpan={allItems.length}
-                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
-                                >
-                                  {getStatusBadge(po.status || "")}
-                                </TableCell>
-                                {/* <TableCell
+                              </>
+                            ) : null}
+
+                            {/* --- SPLIT COLUMNS (Estimasi, Status Pengiriman, Status) --- */}
+                            {/* Render per baris (per item) agar sejajar */}
+                            <TableCell
+                              className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
+                            >
+                              {formatTanggal(po.estimasiTanggalTerima)}
+                            </TableCell>
+                            <TableCell
+                              className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[140px] uppercase"
+                            >
+                              {po.statusPengiriman ?? ""}
+                            </TableCell>
+                            <TableCell
+                              className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
+                            >
+                              {getStatusBadge(po.status || "")}
+                            </TableCell>
+                            {/* <TableCell
                                   key="skema"
                                   rowSpan={allItems.length}
                                   className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
                                   {skemaMap[String(po.skema)] ?? po.skema ?? ""}
                                 </TableCell> */}
-                              </>
-                            ) : null}
                           </TableRow>
                         ))}
                       </React.Fragment>

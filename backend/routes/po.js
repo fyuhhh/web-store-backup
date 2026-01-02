@@ -360,6 +360,23 @@ router.delete("/:id", async (req, res, next) => {
       });
     }
 
+    // --- Restore PR Quantities for all items in this PO ---
+    const [poItems] = await db.query("SELECT id_PRItem, jumlahPO FROM po_item WHERE id_PO = ?", [id]);
+
+    for (const item of poItems) {
+      if (item.id_PRItem) {
+        await db.query(
+          "UPDATE pr_item SET jumlah = jumlah + ? WHERE id_PRItem = ?",
+          [item.jumlahPO, item.id_PRItem]
+        );
+        // Open PR status back to 'Diproses'
+        const [[prItem]] = await db.query("SELECT id_PR FROM pr_item WHERE id_PRItem = ?", [item.id_PRItem]);
+        if (prItem) {
+          await db.query("UPDATE pr SET status = 'Diproses' WHERE id_PR = ?", [prItem.id_PR]);
+        }
+      }
+    }
+
     await db.query("DELETE FROM po_item WHERE id_PO = ?", [id]);
     const result = await db.query("DELETE FROM po WHERE id_PO = ?", [id]);
 

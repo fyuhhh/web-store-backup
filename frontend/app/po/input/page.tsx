@@ -691,7 +691,7 @@ function InputPOContent() {
             const itemPayload = {
               hargaSatuan: harga,
               jumlahPO: Number(item.jumlahPO), // Ensure Number to prevent backend regex issues
-              jumlahAsli: Number(item.jumlahAsli),
+              jumlahAsli: Number(item.jumlahPO), // Use input Qty (not max limit)
               diskonPersen: item.diskonPersen || "0",
               diskonRupiah: calcValues.diskonAmount || 0,
               ppnPersen: item.ppnItem || 0,
@@ -754,7 +754,7 @@ function InputPOContent() {
               id_PRItem: item.id,
               hargaSatuan: harga,
               jumlahPO: Number(item.jumlahPO), // Ensure Number
-              jumlahAsli: Number(item.jumlahAsli),
+              jumlahAsli: Number(item.jumlahPO), // Use input Qty
               diskonPersen: item.diskonPersen || "0",
               diskonRupiah: calcValues.diskonAmount || 0,
               ppnPersen: item.ppnItem || 0,
@@ -1128,8 +1128,8 @@ function InputPOContent() {
               // NOTE: When editing, we need to know the OLD `jumlahPO` to calc diff.
               // Ideally we store it.
               jumlahPO: pItem.jumlahPO,
-              // Fix: Edit limit should be Current PO Qty + Remaining PR Qty
-              jumlahAsli: Number(pItem.jumlahPO) + Number(originalPrItem.jumlah || 0),
+              // Fix: Edit limit should be Current Order Qty (jumlahAsli) + Remaining PR Qty
+              jumlahAsli: Number(pItem.jumlahAsli) + Number(originalPrItem.jumlah || 0),
               satuanLabel: pItem.satuanLabel || "Pcs", // Fetch if needed
               id_satuan: pItem.id_satuan,
               hargaSatuan: pItem.hargaSatuan,
