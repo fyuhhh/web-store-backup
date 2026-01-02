@@ -35,6 +35,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -254,11 +260,12 @@ export default function MonitoringPRPage() {
           return idA - idB;
         })
         .map((item: any) => ({
-          id_PRItem: item.id_PRItem, // <-- Tambahkan ini!
-          namaBarang: item.namaBarang,
+          id_PRItem: item.id_PRItem,
+          namaBarang: item.namaBarang || item.namabarang,
           jumlah: item.jumlah,
           quantityAwalPR: item.quantityAwalPR,
           satuan: satuanMap[String(item.id_satuan)] || item.id_satuan,
+          id_satuan: item.id_satuan, // Pass id_satuan explicitly
           keterangan: item.keterangan,
         }));
 
@@ -287,37 +294,11 @@ export default function MonitoringPRPage() {
     setPrData(validatedData);
 
     // --- Tambahan: update status PR jika semua item jumlah = 0 tapi status masih "Menunggu" ---
-    for (const pr of validatedData) {
-      if (
-        pr.status === "Menunggu" &&
-        pr.items &&
-        pr.items.length > 0 &&
-        pr.items.every((item: any) => Number(item.jumlah) === 0)
-      ) {
-        // Update status ke "Diproses"
-        await fetch(`http://localhost:5000/api/pr/${pr.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...pr,
-            status: "Diproses",
-          }),
-        });
-      }
-    }
+
     // Setelah update status, reload data agar tampilan sesuai
     // (hindari infinite loop, reload hanya jika ada perubahan)
     // Cek jika ada PR yang statusnya berubah
-    const needReload = validatedData.some(
-      (pr: any) =>
-        pr.status === "Menunggu" &&
-        pr.items &&
-        pr.items.length > 0 &&
-        pr.items.every((item: any) => Number(item.jumlah) === 0)
-    );
-    if (needReload) {
-      setTimeout(loadPRData, 300); // reload data setelah update status
-    }
+
   };
 
   const savePRData = (data: PRData[]) => {
@@ -326,11 +307,7 @@ export default function MonitoringPRPage() {
     setPrData(data as PRData[]);
   };
 
-  const handleEdit = (pr: PRData) => {
-    // Redirect to input page for editing
-    localStorage.setItem("editingPR", JSON.stringify(pr));
-    window.location.href = "/pr/input";
-  };
+
 
   // Ganti handleDelete agar bisa menerima array id
   const handleDelete = async (ids: string[] | string) => {
@@ -396,9 +373,7 @@ export default function MonitoringPRPage() {
         console.log("Delete response:", resp.status, respJson);
       }
       // Setelah hapus, update status PR terkait
-      for (const pr of selectedPRItemsForDelete) {
-        await updatePRStatusToBackend(pr.prId);
-      }
+
       // Setelah hapus, reload data dari backend
       await loadPRData();
       setToastMsg("Item PR berhasil dihapus.");
@@ -827,9 +802,9 @@ export default function MonitoringPRPage() {
             Number(item.quantityAwalPR || item.jumlah || 0), // Use Number() for correct Excel format
             item.satuan ?? "",
             item.keterangan || "",
-            index === 0 ? pr.urgensi : "",
+            pr.urgensi,
             index === 0 ? pr.divisi : "",
-            index === 0 ? pr.status : "",
+            pr.status,
             index === 0 ? pr.dibuatOleh : "",
           ]);
         });
@@ -1954,36 +1929,21 @@ export default function MonitoringPRPage() {
                               className="font-medium border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase"
                               rowSpan={validItems.length}
                             >
-                              {(() => {
-                                // Cek apakah PR ini sudah ada PO menggunakan poItems flat list
-                                const hasPO = poItems.some((pi: any) => String(pi.noPR) === String(pr.noPR));
-
-                                if (hasPO) {
-                                  return (
-                                    <div
-                                      className="cursor-pointer text-gray-500"
-                                      title="Tidak bisa edit karena PR sudah diproses PO"
-                                      onClick={() => {
-                                        if (toastOpen) return;
-                                        setToastMsg("Tidak bisa edit PR karena sudah diproses menjadi PO");
-                                        setToastType("error");
-                                        setToastOpen(true);
-                                      }}
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      onClick={() => (window.location.href = `/pr/input-baru?id=${pr.id}`)}
+                                      className="cursor-pointer hover:text-blue-600 transition-colors duration-200"
                                     >
                                       {pr.noPR}
-                                    </div>
-                                  )
-                                } else {
-                                  return (
-                                    <Link
-                                      href={`/pr/edit/${pr.id}`}
-                                      className="text-blue-600 hover:underline hover:text-blue-800"
-                                    >
-                                      {pr.noPR}
-                                    </Link>
-                                  )
-                                }
-                              })()}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Klik untuk edit</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </TableCell>
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                               {formatTanggal(pr.tanggalPR)}
@@ -2003,13 +1963,13 @@ export default function MonitoringPRPage() {
                                 {validItems[0]?.keterangan}
                               </div>
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                            <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                               {getUrgensiBadge(pr.urgensi)}
                             </TableCell>
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                               {pr.divisi}
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                            <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                               {getStatusBadge(pr.status)}
                             </TableCell>
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
@@ -2025,6 +1985,8 @@ export default function MonitoringPRPage() {
                             </TableCell> */}
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
                               <div className="flex space-x-1 justify-center">
+
+                                {/* Button Edit removed, click PR Number instead */}
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -2052,6 +2014,16 @@ export default function MonitoringPRPage() {
                                   {item.keterangan}
                                 </div>
                               </TableCell>
+                              {/* Urgensi (Un-merged) */}
+                              < TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase" >
+                                {getUrgensiBadge(pr.urgensi)}
+                              </TableCell>
+                              {/* Divisi (Merged - skipped) */}
+                              {/* Status (Un-merged) */}
+                              <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                                {getStatusBadge(pr.status)}
+                              </TableCell>
+                              {/* Dibuat Oleh (Merged - skipped) */}
                             </TableRow>
                           ))}
                         </React.Fragment>
@@ -2112,11 +2084,12 @@ export default function MonitoringPRPage() {
             </div>
           </CardContent>
 
-        </Card>
+        </Card >
         {/* --- Add modal and toast to the layout --- */}
-        <DeleteChoiceModal
+        < DeleteChoiceModal
           open={deleteChoiceOpen}
-          onClose={() => setDeleteChoiceOpen(false)}
+          onClose={() => setDeleteChoiceOpen(false)
+          }
           onChoose={handleDeleteChoice}
         />
         <ConfirmModal
@@ -2140,8 +2113,8 @@ export default function MonitoringPRPage() {
           message={toastMsg}
           onClose={() => setToastOpen(false)}
         />
-      </div>
-    </MainLayout>
+      </div >
+    </MainLayout >
   );
 }
 
@@ -2268,49 +2241,4 @@ function DeleteItemModal({
 
 // --- Saat update status PR ke backend (PUT/POST), pastikan logika status sama ---
 // Contoh di fungsi update PR (misal confirmDelete, confirmDeleteItems, atau proses PO):
-const updatePRStatusToBackend = async (prId: string) => {
-  // Ambil semua item PR dari backend
-  const prItemsRes = await fetch(
-    `http://localhost:5000/api/pr-item/pr/${prId}`
-  );
-  const prItems = prItemsRes.ok ? await prItemsRes.json() : [];
 
-  // Helper untuk dapatkan originalJumlah (fallback ke quantityAwalPR atau jumlah)
-  const getOriginalJumlah = (item: any) =>
-    item.originalJumlah ??
-    item.quantityAwalPR ??
-    item.jumlah_awal ??
-    item.jumlah;
-
-  // Status logic:
-  // - Semua jumlah = 0 → Diproses
-  // - Semua jumlah = originalJumlah → Menunggu
-  // - Selain itu → Gantung
-  let newStatus = "Gantung";
-  if (prItems.length > 0) {
-    if (prItems.every((item: any) => Number(item.jumlah) === 0)) {
-      newStatus = "Diproses";
-    } else if (
-      prItems.every(
-        (item: any) =>
-          Number(item.jumlah) === Number(getOriginalJumlah(item))
-      )
-    ) {
-      newStatus = "Menunggu";
-    }
-  }
-
-  // Ambil data PR lama
-  const prRes = await fetch(`http://localhost:5000/api/pr/${prId}`);
-  if (prRes.ok) {
-    const prData = await prRes.json();
-    await fetch(`http://localhost:5000/api/pr/${prId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...prData,
-        status: newStatus,
-      }),
-    });
-  }
-};

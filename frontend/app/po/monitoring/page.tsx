@@ -38,6 +38,13 @@ import {
 } from "@/components/ui/popover";
 
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -434,12 +441,12 @@ export default function MonitoringPOPage() {
             // --- mapping id_POItem asli dari backend ---
             id_POItem: pi.id_POItem, // <-- ini id yang dipakai untuk hapus
             id_PRItem: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
-            namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
-            // --- Ubah: Quantity PO ambil dari jumlahAsli ---
-            jumlahPO: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
+            namaBarang: prItem.namaBarang ?? prItem.namabarang ?? pi.namaBarang ?? "",
+            // --- Ubah: Quantity PO ambil dari jumlahPO ---
+            jumlahPO: Number(pi.jumlahAsli) || Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
             jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
             satuan:
-              prItem.satuanLabel || prItem.satuan || prItem.id_satuan || "",
+              prItem.satuanLabel || prItem.satuan || prItem.id_satuan || pi.id_satuan || "",
             hargaSatuan: Number(pi.hargaSatuan) || 0,
             keterangan: pi.keterangan || prItem.keterangan || "",
             // --- Ambil field diskon/ppn dari kolom baru backend ---
@@ -2470,13 +2477,21 @@ export default function MonitoringPOPage() {
                                   className="font-medium px-3 py-1 border-r border-gray-300 align-middle uppercase"
                                   rowSpan={allItems.length}
                                 >
-                                  <Link
-                                    href={`/po/edit/${po.id}`}
-                                    className="text-blue-600 hover:underline hover:text-blue-800"
-                                    title="Klik untuk mengedit PO"
-                                  >
-                                    {po.noPO}
-                                  </Link>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span
+                                          onClick={() => (window.location.href = `/po/input?id=${po.id}`)}
+                                          className="cursor-pointer hover:text-blue-600 transition-colors duration-200"
+                                        >
+                                          {po.noPO}
+                                        </span>
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>Klik untuk edit</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </TableCell>
                                 <TableCell
                                   key="tanggalPO"
@@ -2498,8 +2513,8 @@ export default function MonitoringPOPage() {
                               {item.namaBarang}
                             </TableCell>
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[80px] uppercase">
-                              {/* --- Ubah: Quantity PO ambil dari jumlahAsli --- */}
-                              {item.jumlahAsli}
+                              {/* --- Ubah: Quantity PO ambil dari jumlahPO --- */}
+                              {item.jumlahPO}
                             </TableCell>
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
                               {item.satuan}
@@ -2533,7 +2548,9 @@ export default function MonitoringPOPage() {
                             </TableCell>
                             {/* Kolom baru: Diskon (%) */}
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
-                              {formatPersen(item.diskonPersen)}
+                              {(typeof item.diskonPersen === "string" && item.diskonPersen.includes("+"))
+                                ? item.diskonPersen
+                                : formatPersen(item.diskonPersen)}
                             </TableCell>
                             {/* Kolom baru: Diskon (Rp) */}
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">

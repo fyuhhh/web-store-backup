@@ -26,8 +26,11 @@ import {
 } from "@/components/ui/select";
 import { Plus, Trash2 } from "lucide-react";
 import { type PRData } from "@/lib/dummy-data";
+import { useSearchParams } from "next/navigation";
 
 export default function InputBaruPRPage() {
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id");
   const [prData, setPrData] = useState<PRData[]>([]);
   const [notif, setNotif] = useState<{
     type: "success" | "error";
@@ -56,6 +59,7 @@ export default function InputBaruPRPage() {
   const [divisiSearch, setDivisiSearch] = useState("");
   const [satuanSearch, setSatuanSearch] = useState("");
   const [skemaSearch, setSkemaSearch] = useState("");
+  const [originalItems, setOriginalItems] = useState<any[]>([]);
 
   // Tambahkan state untuk tambah divisi/satuan
   const [showAddDivisi, setShowAddDivisi] = useState(false);
@@ -63,13 +67,7 @@ export default function InputBaruPRPage() {
   const [showAddSatuan, setShowAddSatuan] = useState(false);
   const [newSatuan, setNewSatuan] = useState("");
 
-  // Tambahkan state untuk edit satuan
-  const [editSatuanId, setEditSatuanId] = useState<string | null>(null);
-  const [editSatuanValue, setEditSatuanValue] = useState("");
 
-  // Tambahkan state untuk edit divisi
-  const [editDivisiId, setEditDivisiId] = useState<string | null>(null);
-  const [editDivisiValue, setEditDivisiValue] = useState("");
 
   useEffect(() => {
     loadPRData();
@@ -78,7 +76,7 @@ export default function InputBaruPRPage() {
     const userId = userDataLocal.id_user || userDataLocal.id || null;
 
     if (userId) {
-      fetch(`http://192.168.10.10:5000/api/user`)
+      fetch(`http://localhost:5000/api/user`)
         .then((res) => res.json())
         .then((users) => {
           const user = users.find((u: any) => u.id_user === userId);
@@ -95,7 +93,7 @@ export default function InputBaruPRPage() {
             }
             setFormData((prev) => ({
               ...prev,
-              id_skema: skemaId,
+              id_skema: String(skemaId),
               skemaLabel,
             }));
           }
@@ -103,7 +101,7 @@ export default function InputBaruPRPage() {
     }
 
     // Fetch divisi dari backend
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch("http://localhost:5000/api/divisi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setDivisiOptions(data);
@@ -111,7 +109,7 @@ export default function InputBaruPRPage() {
       .catch(() => setDivisiOptions([]));
 
     // Fetch urgensi dari backend
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch("http://localhost:5000/api/urgensi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setUrgensiOptions(data);
@@ -119,7 +117,7 @@ export default function InputBaruPRPage() {
       .catch(() => setUrgensiOptions([]));
 
     // Fetch satuan dari backend
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch("http://localhost:5000/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSatuanOptions(data);
@@ -127,7 +125,7 @@ export default function InputBaruPRPage() {
       .catch(() => setSatuanOptions([]));
 
     // Fetch skema dari backend
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch("http://localhost:5000/api/skema")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSkemaOptions(data);
@@ -135,9 +133,62 @@ export default function InputBaruPRPage() {
       .catch(() => setSkemaOptions([]));
   }, []);
 
-  // Tambahkan useEffect untuk set skema dari userData saat komponen pertama kali mount
+  // Fetch Data for Edit Mode
   useEffect(() => {
+    if (!editId) return;
+
+    const fetchData = async () => {
+      try {
+        // Fetch PR Header
+        const prRes = await fetch(`http://localhost:5000/api/pr/${editId}`);
+        if (!prRes.ok) throw new Error("Gagal mengambil data PR");
+        const prData = await prRes.json();
+
+        // Fetch PR Items
+        const itemsRes = await fetch(`http://localhost:5000/api/pr-item/pr/${editId}`);
+        if (!itemsRes.ok) throw new Error("Gagal mengambil data Items");
+        const itemsData = await itemsRes.json();
+
+        // Populate Form
+        setFormData({
+          noPR: prData.noPR,
+          tanggalPR: prData.tanggalPR ? new Date(prData.tanggalPR) : null,
+          divisi: String(prData.id_divisi || ""),
+          urgensi: String(prData.id_urgensi || ""),
+          id_skema: String(prData.id_skema || ""),
+          skemaLabel: "", // Will be set by effect or kept empty if not needed
+          items: itemsData.map((item: any) => ({
+            id: String(item.id_PRItem),
+            namaBarang: item.namaBarang,
+            jumlah: String(parseFloat(item.jumlah)), // Format: 15.00 -> 15
+            id_satuan: String(item.id_satuan),
+            keterangan: item.keterangan || "",
+            originalId: String(item.id_PRItem) // Track original ID
+          })),
+        });
+
+        // Populate Skema Label if possible (User effect handles it, but just in case)
+        // Also keep track of original items for diffing
+        setOriginalItems(itemsData.map((item: any) => ({
+          id: String(item.id_PRItem),
+          ...item
+        })));
+
+      } catch (err: any) {
+        setNotif({ type: "error", message: err.message });
+      }
+    };
+
+    fetchData();
+  }, [editId]);
+
+
+
+  // Tambahkan useEffect untuk set skema dari userData saat komponen pertama kali mount (HANYA JIKA BUKAN EDIT)
+  useEffect(() => {
+    // if (editId) return; // Skip if editing
     const userDataString = localStorage.getItem("userData");
+
     if (userDataString) {
       try {
         const userData = JSON.parse(userDataString);
@@ -222,163 +273,6 @@ export default function InputBaruPRPage() {
     return `${year}-${month}-${day}`;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    // Hapus semua log di frontend
-
-    // Cari field kosong
-    const emptyFields = [];
-    if (!formData.noPR) emptyFields.push("No PR");
-    if (!formData.tanggalPR) emptyFields.push("Tanggal PR");
-    if (!formData.divisi || formData.divisi === "") emptyFields.push("Divisi");
-    if (!formData.urgensi || formData.urgensi === "")
-      emptyFields.push("Urgensi");
-
-    // Validasi item
-    const validItems = formData.items.filter(
-      (item) => item.namaBarang && item.jumlah && item.id_satuan
-    );
-    if (validItems.length === 0)
-      emptyFields.push("Minimal satu barang lengkap");
-
-    // Validasi skema: pastikan id_skema sudah terisi (angka)
-    if (
-      formData.id_skema === "" ||
-      formData.id_skema === null ||
-      typeof formData.id_skema === "undefined"
-    ) {
-      emptyFields.push("id_skema");
-    }
-
-    // Jika ada field kosong, tampilkan di notif dan log
-    if (emptyFields.length > 0) {
-      if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
-      setNotif(null);
-      setTimeout(() => {
-        setNotif({
-          type: "error",
-          message: `Field berikut wajib diisi: ${emptyFields.join(", ")}`,
-        });
-        notifTimeoutRef.current = setTimeout(() => setNotif(null), 3000);
-      }, 0);
-      return;
-    }
-
-    // Ambil userData dari localStorage (hanya id_user)
-    const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
-    const userId = userDataLocal.id_user || userDataLocal.id || null;
-    let skemaId = formData.id_skema;
-    // Pastikan skemaId adalah angka
-    if (typeof skemaId === "string") {
-      if (skemaId.toLowerCase() === "pentacity") skemaId = 1;
-      else if (skemaId.toLowerCase() === "ewalk") skemaId = 2;
-      else skemaId = "";
-    }
-    skemaId = Number(skemaId);
-
-    try {
-      // 1. POST PR utama ke backend
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          noPR: formData.noPR,
-          // Kirim ke backend dalam format YYYY-MM-DD (tanpa addOneDay, tanpa modifikasi)
-          tanggalPR: formatDateForBackend(formData.tanggalPR),
-          id_divisi: formData.divisi,
-          id_urgensi: formData.urgensi,
-          status: "Menunggu", // <-- ubah ke enum DB
-          dibuatOleh:
-            userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
-          id_skema: Number(formData.id_skema),
-          createdAt: new Date().toISOString(),
-        }),
-      });
-
-      const prDataRes = await prRes.json();
-      const id_PR = prDataRes.id;
-
-      // 2. POST setiap item ke pr_item dengan handling decimal
-      for (const item of formData.items) {
-        const jumlah = parseFloat(item.jumlah);
-        await fetch("http://192.168.10.10:5000/api/pr-item", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id_PR,
-            namaBarang: item.namaBarang,
-            jumlah: jumlah,
-            originalJumlah: jumlah, // Ensure this is sent as decimal
-            quantityAwalPR: jumlah, // Ensure this is sent as decimal
-            id_satuan: Number(item.id_satuan),
-            keterangan: item.keterangan || "",
-          }),
-        });
-      }
-
-      resetForm();
-      if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
-      setNotif(null);
-      setTimeout(() => {
-        setNotif({ type: "success", message: "PR berhasil dibuat!" });
-        notifTimeoutRef.current = setTimeout(() => setNotif(null), 2000);
-      }, 0);
-      // Setelah semua proses berhasil:
-      // Reset form, tampilkan notif, dan auto-refresh halaman
-      setNotif({ type: "success", message: "PR berhasil dibuat!" });
-      setTimeout(() => {
-        setNotif(null);
-        window.location.reload(); // ⬅️ Auto refresh halaman setelah submit PR
-      }, 1500);
-      return;
-    } catch (err) {
-      console.error("Error submitting PR:", err);
-      resetForm();
-      if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
-      setNotif(null);
-      setTimeout(() => {
-        setNotif({ type: "success", message: "PR berhasil dibuat!" });
-        notifTimeoutRef.current = setTimeout(() => setNotif(null), 2000);
-      }, 0);
-      return;
-    }
-  };
-
-  const addItem = () => {
-    setFormData({
-      ...formData,
-      items: [
-        ...formData.items,
-        {
-          id: String(formData.items.length + 1),
-          namaBarang: "",
-          jumlah: "",
-          id_satuan: "",
-          keterangan: "",
-        },
-      ],
-    });
-  };
-
-  const removeItem = (id: string) => {
-    if (formData.items.length > 1) {
-      setFormData({
-        ...formData,
-        items: formData.items.filter((item) => item.id !== id),
-      });
-    }
-  };
-
-  const updateItem = (id: string, field: string, value: string) => {
-    setFormData({
-      ...formData,
-      items: formData.items.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      ),
-    });
-  };
-
   const resetForm = () => {
     setFormData({
       noPR: "",
@@ -393,18 +287,223 @@ export default function InputBaruPRPage() {
     });
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const emptyFields = [];
+    if (!formData.noPR) emptyFields.push("No PR");
+    if (!formData.tanggalPR) emptyFields.push("Tanggal PR");
+    if (!formData.divisi || formData.divisi === "") emptyFields.push("Divisi");
+    if (!formData.urgensi || formData.urgensi === "") emptyFields.push("Urgensi");
+
+    const validItems = formData.items.filter(
+      (item) => item.namaBarang && item.jumlah && item.id_satuan
+    );
+    if (validItems.length === 0) emptyFields.push("Minimal satu barang lengkap");
+
+    if (
+      formData.id_skema === "" ||
+      formData.id_skema === null ||
+      typeof formData.id_skema === "undefined"
+    ) {
+      emptyFields.push("id_skema");
+    }
+
+    if (emptyFields.length > 0) {
+      setNotif({ type: "error", message: `Field berikut wajib diisi: ${emptyFields.join(", ")}` });
+      return;
+    }
+
+    const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
+
+    // Helper determine Plan
+    const determinePlan = (date: Date | null): string => {
+      if (!date) return "No Plan";
+      const day = date.getDate();
+      // Logic:
+      // 6 - 24 -> No Plan
+      // 25 - 5 (25..31 & 1..5) -> Plan
+      if (day >= 6 && day <= 24) {
+        return "No Plan";
+      }
+      return "Plan";
+    };
+
+    const planValue = determinePlan(formData.tanggalPR);
+    console.log(`Input PR Date: ${formData.tanggalPR}, Plan Result: ${planValue}`);
+
+    try {
+      if (editId) {
+        // === UPDATE MODE ===
+
+        // 1. Update PR Header
+        const prRes = await fetch(`http://localhost:5000/api/pr/${editId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            noPR: formData.noPR,
+            tanggalPR: formatDateForBackend(formData.tanggalPR),
+            id_divisi: formData.divisi,
+            id_urgensi: formData.urgensi,
+            id_skema: Number(formData.id_skema),
+            status: "Menunggu",
+            dibuatOleh: userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
+            plan: planValue, // Send explicit plan
+          }),
+        });
+        if (!prRes.ok) throw new Error("Gagal mengupdate PR");
+
+        // 2. Handle Items (Diffing)
+        const currentItemIds = new Set(formData.items.map(i => i.id).filter(id => !id.startsWith("new-")));
+
+        // A. Delete removed items
+        for (const orgItem of originalItems) {
+          if (!currentItemIds.has(String(orgItem.id_PRItem))) {
+            await fetch(`http://localhost:5000/api/pr-item/${orgItem.id_PRItem}`, { method: "DELETE" });
+          }
+        }
+
+        // B. Update or Create items
+        for (const item of formData.items) {
+          const jumlah = parseFloat(item.jumlah);
+          const payload = {
+            id_PR: editId,
+            namaBarang: item.namaBarang,
+            jumlah: jumlah,
+            originalJumlah: jumlah,
+            quantityAwalPR: jumlah,
+            id_satuan: Number(item.id_satuan),
+            keterangan: item.keterangan || "",
+          };
+
+          if (item.id.startsWith("new-")) {
+            // CREATE
+            await fetch("http://localhost:5000/api/pr-item", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          } else {
+            // UPDATE
+            await fetch(`http://localhost:5000/api/pr-item/${item.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+          }
+        }
+
+        setNotif({ type: "success", message: "PR berhasil diupdate!" });
+        setTimeout(() => {
+          window.location.href = "/pr/monitoring";
+        }, 1500);
+
+      } else {
+        // === CREATE MODE ===
+        const prRes = await fetch("http://localhost:5000/api/pr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            noPR: formData.noPR,
+            tanggalPR: formatDateForBackend(formData.tanggalPR),
+            id_divisi: formData.divisi,
+            id_urgensi: formData.urgensi,
+            status: "Menunggu",
+            dibuatOleh: userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
+            id_skema: Number(formData.id_skema),
+            createdAt: new Date().toISOString(),
+            plan: planValue, // Send explicit plan
+          }),
+        });
+
+        const prDataRes = await prRes.json();
+        const id_PR = prDataRes.id_PR;
+
+        for (const item of formData.items) {
+          const jumlah = parseFloat(item.jumlah);
+          await fetch("http://localhost:5000/api/pr-item", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id_PR,
+              namaBarang: item.namaBarang,
+              jumlah: jumlah,
+              originalJumlah: jumlah,
+              quantityAwalPR: jumlah,
+              id_satuan: Number(item.id_satuan),
+              keterangan: item.keterangan || "",
+            }),
+          });
+        }
+
+        resetForm();
+        setNotif({ type: "success", message: "PR berhasil dibuat!" });
+        setTimeout(() => {
+          setNotif(null);
+          window.location.reload();
+        }, 1500);
+      } // end if-else editId
+
+    } catch (err: any) {
+      console.error("Error submitting PR:", err);
+      // Jangan reset form kalau error, biar user bisa benerin
+      setNotif({ type: "error", message: err.message || "Gagal menyimpan PR" });
+      setTimeout(() => {
+        setNotif(null);
+      }, 5000);
+    }
+  };
+
+  // Gunakan functional update untuk menghindari stale state
+  const addItem = () => {
+    setFormData((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        {
+          id: `new-${Date.now()}`, // Gunakan unique ID based on timestamp
+          namaBarang: "",
+          jumlah: "",
+          id_satuan: "",
+          keterangan: "",
+        },
+      ],
+    }));
+  };
+
+  const removeItem = (id: string) => {
+    setFormData((prev) => {
+      if (prev.items.length <= 1) return prev;
+      return {
+        ...prev,
+        items: prev.items.filter((item) => item.id !== id),
+      };
+    });
+  };
+
+  const updateItem = (id: string, field: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.map((item) =>
+        item.id === id ? { ...item, [field]: value } : item
+      ),
+    }));
+  };
+
+
+
   // Handler tambah divisi
   const handleAddDivisi = async () => {
     if (!newDivisi.trim()) return;
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/divisi", {
+      const res = await fetch("http://localhost:5000/api/divisi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: newDivisi }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch("http://localhost:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -419,14 +518,14 @@ export default function InputBaruPRPage() {
   const handleAddSatuan = async () => {
     if (!newSatuan.trim()) return;
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/satuan", {
+      const res = await fetch("http://localhost:5000/api/satuan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ satuan: newSatuan }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://192.168.10.10:5000/api/satuan")
+        fetch("http://localhost:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -442,11 +541,11 @@ export default function InputBaruPRPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus satuan ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/satuan/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/satuan")
+        fetch("http://localhost:5000/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -455,37 +554,18 @@ export default function InputBaruPRPage() {
     } catch { }
   };
 
-  // Handler edit satuan
-  const handleEditSatuan = async (id: string) => {
-    if (!editSatuanValue.trim()) return;
-    try {
-      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ satuan: editSatuanValue }),
-      });
-      if (res.ok) {
-        fetch("http://192.168.10.10s:5000/api/satuan")
-          .then((res) => res.json())
-          .then((data) => {
-            if (Array.isArray(data)) setSatuanOptions(data);
-          });
-        setEditSatuanId(null);
-        setEditSatuanValue("");
-      }
-    } catch { }
-  };
+
 
   // Handler hapus divisi
   const handleDeleteDivisi = async (id: string) => {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+      const res = await fetch(`http://localhost:5000/api/divisi/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch("http://localhost:5000/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -494,33 +574,14 @@ export default function InputBaruPRPage() {
     } catch { }
   };
 
-  // Handler edit divisi
-  const handleEditDivisi = async (id: string) => {
-    if (!editDivisiValue.trim()) return;
-    try {
-      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ divisi: editDivisiValue }),
-      });
-      if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/divisi")
-          .then((res) => res.json())
-          .then((data) => {
-            if (Array.isArray(data)) setDivisiOptions(data);
-          });
-        setEditDivisiId(null);
-        setEditDivisiValue("");
-      }
-    } catch { }
-  };
+
 
   // Fungsi untuk memberi class pada weekend
   function highlightWeekends(date: Date) {
     const day = date.getDay();
     // 0 = Minggu, 6 = Sabtu
     if (day === 0 || day === 6) return "datepicker-red";
-    return undefined;
+    return "";
   }
 
   // Auto-logout logic (testing: 5 detik idle)
@@ -565,10 +626,10 @@ export default function InputBaruPRPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Input PR Baru
+              {editId ? "Edit Purchase Request" : "Input PR Baru"}
             </h1>
             <p className="text-muted-foreground">
-              Form untuk membuat Purchase Request baru
+              {editId ? "Ubah data Purchase Request" : "Form untuk membuat Purchase Request baru"}
             </p>
           </div>
           <Button
@@ -583,7 +644,7 @@ export default function InputBaruPRPage() {
         {/* Form */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle>Tambah Purchase Request Baru</CardTitle>
+            <CardTitle>{editId ? "Edit PR" : "Tambah Purchase Request Baru"}</CardTitle>
             <CardDescription>
               Isi form di bawah untuk menambahkan Purchase Request
             </CardDescription>
@@ -733,78 +794,25 @@ export default function InputBaruPRPage() {
                                     key={div.id_divisi}
                                     className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
                                   >
-                                    {editDivisiId === String(div.id_divisi) ? (
-                                      <>
-                                        <Input
-                                          value={editDivisiValue}
-                                          onChange={(e) =>
-                                            setEditDivisiValue(e.target.value)
-                                          }
-                                          className="w-[90px] h-7 text-xs"
-                                          disabled={showAddDivisi}
-                                        />
-                                        <Button
-                                          type="button"
-                                          size="xs"
-                                          className="px-2 py-1 text-xs bg-primary text-white"
-                                          onClick={() =>
-                                            handleEditDivisi(String(div.id_divisi))
-                                          }
-                                          disabled={showAddDivisi}
-                                        >
-                                          Simpan
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="xs"
-                                          variant="outline"
-                                          className="px-2 py-1 text-xs"
-                                          onClick={() => {
-                                            setEditDivisiId(null);
-                                            setEditDivisiValue("");
-                                          }}
-                                          disabled={showAddDivisi}
-                                        >
-                                          Batal
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <SelectItem
-                                          key={div.id_divisi}
-                                          value={String(div.id_divisi)}
-                                          className="flex-1"
-                                          disabled={showAddDivisi}
-                                        >
-                                          {div.divisi}
-                                        </SelectItem>
-                                        <Button
-                                          type="button"
-                                          size="xs"
-                                          variant="ghost"
-                                          className="text-xs text-blue-600 px-1 py-0.5"
-                                          onClick={() => {
-                                            setEditDivisiId(String(div.id_divisi));
-                                            setEditDivisiValue(div.divisi);
-                                          }}
-                                          disabled={showAddDivisi}
-                                        >
-                                          Edit
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="xs"
-                                          variant="ghost"
-                                          className="text-xs text-red-600 px-1 py-0.5"
-                                          onClick={() =>
-                                            handleDeleteDivisi(String(div.id_divisi))
-                                          }
-                                          disabled={showAddDivisi}
-                                        >
-                                          Hapus
-                                        </Button>
-                                      </>
-                                    )}
+                                    <SelectItem
+                                      value={String(div.id_divisi)}
+                                      className="flex-1"
+                                      disabled={showAddDivisi}
+                                    >
+                                      {div.divisi}
+                                    </SelectItem>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="text-xs text-red-600 px-1 py-0.5"
+                                      onClick={() =>
+                                        handleDeleteDivisi(String(div.id_divisi))
+                                      }
+                                      disabled={showAddDivisi}
+                                    >
+                                      Hapus
+                                    </Button>
                                   </div>
                                 ))
                             )}
@@ -995,82 +1003,27 @@ export default function InputBaruPRPage() {
                                   key={sat.id_satuan}
                                   className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
                                 >
-                                  {editSatuanId === String(sat.id_satuan) ? (
-                                    <>
-                                      <Input
-                                        value={editSatuanValue}
-                                        onChange={(e) =>
-                                          setEditSatuanValue(e.target.value)
-                                        }
-                                        className="w-[90px] h-7 text-xs"
-                                        disabled={showAddSatuan}
-                                      />
-                                      <Button
-                                        type="button"
-                                        size="xs"
-                                        className="px-2 py-1 text-xs bg-primary text-white"
-                                        onClick={() =>
-                                          handleEditSatuan(String(sat.id_satuan))
-                                        }
-                                        disabled={showAddSatuan}
-                                      >
-                                        Simpan
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        size="xs"
-                                        variant="outline"
-                                        className="px-2 py-1 text-xs"
-                                        onClick={() => {
-                                          setEditSatuanId(null);
-                                          setEditSatuanValue("");
-                                        }}
-                                        disabled={showAddSatuan}
-                                      >
-                                        Batal
-                                      </Button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <SelectItem
-                                        key={sat.id_satuan}
-                                        value={String(sat.id_satuan)}
-                                        className="flex-1"
-                                        disabled={showAddSatuan}
-                                      >
-                                        {sat.satuan}
-                                      </SelectItem>
-                                      <Button
-                                        type="button"
-                                        size="xs"
-                                        variant="ghost"
-                                        className="text-xs text-blue-600 px-1 py-0.5"
-                                        onClick={() => {
-                                          setEditSatuanId(
-                                            String(sat.id_satuan)
-                                          );
-                                          setEditSatuanValue(sat.satuan);
-                                        }}
-                                        disabled={showAddSatuan}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        size="xs"
-                                        variant="ghost"
-                                        className="text-xs text-red-600 px-1 py-0.5"
-                                        onClick={() =>
-                                          handleDeleteSatuan(
-                                            String(sat.id_satuan)
-                                          )
-                                        }
-                                        disabled={showAddSatuan}
-                                      >
-                                        Hapus
-                                      </Button>
-                                    </>
-                                  )}
+                                  <SelectItem
+                                    value={String(sat.id_satuan)}
+                                    className="flex-1"
+                                    disabled={showAddSatuan}
+                                  >
+                                    {sat.satuan}
+                                  </SelectItem>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-xs text-red-600 px-1 py-0.5"
+                                    onClick={() =>
+                                      handleDeleteSatuan(
+                                        String(sat.id_satuan)
+                                      )
+                                    }
+                                    disabled={showAddSatuan}
+                                  >
+                                    Hapus
+                                  </Button>
                                 </div>
                               ))
                           )}
@@ -1142,7 +1095,7 @@ export default function InputBaruPRPage() {
                   type="submit"
                   className="bg-primary hover:bg-primary/90"
                 >
-                  Simpan PR
+                  {editId ? "Simpan Perubahan" : "Simpan PR"}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Reset Form

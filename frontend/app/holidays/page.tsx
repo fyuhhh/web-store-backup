@@ -1,402 +1,182 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import React, { useState, useEffect } from "react";
+import { MainLayout } from "@/components/layout/main-layout";
 import {
-  LayoutDashboard,
-  FileText,
-  ShoppingCart,
-  Package,
-  PackageOpen,
-  Calculator,
-  Target,
-  BarChart3,
-  DollarSign,
-  Users,
-  ChevronLeft,
-  ChevronRight,
-  UserCircle,
-  Settings,
-} from "lucide-react";
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Trash2, Plus } from "lucide-react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+// import "./datepicker-red-weekend.css"; // Reuse existing if available or create valid one
 
-const menuItems = [
-  {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "PR (Purchase Request)",
-    icon: FileText,
-    submenu: [
-      { title: "Input PR", href: "/pr/input-baru" },
-      { title: "Monitoring PR", href: "/pr/monitoring" },
-    ],
-  },
-  {
-    title: "PO (Purchase Order)",
-    icon: ShoppingCart,
-    submenu: [
-      { title: "Input PO", href: "/po/status" },
-      { title: "Monitoring PO", href: "/po/monitoring" },
-    ],
-  },
-  {
-    title: "BTB",
-    icon: Package,
-    submenu: [
-      { title: "Input BTB", href: "/btb/input" },
-      { title: "Monitoring BTB", href: "/btb/monitoring" },
-    ],
-  },
-  {
-    title: "BKB",
-    icon: PackageOpen,
-    submenu: [
-      { title: "Input BKB", href: "/bkb/input" },
-      { title: "Monitoring BKB", href: "/bkb/monitoring" },
-    ],
-  },
-  {
-    title: "Rekap Keseluruhan",
-    href: "/dashboard/rekap-full",
-    icon: BarChart3,
-  },
-  // {
-  //   title: "Biaya Plan",
-  //   href: "/biaya-plan",
-  //   icon: Calculator,
-  // },
-  // {
-  //   title: "Rekap Sasaran Mutu",
-  //   href: "/rekap-sasaran-mutu",
-  //   icon: Target,
-  // },
-  // {
-  //   title: "Analisa Sasaran Mutu",
-  //   href: "/analisa-sasaran-mutu",
-  //   icon: BarChart3,
-  // },
-  // {
-  //   title: "Cost Supplier",
-  //   href: "/cost-supplier",
-  //   icon: DollarSign,
-  // },
-  // {
-  //   title: "Data Evaluasi Supplier",
-  //   href: "/evaluasi-supplier",
-  //   icon: Users,
-  // },
-  {
-    title: "Pengaturan",
-    icon: Settings,
-    submenu: [
-      { title: "Hari Libur", href: "/holidays" },
-    ],
-  },
-];
+export default function HolidaysPage() {
+    const [holidays, setHolidays] = useState<any[]>([]);
+    const [newDate, setNewDate] = useState<Date | null>(null);
+    const [description, setDescription] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
-  const [expandedItems, setExpandedItems] = useState<string[]>([]);
-  const pathname = usePathname();
-  const [role, setRole] = useState<string | null>(null);
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userRaw = localStorage.getItem("userData");
-      if (userRaw) {
+    const fetchHolidays = async () => {
+        setLoading(true);
         try {
-          const userObj = JSON.parse(userRaw);
-          setRole(userObj.role);
-          setUser(userObj);
-        } catch { }
-      }
-    }
-  }, []);
+            const res = await fetch("http://localhost:5000/api/holidays");
+            if (!res.ok) throw new Error("Gagal mengambil data libur");
+            const data = await res.json();
+            setHolidays(data);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  // Buka sidebar otomatis setelah login (transisi animasi)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (localStorage.getItem("sidebarShouldOpen") === "true") {
-        setCollapsed(true); // Mulai dari collapsed
-        setTimeout(() => {
-          setCollapsed(false); // Buka dengan animasi
-          localStorage.removeItem("sidebarShouldOpen");
-        }, 150); // Delay kecil agar transisi terlihat
-      }
-    }
-  }, []);
+    useEffect(() => {
+        fetchHolidays();
+    }, []);
 
-  const toggleExpanded = (title: string) => {
-    setExpandedItems((prev) =>
-      prev.includes(title)
-        ? prev.filter((item) => item !== title)
-        : [...prev, title]
-    );
-  };
+    const handleAddString = async () => {
+        if (!newDate) return;
 
-  // Filter menu sesuai id_peran
-  const id_peran = user?.id_peran;
-  let filteredMenu = menuItems;
+        // Format YYYY-MM-DD for backend
+        const yyyy = newDate.getFullYear();
+        const mm = String(newDate.getMonth() + 1).padStart(2, "0");
+        const dd = String(newDate.getDate()).padStart(2, "0");
+        const dateStr = `${yyyy}-${mm}-${dd}`;
 
-  if (id_peran === 2) {
-    // Menu khusus Divisi (id_peran = 2)
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/divisi/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "Pesanan Anda",
-        href: "/divisi/pesanan-anda",
-        icon: ShoppingCart,
-      },
-    ];
-  } else if (id_peran === 3) {
-    // Dashboard, PR, BTB, BKB, Rekap Full
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "PR (Purchase Request)",
-        icon: FileText,
-        submenu: [
-          { title: "Input PR", href: "/pr/input-baru" },
-          { title: "Monitoring PR", href: "/pr/monitoring" },
-        ],
-      },
-      {
-        title: "BTB",
-        icon: Package,
-        submenu: [
-          { title: "Input BTB", href: "/btb/input" },
-          { title: "Monitoring BTB", href: "/btb/monitoring" },
-        ],
-      },
-      {
-        title: "BKB",
-        icon: PackageOpen,
-        submenu: [
-          { title: "Input BKB", href: "/bkb/input" },
-          { title: "Monitoring BKB", href: "/bkb/monitoring" },
-        ],
-      },
-      {
-        title: "Rekap Keseluruhan",
-        href: "/dashboard/rekap-full",
-        icon: BarChart3,
-      },
-    ];
-  } else if (id_peran === 4) {
-    // Dashboard, PO, Rekap Full
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "PO (Purchase Order)",
-        icon: ShoppingCart,
-        submenu: [
-          { title: "Input PO", href: "/po/status" },
-          { title: "Monitoring PO", href: "/po/monitoring" },
-          { title: "Rekap PO", href: "/po/rekap" },
-        ],
-      },
-      {
-        title: "Rekap Keseluruhan",
-        href: "/dashboard/rekap-full",
-        icon: BarChart3,
-      },
-      {
-        title: "Pengaturan",
-        icon: Settings,
-        submenu: [
-          { title: "Hari Libur", href: "/settings/holidays" },
-        ],
-      },
-    ];
-  } else if (
-    (user &&
-      (user.id_peran === 3 || (user.role ?? "").toLowerCase() === "divisi")) ||
-    (role && role.toLowerCase() === "divisi")
-  ) {
-    // Fallback untuk divisi lama
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "PR (Purchase Request)",
-        icon: FileText,
-        submenu: [
-          { title: "Input PR", href: "/pr/input-baru" },
-          { title: "Monitoring PR", href: "/pr/monitoring" },
-        ],
-      },
-      {
-        title: "BKB",
-        icon: PackageOpen,
-        submenu: [
-          { title: "Input BKB", href: "/bkb/input" },
-          { title: "Monitoring BKB", href: "/bkb/monitoring" },
-        ],
-      },
-      {
-        title: "Rekap Keseluruhan",
-        href: "/dashboard/rekap-full",
-        icon: BarChart3,
-      },
-      {
-        title: "Pengaturan",
-        icon: Settings,
-        submenu: [
-          { title: "Hari Libur", href: "/settings/holidays" },
-        ],
-      },
-    ];
-  }
+        try {
+            const res = await fetch("http://localhost:5000/api/holidays", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tanggal: dateStr, description }),
+            });
+            if (!res.ok) throw new Error("Gagal menambah libur");
 
-  return (
-    <div
-      className={cn(
-        "relative bg-white border-r border-slate-100 flex flex-col h-full transition-all duration-300 shadow-sm z-50",
-        collapsed ? "w-20" : "w-72"
-      )}
-    >
-      {/* Header / Logo Area */}
-      <div className="flex h-20 items-center px-6 border-b border-slate-50">
-        <div className={cn("flex items-center gap-3 w-full", collapsed && "justify-center")}>
-          <div className="h-10 w-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0 shadow-blue-200 shadow-lg">
-            <LayoutDashboard className="h-6 w-6 text-white" />
-          </div>
-          {!collapsed && (
-            <span className="text-xl font-bold text-slate-800 tracking-tight">Monitoring</span>
-          )}
-        </div>
-      </div>
+            setNewDate(null);
+            setDescription("");
+            fetchHolidays();
+        } catch (err: any) {
+            alert(err.message);
+        }
+    };
 
-      {/* User info simplified or removed if redundant, keeping it simple as per request image */}
+    const handleDelete = async (id: number) => {
+        if (!confirm("Yakin ingin menghapus hari libur ini?")) return;
+        try {
+            const res = await fetch(`http://localhost:5000/api/holidays/${id}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) throw new Error("Gagal menghapus libur");
+            fetchHolidays();
+        } catch (err: any) {
+            alert(err.message);
+        }
+    };
 
-      <ScrollArea className="flex-1 py-6 px-4">
-        <nav className="space-y-1">
-          {filteredMenu.map((item) => {
-            const isExpanded = expandedItems.includes(item.title);
-            const isActive =
-              pathname === item.href ||
-              (item.submenu &&
-                item.submenu.some((sub) => pathname === sub.href));
+    // Helper format display DD-MM-YYYY
+    const formatDateDisplay = (isoString: string) => {
+        try {
+            const date = new Date(isoString);
+            const dd = String(date.getDate()).padStart(2, "0");
+            const mm = String(date.getMonth() + 1).padStart(2, "0");
+            const yyyy = date.getFullYear();
+            return `${dd}-${mm}-${yyyy}`;
+        } catch {
+            return isoString;
+        }
+    };
 
-            if (item.submenu) {
-              if (role && role !== "admin") return null; // Assuming logic
-              // Adjusted logic: `role` handling was a bit loose in original, keeping it same.
-
-              return (
-                <div key={item.title} className="mb-2">
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      "w-full justify-start relative transition-all duration-200 rounded-xl h-12 px-4 mb-1",
-                      isActive
-                        ? "bg-blue-50 text-blue-600 font-bold hover:bg-blue-100"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                      collapsed && "justify-center px-0"
-                    )}
-                    onClick={() => !collapsed && toggleExpanded(item.title)}
-                  >
-                    <item.icon className={cn("h-5 w-5 shrink-0 transition-colors", isActive ? "text-blue-600" : "text-slate-400")} />
-                    {!collapsed && (
-                      <>
-                        <span className="ml-3 text-base">{item.title}</span>
-                        <ChevronRight
-                          className={cn(
-                            "ml-auto h-4 w-4 transition-transform text-slate-300",
-                            isExpanded && "rotate-90 text-blue-500"
-                          )}
-                        />
-                      </>
-                    )}
-                  </Button>
-                  {/* Submenu */}
-                  {!collapsed && (
-                    <div
-                      className={cn(
-                        "ml-4 pl-4 border-l-2 border-slate-100 space-y-1 overflow-hidden transition-all duration-300",
-                        isExpanded ? "max-h-96 opacity-100 mt-2" : "max-h-0 opacity-0"
-                      )}
-                    >
-                      {isExpanded &&
-                        item.submenu.map((subItem) => (
-                          <Link key={subItem.href} href={subItem.href} className="block">
-                            <div
-                              className={cn(
-                                "w-full flex items-center h-10 px-4 rounded-lg text-sm transition-all duration-150 cursor-pointer",
-                                pathname === subItem.href
-                                  ? "bg-blue-600 text-white shadow-md font-medium"
-                                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
-                              )}
-                            >
-                              {subItem.title}
-                            </div>
-                          </Link>
-                        ))}
-                    </div>
-                  )}
+    return (
+        <MainLayout>
+            <div className="space-y-6">
+                <div>
+                    <h1 className="text-3xl font-bold text-foreground">Manajemen Hari Libur</h1>
+                    <p className="text-muted-foreground">
+                        Atur daftar hari libur yang akan dilewati perhitungan estimasi PO.
+                    </p>
                 </div>
-              );
-            }
 
-            return (
-              <Link key={item.href} href={item.href} className="block mb-2">
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start relative transition-all duration-200 rounded-xl h-12 px-4",
-                    pathname === item.href
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-200 hover:bg-blue-700 hover:text-white"
-                      : "text-slate-500 hover:bg-slate-50 hover:text-slate-900",
-                    collapsed && "justify-center px-0"
-                  )}
-                >
-                  <item.icon className={cn("h-5 w-5 shrink-0", pathname === item.href ? "text-white" : "text-slate-400")} />
-                  {!collapsed && (
-                    <span className="ml-3 text-base">{item.title}</span>
-                  )}
-                </Button>
-              </Link>
-            );
-          })}
-        </nav>
-      </ScrollArea>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Form Tambah */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Tambah Hari Libur</CardTitle>
+                            <CardDescription>Pilih tanggal dan keterangan</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label>Tanggal</Label>
+                                    <DatePicker
+                                        selected={newDate}
+                                        onChange={(date) => setNewDate(date)}
+                                        dateFormat="dd-MM-yyyy"
+                                        placeholderText="Pilih tanggal"
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Keterangan</Label>
+                                    <Input
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        placeholder="Contoh: Libur Nasional"
+                                    />
+                                </div>
+                                <Button onClick={handleAddString} disabled={!newDate} className="w-full">
+                                    <Plus className="mr-2 h-4 w-4" /> Tambah
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
 
-      {/* Toggle Button at Bottom */}
-      <div className="p-4 border-t border-slate-50">
-        <Button
-          variant="ghost"
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl"
-        >
-          {collapsed ? <ChevronRight className="h-5 w-5" /> : (
-            <div className="flex items-center gap-2">
-              <ChevronLeft className="h-5 w-5" />
-              <span className="text-sm font-medium">Minimize</span>
+                    {/* List Libur */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Daftar Hari Libur</CardTitle>
+                            <CardDescription>Total: {holidays.length} hari libur terdaftar</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            {loading ? (
+                                <p>Loading...</p>
+                            ) : error ? (
+                                <p className="text-red-500">{error}</p>
+                            ) : holidays.length === 0 ? (
+                                <p className="text-muted-foreground italic">Belum ada hari libur.</p>
+                            ) : (
+                                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2">
+                                    {holidays.map((h) => (
+                                        <div
+                                            key={h.id}
+                                            className="flex items-center justify-between p-3 border rounded-md bg-card hover:bg-accent/50 transition-colors"
+                                        >
+                                            <div>
+                                                <div className="font-semibold">{formatDateDisplay(h.tanggal)}</div>
+                                                <div className="text-sm text-muted-foreground">{h.description || "-"}</div>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                onClick={() => handleDelete(h.id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
-          )}
-        </Button>
-      </div>
-    </div>
-  );
+        </MainLayout>
+    );
 }

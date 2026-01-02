@@ -1,341 +1,300 @@
+
 import express from "express";
 import db from "../config/database.js";
 
 const router = express.Router();
 
-// Helper: hitung tanggal +N hari kerja (skip Sabtu/Minggu & Libur DB)
-async function calculateEstimatePO(conn, startDateStr, days) {
-  // Parsing date
-  let date;
-  if (/^\d{2}-\d{2}-\d{4}$/.test(startDateStr)) {
-    const [d, m, y] = startDateStr.split("-");
-    date = new Date(`${y}-${m}-${d}`);
-  } else {
-    date = new Date(startDateStr);
+// Helper: Format date YYYY-MM-DD
+function formatDate(tgl) {
+  if (!tgl) return null;
+  if (typeof tgl === "string" && /^\d{4}-\d{2}-\d{2}$/.test(tgl)) return tgl;
+  if (tgl instanceof Date) {
+    const yyyy = tgl.getFullYear();
+    const mm = String(tgl.getMonth() + 1).padStart(2, "0");
+    const dd = String(tgl.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   }
-
-  // Fetch holidays from DB (simple cache-less approach for now)
-  const [holidaysRaw] = await conn.query("SELECT tanggal FROM holidays");
-  // Set YYYY-MM-DD
-  const holidaySet = new Set(holidaysRaw.map(h => {
-    // Handle timezone issues by treating date string directly if possible, or robust parsing
-    // Assuming backend returns valid Date object or string
-    const d = new Date(h.tanggal);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${dd}`;
-  }));
-
-  let added = 0;
-  while (added < days) {
-    date.setDate(date.getDate() + 1);
-    const day = date.getDay();
-
-    const cy = date.getFullYear();
-    const cm = String(date.getMonth() + 1).padStart(2, '0');
-    const cd = String(date.getDate()).padStart(2, '0');
-    const dateString = `${cy}-${cm}-${cd}`;
-
-    // 0=Minggu, 6=Sabtu
-    if (day !== 0 && day !== 6 && !holidaySet.has(dateString)) {
-      added++;
-    }
-  }
-
-  const resDd = String(date.getDate()).padStart(2, "0");
-  const resMm = String(date.getMonth() + 1).padStart(2, "0");
-  const resYy = date.getFullYear();
-  return `${resDd}-${resMm}-${resYy}`;
+  return tgl;
 }
 
-// GET semua PR
-router.get("/", async (req, res) => {
-  try {
-    // Join ke tabel skema, divisi, urgensi untuk dapatkan label
-    const [rows] = await db.query(`
-      SELECT 
-        pr.*, 
-        skema.skema AS skemaLabel,
-        divisi.divisi AS divisiLabel,
-        urgensi.urgensi AS urgensiLabel
-      FROM pr
-      LEFT JOIN skema ON pr.id_skema = skema.id_skema
-      LEFT JOIN divisi ON pr.id_divisi = divisi.id_divisi
-      LEFT JOIN urgensi ON pr.id_urgensi = urgensi.id_urgensi
-      ORDER BY pr.id_PR ASC
-    `);
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+// Helper: Format date DD-MM-YYYY (for Display)
+function formatDateDDMMYYYY(tgl) {
+  if (!tgl) return null;
+  // If already DD-MM-YYYY, return as is
+  if (typeof tgl === "string" && /^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
+
+  let d = tgl;
+  if (typeof tgl === "string") {
+    d = new Date(tgl);
   }
-});
 
-// GET PR by id
-router.get("/:id", async (req, res) => {
-  const { id } = req.params;
-  try {
-    // Join ke tabel skema untuk dapatkan label skema
-    const [rows] = await db.query(
-      `
-      SELECT pr.*, skema.skema AS skemaLabel
-      FROM pr
-      LEFT JOIN skema ON pr.id_skema = skema.id_skema
-      WHERE pr.id_PR=?
-    `,
-      [id]
-    );
-    if (rows.length === 0)
-      return res.status(404).json({ message: "PR tidak ditemukan" });
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  if (d instanceof Date && !isNaN(d)) {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
   }
-});
+  return tgl;
+}
 
-// POST PR baru
-router.post("/", async (req, res) => {
-  // Hapus semua log di backend
+// Helper: Determine Plan/No Plan
+function determinePlan(tgl) {
+  if (!tgl) return "No Plan";
 
-  let {
-    noPR,
-    tanggalPR,
-    id_divisi,
-    id_urgensi,
-    status,
-    dibuatOleh,
-    id_skema,
-    createdAt,
-    // plan, // jangan ambil dari body, akan diisi otomatis
-    // estimasipo, // <-- jangan ambil dari body, akan diisi otomatis
-  } = req.body;
+  let day = 0;
+  if (tgl instanceof Date) {
+    day = tgl.getDate();
+  } else if (typeof tgl === "string") {
+    // Expect YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+      day = parseInt(tgl.split("-")[2], 10);
+    } else {
+      // Fallback for other string formats or relying on Date parsing (risky for TZ)
+      const d = new Date(tgl);
+      day = d.getDate();
+    }
+  }
 
-  id_divisi = typeof id_divisi === "string" ? parseInt(id_divisi) : id_divisi;
-  id_urgensi =
-    typeof id_urgensi === "string" ? parseInt(id_urgensi) : id_urgensi;
-  id_skema = typeof id_skema === "string" ? parseInt(id_skema) : id_skema;
+  // Logic:
+  // 6 - 24 -> No Plan
+  // 25 - 5 (25..31 & 1..5) -> Plan
+  let result = "Plan";
+  if (day >= 6 && day <= 24) {
+    result = "No Plan";
+  }
 
-  // Validasi lebih detail
-  const emptyFields = [];
-  if (!noPR) emptyFields.push("noPR");
-  if (!tanggalPR) emptyFields.push("tanggalPR");
-  if (!id_divisi) emptyFields.push("id_divisi");
-  if (!id_urgensi) emptyFields.push("id_urgensi");
-  if (!status) emptyFields.push("status");
-  if (!dibuatOleh) emptyFields.push("dibuatOleh");
-  if (!id_skema) emptyFields.push("id_skema");
+  return result;
+}
 
-  if (emptyFields.length > 0) {
-    return res.status(400).json({
-      error: `Field berikut wajib diisi: ${emptyFields.join(", ")}`,
+// Helper: Calculate Target PO Date (3 working days, skip weekends & holidays)
+async function calculateTargetPODate(startDateStr) {
+  if (!startDateStr) return null;
+
+  let currentDate = new Date(startDateStr);
+  if (isNaN(currentDate.getTime())) {
+    return null;
+  }
+
+  // Fetch holidays from DB
+  let holidays = [];
+  try {
+    const [rows] = await db.query("SELECT tanggal FROM holidays");
+    holidays = rows.map((row) => {
+      // Ensure specific string format YYYY-MM-DD
+      const d = new Date(row.tanggal);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
     });
+  } catch (err) {
+    console.error("Error fetching holidays:", err);
+    // Proceed without holidays if DB fails, to avoid blocking PR creation
   }
 
-  // --- Hitung nilai kolom plan otomatis ---
-  let plan = "No Plan";
-  if (tanggalPR) {
-    // tanggalPR bisa "yyyy-mm-dd" atau "dd-mm-yyyy"
-    let day = 0;
-    if (/^\d{4}-\d{2}-\d{2}$/.test(tanggalPR)) {
-      // yyyy-mm-dd
-      day = parseInt(tanggalPR.split("-")[2], 10);
-    } else if (/^\d{2}-\d{2}-\d{4}$/.test(tanggalPR)) {
-      // dd-mm-yyyy
-      day = parseInt(tanggalPR.split("-")[0], 10);
-    }
-    // Jika tanggal 25-31 atau 1-5
-    if ((day >= 25 && day <= 31) || (day >= 1 && day <= 5)) {
-      plan = "Plan";
-    }
-  }
+  let workingDaysAdded = 0;
+  // Target is +3 working days
+  // Example:
+  // Mon (Start) -> +1 (Tue), +2 (Wed), +3 (Thu) -> Result Thu
+  // Fri (Start) -> +1 (Mon), +2 (Tue), +3 (Wed) -> Result Wed (skip Sat/Sun)
 
-  // --- Hitung estimasipo otomatis (3 hari kerja setelah tanggalPR) ---
-  let estimasipo = null;
-  if (tanggalPR) {
-    try {
-      estimasipo = await calculateEstimatePO(db, tanggalPR, 3);
-    } catch (e) {
-      console.error("Error calculating estimate:", e);
-      // Fallback if db fails (shouldn't happen)
-      estimasipo = null;
+  while (workingDaysAdded < 4) {
+    // Add 1 day
+    currentDate.setDate(currentDate.getDate() + 1);
+
+    const day = currentDate.getDay(); // 0=Sun, 6=Sat
+    const yyyy = currentDate.getFullYear();
+    const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(currentDate.getDate()).padStart(2, "0");
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    const isWeekend = day === 0 || day === 6;
+    const isHoliday = holidays.includes(dateStr);
+
+    if (!isWeekend && !isHoliday) {
+      workingDaysAdded++;
     }
   }
 
+  // Format result
+  const yyyy = currentDate.getFullYear();
+  const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
+  const dd = String(currentDate.getDate()).padStart(2, "0");
+  const result = `${yyyy}-${mm}-${dd}`;
+  return result;
+}
+
+// GET all PRs
+router.get("/", async (req, res, next) => {
   try {
+    const [rows] = await db.query("SELECT * FROM pr ORDER BY createdAt DESC");
+    const formatted = rows.map((r) => ({
+      ...r,
+      tanggalPR: formatDate(r.tanggalPR),
+      estimasipo: formatDateDDMMYYYY(r.estimasipo), // Format DD-MM-YYYY
+      createdAt: r.createdAt ? formatDate(r.createdAt) : null,
+    }));
+    res.json(formatted);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET PR by ID
+router.get("/:id", async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const [[row]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [id]);
+    if (!row) return res.status(404).json({ message: "PR tidak ditemukan" });
+
+    row.tanggalPR = formatDate(row.tanggalPR);
+    row.estimasipo = formatDateDDMMYYYY(row.estimasipo); // Format DD-MM-YYYY
+    row.createdAt = row.createdAt ? formatDate(row.createdAt) : null;
+    res.json(row);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// CREATE PR
+router.post("/", async (req, res, next) => {
+  try {
+    const {
+      noPR,
+      tanggalPR,
+      id_divisi,
+      id_urgensi,
+      id_skema,
+      estimasipo, // User might send it, but we overwrite/recalc
+      dibuatOleh,
+      status,
+      plan,
+    } = req.body;
+
+    // Basic Validation
+    if (!noPR) return res.status(400).json({ message: "No PR is required" });
+    if (!tanggalPR) return res.status(400).json({ message: "Tanggal PR is required" });
+
+    // Auto-determine Plan if not provided (fallback)
+    let finalPlan = plan;
+    if (!finalPlan) {
+      finalPlan = determinePlan(tanggalPR);
+    }
+
+    // Auto-calculate Target PO (3 working days)
+    const calculatedEstimasipo = await calculateTargetPODate(tanggalPR);
+
     const [result] = await db.query(
-      "INSERT INTO pr (noPR, tanggalPR, id_divisi, id_urgensi, status, dibuatOleh, id_skema, createdAt, plan, estimasipo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      `INSERT INTO pr (noPR, tanggalPR, id_divisi, id_urgensi, id_skema, plan, estimasipo, dibuatOleh, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         noPR,
         tanggalPR,
-        id_divisi,
-        id_urgensi,
-        status,
-        dibuatOleh,
-        id_skema,
-        createdAt,
-        plan, // <-- tambahkan plan
-        estimasipo, // <-- tambahkan estimasipo
+        id_divisi || null,
+        id_urgensi || null,
+        id_skema || null,
+        finalPlan,
+        calculatedEstimasipo || estimasipo || null, // Use calculated, fallback to user input
+        dibuatOleh || null,
+        status || "Draft",
       ]
     );
-    res
-      .status(201)
-      .json({ message: "PR berhasil dibuat", id: result.insertId });
-    return;
+
+    const insertId = result.insertId;
+    const [[newRow]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [insertId]);
+    if (newRow) {
+      newRow.tanggalPR = formatDate(newRow.tanggalPR);
+      newRow.estimasipo = formatDateDDMMYYYY(newRow.estimasipo);
+      newRow.createdAt = formatDate(newRow.createdAt);
+    }
+    res.status(201).json(newRow);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// PUT PR (update full/partial)
-router.put("/:id", async (req, res) => {
-  const { id } = req.params;
-  const payload = req.body;
-
+// UPDATE PR
+router.put("/:id", async (req, res, next) => {
   try {
-    // Kalau tidak ada data dikirim
-    if (!payload || Object.keys(payload).length === 0) {
-      return res.status(400).json({ message: "Tidak ada data untuk diupdate" });
+    const { id } = req.params;
+    const {
+      noPR,
+      tanggalPR,
+      id_divisi,
+      id_urgensi,
+      id_skema,
+      estimasipo,
+      dibuatOleh,
+      status,
+      plan,
+    } = req.body;
+
+    // Validate minimal requirements
+    if (!noPR) return res.status(400).json({ message: "No PR is required" });
+    if (!tanggalPR) return res.status(400).json({ message: "Tanggal PR is required" });
+
+    // Auto-determine Plan if not provided (fallback)
+    let finalPlan = plan;
+    if (!finalPlan) {
+      finalPlan = determinePlan(tanggalPR);
     }
 
-    // 1. VALIDASI: Cek apakah PR sudah diproses menjadi PO
-    // Cari semua item dari PR ini
-    const [prItems] = await db.query(
-      "SELECT id_PRItem FROM pr_item WHERE id_PR = ?",
-      [id]
+    // Recalculate Target PO if tanggalPR changes or is present
+    // We always recalculate to ensure consistency unless explicitly disabled, 
+    // but here we assume automation is always desired.
+    const calculatedEstimasipo = await calculateTargetPODate(tanggalPR);
+
+    await db.query(
+      `UPDATE pr SET 
+        noPR = ?, 
+        tanggalPR = ?, 
+        id_divisi = ?, 
+        id_urgensi = ?, 
+        id_skema = ?, 
+        plan = ?, 
+        estimasipo = ?, 
+        dibuatOleh = ?, 
+        status = ?
+       WHERE id_PR = ?`,
+      [
+        noPR,
+        tanggalPR,
+        id_divisi || null,
+        id_urgensi || null,
+        id_skema || null,
+        finalPlan,
+        calculatedEstimasipo || estimasipo || null,
+        dibuatOleh || null,
+        status || "Draft",
+        id,
+      ]
     );
 
-    if (prItems.length > 0) {
-      const prItemIds = prItems.map((item) => item.id_PRItem);
-      // Cek apakah ada di po_item
-      const [poItems] = await db.query(
-        `SELECT * FROM po_item WHERE id_PRItem IN (${prItemIds
-          .map(() => "?")
-          .join(",")})`,
-        prItemIds
-      );
-
-      if (poItems.length > 0) {
-        return res
-          .status(400)
-          .json({ message: "PR tidak dapat diedit karena sudah diproses menjadi PO." });
-      }
+    const [[updatedRow]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [id]);
+    if (updatedRow) {
+      updatedRow.tanggalPR = formatDate(updatedRow.tanggalPR);
+      updatedRow.estimasipo = formatDate(updatedRow.estimasipo);
+      updatedRow.createdAt = formatDate(updatedRow.createdAt);
     }
-
-    // === LOCK tanggalPR: hapus field tanggalPR dari payload agar tidak bisa diupdate ===
-    if ("tanggalPR" in payload) {
-      delete payload.tanggalPR;
-    }
-
-    // --- Normalisasi id_divisi, id_urgensi, id_skema ke integer jika string ---
-    if (payload.id_divisi && typeof payload.id_divisi === "string") {
-      payload.id_divisi = parseInt(payload.id_divisi);
-    }
-    if (payload.id_urgensi && typeof payload.id_urgensi === "string") {
-      payload.id_urgensi = parseInt(payload.id_urgensi);
-    }
-    if (payload.id_skema && typeof payload.id_skema === "string") {
-      payload.id_skema = parseInt(payload.id_skema);
-    }
-
-    // --- Validasi status agar hanya enum yang valid ---
-    const allowedStatus = ["Draft", "Menunggu", "Gantung", "Diproses"];
-    if (payload.status && !allowedStatus.includes(payload.status)) {
-      // fallback ke "Menunggu" jika status tidak valid
-      payload.status = "Menunggu";
-    }
-
-    // --- UPDATE DATA UTAMA PR ---
-    const allowedFields = [
-      "noPR",
-      // "tanggalPR", // <-- JANGAN izinkan update tanggalPR
-      "id_divisi",
-      "id_urgensi",
-      "status",
-      "dibuatOleh",
-      "id_skema",
-      "createdAt",
-      "plan",
-    ];
-
-    // Siapkan body untuk update PR header
-    const updateHeader = {};
-    for (const key of Object.keys(payload)) {
-      if (allowedFields.includes(key)) {
-        updateHeader[key] = payload[key];
-      }
-    }
-
-    if (Object.keys(updateHeader).length > 0) {
-      const fields = Object.keys(updateHeader);
-      const values = Object.values(updateHeader);
-      const sql = `UPDATE pr SET ${fields.map((f) => `${f} = ?`).join(", ")} WHERE id_PR = ?`;
-      await db.query(sql, [...values, id]);
-    }
-
-    // --- UPDATE ITEMS (JIKA ADA 'items' DI PAYLOAD) ---
-    // Strategi: Jika ada items, hapus semua item lama, insert baru (karena validasi PO kosong sudah lewat)
-    if (payload.items && Array.isArray(payload.items)) {
-      // 1. Hapus item lama
-      await db.query("DELETE FROM pr_item WHERE id_PR = ?", [id]);
-
-      // 2. Insert item baru
-      if (payload.items.length > 0) {
-        // Flatten items untuk bulk insert
-        const itemValues = payload.items.map((item) => [
-          id,
-          item.namaBarang,
-          item.jumlah,
-          item.jumlah, // quantityAwalPR = jumlah
-          item.id_satuan,
-          item.keterangan || "",
-          0, // quantityTerkirim default 0
-        ]);
-
-        const itemSql =
-          "INSERT INTO pr_item (id_PR, namaBarang, jumlah, quantityAwalPR, id_satuan, keterangan, quantityTerkirim) VALUES ?";
-        await db.query(itemSql, [itemValues]);
-      }
-    }
-
-    // Ambil ulang data setelah update
-    const [[updated]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [id]);
-    res.json(updated || { message: "PR berhasil diupdate" });
-
+    res.json(updatedRow);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 });
 
-// DELETE PR (beserta item)
+
+
+// DELETE PR
 router.delete("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
+    const [[row]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [id]);
+    if (!row) return res.status(404).json({ message: "PR tidak ditemukan" });
 
-    // 1. Check if any PO items reference this PR
-    // Find all PR items for this PR
-    const [prItems] = await db.query("SELECT id_PRItem FROM pr_item WHERE id_PR = ?", [id]);
-    if (prItems.length > 0) {
-      // Check if any PO items reference these PR items
-      const prItemIds = prItems.map(item => item.id_PRItem);
-      if (prItemIds.length > 0) {
-        const [poItems] = await db.query(
-          `SELECT * FROM po_item WHERE id_PRItem IN (${prItemIds.map(() => "?").join(",")})`,
-          prItemIds
-        );
-        if (poItems.length > 0) {
-          return res.status(400).json({
-            message: "PR tidak dapat dihapus karena sudah diproses menjadi PO. Silakan kembalikan semua item PO ke PR terlebih dahulu."
-          });
-        }
-      }
-    }
-
-    // 2. Delete PR items
+    // Delete items first
     await db.query("DELETE FROM pr_item WHERE id_PR = ?", [id]);
-    // 3. Delete PR
-    const [result] = await db.query("DELETE FROM pr WHERE id_PR = ?", [id]);
-    if (result.affectedRows === 0)
-      return res.status(404).json({ message: "PR tidak ditemukan" });
+    // Delete PR
+    await db.query("DELETE FROM pr WHERE id_PR = ?", [id]);
 
     res.json({ message: "PR berhasil dihapus" });
   } catch (err) {

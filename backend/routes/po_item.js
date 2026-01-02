@@ -98,11 +98,17 @@ router.post("/", async (req, res, next) => {
         ? parseFloat(jumlahAsli.replace(/\./g, "").replace(",", "."))
         : Number(jumlahAsli) || 0;
     let diskonPersenValue = diskonPersen;
-    if (typeof diskonPersen === "string" && diskonPersen.includes("%")) {
-      const match = diskonPersen.match(/(\d+(\.\d+)?)/);
-      diskonPersenValue = match ? parseFloat(match[1].replace(",", ".")) : 0;
-    } else if (typeof diskonPersen === "string") {
-      diskonPersenValue = parseFloat(diskonPersen.replace(",", ".")) || 0;
+    if (typeof diskonPersen === "string") {
+      if (diskonPersen.includes("+")) {
+        // Stacked discount (e.g. "10%+20%"), simpan sebagai string. 
+        // Normalisasi koma ke titik, tapi biarkan formatnya.
+        diskonPersenValue = diskonPersen.replace(/,/g, ".");
+      } else if (diskonPersen.includes("%")) {
+        const match = diskonPersen.match(/(\d+(\.\d+)?)/);
+        diskonPersenValue = match ? parseFloat(match[1].replace(",", ".")) : 0;
+      } else {
+        diskonPersenValue = parseFloat(diskonPersen.replace(",", ".")) || 0;
+      }
     }
     const diskonRupiahValue =
       typeof diskonRupiah === "string"
@@ -219,16 +225,17 @@ router.put("/:id", async (req, res, next) => {
           : Number(payload.jumlahAsli) || 0;
     if (
       payload.diskonPersen &&
-      typeof payload.diskonPersen === "string" &&
-      payload.diskonPersen.includes("%")
-    ) {
-      const match = payload.diskonPersen.match(/(\d+(\.\d+)?)/);
-      payload.diskonPersen = match ? parseFloat(match[1].replace(",", ".")) : 0;
-    } else if (
-      payload.diskonPersen &&
       typeof payload.diskonPersen === "string"
     ) {
-      payload.diskonPersen = parseFloat(payload.diskonPersen.replace(",", ".")) || 0;
+      if (payload.diskonPersen.includes("+")) {
+        // Stacked discount logic
+        payload.diskonPersen = payload.diskonPersen.replace(/,/g, ".");
+      } else if (payload.diskonPersen.includes("%")) {
+        const match = payload.diskonPersen.match(/(\d+(\.\d+)?)/);
+        payload.diskonPersen = match ? parseFloat(match[1].replace(",", ".")) : 0;
+      } else {
+        payload.diskonPersen = parseFloat(payload.diskonPersen.replace(",", ".")) || 0;
+      }
     }
     if (payload.diskonRupiah)
       payload.diskonRupiah =
@@ -252,14 +259,46 @@ router.put("/:id", async (req, res, next) => {
           : Number(payload.totalPerItem) || 0;
 
     // namaPembeli ikut di payload, bisa diupdate
-    const fields = Object.keys(payload);
+    // Filter payload to only valid columns to avoid SQL error
+    const validColumns = [
+      "id_PO", "id_PRItem", "hargaSatuan", "jumlahPO", "jumlahAsli",
+      "diskonPersen", "diskonRupiah", "ppnPersen", "ppnRupiah",
+      "totalPerItem", "namaPembeli", "keterangan", "id_satuan", "statusTerima"
+    ];
+
+    const fields = Object.keys(payload).filter(key => validColumns.includes(key));
+
     if (fields.length === 0)
-      return res.status(400).json({ message: "No data" });
+      return res.status(400).json({ message: "No valid data to update" });
 
     const sql =
       `UPDATE po_item SET ` +
       fields.map((f) => `${f} = ?`).join(", ") +
       ` WHERE id_POItem = ?`;
+
+    // --- Fix: Update PR quantity ---
+    // Fetch old data first
+    const [[oldItem]] = await db.query(
+      "SELECT id_PRItem, jumlahPO FROM po_item WHERE id_POItem = ?",
+      [id]
+    );
+
+    if (oldItem && payload.jumlahPO !== undefined) {
+      const oldQty = Number(oldItem.jumlahPO);
+      const newQty = Number(payload.jumlahPO);
+      const diff = newQty - oldQty;
+
+      if (diff !== 0 && oldItem.id_PRItem) {
+        // Adjust pr_item.jumlah
+        // If diff is positive (increased PO), PR qty decreases.
+        // If diff is negative (decreased PO), PR qty increases.
+        await db.query(
+          "UPDATE pr_item SET jumlah = jumlah - ? WHERE id_PRItem = ?",
+          [diff, oldItem.id_PRItem]
+        );
+      }
+    }
+
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
     // Setelah update, update targetPencapaianPo pada semua BTB terkait PO ini
     // DISABLED: Logic moved to item level (btb_item)

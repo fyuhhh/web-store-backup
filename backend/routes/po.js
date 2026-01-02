@@ -106,13 +106,19 @@ async function updateStatusTerimaPO(conn, id_PO) {
 // GET semua PO
 router.get("/", async (req, res, next) => {
   try {
-    const [rows] = await db.query("SELECT * FROM po ORDER BY createdAt DESC");
+    const [rows] = await db.query(`
+      SELECT po.*, user.nama_pengguna as orderedByName 
+      FROM po 
+      LEFT JOIN user ON po.orderedBy = user.id_user 
+      ORDER BY po.createdAt DESC
+    `);
 
     const formatted = rows.map((r) => ({
       ...r,
       tanggalPO: formatDate(r.tanggalPO),
       estimasiTanggalTerima: formatDate(r.estimasiTanggalTerima),
       createdAt: r.createdAt ? formatDate(r.createdAt) : null,
+      orderedBy: r.orderedByName || r.orderedBy, // Fallback to ID if name not found, or replace ID with Name if preferred
     }));
 
     res.json(formatted);
@@ -125,13 +131,19 @@ router.get("/", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const [[row]] = await db.query("SELECT * FROM po WHERE id_PO = ?", [id]);
+    const [[row]] = await db.query(`
+      SELECT po.*, user.nama_pengguna as orderedByName 
+      FROM po 
+      LEFT JOIN user ON po.orderedBy = user.id_user 
+      WHERE po.id_PO = ?
+    `, [id]);
 
     if (!row) return res.status(404).json({ message: "PO tidak ditemukan" });
 
     row.tanggalPO = formatDate(row.tanggalPO);
     row.estimasiTanggalTerima = formatDate(row.estimasiTanggalTerima);
     row.createdAt = row.createdAt ? formatDate(row.createdAt) : null;
+    row.orderedBy = row.orderedByName || row.orderedBy;
 
     res.json(row);
   } catch (err) {
