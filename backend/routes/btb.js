@@ -399,9 +399,8 @@ router.post("/full", async (req, res) => {
           jumlah_diterima || 0,
           id_satuan || null,
           keterangan || "",
-          keterangan || "",
-          jumlah_diterima, // <-- qty_sisa = jumlah yang diterima (Stok Awal dari BTB ini)
-          biayaPerItem, // <-- biaya per item proporsional
+          jumlah_diterima, // qty_sisa
+          biayaPerItem, // biaya
         ]
       );
 
