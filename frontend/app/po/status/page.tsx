@@ -337,24 +337,34 @@ export default function StatusPOPage() {
 
   // Badge status
   function getStatusBadge(status: string) {
-    if (status === "Menunggu") {
+    const s = (status || "").toUpperCase();
+
+    if (s === "WAITING PO" || s === "DRAFT" || s === "MENUNGGU") {
+      return (
+        <span className="inline-block px-2 py-1 rounded bg-blue-100 text-blue-700 border border-blue-300 text-xs font-semibold">
+          WAITING PO
+        </span>
+      );
+    }
+    if (s === "PARCIAL PO" || s === "GANTUNG") {
       return (
         <span className="inline-block px-2 py-1 rounded bg-orange-100 text-orange-700 border border-orange-300 text-xs font-semibold">
-          Menunggu
+          PARCIAL PO
         </span>
       );
     }
-    if (status === "Gantung") {
+    if (s === "WAITING PART" || s === "SELESAI" || s === "TELAH SELESAI") {
       return (
-        <span className="inline-block px-2 py-1 rounded bg-red-100 text-red-700 border border-red-300 text-xs font-semibold">
-          Gantung
+        <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 text-xs font-semibold">
+          WAITING PART
         </span>
       );
     }
-    // Default: anggap Telah Selesai
+
+    // Default status lain
     return (
-      <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 text-xs font-semibold">
-        Telah Selesai
+      <span className="inline-block px-2 py-1 rounded bg-gray-100 text-gray-700 border border-gray-300 text-xs font-semibold">
+        {status || "-"}
       </span>
     );
   }
@@ -401,10 +411,16 @@ export default function StatusPOPage() {
   // Mapping PR + items
   const processedPRs = prData
     .filter(
-      (pr) =>
-        (pr.status === "Menunggu" || pr.status === "Gantung") &&
-        // Filter hanya PR dengan id_skema sesuai user login
-        (!userSkemaId || String(pr.id_skema ?? pr.skema) === userSkemaId)
+
+      (pr) => {
+        const s = (pr.status || "").toUpperCase();
+        // Tampilkan WAITING PO, PARCIAL PO, MENUNGGU (Legacy), GANTUNG (Legacy)
+        // Sembunyikan WAITING PART, SELESAI
+        const validStatuses = ["WAITING PO", "PARCIAL PO", "MENUNGGU", "GANTUNG", "DRAFT"];
+        return validStatuses.includes(s) &&
+          // Filter hanya PR dengan id_skema sesuai user login
+          (!userSkemaId || String(pr.id_skema ?? pr.skema) === userSkemaId);
+      }
     )
     .map((pr) => ({
       ...pr,
@@ -457,7 +473,8 @@ export default function StatusPOPage() {
     )
   ).sort((a, b) => a - b);
   const uniqueUrgensi = ["High", "Medium", "Low"];
-  const uniqueStatus = ["Menunggu", "Gantung"];
+
+  const uniqueStatus = ["WAITING PO", "PARCIAL PO"];
   const uniqueDivisi = divisiOptions.map((d: any) => d.divisi);
   const uniqueDibuatOleh = Array.from(
     new Set(processedPRs.map((pr) => pr.dibuatOleh))
