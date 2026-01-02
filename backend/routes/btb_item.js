@@ -86,17 +86,6 @@ router.post("/", async (req, res) => {
         .json({ error: "id_btb, id_POItem, nama_barang wajib diisi" });
     }
 
-    // --- FIX: Ambil jumlahPO dari po_item untuk hitung qt_sisa (Backorder) ---
-    let sisa = qtySisaInt; // Default jika tidak ada id_POItem
-    if (id_POItem) {
-      const [[poItemData]] = await db.query("SELECT jumlahPO FROM po_item WHERE id_POItem = ?", [id_POItem]);
-      if (poItemData) {
-        sisa = Math.max(0, Math.round(Number(poItemData.jumlahPO || 0)) - jumlahDiterimaInt);
-        // Update PO Item jumlahPO
-        await db.query("UPDATE po_item SET jumlahPO = ? WHERE id_POItem = ?", [sisa, id_POItem]);
-      }
-    }
-
     const [result] = await db.query(
       `INSERT INTO btb_item 
       (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa, biaya, targetPencapaianPo)
@@ -108,7 +97,7 @@ router.post("/", async (req, res) => {
         jumlahDiterimaInt, // <-- integer
         id_satuan || null,
         keterangan || "",
-        jumlahDiterimaInt, // <-- qty_sisa = jumlah yang diterima (Stok Awal dari BTB ini)
+        qtySisaInt, // <-- integer
         biayaInt, // <-- biaya per item
         targetPencapaianPo || null, // <-- NEW value
       ]
@@ -118,6 +107,19 @@ router.post("/", async (req, res) => {
       "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
       [id_btb, id_btb]
     );
+
+    // --- FIX: Update jumlahPO pada po_item (kurangi dengan jumlah_diterima) ---
+    // Dilakukan di sini (backend) agar tidak mentrigger logic "Edit PO" yang mengubah pr_item.jumlah
+    if (id_POItem && jumlahDiterimaInt > 0) {
+      const [[poItemData]] = await db.query("SELECT jumlahPO FROM po_item WHERE id_POItem = ?", [id_POItem]);
+      if (poItemData) {
+        const currentQty = Math.round(Number(poItemData.jumlahPO || 0));
+        const sisa = Math.max(0, currentQty - jumlahDiterimaInt);
+        // Direct SQL update to avoid side effects
+        await db.query("UPDATE po_item SET jumlahPO = ? WHERE id_POItem = ?", [sisa, id_POItem]);
+      }
+    }
+
     res
       .status(201)
       .json({ message: "BTB Item berhasil dibuat", id: result.insertId });

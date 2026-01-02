@@ -374,19 +374,6 @@ router.post("/full", async (req, res) => {
         }
       }
 
-      // Ambil jumlahPO saat ini dari po_item untuk hitung sisa
-      let sisa = 0;
-      if (id_POItem) {
-        const [[poItemQty]] = await conn.query(
-          "SELECT jumlahPO FROM po_item WHERE id_POItem = ?",
-          [id_POItem]
-        );
-        sisa = Math.max(
-          0,
-          Math.round(Number(poItemQty?.jumlahPO || 0)) - Math.round(Number(jumlah_diterima))
-        );
-      }
-
       // Insert ke btb_item (tambahkan kolom biaya)
       await conn.query(
         `INSERT INTO btb_item 
@@ -399,13 +386,22 @@ router.post("/full", async (req, res) => {
           jumlah_diterima || 0,
           id_satuan || null,
           keterangan || "",
-          jumlah_diterima, // qty_sisa
-          biayaPerItem, // biaya
+          jumlah_diterima || 0, // qty_sisa = jumlah_diterima
+          biayaPerItem, // <-- biaya per item proporsional
         ]
       );
 
       // Update jumlahPO pada po_item (kurangi dengan jumlah_diterima)
       if (id_POItem && jumlah_diterima) {
+        // Ambil jumlahPO lama
+        const [[poItemQty]] = await conn.query(
+          "SELECT jumlahPO FROM po_item WHERE id_POItem = ?",
+          [id_POItem]
+        );
+        const sisa = Math.max(
+          0,
+          Math.round(Number(poItemQty?.jumlahPO || 0)) - Math.round(Number(jumlah_diterima))
+        );
         await conn.query(
           "UPDATE po_item SET jumlahPO = ? WHERE id_POItem = ?",
           [sisa, id_POItem]

@@ -124,65 +124,75 @@ router.post("/", async (req, res) => {
   }
 });
 
-// ✅ PUT PR_Item (update data)
+// ✅ UPDATE PR_Item
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const payload = req.body;
-
   try {
-    // Validate and normalize payload fields
-    const normalizedPayload = {
-      id_PR: payload.id_PR,
-      namaBarang: payload.namaBarang,
-      jumlah: parseFloat(payload.jumlah) || 0,
-      originalJumlah: parseFloat(payload.originalJumlah) || 0,
-      quantityAwalPR: parseFloat(payload.quantityAwalPR) || 0,
-      id_satuan: payload.id_satuan,
-      keterangan: payload.keterangan || "",
-    };
+    const {
+      namaBarang,
+      namabarang,
+      jumlah,
+      originaljumlah,
+      originalJumlah,
+      quantityawalPR,
+      quantityAwalPR,
+      id_satuan,
+      keterangan,
+    } = req.body;
 
-    // Debug logging
-    console.log("Updating PR Item:", {
-      id,
-      ...normalizedPayload,
-    });
+    // Build dynamic update query
+    const finalNamaBarang = namaBarang || namabarang;
+    const finalJumlah = parseFloat(jumlah) || 0;
+    // For editing, we update original/awal if provided, else keep existing or default to jumlah
+    const finalOriginalJumlah =
+      parseFloat(originalJumlah || originaljumlah || jumlah) || 0;
+    const finalQuantityAwalPR =
+      parseFloat(quantityAwalPR || quantityawalPR || jumlah) || 0;
 
-    // Update with all fields to ensure consistency
-    const [result] = await db.query(
-      `UPDATE pr_item 
-       SET id_PR = ?, 
-           namaBarang = ?, 
-           jumlah = ?, 
-           originalJumlah = ?, 
-           quantityAwalPR = ?, 
-           id_satuan = ?, 
-           keterangan = ?
-       WHERE id_PRItem = ?`,
-      [
-        normalizedPayload.id_PR,
-        normalizedPayload.namaBarang,
-        normalizedPayload.jumlah,
-        normalizedPayload.originalJumlah,
-        normalizedPayload.quantityAwalPR,
-        normalizedPayload.id_satuan,
-        normalizedPayload.keterangan,
-        id,
-      ]
-    );
+    const fieldsToUpdate = [];
+    const values = [];
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "PR Item not found" });
+    if (finalNamaBarang !== undefined) {
+      fieldsToUpdate.push("namaBarang = ?");
+      values.push(finalNamaBarang);
+    }
+    if (jumlah !== undefined) {
+      fieldsToUpdate.push("jumlah = ?");
+      values.push(finalJumlah);
+    }
+    if (req.body.originalJumlah !== undefined || req.body.originaljumlah !== undefined) {
+      fieldsToUpdate.push("originalJumlah = ?");
+      values.push(finalOriginalJumlah);
+    }
+    if (req.body.quantityAwalPR !== undefined || req.body.quantityawalPR !== undefined) {
+      fieldsToUpdate.push("quantityAwalPR = ?");
+      values.push(finalQuantityAwalPR);
+    }
+    if (id_satuan !== undefined) {
+      fieldsToUpdate.push("id_satuan = ?");
+      values.push(id_satuan);
+    }
+    if (keterangan !== undefined) {
+      fieldsToUpdate.push("keterangan = ?");
+      values.push(keterangan);
     }
 
-    res.json({
-      message: "PR Item berhasil diupdate",
-      data: normalizedPayload,
-    });
+    if (fieldsToUpdate.length === 0) {
+      return res.json({ message: "No fields to update" });
+    }
+
+    const sql = `UPDATE pr_item SET ${fieldsToUpdate.join(", ")} WHERE id_PRItem = ?`;
+    values.push(id);
+
+    await db.query(sql, values);
+
+    res.json({ message: "PR Item berhasil diupdate" });
   } catch (err) {
-    console.error("Error updating PR item:", err);
     res.status(500).json({ error: err.message });
   }
 });
+
+
 
 // ✅ DELETE PR_Item
 router.delete("/:id", async (req, res) => {

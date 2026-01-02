@@ -5,7 +5,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import "@/app/pr/input-baru/datepicker-red-weekend.css";
 
-import type React from "react";
+// import type React from "react"; // DUPLICATE REMOVED
 
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -57,7 +57,10 @@ import {
 } from "@/components/ui/pagination";
 import { Badge } from "@/components/ui/badge";
 
-export default function InputPOPage() {
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+
+function InputPOContent() {
   const [prData, setPrData] = useState<PRData[]>([]);
   const [poData, setPoData] = useState<POData[]>([]);
 
@@ -78,6 +81,11 @@ export default function InputPOPage() {
 
   // Tambahkan state untuk checkbox "Harga sudah termasuk PPN"
   const [ppnIncluded, setPpnIncluded] = useState(false);
+
+  // Edit Mode State
+  const searchParams = useSearchParams();
+  const editPoId = searchParams.get("id");
+  const isEditing = !!editPoId;
 
   // State for PO items with pricing
   const [poItems, setPoItems] = useState<
@@ -272,6 +280,44 @@ export default function InputPOPage() {
     return isNaN(val) ? 0 : val;
   }
 
+  // Helper untuk menentukan mode diskon (persen/nominal)
+  function getDiskonMode(item: any, prId: string, lastMap: any) {
+    const key = prId + "-" + item.id;
+    if (lastMap && lastMap[key]) return lastMap[key];
+
+    // Fallback logic
+    const p = item.diskonPersen || "";
+    const n = item.diskonNominal || "";
+    // Jika persen ada isi valid (misal "10%"), prefer persen
+    if (p && p !== "0" && p !== "0%" && p !== "") return "persen";
+    // Jika nominal ada isi valid (misal "5000"), gunakan nominal
+    if (n && n !== "0" && n !== "") return "nominal";
+
+    return "none";
+  }
+
+  // Helper hitung nominal diskon dari string persen
+  function calculateDiskonModelPersen(subtotal: number, diskonPersenStr: string) {
+    let currentAmount = subtotal;
+    let totalDiskon = 0;
+    const diskonPersenArr = (diskonPersenStr || "")
+      .split("+")
+      .map((d) => d.trim())
+      .filter((d) => d.endsWith("%"))
+      .map((d) => {
+        const val = parseFloat(d.replace("%", "").replace(",", "."));
+        return isNaN(val) ? null : val;
+      })
+      .filter((v) => v !== null) as number[];
+
+    diskonPersenArr.forEach((persen) => {
+      const amount = currentAmount * (persen / 100);
+      totalDiskon += amount;
+      currentAmount -= amount;
+    });
+    return totalDiskon;
+  }
+
   // Calculation functions
   const calculateTotal = () => {
     let subtotal = 0;
@@ -304,11 +350,11 @@ export default function InputPOPage() {
           harga = Number(item.hargaSatuan) || 0;
         }
         const qty = Number(item.jumlahPO) || 0;
-        const ppn = Number(item.ppnItem) || 0;
+        const ppn = parseFloat(String(item.ppnItem).replace("%", "")) || 0;
         const itemSubtotal = harga * qty;
 
-        // Gunakan hanya salah satu diskon (yang terakhir diubah user)
-        const diskonKey = poItem.prId + "-" + item.id;
+        // Determine mode using helper
+        const mode = getDiskonMode(item, poItem.prId, lastDiskonChanged);
         let diskonAmount = 0;
         let diskonBreakdown: Array<{
           label: string;
@@ -316,30 +362,33 @@ export default function InputPOPage() {
           amount: number;
         }> = [];
 
-        if (lastDiskonChanged[diskonKey] === "persen") {
+        if (mode === "persen") {
           // Hitung dari persen (stacked)
-          let currentAmount = itemSubtotal;
+          diskonAmount = calculateDiskonModelPersen(itemSubtotal, item.diskonPersen);
+
+          // Generate breakdown for tooltip/display
+          let currentBreakdown = itemSubtotal;
           const diskonPersenArr = (item.diskonPersen || "")
             .split("+")
             .map((d) => d.trim())
             .filter((d) => d.endsWith("%"))
             .map((d) => {
-              // Support decimal diskon: "2,5%" or "2.5%"
               const val = parseFloat(d.replace("%", "").replace(",", "."));
               return isNaN(val) ? null : val;
             })
             .filter((v) => v !== null) as number[];
+
           diskonPersenArr.forEach((persen, idx) => {
-            const amount = currentAmount * (persen / 100);
-            diskonAmount += amount;
-            currentAmount -= amount;
+            const amount = currentBreakdown * (persen / 100);
+            currentBreakdown -= amount;
             diskonBreakdown.push({
               label: `Diskon % ke-${idx + 1}`,
               value: persen + "%",
-              amount,
+              amount: amount
             });
           });
-        } else if (lastDiskonChanged[diskonKey] === "nominal") {
+
+        } else if (mode === "nominal") {
           // Support decimal nominal
           diskonAmount = parseFloat(
             String(item.diskonNominal).replace(",", ".")
@@ -575,7 +624,8 @@ export default function InputPOPage() {
       setTimeout(() => setNotif(null), 2500);
       return;
     }
-    if (!poFormData.namaPembeli.trim()) {
+    const namaPembeli = poFormData.namaPembeli;
+    if (!namaPembeli || (typeof namaPembeli === 'string' && !namaPembeli.trim())) {
       setNotif({ type: "error", message: "Nama Pembeli wajib diisi!" });
       setTimeout(() => setNotif(null), 2500);
       return;
@@ -588,210 +638,160 @@ export default function InputPOPage() {
 
     const calculations = calculateTotal();
 
-    // Helper to parse diskon persen string (e.g. "15%" or "15%+5%") to number (ambil yang pertama saja)
-    function parseDiskonPersenToNumber(diskonStr: string) {
-      if (!diskonStr) return 0;
-      // Ambil hanya angka pertama sebelum % (misal "15%+5%" => 15)
-      const match = diskonStr.match(/(\d+(\.\d+)?)%?/);
-      return match ? parseFloat(match[1]) : 0;
-    }
+    // Ambil data user dari localStorage untuk orderedBy (ID)
+    const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
+    const orderedById = userDataLocal.id_user || userDataLocal.id || null; // Send ID not Name
 
-    // Get logged in user data
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    const orderedByUserId = userData.id_user || userData.id || null; // <-- ambil id_user
-    const userSkema = userData.id_skema || null;
+    const payloadHeader = {
+      noPO: poFormData.noPO,
+      tanggalPO: formatDateForBackend(poFormData.tanggalPO),
+      id_supplier: poFormData.supplier,
+      diskon: calculations.totalDiskon,
+      originalDiskon: 0,
+      ppn: 0,
+      ppnAmount: calculations.totalPPN,
+      totalPembayaran: calculations.totalPayment,
+      orderedBy: orderedById, // <-- Send ID here
+      estimasiTanggalTerima: formatDateForBackend(
+        poFormData.estimasiTanggalDiterima
+      ),
+      id_statusPengiriman: poFormData.statusPengiriman,
+      id_statusPermintaan: null,
+      status: "Menunggu",
+      id_skema: poFormData.skema,
+    };
 
     try {
-      // 1. POST PO ke backend
-      const poRes = await fetch("http://192.168.10.10:5000/api/po", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          noPO: poFormData.noPO,
-          tanggalPO: formatDateForBackend(poFormData.tanggalPO),
-          id_supplier: poFormData.supplier,
-          diskon: parseDiskonPersenToNumber(poFormData.diskon),
-          originalDiskon: calculations.totalDiskon,
-          ppn: parseFloat(poFormData.ppn),
-          ppnAmount: calculations.totalPPN,
-          totalPembayaran: calculations.totalPayment,
-          orderedBy: orderedByUserId,
-          estimasiTanggalTerima: formatDateForBackend(poFormData.estimasiTanggalDiterima),
-          id_statusPengiriman: poFormData.statusPengiriman,
-          status: "Menunggu",
-          createdAt: formatDateForBackend(new Date()), // tanggal hari ini, tanpa jam
-          id_skema: userSkema,
-        }),
-      });
-      const poDataRes = await poRes.json();
-      const id_PO = poDataRes.id_PO || poDataRes.id || null;
+      let poId = editPoId;
 
-      // 2. POST setiap PO Item ke backend dan PUT PR Item untuk update jumlah
-      for (const poItem of poItems) {
-        for (const item of poItem.items) {
-          // --- Pastikan jumlahPO dan jumlahAsli dikirim sebagai integer bulat ---
-          const jumlahPOInt = Math.floor(Number(item.jumlahPO)) || 0;
-          const jumlahAsliInt = Math.floor(Number(item.jumlahAsli)) || 0;
-
-
-          // --- FIX: Normalisasi hargaSatuan (remove dots, comma->dot) ---
-          let hargaNormalized = 0;
-          if (typeof item.hargaSatuan === "string") {
-            hargaNormalized = parseFloat(item.hargaSatuan.replace(/\./g, "").replace(",", ".")) || 0;
-          } else {
-            hargaNormalized = Number(item.hargaSatuan) || 0;
-          }
-
-          // --- Ambil nilai diskon dan ppn per item ---
-          // Diskon (%) - Keep as string ("10%+20%") or parse if simple number
-          let diskonPersenValue: string | number = 0;
-          if (item.diskonPersen && typeof item.diskonPersen === "string") {
-            // Diskon (%): Always send as string. 
-            // Valid inputs: "10", "10%", "10%+20%", etc.
-            // Backend handles string storage.
-            diskonPersenValue = item.diskonPersen;
-          }
-          // Diskon (Rp)
-          const diskonRupiahValue = Number(item.diskonNominal) || 0;
-          // PPN (%) dari item.ppnItem
-          const ppnPersenValue = Number(item.ppnItem) || 0;
-          // PPN (Rp): hitung dari afterDiskon * (ppnPersen/100)
-          const harga = hargaNormalized; // Gunakan yang sudah dinormalisasi
-          const qty = Number(item.jumlahPO) || 0;
-          const itemSubtotal = harga * qty;
-          let diskonAmount = 0;
-          if (item.diskonPersen && typeof item.diskonPersen === "string") {
-            let currentAmount = itemSubtotal;
-            const diskonPersenArr = item.diskonPersen
-              .split("+")
-              .map((d) => d.trim())
-              .filter((d) => d.endsWith("%"))
-              .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-              .filter((v) => !isNaN(v));
-            diskonPersenArr.forEach((persen) => {
-              const amount = currentAmount * (persen / 100);
-              diskonAmount += amount;
-              currentAmount -= amount;
-            });
-          } else if (item.diskonNominal) {
-            diskonAmount = Number(item.diskonNominal) || 0;
-          }
-          const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
-          const ppnRupiahValue = afterDiskon * (ppnPersenValue / 100);
-          const totalPerItem = afterDiskon + ppnRupiahValue;
-
-          // A. Create PO Item
-          await fetch("http://192.168.10.10:5000/api/po-item", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id_PO,
-              id_PRItem: item.id_PRItem ?? item.id,
-              hargaSatuan: item.hargaSatuan,
-              jumlahPO: jumlahPOInt,
-              jumlahAsli: jumlahAsliInt,
-              diskonPersen: diskonPersenValue, // Diskon (%) masuk ke kolom diskonPersen
-              diskonRupiah: diskonRupiahValue, // Diskon (Rp) masuk ke kolom diskonRupiah
-              ppnPersen: ppnPersenValue, // PPN (%) masuk ke kolom ppnPersen
-              ppnRupiah: ppnRupiahValue, // PPN (Rp) masuk ke kolom ppnRupiah
-              totalPerItem, // <-- Tambahkan field baru
-              namaPembeli: poFormData.namaPembeli, // <-- Kirim namaPembeli ke backend
-              keterangan: item.keterangan,
-              id_satuan: item.id_satuan,
-            }),
-          });
-
-          // B. Get current PR Item data
-          const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${item.id}`
-          );
-          const prItemData = await prItemRes.json();
-
-          // Calculate new quantity
-          const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt);
-
-          // C. Update PR Item with complete payload
-          await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id_PR: poItem.prId,
-              namaBarang: item.namaBarang,
-              jumlah: newJumlah,
-              originalJumlah: prItemData.originalJumlah || jumlahAsliInt,
-              quantityAwalPR: prItemData.quantityAwalPR || jumlahAsliInt,
-              id_satuan: prItemData.id_satuan || item.id_satuan,
-              keterangan: item.keterangan || "",
-            }),
-          });
-        }
-      }
-
-      // === Tambahan: Update status PR (Gantung/Telah Selesai) ===
-      // Ambil semua prId unik dari poItems
-      const prIds = Array.from(new Set(poItems.map((poItem) => poItem.prId)));
-      for (const prId of prIds) {
-        // Ambil semua item PR dari backend
-        const prItemRes = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/pr/${prId}`
-        );
-        const prItems = await prItemRes.json();
-        // Jika semua jumlah === 0 -> Telah Selesai, jika ada yang > 0 -> Gantung
-        const allZero = prItems.every((item: any) => Number(item.jumlah) === 0);
-        const newStatus = allZero ? "Telah Selesai" : "Gantung";
-        // Ambil data PR lama
-        const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
-        const prData = await prRes.json();
-        // Kirim semua field PR lama + status baru, TANPA mengirim tanggalPR
-        const payload = {
-          noPR: prData.noPR,
-          // tanggalPR: HAPUS agar tidak mengubah tanggal PR di backend!
-          id_divisi: prData.id_divisi,
-          id_urgensi: prData.id_urgensi,
-          status: newStatus,
-          dibuatOleh: prData.dibuatOleh,
-          id_skema: prData.id_skema,
-          createdAt: prData.createdAt,
-        };
-        console.log("PUT /api/pr payload:", payload);
-        await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+      if (isEditing && poId) {
+        // --- UPDATE EXISTING PO ---
+        await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payloadHeader),
         });
+
+        // Loop items to update directly
+        let breakdownIndex = 0;
+
+        for (const pGroup of poItems) {
+          for (const item of pGroup.items) {
+            const calcValues = calculations.breakdown[breakdownIndex];
+            breakdownIndex++;
+            if (!calcValues) continue;
+
+            const harga =
+              typeof item.hargaSatuan === "string"
+                ? parseFloat(
+                  (item.hargaSatuan).replace(/\./g, "").replace(",", ".")
+                )
+                : item.hargaSatuan;
+
+            const itemPayload = {
+              hargaSatuan: harga,
+              jumlahPO: Number(item.jumlahPO), // Ensure Number to prevent backend regex issues
+              jumlahAsli: Number(item.jumlahAsli),
+              diskonPersen: item.diskonPersen || "0",
+              diskonRupiah: calcValues.diskonAmount || 0,
+              ppnPersen: item.ppnItem || 0,
+              ppnRupiah: calcValues.ppnAmount || 0,
+              totalPerItem: calcValues.total || 0,
+              namaPembeli: poFormData.namaPembeli,
+              barang: item.namaBarang || "", // Send as 'barang' or 'namaBarang' - backend po_item might expect one, typically namaBarang
+              namaBarang: item.namaBarang || "", // Explicitly send namaBarang
+              keterangan: item.keterangan || "",
+              id_satuan: item.id_satuan,
+            };
+
+            if (item.id_POItem) {
+              // UPDATE PO ITEM
+              await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(itemPayload),
+              });
+            } else {
+              // Ignore new items for now in this flow
+            }
+          }
+        }
+
+        setNotif({ type: "success", message: "PO berhasil diperbarui!" });
+        setTimeout(() => {
+          window.location.href = "/po/monitoring";
+        }, 1500);
+
+      } else {
+        // --- CREATE NEW PO ---
+        const res = await fetch("http://192.168.10.10:5000/api/po", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadHeader),
+        });
+
+        if (!res.ok) throw new Error("Gagal membuat PO");
+        const data = await res.json();
+        const newPoId = data.id_PO || data.insertId;
+
+        // Create PO Items
+        let breakdownIndex = 0;
+        for (const pGroup of poItems) {
+          for (const item of pGroup.items) {
+            const calcValues = calculations.breakdown[breakdownIndex];
+            breakdownIndex++;
+            if (!calcValues) continue;
+
+            const harga =
+              typeof item.hargaSatuan === "string"
+                ? parseFloat(
+                  (item.hargaSatuan).replace(/\./g, "").replace(",", ".")
+                )
+                : item.hargaSatuan;
+
+            const itemPayload = {
+              id_PO: newPoId,
+              id_PRItem: item.id,
+              hargaSatuan: harga,
+              jumlahPO: Number(item.jumlahPO), // Ensure Number
+              jumlahAsli: Number(item.jumlahAsli),
+              diskonPersen: item.diskonPersen || "0",
+              diskonRupiah: calcValues.diskonAmount || 0,
+              ppnPersen: item.ppnItem || 0,
+              ppnRupiah: calcValues.ppnAmount || 0,
+              totalPerItem: calcValues.total || 0,
+              namaPembeli: poFormData.namaPembeli,
+              keterangan: item.keterangan || "",
+              id_satuan: item.id_satuan,
+            };
+
+            await fetch("http://192.168.10.10:5000/api/po-item", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(itemPayload),
+            });
+
+            // UPDATE PR ITEM REMAINING
+            const prevQty = item.quantityAwalPR ?? item.jumlahAsli;
+            const newRem = Math.max(0, prevQty - item.jumlahPO);
+
+            await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ jumlah: newRem })
+            });
+          }
+        }
+
+        localStorage.removeItem("selectedPRsForPO");
+        setNotif({ type: "success", message: "PO berhasil dibuat!" });
+        setTimeout(() => {
+          window.location.href = "/po/monitoring";
+        }, 1500);
       }
-
-      // Reset form
-      setPoFormData({
-        noPO: `PO/2024/${String(poData.length + 1).padStart(3, "0")}`,
-        tanggalPO: new Date().toISOString().split("T")[0],
-        supplier: "",
-        estimasiTanggalDiterima: "",
-        diskon: "",
-        ppn: "", // <-- reset ke kosong, bukan "11"
-        statusPengiriman: "",
-        skema: userSkema, // reset skema dari user login
-        namaPembeli: "", // <-- Reset namaPembeli
-      });
-
-      setPoItems([]);
-      setDiscountBreakdown([]);
-
-      setNotif({
-        type: "success",
-        message: `PO ${poFormData.noPO} berhasil dibuat!`,
-      });
-      setTimeout(() => {
-        setNotif(null);
-        window.location.href = "/po/status";
-      }, 1800);
     } catch (err) {
-      console.error("Error creating PO:", err);
-      setNotif({
-        type: "error",
-        message: "Gagal membuat PO. Silakan coba lagi.",
-      });
-      setTimeout(() => setNotif(null), 2500);
+      console.error(err);
+      setNotif({ type: "error", message: "Gagal menyimpan PO" });
     }
   };
 
@@ -850,6 +850,7 @@ export default function InputPOPage() {
     setPoFormData((prev) => ({
       ...prev,
       skema: userSkemaVal,
+      namaPembeli: userData.nama_pengguna || userData.username || "", // <-- Auto-fill nama pembeli
     }));
   }, []);
 
@@ -1012,9 +1013,16 @@ export default function InputPOPage() {
   useEffect(() => {
     // Ambil PR yang dipilih dari localStorage dan mapping ke poItems
     const selectedFromStatus = localStorage.getItem("selectedPRsForPO");
-    if (selectedFromStatus) {
+    if (selectedFromStatus && !isEditing) {
       try {
         const selectedPRData = JSON.parse(selectedFromStatus);
+
+        // --- NEW LOGIC: Set skema from first PR ---
+        if (selectedPRData.length > 0) {
+          const firstSkema = selectedPRData[0].id_skema || selectedPRData[0].skema || "";
+          setPoFormData((prev) => ({ ...prev, skema: String(firstSkema) }));
+        }
+
         setPoItems(
           selectedPRData.map((pr: any) => ({
             prId: pr.id_PR ?? pr.id,
@@ -1023,7 +1031,7 @@ export default function InputPOPage() {
             skema: pr.id_skema ?? "",
             items: (pr.items || []).map((item: any) => ({
               id: item.id_PRItem ?? item.id,
-              namaBarang: item.namaBarang ?? item.namabarang,
+              namaBarang: item.namaBarang ?? item.namabarang ?? "",
               jumlahPO: item.jumlah,
               jumlahAsli: item.jumlah,
               satuanLabel: item.satuanLabel || item.satuan || "",
@@ -1041,8 +1049,157 @@ export default function InputPOPage() {
       } catch (err) {
         setPoItems([]);
       }
+    } else if (isEditing && editPoId) {
+      // FETCH EXISTING PO DATA
+      const fetchEditData = async () => {
+        try {
+          // 1. Fetch Header PO
+          const poRes = await fetch(`http://192.168.10.10:5000/api/po/${editPoId}`);
+          const poData = await poRes.json();
+          if (poData) {
+            setPoFormData({
+              noPO: poData.noPO,
+              // Convert stored YYYY-MM-DD back to Date object
+              tanggalPO: poData.tanggalPO ? new Date(poData.tanggalPO) : null,
+              supplier: String(poData.id_supplier), // ensure string for Select
+              estimasiTanggalDiterima: poData.estimasiTanggalTerima
+                ? new Date(poData.estimasiTanggalTerima)
+                : null,
+              diskon: poData.diskonPersen || "", // Assuming backend name or logic
+              ppn: poData.ppn || "",
+              statusPengiriman: String(poData.id_statusPengiriman),
+              skema: poData.id_skema,
+              namaPembeli: poData.orderedBy ? String(poData.orderedBy) : "",
+            });
+            // Update ppnIncluded? Backend doesn't explicitly store it as boolean commonly, usually inferred.
+            // But let's check if we can infer or if we need to assume default.
+            // If calculations match, good. For now assume user can set it.
+            // Actually, we can check if totalPembayaran == subtotal (ppnIncluded) or > subtotal.
+          }
+
+          // 2. Fetch PO Items
+          const itemsRes = await fetch("http://192.168.10.10:5000/api/po-item");
+          const allItems = await itemsRes.json();
+          const currentPoItems = allItems.filter(
+            (item: any) => String(item.id_PO) === String(editPoId)
+          );
+
+          // 3. We typically need PR info for these items to group them.
+          // Since existing structure expects grouping by PR.
+          // We can fetch PR Items to link back `id_PR`.
+          const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+          const allPrItems = await prItemRes.json();
+
+          const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+          const allPrs = await prRes.json();
+
+          // Group by PR
+          const grouped: any = {};
+
+          for (const pItem of currentPoItems) {
+            // Find PR Item
+            const originalPrItem = allPrItems.find(
+              (pri: any) => String(pri.id_PRItem) === String(pItem.id_PRItem)
+            );
+            if (!originalPrItem) continue;
+
+            const prId = originalPrItem.id_PR;
+            const originalPr = allPrs.find(
+              (pr: any) => String(pr.id_PR) === String(prId)
+            );
+
+            if (!grouped[prId]) {
+              grouped[prId] = {
+                prId: prId,
+                noPR: originalPr?.noPR || "Unknown",
+                tanggalPR: originalPr?.tanggalPR,
+                skema: originalPr?.id_skema,
+                items: [],
+              };
+            }
+
+            // Restore item data
+            grouped[prId].items.push({
+              id: originalPrItem.id_PRItem, // ID PR Item for updates
+              id_POItem: pItem.id_POItem, // KEEP TRACK OF THIS for updates
+              namaBarang: originalPrItem.namaBarang,
+              // jumlahPO is what we are editing.
+              // jumlahAsli is the total original qty.
+              // NOTE: When editing, we need to know the OLD `jumlahPO` to calc diff.
+              // Ideally we store it.
+              jumlahPO: pItem.jumlahPO,
+              // Fix: Edit limit should be Current PO Qty + Remaining PR Qty
+              jumlahAsli: Number(pItem.jumlahPO) + Number(originalPrItem.jumlah || 0),
+              satuanLabel: pItem.satuanLabel || "Pcs", // Fetch if needed
+              id_satuan: pItem.id_satuan,
+              hargaSatuan: pItem.hargaSatuan,
+              diskonItem: pItem.diskonPersen
+                ? (String(pItem.diskonPersen).includes("+")
+                  ? pItem.diskonPersen
+                  : `${parseFloat(String(pItem.diskonPersen).replace("%", ""))}%`)
+                : pItem.diskonRupiah
+                  ? String(pItem.diskonRupiah)
+                  : "",
+              diskonNominal: pItem.diskonRupiah, // Populate for UI
+              diskonPersen: pItem.diskonPersen
+                ? (String(pItem.diskonPersen).includes("+")
+                  ? pItem.diskonPersen
+                  : `${parseFloat(String(pItem.diskonPersen).replace("%", ""))}%`)
+                : "", // Populate for UI and normalize
+              ppnItem: pItem.ppnPersen
+                ? `${parseFloat(String(pItem.ppnPersen))}%`
+                : "",
+              keterangan: pItem.keterangan || originalPrItem.keterangan,
+              skema: originalPrItem.id_skema,
+              dibuatOleh: originalPr?.dibuatOleh,
+              tanggalPR: originalPr?.tanggalPR,
+            });
+          }
+
+          setPoItems(Object.values(grouped));
+
+          // Try to set namaPembeli from first item if header empty
+          if (currentPoItems.length > 0 && !poData.orderedBy) {
+            setPoFormData((prev) => ({
+              ...prev,
+              namaPembeli: currentPoItems[0].namaPembeli || prev.namaPembeli,
+            }));
+          }
+
+          // Generate initial lastDiskonChanged state based on values
+          const initialDiskonMap: any = {};
+          Object.values(grouped).forEach((group: any) => {
+            group.items.forEach((item: any) => {
+              const ky = group.prId + "-" + item.id;
+              // Check derivation
+              if (item.diskonPersen && item.diskonPersen !== "0" && item.diskonPersen !== "" && item.diskonPersen !== "0%") {
+                initialDiskonMap[ky] = "persen";
+              } else if (item.diskonNominal && item.diskonNominal !== 0 && item.diskonNominal !== "0") {
+                initialDiskonMap[ky] = "nominal";
+              }
+            });
+          });
+          setLastDiskonChanged(initialDiskonMap);
+
+        } catch (err) {
+          console.error("Error fetching edit data", err);
+        }
+      };
+
+      // Delay slightly to ensure metadata (satuanOptions etc) loaded? 
+      // Or just run it. Using timeout or dependency on editPoId.
+      if (satuanOptions.length > 0) {
+        // Actually better to run unconditionally and match IDs, 
+        // labels will resolve if options exist.
+        // Let's rely on IDs primarily.
+        fetchEditData();
+      } else {
+        // Retry if dependencies not ready roughly?
+        // For simplicity, just call it, React updates will handle eventually or we dep on options.
+        fetchEditData();
+      }
     }
-  }, []);
+  }, [editPoId, isEditing]); // Removed empty dependency array to run on change
 
   // Tambahkan handler terpisah agar lebih rapi
   function handleHargaSatuanChange(
@@ -1055,19 +1212,47 @@ export default function InputPOPage() {
     let cleanValue = value.replace(/^Rp\.?\s*/i, "");
     // Only allow digits, comma, and period
     cleanValue = cleanValue.replace(/[^\d.,]/g, "");
+
     setPoItems((prevPoItems) =>
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
             ...pItem,
-            items: pItem.items.map((i) =>
-              i.id === itemId
-                ? {
+            items: pItem.items.map((i) => {
+              if (i.id === itemId) {
+                // Update dependent fields (Diskon Nominal/Persen)
+                const newPrice = parseFloat(cleanValue.replace(/\./g, "").replace(",", ".")) || 0;
+                const qty = Number(i.jumlahPO) || 0;
+                const subtotal = newPrice * qty;
+
+                const mode = getDiskonMode(i, prId, lastDiskonChanged);
+
+                let newDiskonNominal = i.diskonNominal;
+                let newDiskonPersen = i.diskonPersen;
+
+                if (mode === "persen") {
+                  const dAmt = calculateDiskonModelPersen(subtotal, i.diskonPersen);
+                  newDiskonNominal = dAmt ? Math.round(dAmt).toString() : "";
+                } else if (mode === "nominal") {
+                  // Calculate Persen from Nominal
+                  const dNom = parseFloat(String(i.diskonNominal).replace(",", ".")) || 0;
+                  if (subtotal > 0 && dNom > 0) {
+                    const p = (dNom / subtotal) * 100;
+                    newDiskonPersen = p % 1 === 0 ? `${p.toFixed(0)}%` : `${p.toFixed(2)}%`;
+                  } else {
+                    newDiskonPersen = "";
+                  }
+                }
+
+                return {
                   ...i,
                   hargaSatuan: cleanValue,
-                }
-                : i
-            ),
+                  diskonNominal: newDiskonNominal,
+                  diskonPersen: newDiskonPersen
+                };
+              }
+              return i;
+            }),
           }
           : pItem
       )
@@ -1087,7 +1272,35 @@ export default function InputPOPage() {
                 // Pastikan hanya integer bulat, tidak ribuan/desimal
                 let newQty = Math.max(0, Math.floor(Number(value)) || 0);
                 if (newQty > maxQty) newQty = maxQty;
-                return { ...i, jumlahPO: newQty };
+
+                // Update dependent fields
+                let harga = 0;
+                if (typeof i.hargaSatuan === "string") {
+                  const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                  harga = parseFloat(normalized) || 0;
+                } else {
+                  harga = Number(i.hargaSatuan) || 0;
+                }
+                const subtotal = harga * newQty;
+
+                const mode = getDiskonMode(i, prId, lastDiskonChanged);
+                let newDiskonNominal = i.diskonNominal;
+                let newDiskonPersen = i.diskonPersen;
+
+                if (mode === "persen") {
+                  const dAmt = calculateDiskonModelPersen(subtotal, i.diskonPersen);
+                  newDiskonNominal = dAmt ? Math.round(dAmt).toString() : "";
+                } else if (mode === "nominal") {
+                  const dNom = parseFloat(String(i.diskonNominal).replace(",", ".")) || 0;
+                  if (subtotal > 0 && dNom > 0) {
+                    const p = (dNom / subtotal) * 100;
+                    newDiskonPersen = p % 1 === 0 ? `${p.toFixed(0)}%` : `${p.toFixed(2)}%`;
+                  } else {
+                    newDiskonPersen = "";
+                  }
+                }
+
+                return { ...i, jumlahPO: newQty, diskonNominal: newDiskonNominal, diskonPersen: newDiskonPersen };
               }
               return i;
             }),
@@ -1225,7 +1438,7 @@ export default function InputPOPage() {
               i.id === itemId
                 ? {
                   ...i,
-                  ppnItem: value === "" ? "" : Number(value),
+                  ppnItem: value,
                 }
                 : i
             ),
@@ -1893,30 +2106,19 @@ export default function InputPOPage() {
                             ? parseFloat(item.hargaSatuan.replace(/\./g, "").replace(",", "."))
                             : Number(item.hargaSatuan) || 0;
                           const qty = Number(item.jumlahPO) || 0;
-                          const ppn = Number(item.ppnItem) || 0;
+                          const ppn = parseFloat(String(item.ppnItem).replace("%", "")) || 0;
                           const itemSubtotal = harga * qty;
 
                           // Gunakan hanya salah satu diskon (yang terakhir diubah user)
-                          const diskonKey = item.prId + "-" + item.id;
+                          // Determine mode
+                          const mode = getDiskonMode(item, item.prId, lastDiskonChanged);
                           let diskonAmount = 0;
-                          if (lastDiskonChanged[diskonKey] === "persen") {
-                            // Hitung dari persen (stacked)
-                            let currentAmount = itemSubtotal;
-                            const diskonPersenArr = (item.diskonPersen || "")
-                              .split("+")
-                              .map((d) => d.trim())
-                              .filter((d) => d.endsWith("%"))
-                              .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-                              .filter((v) => v !== null && !isNaN(v));
-                            diskonPersenArr.forEach((persen) => {
-                              const amount = currentAmount * (persen / 100);
-                              diskonAmount += amount;
-                              currentAmount -= amount;
-                            });
-                          } else if (lastDiskonChanged[diskonKey] === "nominal") {
+
+                          if (mode === "persen") {
+                            diskonAmount = calculateDiskonModelPersen(itemSubtotal, item.diskonPersen);
+                          } else if (mode === "nominal") {
                             diskonAmount = parseFloat(String(item.diskonNominal).replace(",", ".")) || 0;
                           } else {
-                            // Default: tidak ada diskon
                             diskonAmount = 0;
                           }
                           // Hanya deklarasi afterDiskon SEKALI di sini
@@ -1978,18 +2180,20 @@ export default function InputPOPage() {
                               <TableCell className="p-1">
                                 <Input
                                   type="text"
-                                  inputMode="decimal"
+                                  inputMode="numeric"
                                   value={
                                     item.hargaSatuan
-                                      ? `Rp. ${item.hargaSatuan}`
+                                      ? `Rp. ${Number(String(item.hargaSatuan).replace(",", ".")).toLocaleString("id-ID")}`
                                       : ""
                                   }
                                   onWheel={(e) => e.currentTarget.blur()}
                                   onChange={(e) => {
+                                    // Strip non-digits to keep raw number in state (or standard float string)
+                                    const raw = e.target.value.replace(/\D/g, "");
                                     handleHargaSatuanChange(
                                       item.prId,
                                       item.id,
-                                      e.target.value
+                                      raw
                                     );
                                   }}
                                   className="w-32 h-7 text-xs text-right px-2"
@@ -2008,19 +2212,34 @@ export default function InputPOPage() {
                                       e.target.value
                                     )
                                   }
+                                  onBlur={(e) => {
+                                    const val = e.target.value.trim();
+                                    // If it's a number and doesn't end with %, append %
+                                    if (val && /^\d+(\.\d+)?$/.test(val)) {
+                                      handleDiskonPersenChange(
+                                        item.prId,
+                                        item.id,
+                                        `${val}%`
+                                      );
+                                    }
+                                  }}
                                   className="w-16 h-7 text-xs text-right px-2"
-                                  placeholder="10%+5%"
+                                  placeholder="10%"
                                 />
                               </TableCell>
                               <TableCell className="p-1">
                                 <Input
                                   type="text"
                                   value={
-                                    item.diskonNominal
-                                      ? `Rp. ${Number(
-                                        item.diskonNominal
-                                      ).toLocaleString("id-ID")}`
-                                      : ""
+                                    mode === "persen"
+                                      ? diskonAmount
+                                        ? `Rp. ${diskonAmount.toLocaleString("id-ID")}`
+                                        : ""
+                                      : item.diskonNominal
+                                        ? `Rp. ${Number(
+                                          item.diskonNominal
+                                        ).toLocaleString("id-ID")}`
+                                        : ""
                                   }
                                   onChange={(e) => {
                                     // Only allow numeric input, strip "Rp." and non-digits
@@ -2043,10 +2262,8 @@ export default function InputPOPage() {
                               </TableCell>
                               <TableCell className="p-1">
                                 <Input
-                                  type="number"
+                                  type="text"
                                   value={item.ppnItem ?? ""}
-                                  min={0}
-                                  max={100}
                                   onChange={(e) =>
                                     handlePPNItemChange(
                                       item.prId,
@@ -2054,8 +2271,18 @@ export default function InputPOPage() {
                                       e.target.value
                                     )
                                   }
+                                  onBlur={(e) => {
+                                    const val = e.target.value.trim();
+                                    if (val && /^\d+(\.\d+)?$/.test(val)) {
+                                      handlePPNItemChange(
+                                        item.prId,
+                                        item.id,
+                                        `${val}%`
+                                      );
+                                    }
+                                  }}
                                   className="w-12 h-7 text-xs text-right px-2"
-                                  placeholder="0"
+                                  placeholder="0%"
                                 />
                               </TableCell>
                               <TableCell className="p-1 text-xs">
@@ -2200,5 +2427,13 @@ export default function InputPOPage() {
         </Card>
       </div>
     </MainLayout>
+  );
+}
+
+export default function InputPOPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <InputPOContent />
+    </Suspense>
   );
 }

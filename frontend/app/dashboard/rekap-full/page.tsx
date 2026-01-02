@@ -91,11 +91,11 @@ const columns = [
   { key: "noBTB", label: "No. BTB" },
   { key: "tanggalBTB", label: "Tanggal Terima" },
   { key: "quantityBTB", label: "Quantity BTB" },
-  { key: "satuanBTB", label: "Satuan BTB" }, // <-- Tambahkan kolom ini
+  { key: "satuanBTB", label: "Satuan BTB" },
   { key: "biayaBTB", label: "Biaya BTB" },
   { key: "sisaStokBTB", label: "Quantity Belum BTB" },
   { key: "diterimaOleh", label: "Diterima Oleh" },// baru
-  { key: "plan", label: "Plan / No Plan" }, // baru
+  { key: "plan", label: "Plan / No Plan" },
   { key: "skemaBTB", label: "Skema BTB" },
 ];
 
@@ -546,79 +546,10 @@ export default function RekapFullPage() {
     fetchData();
   }, []);
 
-  // Ambil data referensi untuk label
-  useEffect(() => {
-    async function fetchRefs() {
-      const [
-        supplierRes,
-        userRes,
-        skemaRes,
-        statusPengirimanRes,
-        statusPermintaanRes,
-        satuanRes,
-        divisiRes,
-      ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/supplier").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/user").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/skema").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman").then((r) =>
-          r.json()
-        ),
-        fetch("http://192.168.10.10:5000/api/status-permintaan").then((r) =>
-          r.json()
-        ),
-        fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
-        fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
-      ]);
-      setSupplierMap(
-        Object.fromEntries(
-          supplierRes.map((s: any) => [String(s.id_supplier), s.namaSupplier])
-        )
-      );
-      setUserMap(
-        Object.fromEntries(
-          userRes.map((u: any) => [String(u.id_user), u.nama_pengguna])
-        )
-      );
-      setSkemaMap(
-        Object.fromEntries(
-          skemaRes.map((s: any) => [String(s.id_skema), s.skema])
-        )
-      );
-      setStatusPengirimanMap(
-        Object.fromEntries(
-          statusPengirimanRes.map((sp: any) => [
-            String(sp.id_statusPengiriman),
-            sp.status_pengiriman,
-          ])
-        )
-      );
-      setStatusPermintaanMap(
-        Object.fromEntries(
-          statusPermintaanRes.map((sp: any) => [
-            String(sp.id_statusPermintaan),
-            sp.status_permintaan,
-          ])
-        )
-      );
-      setSatuanMap(
-        Object.fromEntries(
-          satuanRes.map((s: any) => [String(s.id_satuan), s.satuan])
-        )
-      );
-      setDivisiMap(
-        Object.fromEntries(
-          divisiRes.map((d: any) => [String(d.id_divisi), d.divisi])
-        )
-      );
-    }
-    fetchRefs();
-  }, []);
-
+  // Gabungan fetch data & references
   useEffect(() => {
     async function fetchData() {
       try {
-        // Fetch PR data, PR Items, PO data, PO Items, BTB data, BTB Items, BKB data, BKB Items
         const [
           prRes,
           prItemRes,
@@ -628,6 +559,13 @@ export default function RekapFullPage() {
           btbItemRes,
           bkbRes,
           bkbItemRes,
+          supplierRes,
+          userRes,
+          skemaRes,
+          statusPengirimanRes,
+          statusPermintaanRes,
+          satuanRes,
+          divisiRes,
         ] = await Promise.all([
           fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
           fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
@@ -637,7 +575,47 @@ export default function RekapFullPage() {
           fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
           fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
           fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/supplier").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/user").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/skema").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/status-pengiriman").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/status-permintaan").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
         ]);
+
+        // --- Build maps locally to ensure availability ---
+        const localSupplierMap = Object.fromEntries(
+          (Array.isArray(supplierRes) ? supplierRes : []).map((s: any) => [String(s.id_supplier), s.namaSupplier])
+        );
+        const localUserMap = Object.fromEntries(
+          (Array.isArray(userRes) ? userRes : []).map((u: any) => [String(u.id_user), u.nama_pengguna])
+        );
+        const localSkemaMap = Object.fromEntries(
+          (Array.isArray(skemaRes) ? skemaRes : []).map((s: any) => [String(s.id_skema), s.skema])
+        );
+        const localStatusPengirimanMap = Object.fromEntries(
+          (Array.isArray(statusPengirimanRes) ? statusPengirimanRes : []).map((sp: any) => [String(sp.id_statusPengiriman), sp.status_pengiriman])
+        );
+        const localStatusPermintaanMap = Object.fromEntries(
+          (Array.isArray(statusPermintaanRes) ? statusPermintaanRes : []).map((sp: any) => [String(sp.id_statusPermintaan), sp.status_permintaan])
+        );
+        const localSatuanMap = Object.fromEntries(
+          (Array.isArray(satuanRes) ? satuanRes : []).map((s: any) => [String(s.id_satuan), s.satuan])
+        );
+        const localDivisiMap = Object.fromEntries(
+          (Array.isArray(divisiRes) ? divisiRes : []).map((d: any) => [String(d.id_divisi), d.divisi || d.nama_divisi])
+        );
+
+        // Update state maps as well for outside usage if needed
+        setSupplierMap(localSupplierMap);
+        setUserMap(localUserMap);
+        setSkemaMap(localSkemaMap);
+        setStatusPengirimanMap(localStatusPengirimanMap);
+        setStatusPermintaanMap(localStatusPermintaanMap);
+        setSatuanMap(localSatuanMap);
+        setDivisiMap(localDivisiMap);
+
 
         // Ensure data is in the correct array format
         const prData = Array.isArray(prRes) ? prRes : [];
@@ -646,12 +624,10 @@ export default function RekapFullPage() {
         const poItemData = Array.isArray(poItemRes) ? poItemRes : [];
         const btbData = Array.isArray(btbRes) ? btbRes : [];
         const btbItemData = Array.isArray(btbItemRes) ? btbItemRes : [];
-        const bkbData = Array.isArray(bkbRes) ? bkbRes : [];
-        const bkbItemData = Array.isArray(bkbItemRes) ? bkbItemRes : [];
 
         const rekapRows: any[] = [];
 
-        prData.forEach((pr) => {
+        prData.forEach((pr: any) => {
           const items = prItemData.filter((item: any) => item.id_PR === pr.id_PR);
 
           items.forEach((item: any, idx: number) => {
@@ -679,16 +655,16 @@ export default function RekapFullPage() {
                 quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
                 quantityPO: item.jumlah ?? "",
                 satuanPR: item.id_satuan
-                  ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                  ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                   : "",
                 keteranganPR: item.keterangan || "",
                 divisi: pr.id_divisi
-                  ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                  ? localDivisiMap[String(pr.id_divisi)] || pr.id_divisi
                   : "",
                 dibuatOleh: pr.dibuatOleh,
                 skemaPR: pr.id_skema ?? "",
                 skemaPRLabel: pr.id_skema
-                  ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                  ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
                   : "",
                 targetTanggalPO: formatDateSimple(pr.estimasipo),
                 delay: "",
@@ -696,8 +672,7 @@ export default function RekapFullPage() {
                   pr.status &&
                     !["Menunggu", "Gantung", "Diproses"].includes(pr.status)
                     ? pr.status
-                    : "", // <-- request user: jangan tampilkan status otomatis (Gantung/Menunggu) jika belum ada PO
-                // PO & BTB kosong
+                    : "",
                 noPO: "",
                 tanggalPO: "",
                 periodePO: "",
@@ -729,7 +704,7 @@ export default function RekapFullPage() {
                 biayaBTB: "",
                 diterimaOleh: "",
                 skemaBTB: "",
-                targetPencapaianPO: "", // <-- tambahkan kolom ini, kosong jika belum ada PO/BTB
+                targetPencapaianPO: "",
               });
             } else {
               // Untuk setiap PO Item yang terkait, cari PO dan BTB
@@ -759,21 +734,21 @@ export default function RekapFullPage() {
                     quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
                     quantityPR: item.jumlah ?? "",
                     satuanPR: item.id_satuan
-                      ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                      ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                       : "",
                     keteranganPR: item.keterangan || "",
                     divisi: pr.id_divisi
-                      ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                      ? localDivisiMap[String(pr.id_divisi)] || pr.id_divisi
                       : "",
                     dibuatOleh: pr.dibuatOleh,
                     skemaPR: pr.id_skema ?? "",
                     skemaPRLabel: pr.id_skema
-                      ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                      ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
                       : "",
                     targetTanggalPO: formatDateSimple(pr.estimasipo),
                     delay: "",
-                    status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "", // <-- ambil dari item.statusTerima
-                    id_POItem: poItem?.id_POItem || "", // <-- Pass item ID
+                    status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "",
+                    id_POItem: poItem?.id_POItem || "",
                     noPO: po?.noPO || "",
                     tanggalPO: po?.tanggalPO
                       ? (() => {
@@ -797,32 +772,32 @@ export default function RekapFullPage() {
                       })()
                       : "",
                     supplier: po?.id_supplier
-                      ? supplierMap[String(po.id_supplier)] || ""
+                      ? localSupplierMap[String(po.id_supplier)] || ""
                       : "",
-                    quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                    quantityPO: item.jumlah ?? "",
+                    quantityAwalPO: poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "",
+                    quantityPO: item?.jumlah ?? "",
                     satuanPO:
                       item.id_satuan
-                        ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                        ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                         : "",
                     hargaSatuanPO: poItem?.hargaSatuan ?? "",
                     diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
-                      ? (() => {
-                        const val = String(poItem.diskonPersen);
-                        if (val.includes('+') || val.endsWith('%')) return val;
-                        const num = Number(val);
-                        return isNaN(num) ? val : (num % 1 === 0 ? num.toString() : num.toFixed(2)) + "%";
-                      })()
+                      ? (typeof poItem.diskonPersen === "string" && poItem.diskonPersen.includes("+")
+                        ? poItem.diskonPersen
+                        : (Number(poItem.diskonPersen) % 1 === 0
+                          ? Number(poItem.diskonPersen).toString()
+                          : Number(poItem.diskonPersen).toFixed(2)
+                        ) + "%"
+                      )
                       : "",
-                    diskonRp: po?.originalDiskon ?? "",
+                    diskonRp: poItem?.diskonRupiah ?? "",
                     ppnPersen: poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
                       ? (Number(poItem.ppnPersen) % 1 === 0
                         ? Number(poItem.ppnPersen).toString()
                         : Number(poItem.ppnPersen).toFixed(2)
                       ) + "%"
                       : "",
-                    ppnRp: poItem?.ppnRupiah ?? "",
-                    // total per item (hitung dari hargaSatuan & jumlah serta diskon/ppn di POItem)
+                    ppnRp: po?.ppnAmount ?? "",
                     totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
                     tanggalEstimasiDiterima: po?.estimasiTanggalTerima
                       ? (() => {
@@ -833,14 +808,13 @@ export default function RekapFullPage() {
                       })()
                       : "",
                     statusPengiriman: po?.id_statusPengiriman
-                      ? statusPengirimanMap[String(po.id_statusPengiriman)] || ""
+                      ? localStatusPengirimanMap[String(po.id_statusPengiriman)] || ""
                       : "",
                     diorderOleh: po?.orderedBy
-                      ? userMap[String(po.orderedBy)] || ""
+                      ? localUserMap[String(po.orderedBy)] || po.orderedBy
                       : "",
                     diinputOleh: poItem?.namaPembeli ?? "",
-                    skemaPO: po?.id_skema ? skemaMap[String(po.id_skema)] || "" : "",
-                    // BTB kosong
+                    skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
                     noBTB: "",
                     tanggalBTB: "",
                     periodeBTB: "",
@@ -848,22 +822,20 @@ export default function RekapFullPage() {
                     namaBarangBTB: "",
                     quantityBTB: "",
                     satuanBTB: "",
-                    sisaStokBTB: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
+                    sisaStokBTB: poItem?.jumlahPO || "",
                     statusPermintaanByPR: "",
                     plan: pr.plan || "",
                     noPlan: "",
                     biayaBTB: "",
                     diterimaOleh: "",
                     skemaBTB: "",
-                    targetPencapaianPO: "", // <-- tetap kosong jika belum ada BTB
-                    id_btb_item: "", // <-- No BTB item
+                    targetPencapaianPO: "",
+                    id_btb_item: "",
                   });
                 } else {
                   // Untuk setiap BTB Item yang terkait, cari BTB
                   btbItems.forEach((btbItem: any) => {
                     const btb = btbData.find((b: any) => String(b.id_btb) === String(btbItem.id_btb));
-
-                    // Ambil langsung dari btb.targetPencapaianPo
                     rekapRows.push({
                       id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb || ""),
                       id_PR: pr.id_PR,
@@ -884,16 +856,16 @@ export default function RekapFullPage() {
                       quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
                       quantityPO: item.jumlah ?? "",
                       satuanPR: item.id_satuan
-                        ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                        ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                         : "",
                       keteranganPR: item.keterangan || "",
                       divisi: pr.id_divisi
-                        ? divisiMap[String(pr.id_divisi)] || pr.id_divisi
+                        ? localDivisiMap[String(pr.id_divisi)] || pr.id_divisi
                         : "",
                       dibuatOleh: pr.dibuatOleh,
                       skemaPR: pr.id_skema ?? "",
                       skemaPRLabel: pr.id_skema
-                        ? skemaMap[String(pr.id_skema)] || pr.id_skema
+                        ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
                         : "",
                       targetTanggalPO: formatDateSimple(pr.estimasipo),
                       delay: po?.estimasiTanggalTerima && btb?.tanggal_btb
@@ -902,18 +874,13 @@ export default function RekapFullPage() {
                           return String(days);
                         })()
                         : "",
-                      id_POItem: poItem.id_POItem, // <-- Penting untuk edit status (was missing)
+                      id_POItem: poItem.id_POItem,
                       status: (() => {
-                        // 1. Prioritas: Status Item Manual (poItem.statusTerima)
                         if (poItem?.statusTerima) return poItem.statusTerima;
-
-                        // 2. Jika tidak ada manual, hitung otomatis dari tanggal (jika lengkap)
                         if (pr.estimasipo && po?.tanggalPO) {
                           const delay = countWorkingDaysBetween(pr.estimasipo, po.tanggalPO);
                           return delay <= 0 ? "SCHEDULE" : "TIDAK TERCAPAI";
                         }
-
-                        // 3. Fallback ke status level header / PR
                         return po?.statusterima ?? pr.status ?? "";
                       })(),
                       noPO: po?.noPO || "",
@@ -939,32 +906,32 @@ export default function RekapFullPage() {
                         })()
                         : "",
                       supplier: po?.id_supplier
-                        ? supplierMap[String(po.id_supplier)] || ""
+                        ? localSupplierMap[String(po.id_supplier)] || ""
                         : "",
-                      quantityAwalPO: poItem?.jumlahAsli ?? poItem?.originalJumlah ?? "",
-                      quantityPO: item.jumlah ?? "",
+                      quantityAwalPO: poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "",
+                      quantityPO: item?.jumlah ?? "",
                       satuanPO:
                         item.id_satuan
-                          ? satuanMap[String(item.id_satuan)] || item.id_satuan
+                          ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                           : "",
                       hargaSatuanPO: poItem?.hargaSatuan ?? "",
                       diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
-                        ? (() => {
-                          const val = String(poItem.diskonPersen);
-                          if (val.includes('+') || val.endsWith('%')) return val;
-                          const num = Number(val);
-                          return isNaN(num) ? val : (num % 1 === 0 ? num.toString() : num.toFixed(2)) + "%";
-                        })()
+                        ? (typeof poItem.diskonPersen === "string" && poItem.diskonPersen.includes("+")
+                          ? poItem.diskonPersen
+                          : (Number(poItem.diskonPersen) % 1 === 0
+                            ? Number(poItem.diskonPersen).toString()
+                            : Number(poItem.diskonPersen).toFixed(2)
+                          ) + "%"
+                        )
                         : "",
-                      diskonRp: po?.originalDiskon ?? "",
+                      diskonRp: poItem?.diskonRupiah ?? "",
                       ppnPersen: poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
                         ? (Number(poItem.ppnPersen) % 1 === 0
                           ? Number(poItem.ppnPersen).toString()
                           : Number(poItem.ppnPersen).toFixed(2)
                         ) + "%"
                         : "",
-                      ppnRp: poItem?.ppnRupiah ?? "",
-                      // total per item (hitung dari hargaSatuan & jumlah serta diskon/ppn di POItem)
+                      ppnRp: po?.ppnAmount ?? "",
                       totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
                       tanggalEstimasiDiterima: po?.estimasiTanggalTerima
                         ? (() => {
@@ -975,16 +942,15 @@ export default function RekapFullPage() {
                         })()
                         : "",
                       statusPengiriman: po?.id_statusPengiriman
-                        ? statusPengirimanMap[String(po.id_statusPengiriman)] || ""
+                        ? localStatusPengirimanMap[String(po.id_statusPengiriman)] || ""
                         : "",
                       diorderOleh: po?.orderedBy
-                        ? userMap[String(po.orderedBy)] || ""
+                        ? localUserMap[String(po.orderedBy)] || po.orderedBy
                         : "",
                       diinputOleh: poItem?.namaPembeli ?? "",
-                      skemaPO: po?.id_skema ? skemaMap[String(po.id_skema)] || "" : "",
-                      // === BTB mapping start ===
+                      skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
                       noBTB: btb?.no_btb || "",
-                      id_btb: btb?.id_btb || "", // <-- Add id_btb
+                      id_btb: btb?.id_btb || "",
                       tanggalBTB: btb?.tanggal_btb
                         ? (() => {
                           const d = new Date(btb.tanggal_btb);
@@ -1009,33 +975,26 @@ export default function RekapFullPage() {
                       quantityBTB: btbItem?.jumlah_diterima ?? "",
                       satuanBTB:
                         btbItem?.id_satuan
-                          ? satuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
+                          ? localSatuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
                           : "",
                       biayaBTB: btbItem?.biaya ?? btb?.biaya ?? "",
-                      sisaStokBTB: poItem?.jumlahPO ?? poItem?.jumlah_po ?? "",
+                      sisaStokBTB: poItem?.jumlahPO ?? "",
                       diterimaOleh: btb?.diterima_oleh
-                        ? userMap[String(btb.diterima_oleh)] || btb.diterima_oleh
+                        ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                         : "",
                       plan: pr.plan || "",
                       skemaBTB: btb?.id_skema
-                        ? skemaMap[String(btb.id_skema)] || btb.id_skema
+                        ? localSkemaMap[String(btb.id_skema)] || btb.id_skema
                         : "",
                       targetPencapaianPO: (() => {
-                        // 1. Prioritas: Manual Item (btbItem.targetPencapaianPo)
                         if (btbItem?.targetPencapaianPo) return btbItem.targetPencapaianPo;
-
-                        // 2. RETIRED: Fallback to Header (removed to avoid "Full Delivery" logic)
-
-                        // 3. Hitung otomatis hanya jika BELUM ada manual dan tanggal lengkap
                         if (po?.estimasiTanggalTerima && btb?.tanggal_btb) {
                           const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
                           return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
                         }
-
                         return "";
                       })(),
-                      id_btb_item: btbItem?.id_btb_item || "", // <-- Pass btb item ID
-                      // === BTB mapping end ===
+                      id_btb_item: btbItem?.id_btb_item || "",
                     });
                   });
                 }
@@ -1044,11 +1003,7 @@ export default function RekapFullPage() {
           });
         });
 
-        // SORTING: TANGGAL PR (TERLAMA -> TERBARU) & NO PR (TERKECIL -> TERBESAR)
-        // SORTING: NO PR (TERKECIL -> TERBESAR) & TANGGAL PR (TERLAMA -> TERBARU)
-        // User request: "002, 004, 005" (Strict Numeric Sequence)
         rekapRows.sort((a, b) => {
-          // 1. Prioritas Utama: Nomor PR (Sequence: Kecil ke Besar / 001 -> 002)
           const getSeq = (str: string) => {
             const match = (str || "").trim().match(/(\d+)$/);
             return match ? parseInt(match[1], 10) : 0;
@@ -1056,28 +1011,20 @@ export default function RekapFullPage() {
           const seqDiff = getSeq(a.noPR) - getSeq(b.noPR);
           if (seqDiff !== 0) return seqDiff;
 
-          // 2. Prioritas Kedua: Tanggal PR (Periode: Terlama ke Terbaru)
           const dateA = a.tanggalPR ? new Date(a.tanggalPR).getTime() : 0;
           const dateB = b.tanggalPR ? new Date(b.tanggalPR).getTime() : 0;
           return dateA - dateB;
         });
 
-        setRekapData(rekapRows); // <-- JANGAN groupRowsForTable di sini!
+        setRekapData(rekapRows);
       } catch (err) {
+        console.error("FETCH ERROR:", err);
         setRekapData([]);
       }
     }
     fetchData();
 
-    // Ensure dependency array is up-to-date
-  }, [
-    supplierMap,
-    userMap,
-    skemaMap,
-    statusPengirimanMap,
-    statusPermintaanMap,
-    satuanMap,
-  ]);
+  }, []);
 
 
   // Ambil id_skema dari localStorage (userData)

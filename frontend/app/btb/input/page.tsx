@@ -713,42 +713,15 @@ export default function BTBInputPage() {
           const errText = await res.text();
           console.error("Gagal insert btb_item:", errText);
         }
-        // 3. Update jumlahPO di po_item (PUT)
-        // Ambil data po_item lama
-        const poItemRes = await fetch(
-          `http://192.168.10.10:5000/api/po-item/${item.id_POItem}`
-        );
-        const poItemData = await poItemRes.json();
-        const sisa =
-          Math.max(
-            0,
-            Number(poItemData.jumlahPO || 0) - Number(item.jumlah_diterima)
-          ) || 0;
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error("Gagal insert btb_item:", errText);
+        }
 
-        // Hanya kirim field yang valid untuk update po_item
-        const {
-          id_PO,
-          id_PRItem,
-          hargaSatuan,
-          jumlahAsli,
-          diskonItem,
-          keterangan,
-          // jumlahPO: diupdate
-        } = poItemData;
+        // 3. Update jumlahPO di po_item (PUT) -> REMOVED
+        // Sekarang update jumlahPO ditangani langsung di backend (POST /api/btb-item)
+        // agar tidak mentrigger logic "Edit PO" yang merusak pr_item.jumlah
 
-        await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id_PO,
-            id_PRItem,
-            hargaSatuan,
-            jumlahPO: sisa,
-            jumlahAsli,
-            diskonItem,
-            keterangan,
-          }),
-        });
       }
 
       setNotif({ type: "success", message: "BTB berhasil disimpan!" });
