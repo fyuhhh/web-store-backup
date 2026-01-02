@@ -162,20 +162,29 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    // Ambil id_btb sebelum hapus
-    const [[row]] = await db.query("SELECT id_btb FROM btb_item WHERE id_btb_item = ?", [id]);
+    // Ambil id_btb dan info item sebelum hapus
+    const [[row]] = await db.query("SELECT id_btb, id_POItem, jumlah_diterima FROM btb_item WHERE id_btb_item = ?", [id]);
+
     const [result] = await db.query(
       "DELETE FROM btb_item WHERE id_btb_item = ?",
       [id]
     );
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "BTB Item tidak ditemukan" });
-    // Setelah delete, update biaya pada btb
-    if (row && row.id_btb) {
-      await db.query(
-        "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
-        [row.id_btb, row.id_btb]
-      );
+
+    // Setelah delete:
+    if (row) {
+      // 1. Update biaya pada btb
+      if (row.id_btb) {
+        await db.query(
+          "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
+          [row.id_btb, row.id_btb]
+        );
+      }
+      // 2. Restore PO Quantity (tambahkan kembali jumlah_diterima ke jumlahPO)
+      if (row.id_POItem && row.jumlah_diterima > 0) {
+        await db.query("UPDATE po_item SET jumlahPO = jumlahPO + ? WHERE id_POItem = ?", [row.jumlah_diterima, row.id_POItem]);
+      }
     }
     res.json({ message: "BTB Item berhasil dihapus" });
   } catch (err) {

@@ -283,6 +283,14 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
+    // Sebelum hapus BTB, kembalikan (restore) jumlahPO pada po_item untuk semua item di BTB ini
+    const [btbItems] = await db.query("SELECT id_POItem, jumlah_diterima FROM btb_item WHERE id_btb = ?", [id]);
+    for (const item of btbItems) {
+      if (item.id_POItem && item.jumlah_diterima > 0) {
+        await db.query("UPDATE po_item SET jumlahPO = jumlahPO + ? WHERE id_POItem = ?", [item.jumlah_diterima, item.id_POItem]);
+      }
+    }
+
     const [result] = await db.query("DELETE FROM btb WHERE id_btb = ?", [id]);
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "BTB tidak ditemukan" });
