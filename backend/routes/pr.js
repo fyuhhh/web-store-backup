@@ -1,6 +1,8 @@
-
 import express from "express";
 import db from "../config/database.js";
+
+import { updatePRStatus } from '../utils/statusHelper.js';
+
 
 const router = express.Router();
 
@@ -185,8 +187,8 @@ router.post("/", async (req, res, next) => {
     const calculatedEstimasipo = await calculateTargetPODate(tanggalPR);
 
     const [result] = await db.query(
-      `INSERT INTO pr (noPR, tanggalPR, id_divisi, id_urgensi, id_skema, plan, estimasipo, dibuatOleh, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pr(noPR, tanggalPR, id_divisi, id_urgensi, id_skema, plan, estimasipo, dibuatOleh, status)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         noPR,
         tanggalPR,
@@ -245,17 +247,17 @@ router.put("/:id", async (req, res, next) => {
     const calculatedEstimasipo = await calculateTargetPODate(tanggalPR);
 
     await db.query(
-      `UPDATE pr SET 
-        noPR = ?, 
-        tanggalPR = ?, 
-        id_divisi = ?, 
-        id_urgensi = ?, 
-        id_skema = ?, 
-        plan = ?, 
-        estimasipo = ?, 
-        dibuatOleh = ?, 
-        status = ?
-       WHERE id_PR = ?`,
+      `UPDATE pr SET
+noPR = ?,
+  tanggalPR = ?,
+  id_divisi = ?,
+  id_urgensi = ?,
+  id_skema = ?,
+  plan = ?,
+  estimasipo = ?,
+  dibuatOleh = ?,
+  status = ?
+    WHERE id_PR = ? `,
       [
         noPR,
         tanggalPR,
@@ -273,7 +275,7 @@ router.put("/:id", async (req, res, next) => {
     const [[updatedRow]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [id]);
     if (updatedRow) {
       updatedRow.tanggalPR = formatDate(updatedRow.tanggalPR);
-      updatedRow.estimasipo = formatDate(updatedRow.estimasipo);
+      updatedRow.estimasipo = formatDateDDMMYYYY(updatedRow.estimasipo); // Format DD-MM-YYYY
       updatedRow.createdAt = formatDate(updatedRow.createdAt);
     }
     res.json(updatedRow);
@@ -282,24 +284,30 @@ router.put("/:id", async (req, res, next) => {
   }
 });
 
-
-
 // DELETE PR
 router.delete("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
-    const [[row]] = await db.query("SELECT * FROM pr WHERE id_PR = ?", [id]);
-    if (!row) return res.status(404).json({ message: "PR tidak ditemukan" });
 
-    // Delete items first
+    // Check if any item has been processed (jumlah < originalJumlah)
+    const [items] = await db.query("SELECT * FROM pr_item WHERE id_PR = ?", [id]);
+    const processedItem = items.find(
+      (item) => parseFloat(item.jumlah) < parseFloat(item.originalJumlah)
+    );
+
+    if (processedItem) {
+      return res.status(400).json({
+        message: "Tidak dapat menghapus PR yang sudah diproses (sebagian/penuh).",
+      });
+    }
+
     await db.query("DELETE FROM pr_item WHERE id_PR = ?", [id]);
-    // Delete PR
     await db.query("DELETE FROM pr WHERE id_PR = ?", [id]);
-
-    res.json({ message: "PR berhasil dihapus" });
+    res.json({ message: "PR deleted" });
   } catch (err) {
     next(err);
   }
 });
 
 export default router;
+

@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { type PRData } from "@/lib/dummy-data";
 import { useSearchParams } from "next/navigation";
 
@@ -697,140 +697,156 @@ export default function InputBaruPRPage() {
                 </div>
                 <div>
                   <Label htmlFor="divisi">Divisi</Label>
-                  <Select
-                    value={formData.divisi}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, divisi: value })
-                    }
-                  >
-                    <SelectTrigger className="bg-white w-full">
-                      <SelectValue placeholder="Pilih divisi" />
-                    </SelectTrigger>
-                    <SelectContent
-                      className="bg-white max-h-[384px] overflow-y-auto relative"
-                      style={{
-                        scrollbarWidth: "auto",
-                        scrollbarColor: "#bbb #fff",
-                        overscrollBehavior: "contain",
-                      }}
+                  <div className="relative">
+                    <Select
+                      value={formData.divisi}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, divisi: value })
+                      }
                     >
-                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                        {showAddDivisi ? (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Input
-                              placeholder="Ketikan divisi disini"
-                              value={newDivisi}
-                              onChange={(e) => setNewDivisi(e.target.value)}
-                              className="w-[140px]"
-                              autoFocus
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={async () => {
-                                await handleAddDivisi();
-                                setShowAddDivisi(false);
-                                setNewDivisi("");
-                              }}
-                              className="bg-primary text-white"
-                            >
-                              Simpan
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setShowAddDivisi(false);
-                                setNewDivisi("");
-                              }}
-                            >
-                              Batal
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            <Input
-                              placeholder="Cari divisi..."
-                              value={divisiSearch}
-                              onChange={(e) => setDivisiSearch(e.target.value)}
-                              className="mb-2"
-                              disabled={showAddDivisi}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="mb-2 w-full"
-                              onClick={() => {
-                                setShowAddDivisi(true);
-                                setDivisiSearch("");
-                              }}
-                              disabled={showAddDivisi}
-                            >
-                              + Tambahkan Divisi
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                      {/* Saat tambah divisi aktif, SEMUA pilihan divisi di bawah ini di-nonaktifkan */}
-                      {showAddDivisi
-                        ? null
-                        : (
-                          <>
-                            {divisiOptions.length === 0 ? (
-                              <SelectItem value="__loading" disabled>
-                                Memuat...
-                              </SelectItem>
-                            ) : (
-                              divisiOptions
-                                .filter((div: any) =>
+                      <SelectTrigger className="bg-white w-full pr-8">
+                        <SelectValue placeholder="Pilih divisi" />
+                      </SelectTrigger>
+                      <SelectContent
+                        className="bg-white max-h-[384px] overflow-y-auto relative"
+                        style={{
+                          scrollbarWidth: "auto",
+                          scrollbarColor: "#bbb #fff",
+                          overscrollBehavior: "contain",
+                        }}
+                      >
+                        <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                          {showAddDivisi ? (
+                            <div className="flex items-center gap-2 mb-2">
+                              <Input
+                                placeholder="Ketikan divisi disini"
+                                value={newDivisi}
+                                onChange={(e) => setNewDivisi(e.target.value)}
+                                className="w-[140px]"
+                                autoFocus
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={async () => {
+                                  await handleAddDivisi();
+                                  setShowAddDivisi(false);
+                                  setNewDivisi("");
+                                }}
+                                className="bg-primary text-white"
+                              >
+                                Simpan
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setShowAddDivisi(false);
+                                  setNewDivisi("");
+                                }}
+                              >
+                                Batal
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <Input
+                                placeholder="Cari divisi..."
+                                value={divisiSearch}
+                                onChange={(e) => setDivisiSearch(e.target.value)}
+                                className="mb-2"
+                                disabled={showAddDivisi}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="mb-2 w-full"
+                                onClick={() => {
+                                  setShowAddDivisi(true);
+                                  setDivisiSearch("");
+                                }}
+                                disabled={showAddDivisi}
+                              >
+                                + Tambahkan Divisi
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                        {/* Saat tambah divisi aktif, SEMUA pilihan divisi di bawah ini di-nonaktifkan */}
+                        {showAddDivisi
+                          ? null
+                          : (
+                            <>
+                              {divisiOptions.length === 0 ? (
+                                <SelectItem value="__loading" disabled>
+                                  Memuat...
+                                </SelectItem>
+                              ) : (
+                                divisiOptions
+                                  .filter((div: any) =>
+                                    div.divisi
+                                      .toLowerCase()
+                                      .includes(divisiSearch.toLowerCase())
+                                  )
+                                  .map((div: any) => (
+                                    <div
+                                      key={div.id_divisi}
+                                      className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
+                                    >
+                                      <SelectItem
+                                        value={String(div.id_divisi)}
+                                        className="flex-1"
+                                        disabled={showAddDivisi}
+                                      >
+                                        {div.divisi}
+                                      </SelectItem>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs text-red-600 px-1 py-0.5"
+                                        onClick={() =>
+                                          handleDeleteDivisi(String(div.id_divisi))
+                                        }
+                                        disabled={showAddDivisi}
+                                      >
+                                        Hapus
+                                      </Button>
+                                    </div>
+                                  ))
+                              )}
+                              {divisiOptions.length > 0 &&
+                                divisiOptions.filter((div: any) =>
                                   div.divisi
                                     .toLowerCase()
                                     .includes(divisiSearch.toLowerCase())
-                                )
-                                .map((div: any) => (
-                                  <div
-                                    key={div.id_divisi}
-                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                                  >
-                                    <SelectItem
-                                      value={String(div.id_divisi)}
-                                      className="flex-1"
-                                      disabled={showAddDivisi}
-                                    >
-                                      {div.divisi}
-                                    </SelectItem>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="ghost"
-                                      className="text-xs text-red-600 px-1 py-0.5"
-                                      onClick={() =>
-                                        handleDeleteDivisi(String(div.id_divisi))
-                                      }
-                                      disabled={showAddDivisi}
-                                    >
-                                      Hapus
-                                    </Button>
-                                  </div>
-                                ))
-                            )}
-                            {divisiOptions.length > 0 &&
-                              divisiOptions.filter((div: any) =>
-                                div.divisi
-                                  .toLowerCase()
-                                  .includes(divisiSearch.toLowerCase())
-                              ).length === 0 && (
-                                <SelectItem value="__notfound" disabled>
-                                  Data tidak ditemukan
-                                </SelectItem>
-                              )}
-                          </>
-                        )
-                      }
-                    </SelectContent>
-                  </Select>
+                                ).length === 0 && (
+                                  <SelectItem value="__notfound" disabled>
+                                    Data tidak ditemukan
+                                  </SelectItem>
+                                )}
+                            </>
+                          )
+                        }
+                      </SelectContent>
+                    </Select>
+                    {formData.divisi && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-8 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground z-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFormData({ ...formData, divisi: "" });
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="urgensi">Urgensi</Label>

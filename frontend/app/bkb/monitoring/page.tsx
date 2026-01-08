@@ -349,7 +349,7 @@ export default function BKBMonitoringPage() {
     // Filter berdasarkan rentang tanggal jika diisi
     .filter((row) => {
       let matchDateRange = true;
-      if (startDate && endDate) {
+      if (startDate || endDate) {
         // row.tanggalBKB format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
         const tgl = (row.tanggalBKB || "").split("T")[0];
         if (tgl) {
@@ -359,9 +359,21 @@ export default function BKBMonitoringPage() {
             Number(parts[1]) - 1,
             Number(parts[2])
           );
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-          matchDateRange = tglDate >= startDate && tglDate <= end;
+
+          let afterStart = true;
+          let beforeEnd = true;
+
+          if (startDate) {
+            afterStart = tglDate >= startDate;
+          }
+
+          if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            beforeEnd = tglDate <= end;
+          }
+
+          matchDateRange = afterStart && beforeEnd;
         } else {
           matchDateRange = false;
         }
@@ -940,7 +952,7 @@ export default function BKBMonitoringPage() {
                         grouped.get(key)!.push(row);
                       });
 
-                      return Array.from(grouped.entries()).map(([id_bkb, items]) => {
+                      return Array.from(grouped.entries()).map(([id_bkb, items], idx) => {
                         if (!items || items.length === 0) return null;
                         // Urutkan items ASC by id_bkb_item (atau id_bkbItem/id)
                         const sortedItems = [...items].sort((a, b) => {
@@ -951,8 +963,7 @@ export default function BKBMonitoringPage() {
                           <React.Fragment key={id_bkb}>
                             <TableRow
                               id={items[0].noBKB}
-                              className={`hover:bg-gray-50 transition-colors ${highlight && items[0].noBKB === highlight ? "bg-yellow-100" : ""
-                                }`}
+                              className={`hover:bg-blue-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} ${highlight && items[0].noBKB === highlight ? "bg-yellow-100" : ""}`}
                             >
                               {/* Checkbox hanya di baris pertama */}
                               <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
@@ -1050,8 +1061,8 @@ export default function BKBMonitoringPage() {
                               </TableCell>
                             </TableRow>
                             {/* Baris item berikutnya */}
-                            {sortedItems.slice(1).map((item, idx) => (
-                              <TableRow key={`${id_bkb}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors">
+                            {sortedItems.slice(1).map((item, idx2) => (
+                              <TableRow key={`${id_bkb}-item-${idx2 + 1}`} className={`hover:bg-blue-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                                 {/* Nama Barang - item berikutnya */}
                                 <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
                                   {item.namaBarang}

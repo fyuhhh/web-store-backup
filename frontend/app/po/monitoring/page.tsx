@@ -281,16 +281,16 @@ export default function MonitoringPOPage() {
         userRes, // <-- tambahkan fetch user
         btbRes, // <-- fetch BTB
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/po"),
-        fetch("http://192.168.10.10:5000/api/po-item"),
-        fetch("http://192.168.10.10:5000/api/pr-item"),
-        fetch("http://192.168.10.10:5000/api/pr"),
-        fetch("http://192.168.10.10:5000/api/supplier"),
-        fetch("http://192.168.10.10:5000/api/status-permintaan"),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-        fetch("http://192.168.10.10:5000/api/skema"),
-        fetch("http://192.168.10.10:5000/api/user"), // <-- fetch user
-        fetch("http://192.168.10.10:5000/api/btb"), // <-- fetch BTB
+        fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/supplier", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/status-permintaan", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/status-pengiriman", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/skema", { cache: "no-store" }),
+        fetch("http://192.168.10.10:5000/api/user", { cache: "no-store" }), // <-- fetch user
+        fetch("http://192.168.10.10:5000/api/btb", { cache: "no-store" }), // <-- fetch BTB
       ]);
 
       const [
@@ -470,6 +470,7 @@ export default function MonitoringPOPage() {
                 : undefined,
             // --- TAMBAHAN: mapping namaPembeli dari po_item ---
             namaPembeli: pi.namaPembeli ?? "",
+            status: pi.status,
           };
           const key = String(noPR || prId || "__noPR__");
           if (groupMap[key] === undefined) {
@@ -529,11 +530,12 @@ export default function MonitoringPOPage() {
           totalPembayaran: Number(po.totalPembayaran) || 0,
           statusPermintaan: statusPermintaanLabel,
           statusPengiriman: statusPengirimanLabel,
-          status: po.status ?? "Menunggu",
+          status: po.status ?? "WAITING PART",
           orderedBy: orderedByName, // <-- tampilkan nama user
           skema: po.id_skema ?? "", // <-- simpan id_skema, bukan label
           rawSkemaId: po.id_skema ?? null, // <-- id_skema untuk filter
           isProcessed: processedPOIds.has(String(po.id_PO ?? po.id)), // <-- Flag if processed
+          termin: po.termin ?? "", // <-- simpan nama termin
         };
       });
 
@@ -768,53 +770,25 @@ export default function MonitoringPOPage() {
         }
       }
 
-      // --- Setelah semua proses, update status PR ke "Gantung" ---
-      if (mode === "restore") {
-        for (const prId of prIdsToUpdate) {
-          if (!prId || prId === "undefined") continue;
-          // --- Tambahkan log sebelum fetch ---
-          console.log("[DEBUG] Akan fetch PR untuk update status:", prId);
-          // Ambil data PR lama
-          const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
-          if (prRes.ok) {
-            const prData = await prRes.json();
-            // Kirim semua field PR lama + status baru "Gantung"
-            // Pastikan field status dikirim dan tidak kosong
-            await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...prData,
-                status: "Gantung",
-              }),
-            });
-          } else {
-            setToastMsg(
-              `PR id ${prId} tidak ditemukan. Tidak dapat mengubah status.`
-            );
-            setToastOpen(true);
-          }
-        }
-        // --- Tambahkan: cek PO yang sudah tidak punya item, hapus PO ---
-        for (const poId of poIdsToCheck) {
-          // Fetch semua item PO dari backend
-          const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item`
+      // --- Tambahkan: cek PO yang sudah tidak punya item, hapus PO ---
+      for (const poId of poIdsToCheck) {
+        // Fetch semua item PO dari backend
+        const poItemRes = await fetch(
+          `http://192.168.10.10:5000/api/po-item`
+        );
+        if (poItemRes.ok) {
+          const poItems = await poItemRes.json();
+          // Filter item PO dengan id_PO = poId dan jumlahPO > 0
+          const itemsMasihAda = poItems.filter(
+            (item: any) =>
+              String(item.id_PO) === String(poId) &&
+              Number(item.jumlahPO) > 0
           );
-          if (poItemRes.ok) {
-            const poItems = await poItemRes.json();
-            // Filter item PO dengan id_PO = poId dan jumlahPO > 0
-            const itemsMasihAda = poItems.filter(
-              (item: any) =>
-                String(item.id_PO) === String(poId) &&
-                Number(item.jumlahPO) > 0
-            );
-            if (itemsMasihAda.length === 0) {
-              // Hapus PO dari backend
-              await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
-                method: "DELETE",
-              });
-            }
+          if (itemsMasihAda.length === 0) {
+            // Hapus PO dari backend
+            await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
+              method: "DELETE",
+            });
           }
         }
       }
@@ -854,7 +828,7 @@ export default function MonitoringPOPage() {
     // Filter hanya PO dengan id_skema sesuai user login
     .filter((po) => !userSkemaId || String(po.skema) === String(userSkemaId))
     .map((po) => {
-      let status = po.status || "Menunggu";
+      let status = po.status || "WAITING PART";
       return { ...po, status };
     })
     .filter(
@@ -1017,25 +991,29 @@ export default function MonitoringPOPage() {
   const paginatedData = sortedPOData;
 
   // Badge status
+  // Badge status
   const getStatusBadge = (status: string) => {
-    if (status === "Completed" || status === "Telah dibuat BTB") {
+    // Green: Selesai / Complete
+    if (status === "Completed" || status === "Telah dibuat BTB" || status === "PART COMPLETE" || status === "Telah Selesai") {
       return (
         <Badge className="bg-success/10 text-success border-success/20">
-          Selesai
+          {status === "PART COMPLETE" ? "PART COMPLETE" : "Selesai"}
         </Badge>
       );
     }
-    if (status === "Menunggu") {
+    // Yellow: Partial / Gantung
+    if (status === "PARTIAL PART" || status === "Gantung" || status === "PARTIAL PO") {
       return (
         <Badge className="bg-warning/10 text-warning border-warning/20">
           {status}
         </Badge>
       );
     }
-    if (status === "Gantung") {
+    // Red: Waiting / Menunggu
+    if (status === "Menunggu" || status === "WAITING PART" || status === "WAITING PO") {
       return (
         <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-          {status}
+          {status === "Menunggu" ? "WAITING PART" : status}
         </Badge>
       );
     }
@@ -1061,13 +1039,14 @@ export default function MonitoringPOPage() {
     .filter((s) => s.trim() !== "")
     .sort();
   const uniqueStatus = [
+    "WAITING PART",
+    "PARTIAL PART",
+    "PART COMPLETE",
     "Draft",
     "Submitted",
     "Approved",
     "Delivered",
     "Completed",
-    "Menunggu",
-    "Gantung",
     "Telah dibuat BTB",
   ];
   const uniqueTanggalPO = Array.from(
@@ -1873,6 +1852,7 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
+
                     <TableHead
                       className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
                       style={{
@@ -2082,75 +2062,8 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
-                    <TableHead
-                      className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
-                      style={{
-                        position: "sticky",
-                        top: 0,
-                        zIndex: 10,
-                        background: "#f3f4f6",
-                        borderBottom: "2px solid #d1d5db",
-                      }}
-                    >
-                      {/* Ordered By */}
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-auto p-0 font-medium"
-                          >
-                            ORDERED BY
-                            <ChevronDown className="ml-1 h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                          <Label className="text-sm font-medium">
-                            Cari User
-                          </Label>
-                          <Input
-                            placeholder="Cari user..."
-                            value={diorderOlehSearchTerm}
-                            onChange={(e) =>
-                              setDiorderOlehSearchTerm(e.target.value)
-                            }
-                            className="mb-2"
-                          />
-                          <div className="max-h-32 overflow-y-auto space-y-1">
-                            {uniqueDiorderOleh
-                              .filter((o) =>
-                                o
-                                  .toLowerCase()
-                                  .includes(diorderOlehSearchTerm.toLowerCase())
-                              )
-                              .map((o) => (
-                                <div
-                                  key={o}
-                                  className="flex items-center space-x-2"
-                                >
-                                  <Checkbox
-                                    id={`diorder-${o}`}
-                                    checked={filterDiorderOleh.includes(o)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked)
-                                        setFilterDiorderOleh([
-                                          ...filterDiorderOleh,
-                                          o,
-                                        ]);
-                                      else
-                                        setFilterDiorderOleh(
-                                          filterDiorderOleh.filter(
-                                            (x) => x !== o
-                                          )
-                                        );
-                                    }}
-                                  />
-                                  <Label htmlFor={`diorder-${o}`} className="text-sm">{o}</Label>
-                                </div>
-                              ))}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
-                    </TableHead>
+
+
                     {/* --- KOLOM BARU: Nama Pembeli --- */}
                     <TableHead
                       className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase"
@@ -2162,7 +2075,7 @@ export default function MonitoringPOPage() {
                         borderBottom: "2px solid #d1d5db",
                       }}
                     >
-                      NAMA PEMBELI
+                      ORDERED BY
                     </TableHead>
                     <TableHead
                       className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
@@ -2372,6 +2285,88 @@ export default function MonitoringPOPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
+                    {/* TERMIN PEMBAYARAN */}
+                    <TableHead
+                      className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 10,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      TERMIN PEMBAYARAN
+                    </TableHead>
+                    {/* ORDERED BY (Moved to end) */}
+                    <TableHead
+                      className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 10,
+                        background: "#f3f4f6",
+                        borderBottom: "2px solid #d1d5db",
+                      }}
+                    >
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="h-auto p-0 font-medium"
+                          >
+                            DIBUAT OLEH
+                            <ChevronDown className="ml-1 h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                          <Label className="text-sm font-medium">
+                            Cari User
+                          </Label>
+                          <Input
+                            placeholder="Cari user..."
+                            value={diorderOlehSearchTerm}
+                            onChange={(e) =>
+                              setDiorderOlehSearchTerm(e.target.value)
+                            }
+                            className="mb-2"
+                          />
+                          <div className="max-h-32 overflow-y-auto space-y-1">
+                            {uniqueDiorderOleh
+                              .filter((o) =>
+                                o
+                                  .toLowerCase()
+                                  .includes(diorderOlehSearchTerm.toLowerCase())
+                              )
+                              .map((o) => (
+                                <div
+                                  key={o}
+                                  className="flex items-center space-x-2"
+                                >
+                                  <Checkbox
+                                    id={`diorder-${o}`}
+                                    checked={filterDiorderOleh.includes(o)}
+                                    onCheckedChange={(checked) => {
+                                      if (checked)
+                                        setFilterDiorderOleh([
+                                          ...filterDiorderOleh,
+                                          o,
+                                        ]);
+                                      else
+                                        setFilterDiorderOleh(
+                                          filterDiorderOleh.filter(
+                                            (x) => x !== o
+                                          )
+                                        );
+                                    }}
+                                  />
+                                  <Label htmlFor={`diorder-${o}`} className="text-sm">{o}</Label>
+                                </div>
+                              ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableHead>
                     {/* <TableHead
                       className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
                       style={{
@@ -2437,6 +2432,7 @@ export default function MonitoringPOPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedData.map((po) => {
+
                     // Flatten all items from all poItems, urutan sesuai backend/input PO
                     const allItems = po.poItems.flatMap((poItem: any) =>
                       poItem.items.map((item: any) => ({
@@ -2537,6 +2533,7 @@ export default function MonitoringPOPage() {
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[60px] uppercase">
                               {item.satuan}
                             </TableCell>
+
                             <TableCell
                               className="px-3 py-1 border-r border-gray-300 align-middle text-left max-w-[120px] whitespace-nowrap overflow-hidden text-ellipsis uppercase"
                             >
@@ -2562,7 +2559,7 @@ export default function MonitoringPOPage() {
                               </HoverCard>
                             </TableCell>
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[120px] uppercase">
-                              Rp {item.hargaSatuan?.toLocaleString("id-ID")}
+                              Rp {Number(item.hargaSatuan).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             {/* Kolom baru: Diskon (%) */}
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
@@ -2575,7 +2572,7 @@ export default function MonitoringPOPage() {
                               {item.diskonNominal
                                 ? `Rp ${Number(
                                   item.diskonNominal
-                                ).toLocaleString("id-ID")}`
+                                ).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 : ""}
                             </TableCell>
                             {/* Kolom baru: PPN (%) */}
@@ -2586,7 +2583,7 @@ export default function MonitoringPOPage() {
                             <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[90px] uppercase">
                               {item.ppnAmount
                                 ? `Rp ${Number(item.ppnAmount).toLocaleString(
-                                  "id-ID"
+                                  "id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }
                                 )}`
                                 : ""}
                             </TableCell>
@@ -2595,7 +2592,7 @@ export default function MonitoringPOPage() {
                                 item.totalPerItem !== null
                                 ? `Rp ${Number(
                                   item.totalPerItem
-                                ).toLocaleString("id-ID")}`
+                                ).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 : ""}
                             </TableCell>
                             {itemIndex === 0 ? (
@@ -2606,15 +2603,9 @@ export default function MonitoringPOPage() {
                                   className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase"
                                 >
                                   Rp{" "}
-                                  {po.totalPembayaran.toLocaleString("id-ID")}
+                                  {po.totalPembayaran.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </TableCell>
-                                <TableCell
-                                  key="orderedBy"
-                                  rowSpan={allItems.length}
-                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
-                                >
-                                  {po.orderedBy ?? ""}
-                                </TableCell>
+
                                 {/* --- KOLOM BARU: Nama Pembeli (display dari item pertama) --- */}
                                 <TableCell
                                   key="namaPembeli"
@@ -2643,6 +2634,24 @@ export default function MonitoringPOPage() {
                             >
                               {getStatusBadge(po.status || "")}
                             </TableCell>
+                            {itemIndex === 0 ? (
+                              <>
+                                <TableCell
+                                  key="termin"
+                                  rowSpan={allItems.length}
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
+                                >
+                                  {po.termin ?? "-"}
+                                </TableCell>
+                                <TableCell
+                                  key="orderedBy"
+                                  rowSpan={allItems.length}
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
+                                >
+                                  {po.orderedBy ?? ""}
+                                </TableCell>
+                              </>
+                            ) : null}
                             {/* <TableCell
                                   key="skema"
                                   rowSpan={allItems.length}

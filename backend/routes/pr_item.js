@@ -2,6 +2,7 @@ import express from "express";
 import db from "../config/database.js";
 
 const router = express.Router();
+import { updatePRStatus } from '../utils/statusHelper.js';
 
 // ✅ GET semua PR_Item
 router.get("/", async (req, res) => {
@@ -112,7 +113,11 @@ router.post("/", async (req, res) => {
       quantityAwalPR: finalQuantityAwalPR,
       id_satuan,
       keterangan,
+      keterangan,
     });
+
+    // Update PR Status
+    await updatePRStatus(id_PR);
 
     res.status(201).json({
       message: "PR Item berhasil dibuat",
@@ -186,6 +191,12 @@ router.put("/:id", async (req, res) => {
 
     await db.query(sql, values);
 
+    // Get id_PR for status update (need to fetch it first as we only have id_PRItem)
+    const [[prItem]] = await db.query("SELECT id_PR FROM pr_item WHERE id_PRItem = ?", [id]);
+    if (prItem) {
+      await updatePRStatus(prItem.id_PR);
+    }
+
     res.json({ message: "PR Item berhasil diupdate" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -198,15 +209,34 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    // Tambahkan log id yang diterima
     console.log("DELETE PR_Item id_PRItem:", id);
-    const [result] = await db.query("DELETE FROM pr_item WHERE id_PRItem = ?", [
-      id,
-    ]);
+
+    // Ambil id_PR dan status jumlah sebelum hapus
+    const [[itemToDelete]] = await db.query("SELECT * FROM pr_item WHERE id_PRItem = ?", [id]);
+
+    if (!itemToDelete) {
+      return res.status(404).json({ message: "PR Item tidak ditemukan" });
+    }
+
+    // Validation: Cannot delete if processed
+    if (parseFloat(itemToDelete.jumlah) < parseFloat(itemToDelete.originalJumlah)) {
+      return res.status(400).json({
+        message: "Tidak dapat menghapus Item PR yang sudah diproses PO.",
+      });
+    }
+
+    const [result] = await db.query("DELETE FROM pr_item WHERE id_PRItem = ?", [id]);
+
     console.log("DELETE result:", result);
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "PR Item tidak ditemukan" });
     }
+
+    if (itemToDelete) {
+      await updatePRStatus(itemToDelete.id_PR);
+    }
+
     res.json({ message: "PR Item berhasil dihapus" });
   } catch (err) {
     res.status(500).json({ error: err.message });

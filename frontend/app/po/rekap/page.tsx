@@ -224,7 +224,7 @@ export default function RekapPOPage() {
           <Card className="bg-card border-border">
             <CardContent className="p-6 text-center">
               <div className="text-2xl font-bold text-primary">
-                Rp {getTotalValue().toLocaleString("id-ID")}
+                Rp {getTotalValue().toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
               </div>
               <div className="text-sm text-muted-foreground">Total Nilai</div>
             </CardContent>
@@ -445,7 +445,7 @@ export default function RekapPOPage() {
                           {totalItems} item
                         </TableCell>
                         <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[120px]">
-                          Rp {po.totalPembayaran.toLocaleString("id-ID")}
+                          Rp {po.totalPembayaran.toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="px-4 py-2 border-r border-gray-300 align-middle text-left min-w-[100px]">
                           {po.status}

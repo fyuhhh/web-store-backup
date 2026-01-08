@@ -28,6 +28,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { Edit2, Trash2 } from "lucide-react";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -75,6 +76,7 @@ function InputPOContent() {
     statusPengiriman: "",
     skema: "",
     namaPembeli: "", // <-- Tambahkan state namaPembeli
+    termin: "", // <-- Tambahkan state termin
   });
 
   const [userSkema, setUserSkema] = useState("");
@@ -343,8 +345,9 @@ function InputPOContent() {
         // Parse hargaSatuan as float, support comma/period
         let harga = 0;
         if (typeof item.hargaSatuan === "string") {
-          // Normalize decimal: remove thousands separator, replace ',' with '.'
-          const normalized = item.hargaSatuan.replace(/\./g, "").replace(",", ".");
+          // Robust cleaning: remove "Rp.", dots, spaces. keep comma.
+          const cleanString = item.hargaSatuan.replace(/[^0-9,]/g, "");
+          const normalized = cleanString.replace(",", ".");
           harga = parseFloat(normalized) || 0;
         } else {
           harga = Number(item.hargaSatuan) || 0;
@@ -478,7 +481,15 @@ function InputPOContent() {
   const [editStatusPengirimanValue, setEditStatusPengirimanValue] =
     useState("");
 
-  // Fetch supplier, status_pengiriman, status_permintaan dari backend
+  // Tambahkan state untuk termin
+  const [terminOptions, setTerminOptions] = useState<any[]>([]);
+  const [terminSearch, setTerminSearch] = useState("");
+  const [showAddTermin, setShowAddTermin] = useState(false);
+  const [newTermin, setNewTermin] = useState("");
+  const [editTerminId, setEditTerminId] = useState<string | null>(null);
+  const [editTerminValue, setEditTerminValue] = useState("");
+
+  // Fetch supplier, status_pengiriman, status_permintaan, termin dari backend
   useEffect(() => {
     fetch("http://192.168.10.10:5000/api/supplier")
       .then((res) => res.json())
@@ -486,6 +497,20 @@ function InputPOContent() {
     fetch("http://192.168.10.10:5000/api/status-pengiriman")
       .then((res) => res.json())
       .then((data) => setStatusPengirimanOptions(data));
+    fetch("http://192.168.10.10:5000/api/termin")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setTerminOptions(data);
+        } else {
+          console.error("API /termin did not return an array:", data);
+          setTerminOptions([]);
+        }
+      })
+      .catch(err => {
+        console.error("Failed to fetch termin:", err);
+        setTerminOptions([]);
+      });
   }, []);
 
   // Handler tambah supplier
@@ -603,6 +628,64 @@ function InputPOContent() {
     } catch { }
   };
 
+  // Handler tambah termin
+  const handleAddTermin = async () => {
+    if (!newTermin.trim()) return;
+    const res = await fetch("http://192.168.10.10:5000/api/termin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ termin: newTermin }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setTerminOptions((prev) => [...prev, data]);
+      setPoFormData((prev) => ({ ...prev, termin: data.id_termin || data.id }));
+      setShowAddTermin(false);
+      setNewTermin("");
+    }
+  };
+
+  // Handler edit termin
+  const handleEditTermin = async (id: string) => {
+    if (!editTerminValue.trim()) return;
+    try {
+      const res = await fetch(`http://192.168.10.10:5000/api/termin/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ termin: editTerminValue }),
+      });
+      if (res.ok) {
+        fetch("http://192.168.10.10:5000/api/termin")
+          .then((res) => res.json())
+          .then((data) => setTerminOptions(data));
+        setEditTerminId(null);
+        setEditTerminValue("");
+      }
+    } catch { }
+  };
+
+  // Handler hapus termin
+  const handleDeleteTermin = async (id: string) => {
+    if (!id) return;
+    if (!window.confirm("Yakin ingin menghapus termin ini?")) return;
+    try {
+      const res = await fetch(`http://192.168.10.10:5000/api/termin/${id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        fetch("http://192.168.10.10:5000/api/termin")
+          .then((res) => res.json())
+          .then((data) => {
+            setTerminOptions(data);
+            // Reset jika yang dihapus sedang dipilih
+            if (String(poFormData.termin) === String(id)) {
+              setPoFormData(prev => ({ ...prev, termin: "" }));
+            }
+          });
+      }
+    } catch { }
+  };
+
   // Handler submit PO
   const handleCreatePO = async () => {
     // Pastikan tidak sedang menambah supplier/status pengiriman
@@ -659,6 +742,7 @@ function InputPOContent() {
       id_statusPermintaan: null,
       status: "Menunggu",
       id_skema: poFormData.skema,
+      id_termin: poFormData.termin || null,
     };
 
     try {
@@ -683,9 +767,7 @@ function InputPOContent() {
 
             const harga =
               typeof item.hargaSatuan === "string"
-                ? parseFloat(
-                  (item.hargaSatuan).replace(/\./g, "").replace(",", ".")
-                )
+                ? parseFloat(item.hargaSatuan.replace(/[^0-9,]/g, "").replace(",", "."))
                 : item.hargaSatuan;
 
             const itemPayload = {
@@ -719,7 +801,7 @@ function InputPOContent() {
 
         setNotif({ type: "success", message: "PO berhasil diperbarui!" });
         setTimeout(() => {
-          window.location.href = "/po/monitoring";
+          window.location.href = "/po/status";
         }, 1500);
 
       } else {
@@ -744,9 +826,7 @@ function InputPOContent() {
 
             const harga =
               typeof item.hargaSatuan === "string"
-                ? parseFloat(
-                  (item.hargaSatuan).replace(/\./g, "").replace(",", ".")
-                )
+                ? parseFloat(item.hargaSatuan.replace(/[^0-9,]/g, "").replace(",", "."))
                 : item.hargaSatuan;
 
             const itemPayload = {
@@ -786,7 +866,7 @@ function InputPOContent() {
         localStorage.removeItem("selectedPRsForPO");
         setNotif({ type: "success", message: "PO berhasil dibuat!" });
         setTimeout(() => {
-          window.location.href = "/po/monitoring";
+          window.location.href = "/po/status";
         }, 1500);
       }
     } catch (err) {
@@ -850,7 +930,10 @@ function InputPOContent() {
     setPoFormData((prev) => ({
       ...prev,
       skema: userSkemaVal,
-      namaPembeli: userData.nama_pengguna || userData.username || "", // <-- Auto-fill nama pembeli
+
+      // Set namaPembeli default to logged-in user ONLY if creating new PO
+      // Set namaPembeli default to empty string if creating new PO (User Request)
+      namaPembeli: !isEditing ? "" : prev.namaPembeli,
     }));
   }, []);
 
@@ -862,7 +945,7 @@ function InputPOContent() {
   // Update discount breakdown when discount changes
   useEffect(() => {
     const calculations = calculateTotal();
-    setDiscountBreakdown(calculations.breakdown);
+    // setDiscountBreakdown(calculations.breakdown);
   }, [poFormData.diskon, poItems]);
 
   // Dummy state for selectedPRsForPO to satisfy TypeScript
@@ -1036,7 +1119,7 @@ function InputPOContent() {
               jumlahAsli: item.jumlah,
               satuanLabel: item.satuanLabel || item.satuan || "",
               id_satuan: item.id_satuan ?? item.idSatuan ?? null,
-              hargaSatuan: 0,
+              hargaSatuan: "",
               diskonItem: "", // default string
               ppnItem: "", // <-- ubah default dari 11 ke ""
               keterangan: item.keterangan ?? "",
@@ -1069,7 +1152,8 @@ function InputPOContent() {
               ppn: poData.ppn || "",
               statusPengiriman: String(poData.id_statusPengiriman),
               skema: poData.id_skema,
-              namaPembeli: poData.orderedBy ? String(poData.orderedBy) : "",
+              namaPembeli: "", // Don't use orderedBy (account name), wait for item data
+              termin: poData.id_termin ? String(poData.id_termin) : "", // <-- Set termin for edit
             });
             // Update ppnIncluded? Backend doesn't explicitly store it as boolean commonly, usually inferred.
             // But let's check if we can infer or if we need to assume default.
@@ -1132,7 +1216,18 @@ function InputPOContent() {
               jumlahAsli: Number(pItem.jumlahAsli) + Number(originalPrItem.jumlah || 0),
               satuanLabel: pItem.satuanLabel || "Pcs", // Fetch if needed
               id_satuan: pItem.id_satuan,
-              hargaSatuan: pItem.hargaSatuan,
+
+              hargaSatuan: pItem.hargaSatuan
+                ? (() => {
+                  // Clean potential dirty data (e.g. "RP 15.001")
+                  const raw = String(pItem.hargaSatuan).replace(/[^0-9,.-]/g, "");
+                  // Handle if comma is decimal separator in source (rare but possible in string)
+                  const normalized = raw.replace(",", ".");
+                  const val = parseFloat(normalized);
+                  if (isNaN(val)) return "";
+                  return "Rp. " + val.toLocaleString("id-ID", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+                })()
+                : "",
               diskonItem: pItem.diskonPersen
                 ? (String(pItem.diskonPersen).includes("+")
                   ? pItem.diskonPersen
@@ -1158,8 +1253,8 @@ function InputPOContent() {
 
           setPoItems(Object.values(grouped));
 
-          // Try to set namaPembeli from first item if header empty
-          if (currentPoItems.length > 0 && !poData.orderedBy) {
+          // Try to set namaPembeli from first item
+          if (currentPoItems.length > 0) {
             setPoFormData((prev) => ({
               ...prev,
               namaPembeli: currentPoItems[0].namaPembeli || prev.namaPembeli,
@@ -1207,11 +1302,35 @@ function InputPOContent() {
     itemId: string,
     value: string
   ) {
-    // Allow user to input numbers with comma or period for decimals
-    // Remove "Rp. " prefix if present
-    let cleanValue = value.replace(/^Rp\.?\s*/i, "");
-    // Only allow digits, comma, and period
-    cleanValue = cleanValue.replace(/[^\d.,]/g, "");
+    // Clean input: remove "Rp", ".", spaces. Keep digits and comma.
+    let raw = value.replace(/[^0-9,]/g, "");
+
+    // Prevent multiple commas
+    const parts = raw.split(",");
+    if (parts.length > 2) {
+      raw = parts[0] + "," + parts.slice(1).join("");
+    }
+
+    // Format Integer part with dots
+    const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+    // Reassemble
+    let formatted = "";
+    if (raw === "") {
+      formatted = "";
+    } else if (parts.length > 1) {
+      // Limit decimals to 2 digits if desired, or allow free typing
+      // User asked for "1.000,75" (2 digits)
+      const decPart = parts[1].substring(0, 2);
+      formatted = `Rp. ${intPart},${decPart}`;
+    } else {
+      formatted = `Rp. ${intPart}`;
+    }
+
+    // If input ends with comma, ensure it's preserved in state (though logic above handles it via split)
+    if (raw.endsWith(",")) {
+      formatted = `Rp. ${intPart},`;
+    }
 
     setPoItems((prevPoItems) =>
       prevPoItems.map((pItem) =>
@@ -1221,7 +1340,10 @@ function InputPOContent() {
             items: pItem.items.map((i) => {
               if (i.id === itemId) {
                 // Update dependent fields (Diskon Nominal/Persen)
-                const newPrice = parseFloat(cleanValue.replace(/\./g, "").replace(",", ".")) || 0;
+                // Parse the raw value for calculation
+                const cleanForCalc = raw.replace(",", ".");
+                const newPrice = parseFloat(cleanForCalc) || 0;
+
                 const qty = Number(i.jumlahPO) || 0;
                 const subtotal = newPrice * qty;
 
@@ -1246,7 +1368,7 @@ function InputPOContent() {
 
                 return {
                   ...i,
-                  hargaSatuan: cleanValue,
+                  hargaSatuan: formatted, // Store formatted string
                   diskonNominal: newDiskonNominal,
                   diskonPersen: newDiskonPersen
                 };
@@ -1276,7 +1398,8 @@ function InputPOContent() {
                 // Update dependent fields
                 let harga = 0;
                 if (typeof i.hargaSatuan === "string") {
-                  const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                  const clean = i.hargaSatuan.replace(/[^0-9,]/g, "");
+                  const normalized = clean.replace(",", ".");
                   harga = parseFloat(normalized) || 0;
                 } else {
                   harga = Number(i.hargaSatuan) || 0;
@@ -1335,7 +1458,8 @@ function InputPOContent() {
                 // Support decimal hargaSatuan
                 let harga = 0;
                 if (typeof i.hargaSatuan === "string") {
-                  const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                  const clean = i.hargaSatuan.replace(/[^0-9,]/g, "");
+                  const normalized = clean.replace(",", ".");
                   harga = parseFloat(normalized) || 0;
                 } else {
                   harga = Number(i.hargaSatuan) || 0;
@@ -1394,7 +1518,8 @@ function InputPOContent() {
                 // Hitung diskon persen hasil konversi dari nominal
                 let harga = 0;
                 if (typeof i.hargaSatuan === "string") {
-                  const normalized = i.hargaSatuan.replace(/\./g, "").replace(",", ".");
+                  const clean = i.hargaSatuan.replace(/[^0-9,]/g, "");
+                  const normalized = clean.replace(",", ".");
                   harga = parseFloat(normalized) || 0;
                 } else {
                   harga = Number(i.hargaSatuan) || 0;
@@ -1459,23 +1584,41 @@ function InputPOContent() {
   // Helper format tanggal ke yyyy-mm-dd untuk backend (KONSISTEN, TANPA JAM, TANPA TIMEZONE)
   function formatDateForBackend(date: Date | string | null) {
     if (!date) return "";
-    if (typeof date === "string") {
-      // Jika sudah yyyy-mm-dd, return langsung
-      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
-      // Jika dd-mm-yyyy, ubah ke yyyy-mm-dd
-      if (/^\d{2}-\d{2}-\d{4}$/.test(date)) {
-        const [d, m, y] = date.split("-");
-        return `${y}-${m}-${d}`;
-      }
-      // Jika ISO string, ambil tanggal saja
-      if (date.includes("T")) return date.split("T")[0];
-    }
-    // Jika Date object, ambil tahun, bulan, hari persis (tanpa jam, tanpa timezone)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
+    let d = date instanceof Date ? date : new Date(date);
+    // Jika invalid date, return string kosong
+    if (isNaN(d.getTime())) return "";
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
   }
+
+  // KEYBOARD NAVIGATION HANDLER
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    rowIndex: number,
+    colKey: string
+  ) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const nextInput = document.querySelector(
+        `input[data-row-index="${rowIndex + 1}"][data-col-key="${colKey}"]`
+      ) as HTMLInputElement;
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.select(); // Auto-select text for quick editing
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const prevInput = document.querySelector(
+        `input[data-row-index="${rowIndex - 1}"][data-col-key="${colKey}"]`
+      ) as HTMLInputElement;
+      if (prevInput) {
+        prevInput.focus();
+        prevInput.select();
+      }
+    }
+  };
   // Fungsi untuk memberi class pada weekend
   function highlightWeekends(date: Date) {
     const day = date.getDay();
@@ -1581,7 +1724,8 @@ function InputPOContent() {
           <CardContent>
             <div className="space-y-4">
               {/* Baris 1: No PO, Tanggal PO, Estimasi Tanggal Terima */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+              {/* Baris 1: No PO, Tanggal PO, Supplier, Termin */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
                 {/* No PO */}
                 <div className="space-y-2">
                   <Label htmlFor="noPO">No. PO</Label>
@@ -1612,7 +1756,7 @@ function InputPOContent() {
                     dropdownMode="select"
                     dayClassName={highlightWeekends}
                     popperClassName="z-[9999]"
-                    popperPlacement="right" // <-- Tambahkan ini agar popper muncul di kanan
+                    popperPlacement="right"
                     customInput={
                       <Input
                         value={
@@ -1635,59 +1779,9 @@ function InputPOContent() {
                     }
                   />
                 </div>
-                {/* Estimasi Tanggal Terima */}
-                <div className="space-y-2">
-                  <Label htmlFor="estimasiTanggalDiterima">
-                    Estimasi Tanggal Diterima
-                  </Label>
-                  <DatePicker
-                    id="estimasiTanggalDiterima"
-                    selected={poFormData.estimasiTanggalDiterima}
-                    onChange={(date) =>
-                      setPoFormData({
-                        ...poFormData,
-                        estimasiTanggalDiterima: date,
-                      })
-                    }
-                    dateFormat="dd-MM-yyyy"
-                    placeholderText="Pilih tanggal"
-                    className="w-full px-3 py-2 border rounded-md bg-white"
-                    showMonthDropdown
-                    showYearDropdown
-                    dropdownMode="select"
-                    dayClassName={highlightWeekends}
-                    popperClassName="z-[9999]"
-                    popperPlacement="right" // <-- Tambahkan ini agar popper muncul di kanan
-                    customInput={
-                      <Input
-                        value={
-                          poFormData.estimasiTanggalDiterima
-                            ? `${String(
-                              poFormData.estimasiTanggalDiterima.getDate()
-                            ).padStart(2, "0")}-${String(
-                              poFormData.estimasiTanggalDiterima.getMonth() +
-                              1
-                            ).padStart(
-                              2,
-                              "0"
-                            )}-${poFormData.estimasiTanggalDiterima.getFullYear()}`
-                            : ""
-                        }
-                        readOnly
-                        className="w-full px-3 py-2 border rounded-md bg-white"
-                      />
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Baris 2: Supplier, Status Pengiriman, Nama Pembeli */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                 {/* Supplier */}
                 <div className="space-y-2">
-                  <Label htmlFor="supplier">
-                    Supplier
-                  </Label>
+                  <Label htmlFor="supplier">Supplier</Label>
                   <Select
                     value={String(poFormData.supplier)}
                     onValueChange={(value) =>
@@ -1750,123 +1844,349 @@ function InputPOContent() {
                           </>
                         )}
                       </div>
-                      {showAddSupplier
-                        ? null
-                        : (
-                          <>
-                            {supplierOptions.length === 0 ? (
-                              <SelectItem value="__loading" disabled>
-                                Memuat...
-                              </SelectItem>
-                            ) : (
-                              supplierOptions
-                                .filter((sup: any) =>
-                                  sup.namaSupplier
-                                    .toLowerCase()
-                                    .includes(supplierSearch.toLowerCase())
-                                )
-                                .map((sup: any) => (
-                                  <div
-                                    key={sup.id_supplier}
-                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                                  >
-                                    {editSupplierId === String(sup.id_supplier) ? (
-                                      <>
-                                        <Input
-                                          value={editSupplierValue}
-                                          onChange={(e) =>
-                                            setEditSupplierValue(e.target.value)
-                                          }
-                                          className="w-[90px] h-7 text-xs"
-                                          disabled={showAddSupplier}
-                                        />
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          className="px-2 py-1 text-xs bg-primary text-white"
-                                          onClick={() =>
-                                            handleEditSupplier(String(sup.id_supplier))
-                                          }
-                                          disabled={showAddSupplier}
-                                        >
-                                          Simpan
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          className="px-2 py-1 text-xs"
-                                          onClick={() => {
-                                            setEditSupplierId(null);
-                                            setEditSupplierValue("");
-                                          }}
-                                          disabled={showAddSupplier}
-                                        >
-                                          Batal
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <SelectItem
-                                          key={sup.id_supplier}
-                                          value={String(sup.id_supplier)}
-                                          className="flex-1"
-                                          disabled={showAddSupplier}
-                                        >
-                                          {sup.namaSupplier}
-                                        </SelectItem>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-xs text-blue-600 px-1 py-0.5"
-                                          onClick={() => {
-                                            setEditSupplierId(String(sup.id_supplier));
-                                            setEditSupplierValue(sup.namaSupplier);
-                                          }}
-                                          disabled={showAddSupplier}
-                                        >
-                                          Edit
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-xs text-red-600 px-1 py-0.5"
-                                          onClick={() =>
-                                            handleDeleteSupplier(String(sup.id_supplier))
-                                          }
-                                          disabled={showAddSupplier}
-                                        >
-                                          Hapus
-                                        </Button>
-                                      </>
-                                    )}
-                                  </div>
-                                ))
-                            )}
-                            {supplierOptions.length > 0 &&
-                              supplierOptions.filter((sup: any) =>
+                      {showAddSupplier ? null : (
+                        <>
+                          {supplierOptions.length === 0 ? (
+                            <SelectItem value="__loading" disabled>
+                              Memuat...
+                            </SelectItem>
+                          ) : (
+                            supplierOptions
+                              .filter((sup: any) =>
                                 sup.namaSupplier
                                   .toLowerCase()
                                   .includes(supplierSearch.toLowerCase())
-                              ).length === 0 && (
-                                <SelectItem value="__notfound" disabled>
-                                  Data tidak ditemukan
-                                </SelectItem>
-                              )}
-                          </>
-                        )
-                      }
+                              )
+                              .map((sup: any) => (
+                                <div
+                                  key={sup.id_supplier}
+                                  className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
+                                >
+                                  {editSupplierId === String(sup.id_supplier) ? (
+                                    <>
+                                      <Input
+                                        value={editSupplierValue}
+                                        onChange={(e) =>
+                                          setEditSupplierValue(e.target.value)
+                                        }
+                                        className="w-[90px] h-7 text-xs"
+                                        disabled={showAddSupplier}
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="px-2 py-1 text-xs bg-primary text-white"
+                                        onClick={() =>
+                                          handleEditSupplier(
+                                            String(sup.id_supplier)
+                                          )
+                                        }
+                                        disabled={showAddSupplier}
+                                      >
+                                        Simpan
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="px-2 py-1 text-xs"
+                                        onClick={() => {
+                                          setEditSupplierId(null);
+                                          setEditSupplierValue("");
+                                        }}
+                                        disabled={showAddSupplier}
+                                      >
+                                        Batal
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <SelectItem
+                                        key={sup.id_supplier}
+                                        value={String(sup.id_supplier)}
+                                        className="flex-1"
+                                        disabled={showAddSupplier}
+                                      >
+                                        {sup.namaSupplier}
+                                      </SelectItem>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs text-blue-600 px-1 py-0.5"
+                                        onClick={() => {
+                                          setEditSupplierId(
+                                            String(sup.id_supplier)
+                                          );
+                                          setEditSupplierValue(sup.namaSupplier);
+                                        }}
+                                        disabled={showAddSupplier}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs text-red-600 px-1 py-0.5"
+                                        onClick={() =>
+                                          handleDeleteSupplier(
+                                            String(sup.id_supplier)
+                                          )
+                                        }
+                                        disabled={showAddSupplier}
+                                      >
+                                        Hapus
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              ))
+                          )}
+                          {supplierOptions.length > 0 &&
+                            supplierOptions.filter((sup: any) =>
+                              sup.namaSupplier
+                                .toLowerCase()
+                                .includes(supplierSearch.toLowerCase())
+                            ).length === 0 && (
+                              <SelectItem value="__notfound" disabled>
+                                Data tidak ditemukan
+                              </SelectItem>
+                            )}
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Termin Pembayaran */}
+                <div className="space-y-2">
+                  <Label htmlFor="termin">Termin Pembayaran</Label>
+                  <Select
+                    value={String(poFormData.termin)}
+                    onValueChange={(value) =>
+                      setPoFormData({
+                        ...poFormData,
+                        termin: value,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="border-border focus:border-primary/50 bg-white">
+                      <SelectValue placeholder="Pilih termin" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                      <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                        {showAddTermin ? (
+                          <div className="flex items-center gap-2 mb-2">
+                            <Input
+                              placeholder="Termin baru"
+                              value={newTermin}
+                              onChange={(e) => setNewTermin(e.target.value)}
+                              className="w-[140px]"
+                              autoFocus
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleAddTermin}
+                              className="bg-primary text-white"
+                            >
+                              Simpan
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setShowAddTermin(false);
+                                setNewTermin("");
+                              }}
+                            >
+                              Batal
+                            </Button>
+                          </div>
+                        ) : (
+                          <>
+                            <Input
+                              placeholder="Cari termin..."
+                              value={terminSearch}
+                              onChange={(e) => setTerminSearch(e.target.value)}
+                              className="mb-2"
+                              disabled={showAddTermin}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="mb-2 w-full"
+                              onClick={() => setShowAddTermin(true)}
+                              disabled={showAddTermin}
+                            >
+                              + Tambahkan Termin
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                      {showAddTermin ? null : (
+                        <>
+                          {terminOptions.length === 0 ? (
+                            <SelectItem value="__loading" disabled>
+                              Memuat...
+                            </SelectItem>
+                          ) : (
+                            terminOptions
+                              .filter((opt: any) =>
+                                (opt.termin || "")
+                                  .toLowerCase()
+                                  .includes(terminSearch.toLowerCase())
+                              )
+                              .map((opt: any) => (
+                                <div
+                                  key={opt.id_termin}
+                                  className="flex justify-between items-center group w-full"
+                                >
+                                  {editTerminId === String(opt.id_termin) ? (
+                                    <>
+                                      <Input
+                                        value={editTerminValue}
+                                        onChange={(e) =>
+                                          setEditTerminValue(e.target.value)
+                                        }
+                                        className="h-8 text-xs w-[140px]"
+                                        autoFocus
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="px-2 py-1 text-xs"
+                                        onClick={() =>
+                                          handleEditTermin(String(opt.id_termin))
+                                        }
+                                        disabled={showAddTermin}
+                                      >
+                                        Simpan
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="px-2 py-1 text-xs"
+                                        onClick={() => {
+                                          setEditTerminId(null);
+                                          setEditTerminValue("");
+                                        }}
+                                        disabled={showAddTermin}
+                                      >
+                                        Batal
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <SelectItem
+                                        key={opt.id_termin}
+                                        value={String(opt.id_termin)}
+                                        className="flex-1"
+                                        disabled={showAddTermin}
+                                      >
+                                        {opt.termin}
+                                      </SelectItem>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs text-blue-600 px-1 py-0.5"
+                                        onClick={() => {
+                                          setEditTerminId(String(opt.id_termin));
+                                          setEditTerminValue(opt.termin);
+                                        }}
+                                        disabled={showAddTermin}
+                                      >
+                                        <Edit2 className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs text-red-600 px-1 py-0.5"
+                                        onClick={() =>
+                                          handleDeleteTermin(
+                                            String(opt.id_termin)
+                                          )
+                                        }
+                                        disabled={showAddTermin}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              ))
+                          )}
+                          {terminOptions.length > 0 &&
+                            terminOptions.filter((opt: any) =>
+                              (opt.termin || "")
+                                .toLowerCase()
+                                .includes(terminSearch.toLowerCase())
+                            ).length === 0 && (
+                              <SelectItem value="__notfound" disabled>
+                                Data tidak ditemukan
+                              </SelectItem>
+                            )}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
+              {/* Baris 2: Estimasi Tanggal Terima, Status Pengiriman, Nama Pembeli */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                {/* Estimasi Tanggal Terima */}
+                <div className="space-y-2">
+                  <Label htmlFor="estimasiTanggalDiterima">
+                    Estimasi Tanggal Diterima
+                  </Label>
+                  <DatePicker
+                    id="estimasiTanggalDiterima"
+                    selected={poFormData.estimasiTanggalDiterima}
+                    onChange={(date) =>
+                      setPoFormData({
+                        ...poFormData,
+                        estimasiTanggalDiterima: date,
+                      })
+                    }
+                    dateFormat="dd-MM-yyyy"
+                    placeholderText="Pilih tanggal"
+                    className="w-full px-3 py-2 border rounded-md bg-white"
+                    showMonthDropdown
+                    showYearDropdown
+                    dropdownMode="select"
+                    dayClassName={highlightWeekends}
+                    popperClassName="z-[9999]"
+                    popperPlacement="right"
+                    customInput={
+                      <Input
+                        value={
+                          poFormData.estimasiTanggalDiterima
+                            ? `${String(
+                              poFormData.estimasiTanggalDiterima.getDate()
+                            ).padStart(2, "0")}-${String(
+                              poFormData.estimasiTanggalDiterima.getMonth() +
+                              1
+                            ).padStart(
+                              2,
+                              "0"
+                            )}-${poFormData.estimasiTanggalDiterima.getFullYear()}`
+                            : ""
+                        }
+                        readOnly
+                        className="w-full px-3 py-2 border rounded-md bg-white"
+                      />
+                    }
+                  />
+                </div>
                 {/* Status Pengiriman */}
                 <div className="space-y-2">
-                  <Label htmlFor="statusPengiriman">
-                    Status Pengiriman
-                  </Label>
+                  <Label htmlFor="statusPengiriman">Status Pengiriman</Label>
                   <Select
                     value={String(poFormData.statusPengiriman)}
                     onValueChange={(value) =>
@@ -1886,7 +2206,9 @@ function InputPOContent() {
                             <Input
                               placeholder="Status pengiriman baru"
                               value={newStatusPengiriman}
-                              onChange={(e) => setNewStatusPengiriman(e.target.value)}
+                              onChange={(e) =>
+                                setNewStatusPengiriman(e.target.value)
+                              }
                               className="w-[140px]"
                               autoFocus
                             />
@@ -1915,7 +2237,9 @@ function InputPOContent() {
                             <Input
                               placeholder="Cari status pengiriman..."
                               value={statusPengirimanSearch}
-                              onChange={(e) => setStatusPengirimanSearch(e.target.value)}
+                              onChange={(e) =>
+                                setStatusPengirimanSearch(e.target.value)
+                              }
                               className="mb-2"
                               disabled={showAddStatusPengiriman}
                             />
@@ -1932,128 +2256,136 @@ function InputPOContent() {
                           </>
                         )}
                       </div>
-                      {showAddStatusPengiriman
-                        ? null
-                        : (
-                          <>
-                            {statusPengirimanOptions.length === 0 ? (
-                              <SelectItem value="__loading" disabled>
-                                Memuat...
-                              </SelectItem>
-                            ) : (
-                              statusPengirimanOptions
-                                .filter((opt: any) =>
-                                  opt.status_pengiriman
-                                    .toLowerCase()
-                                    .includes(statusPengirimanSearch.toLowerCase())
-                                )
-                                .map((opt: any) => (
-                                  <div
-                                    key={opt.id_statusPengiriman}
-                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                                  >
-                                    {editStatusPengirimanId === String(opt.id_statusPengiriman) ? (
-                                      <>
-                                        <Input
-                                          value={editStatusPengirimanValue}
-                                          onChange={(e) =>
-                                            setEditStatusPengirimanValue(e.target.value)
-                                          }
-                                          className="w-[90px] h-7 text-xs"
-                                          disabled={showAddStatusPengiriman}
-                                        />
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          className="px-2 py-1 text-xs bg-primary text-white"
-                                          onClick={() =>
-                                            handleEditStatusPengiriman(String(opt.id_statusPengiriman))
-                                          }
-                                          disabled={showAddStatusPengiriman}
-                                        >
-                                          Simpan
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          className="px-2 py-1 text-xs"
-                                          onClick={() => {
-                                            setEditStatusPengirimanId(null);
-                                            setEditStatusPengirimanValue("");
-                                          }}
-                                          disabled={showAddStatusPengiriman}
-                                        >
-                                          Batal
-                                        </Button>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <SelectItem
-                                          key={opt.id_statusPengiriman}
-                                          value={String(opt.id_statusPengiriman)}
-                                          className="flex-1"
-                                          disabled={showAddStatusPengiriman}
-                                        >
-                                          {opt.status_pengiriman}
-                                        </SelectItem>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-xs text-blue-600 px-1 py-0.5"
-                                          onClick={() => {
-                                            setEditStatusPengirimanId(String(opt.id_statusPengiriman));
-                                            setEditStatusPengirimanValue(opt.status_pengiriman);
-                                          }}
-                                          disabled={showAddStatusPengiriman}
-                                        >
-                                          Edit
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="text-xs text-red-600 px-1 py-0.5"
-                                          onClick={() =>
-                                            handleDeleteStatusPengiriman(String(opt.id_statusPengiriman))
-                                          }
-                                          disabled={showAddStatusPengiriman}
-                                        >
-                                          Hapus
-                                        </Button>
-                                      </>
-                                    )}
-                                  </div>
-                                ))
-                            )}
-                            {statusPengirimanOptions.length > 0 &&
-                              statusPengirimanOptions.filter((opt: any) =>
+                      {showAddStatusPengiriman ? null : (
+                        <>
+                          {statusPengirimanOptions.length === 0 ? (
+                            <SelectItem value="__loading" disabled>
+                              Memuat...
+                            </SelectItem>
+                          ) : (
+                            statusPengirimanOptions
+                              .filter((opt: any) =>
                                 opt.status_pengiriman
                                   .toLowerCase()
                                   .includes(statusPengirimanSearch.toLowerCase())
-                              ).length === 0 && (
-                                <SelectItem value="__notfound" disabled>
-                                  Data tidak ditemukan
-                                </SelectItem>
-                              )}
-                          </>
-                        )
-                      }
+                              )
+                              .map((opt: any) => (
+                                <div
+                                  key={opt.id_statusPengiriman}
+                                  className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
+                                >
+                                  {editStatusPengirimanId ===
+                                    String(opt.id_statusPengiriman) ? (
+                                    <>
+                                      <Input
+                                        value={editStatusPengirimanValue}
+                                        onChange={(e) =>
+                                          setEditStatusPengirimanValue(
+                                            e.target.value
+                                          )
+                                        }
+                                        className="w-[90px] h-7 text-xs"
+                                        disabled={showAddStatusPengiriman}
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        className="px-2 py-1 text-xs bg-primary text-white"
+                                        onClick={() =>
+                                          handleEditStatusPengiriman(
+                                            String(opt.id_statusPengiriman)
+                                          )
+                                        }
+                                        disabled={showAddStatusPengiriman}
+                                      >
+                                        Simpan
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="px-2 py-1 text-xs"
+                                        onClick={() => {
+                                          setEditStatusPengirimanId(null);
+                                          setEditStatusPengirimanValue("");
+                                        }}
+                                        disabled={showAddStatusPengiriman}
+                                      >
+                                        Batal
+                                      </Button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <SelectItem
+                                        key={opt.id_statusPengiriman}
+                                        value={String(opt.id_statusPengiriman)}
+                                        className="flex-1"
+                                        disabled={showAddStatusPengiriman}
+                                      >
+                                        {opt.status_pengiriman}
+                                      </SelectItem>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs text-blue-600 px-1 py-0.5"
+                                        onClick={() => {
+                                          setEditStatusPengirimanId(
+                                            String(opt.id_statusPengiriman)
+                                          );
+                                          setEditStatusPengirimanValue(
+                                            opt.status_pengiriman
+                                          );
+                                        }}
+                                        disabled={showAddStatusPengiriman}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-xs text-red-600 px-1 py-0.5"
+                                        onClick={() =>
+                                          handleDeleteStatusPengiriman(
+                                            String(opt.id_statusPengiriman)
+                                          )
+                                        }
+                                        disabled={showAddStatusPengiriman}
+                                      >
+                                        Hapus
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              ))
+                          )}
+                          {statusPengirimanOptions.length > 0 &&
+                            statusPengirimanOptions.filter((opt: any) =>
+                              opt.status_pengiriman
+                                .toLowerCase()
+                                .includes(statusPengirimanSearch.toLowerCase())
+                            ).length === 0 && (
+                              <SelectItem value="__notfound" disabled>
+                                Data tidak ditemukan
+                              </SelectItem>
+                            )}
+                        </>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-
                 {/* Nama Pembeli (ganti Skema) */}
                 <div className="space-y-2">
-                  <Label htmlFor="namaPembeli">
-                    Nama Pembeli
-                  </Label>
+                  <Label htmlFor="namaPembeli">Nama Pembeli</Label>
                   <Input
                     id="namaPembeli"
                     value={poFormData.namaPembeli}
                     onChange={(e) =>
-                      setPoFormData({ ...poFormData, namaPembeli: e.target.value })
+                      setPoFormData({
+                        ...poFormData,
+                        namaPembeli: e.target.value,
+                      })
                     }
                     placeholder="Masukkan nama pembeli"
                     required
@@ -2102,8 +2434,9 @@ function InputPOContent() {
                         )
                         .map((item, idx) => {
                           // Perhitungan diskon dan PPN per item
+                          // Perhitungan diskon dan PPN per item
                           const harga = typeof item.hargaSatuan === "string"
-                            ? parseFloat(item.hargaSatuan.replace(/\./g, "").replace(",", "."))
+                            ? parseFloat(item.hargaSatuan.replace(/[^0-9,]/g, "").replace(",", "."))
                             : Number(item.hargaSatuan) || 0;
                           const qty = Number(item.jumlahPO) || 0;
                           const ppn = parseFloat(String(item.ppnItem).replace("%", "")) || 0;
@@ -2164,6 +2497,9 @@ function InputPOContent() {
                                     )
                                   }
                                   className="w-16 h-7 text-xs px-2"
+                                  data-row-index={idx}
+                                  data-col-key="qty"
+                                  onKeyDown={(e) => handleKeyDown(e, idx, "qty")}
                                 />
                                 <span className="text-xs text-muted-foreground ml-2">
                                   /{" "}
@@ -2181,24 +2517,21 @@ function InputPOContent() {
                                 <Input
                                   type="text"
                                   inputMode="numeric"
-                                  value={
-                                    item.hargaSatuan
-                                      ? `Rp. ${Number(String(item.hargaSatuan).replace(",", ".")).toLocaleString("id-ID")}`
-                                      : ""
-                                  }
+                                  value={item.hargaSatuan}
                                   onWheel={(e) => e.currentTarget.blur()}
                                   onChange={(e) => {
-                                    // Strip non-digits to keep raw number in state (or standard float string)
-                                    const raw = e.target.value.replace(/\D/g, "");
                                     handleHargaSatuanChange(
                                       item.prId,
                                       item.id,
-                                      raw
+                                      e.target.value
                                     );
                                   }}
-                                  className="w-32 h-7 text-xs text-right px-2"
+                                  className="w-32 h-7 text-xs px-2 text-right"
                                   placeholder="Rp. 0"
                                   autoComplete="off"
+                                  data-row-index={idx}
+                                  data-col-key="harga"
+                                  onKeyDown={(e) => handleKeyDown(e, idx, "harga")}
                                 />
                               </TableCell>
                               <TableCell className="p-1">
@@ -2225,6 +2558,11 @@ function InputPOContent() {
                                   }}
                                   className="w-16 h-7 text-xs text-right px-2"
                                   placeholder="10%"
+                                  data-row-index={idx}
+                                  data-col-key="diskonPersen"
+                                  onKeyDown={(e) =>
+                                    handleKeyDown(e, idx, "diskonPersen")
+                                  }
                                 />
                               </TableCell>
                               <TableCell className="p-1">
@@ -2255,6 +2593,11 @@ function InputPOContent() {
                                   }}
                                   className="w-20 h-7 text-xs text-right px-2"
                                   placeholder="Rp. 0"
+                                  data-row-index={idx}
+                                  data-col-key="diskonNominal"
+                                  onKeyDown={(e) =>
+                                    handleKeyDown(e, idx, "diskonNominal")
+                                  }
                                 />
                               </TableCell>
                               <TableCell className="p-1 text-xs">
@@ -2283,6 +2626,9 @@ function InputPOContent() {
                                   }}
                                   className="w-12 h-7 text-xs text-right px-2"
                                   placeholder="0%"
+                                  data-row-index={idx}
+                                  data-col-key="ppn"
+                                  onKeyDown={(e) => handleKeyDown(e, idx, "ppn")}
                                 />
                               </TableCell>
                               <TableCell className="p-1 text-xs">

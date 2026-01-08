@@ -1,0 +1,3 @@
+Checking Distinct Statuses in PO table...
+Found 1 distinct statuses:
+- 'WAITING PART'

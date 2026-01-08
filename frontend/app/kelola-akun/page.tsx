@@ -311,7 +311,7 @@ export default function KelolaAkunPage() {
           {/* Tabs Navigation */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard Admin</h2>
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Dashboard Purchasing & Store</h2>
               <p className="text-slate-500 mt-1">Kelola pengguna dan hak akses aplikasi.</p>
             </div>
             <TabsList className="bg-white p-1 border border-slate-200 rounded-lg shadow-sm">
@@ -423,7 +423,10 @@ export default function KelolaAkunPage() {
                                   key={role.id_peran}
                                   value={String(role.id_peran)}
                                 >
-                                  {role.peran}
+                                  {/* Gunakan ID 1 atau string Admin untuk safety */}
+                                  {role.id_peran === 1 || (role.peran && role.peran.trim() === "Admin")
+                                    ? "Purchasing & Store"
+                                    : role.peran}
                                 </SelectItem>
                               ))
                             )}
@@ -611,7 +614,7 @@ export default function KelolaAkunPage() {
                                   }`}
                                 variant="outline"
                               >
-                                {getPeranName(acc.id_peran)}
+                                {getPeranName(acc.id_peran) === "Admin" ? "Purchasing & Store" : getPeranName(acc.id_peran)}
                               </Badge>
                               <Badge variant="outline" className="text-xs text-slate-500 border-slate-200 font-normal bg-white">
                                 {getSkemaName(acc.id_skema)}
@@ -624,6 +627,11 @@ export default function KelolaAkunPage() {
                                 {getDivisiName(acc.id_divisi)}
                               </span>
                             )}
+                            <span>
+                              {getPeranName(acc.id_peran) === "Admin" || acc.id_peran === 1
+                                ? "Purchasing & Store"
+                                : getPeranName(acc.id_peran)}
+                            </span>
                           </TableCell>
                           <TableCell className="text-xs text-slate-500">
                             {formatLocalTime(acc.created_at)}

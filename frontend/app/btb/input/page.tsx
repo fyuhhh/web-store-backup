@@ -310,15 +310,15 @@ export default function BTBInputPage() {
           skemaRes,
           userRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po"),
-          fetch("http://192.168.10.10:5000/api/po-item"),
-          fetch("http://192.168.10.10:5000/api/pr-item"),
-          fetch("http://192.168.10.10:5000/api/pr"),
-          fetch("http://192.168.10.10:5000/api/supplier"),
-          fetch("http://192.168.10.10:5000/api/status-permintaan"),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-          fetch("http://192.168.10.10:5000/api/skema"),
-          fetch("http://192.168.10.10:5000/api/user"),
+          fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/supplier", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/status-permintaan", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/status-pengiriman", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/skema", { cache: "no-store" }),
+          fetch("http://192.168.10.10:5000/api/user", { cache: "no-store" }),
         ]);
         const [
           poList,
@@ -396,6 +396,7 @@ export default function BTBInputPage() {
               id_satuan: prItem.id_satuan ?? pi.id_satuan ?? null,
               hargaSatuan: Number(pi.hargaSatuan) || 0,
               keterangan: pi.keterangan || prItem.keterangan || "",
+              status: pi.status,
             };
             const key = String(noPR || prId || "__noPR__");
             if (groupMap[key] === undefined) {
@@ -461,6 +462,7 @@ export default function BTBInputPage() {
             status: po.status ?? "Menunggu",
             orderedBy: orderedByName,
             skema: po.id_skema ?? "",
+            termin: po.termin ?? "-", // <-- add termin
           };
         });
 
@@ -607,7 +609,7 @@ export default function BTBInputPage() {
                 p.namaBarang === item.namaBarang
             );
             const hargaSatuanInt = poItem?.hargaSatuan
-              ? Math.round(Number(poItem.hargaSatuan))
+              ? Number(poItem.hargaSatuan)
               : 0;
             const totalPerItem = poItem?.totalPerItem
               ? Number(poItem.totalPerItem)
@@ -615,13 +617,13 @@ export default function BTBInputPage() {
             const jumlahAsli = poItem?.jumlahAsli
               ? Number(poItem.jumlahAsli)
               : 0;
-            const qtyDiterima = Math.round(btbInputQty[item.poItemId] ?? 0);
+            const qtyDiterima = btbInputQty[item.poItemId] ?? 0;
             // --- Hitung biaya per item proporsional ---
             let biaya = 0;
             if (qtyDiterima > 0 && totalPerItem > 0 && jumlahAsli > 0) {
-              biaya = Math.round((qtyDiterima / jumlahAsli) * totalPerItem);
+              biaya = (qtyDiterima / jumlahAsli) * totalPerItem;
             } else if (qtyDiterima > 0 && totalPerItem > 0) {
-              biaya = Math.round(totalPerItem / qtyDiterima);
+              biaya = totalPerItem / qtyDiterima;
             }
             return {
               id_POItem: poItem?.id_POItem,
@@ -652,7 +654,7 @@ export default function BTBInputPage() {
         nama_supplier: getSupplierLabel(formData.supplier),
         id_user: userData.id_user || userData.id,
         id_skema,
-        biaya: Math.round(totalBiayaBTB), // <-- gunakan total biaya BTB
+        biaya: totalBiayaBTB, // <-- gunakan total biaya BTB
         diterima_oleh: userData.id_user || userData.id,
         tanggal_diterima: formData.tanggal,
       });
@@ -673,7 +675,7 @@ export default function BTBInputPage() {
           nama_supplier: getSupplierLabel(id_supplier), // label supplier (opsional)
           id_user: userData.id_user || userData.id,
           id_skema,
-          biaya: Math.round(totalBiayaBTB), // <-- gunakan total biaya BTB
+          biaya: totalBiayaBTB, // <-- gunakan total biaya BTB
           diterima_oleh: userData.id_user || userData.id,
           tanggal_diterima: formatDateForBackend(formData.tanggalDiterima),
           // status dan created_at otomatis di backend
@@ -701,11 +703,11 @@ export default function BTBInputPage() {
             id_btb,
             id_POItem: item.id_POItem,
             nama_barang: item.nama_barang,
-            jumlah_diterima: Math.round(item.jumlah_diterima), // integer
+            jumlah_diterima: item.jumlah_diterima, // decimal allowed if needed, but qty usually int
             id_satuan: item.id_satuan,
             keterangan: item.keterangan,
-            qty_sisa: Math.round(item.jumlah_diterima), // integer
-            biaya: Math.round(item.biaya), // <-- kirim biaya per item ke backend
+            qty_sisa: item.jumlah_diterima, // decimal allowed
+            biaya: item.biaya, // <-- kirim biaya per item ke backend
           }),
         });
 
@@ -728,7 +730,7 @@ export default function BTBInputPage() {
       setTimeout(() => {
         setNotif(null);
         // Redirect jika perlu
-        window.location.href = "/btb/input"; // <-- auto refresh ke halaman input BTB
+        window.location.reload(); // <-- auto refresh ke halaman input BTB
       }, 1800);
       resetForm();
     } catch (err) {
@@ -999,7 +1001,7 @@ export default function BTBInputPage() {
   // Tambahkan helper formatRupiah
   function formatRupiah(val: any) {
     if (val === undefined || val === "" || isNaN(val)) return "";
-    return "Rp " + Number(val).toLocaleString("id-ID");
+    return "Rp " + Number(val).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   // Helper: format tanggal ke dd-mm-yyyy
@@ -1089,7 +1091,7 @@ export default function BTBInputPage() {
 
       // --- Filter by PO date range ---
       let matchDateRange = true;
-      if (poStartDate && poEndDate) {
+      if (poStartDate || poEndDate) {
         // Assume po.tanggalPO is yyyy-mm-dd or yyyy-mm-ddTHH:mm:ss
         const tgl = (po.tanggalPO || "").split("T")[0];
         if (tgl) {
@@ -1100,11 +1102,22 @@ export default function BTBInputPage() {
             Number(parts[1]) - 1,
             Number(parts[2])
           );
-          // Set poEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
-          const end = new Date(poEndDate);
-          end.setHours(23, 59, 59, 999);
 
-          matchDateRange = tglDate >= poStartDate && tglDate <= end;
+          let afterStart = true;
+          let beforeEnd = true;
+
+          if (poStartDate) {
+            afterStart = tglDate >= poStartDate;
+          }
+
+          if (poEndDate) {
+            // Set poEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
+            const end = new Date(poEndDate);
+            end.setHours(23, 59, 59, 999);
+            beforeEnd = tglDate <= end;
+          }
+
+          matchDateRange = afterStart && beforeEnd;
         } else {
           matchDateRange = false;
         }
@@ -1314,6 +1327,124 @@ export default function BTBInputPage() {
                         }}
                       >
                         NO. PO
+                      </TableHead>
+                      <TableHead
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              TANGGAL PO <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari tanggal..."
+                              value={tanggalPOSearchTerm}
+                              onChange={(e) =>
+                                setTanggalPOSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueTanggalPO
+                                .filter((tgl) =>
+                                  tgl
+                                    .toLowerCase()
+                                    .includes(tanggalPOSearchTerm.toLowerCase())
+                                )
+                                .map((tgl) => (
+                                  <div
+                                    key={tgl}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterTanggalPO.includes(tgl)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterTanggalPO([
+                                            ...filterTanggalPO,
+                                            tgl,
+                                          ]);
+                                        else
+                                          setFilterTanggalPO(
+                                            filterTanggalPO.filter(
+                                              (x) => x !== tgl
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{tgl}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="inline-flex items-center gap-1 uppercase">
+                              Supplier <ChevronDown className="w-4 h-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 bg-white">
+                            <Input
+                              placeholder="Cari supplier..."
+                              value={supplierSearchTerm}
+                              onChange={(e) =>
+                                setSupplierSearchTerm(e.target.value)
+                              }
+                            />
+                            <div className="max-h-40 overflow-y-auto mt-2">
+                              {uniqueSuppliers
+                                .filter((s) =>
+                                  s
+                                    .toLowerCase()
+                                    .includes(supplierSearchTerm.toLowerCase())
+                                )
+                                .map((s) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-center space-x-2"
+                                  >
+                                    <Checkbox
+                                      checked={filterSupplier.includes(s)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked)
+                                          setFilterSupplier([
+                                            ...filterSupplier,
+                                            s,
+                                          ]);
+                                        else
+                                          setFilterSupplier(
+                                            filterSupplier.filter(
+                                              (x) => x !== s
+                                            )
+                                          );
+                                      }}
+                                    />
+                                    <Label className="text-sm">{s}</Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </TableHead>
                       <TableHead
                         className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
@@ -1540,6 +1671,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
+
                       <TableHead
                         className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
@@ -1553,65 +1685,6 @@ export default function BTBInputPage() {
                         <Popover>
                           <PopoverTrigger asChild>
                             <button className="inline-flex items-center gap-1 uppercase">
-                              TANGGAL PO <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 bg-white">
-                            <Input
-                              placeholder="Cari tanggal..."
-                              value={tanggalPOSearchTerm}
-                              onChange={(e) =>
-                                setTanggalPOSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-40 overflow-y-auto mt-2">
-                              {uniqueTanggalPO
-                                .filter((tgl) =>
-                                  tgl
-                                    .toLowerCase()
-                                    .includes(tanggalPOSearchTerm.toLowerCase())
-                                )
-                                .map((tgl) => (
-                                  <div
-                                    key={tgl}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      checked={filterTanggalPO.includes(tgl)}
-                                      onCheckedChange={(checked) => {
-                                        if (checked)
-                                          setFilterTanggalPO([
-                                            ...filterTanggalPO,
-                                            tgl,
-                                          ]);
-                                        else
-                                          setFilterTanggalPO(
-                                            filterTanggalPO.filter(
-                                              (x) => x !== tgl
-                                            )
-                                          );
-                                      }}
-                                    />
-                                    <Label className="text-sm">{tgl}</Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead
-                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 10,
-                          background: "#f3f4f6",
-                          borderBottom: "2px solid #d1d5db",
-                        }}
-                      >
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
                               Estimasi Diterima{" "}
                               <ChevronDown className="w-4 h-4" />
                             </button>
@@ -1663,6 +1736,7 @@ export default function BTBInputPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
+
                       <TableHead
                         className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
                         style={{
@@ -1675,66 +1749,7 @@ export default function BTBInputPage() {
                       >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
-                              Supplier <ChevronDown className="w-4 h-4" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-48 p-2 bg-white">
-                            <Input
-                              placeholder="Cari supplier..."
-                              value={supplierSearchTerm}
-                              onChange={(e) =>
-                                setSupplierSearchTerm(e.target.value)
-                              }
-                            />
-                            <div className="max-h-40 overflow-y-auto mt-2">
-                              {uniqueSuppliers
-                                .filter((s) =>
-                                  s
-                                    .toLowerCase()
-                                    .includes(supplierSearchTerm.toLowerCase())
-                                )
-                                .map((s) => (
-                                  <div
-                                    key={s}
-                                    className="flex items-center space-x-2"
-                                  >
-                                    <Checkbox
-                                      checked={filterSupplier.includes(s)}
-                                      onCheckedChange={(checked) => {
-                                        if (checked)
-                                          setFilterSupplier([
-                                            ...filterSupplier,
-                                            s,
-                                          ]);
-                                        else
-                                          setFilterSupplier(
-                                            filterSupplier.filter(
-                                              (x) => x !== s
-                                            )
-                                          );
-                                      }}
-                                    />
-                                    <Label className="text-sm">{s}</Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
-                      <TableHead
-                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 10,
-                          background: "#f3f4f6",
-                          borderBottom: "2px solid #d1d5db",
-                        }}
-                      >
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
+                            <button className="inline-flex items-center gap-1 uppercase">
                               Status Pengiriman{" "}
                               <ChevronDown className="w-4 h-4" />
                             </button>
@@ -1798,7 +1813,7 @@ export default function BTBInputPage() {
                       >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
+                            <button className="inline-flex items-center gap-1 uppercase">
                               Status <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
@@ -1850,9 +1865,21 @@ export default function BTBInputPage() {
                           borderBottom: "2px solid #d1d5db",
                         }}
                       >
+                        TERMIN PEMBAYARAN
+                      </TableHead>
+                      <TableHead
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="inline-flex items-center gap-1">
+                            <button className="inline-flex items-center gap-1 uppercase">
                               Diorder oleh <ChevronDown className="w-4 h-4" />
                             </button>
                           </PopoverTrigger>
@@ -1958,7 +1985,7 @@ export default function BTBInputPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedData.map((po) => {
+                    {paginatedData.map((po, poIdx) => {
                       const allItems = po.poItems.flatMap((poItem: any) =>
                         poItem.items
                           .filter((item: any) => item.jumlahPO > 0)
@@ -1969,6 +1996,7 @@ export default function BTBInputPage() {
                       );
                       // Kumpulkan semua item key untuk group PO ini
                       const groupItemKeys = allItems.map((item: any) => `${po.id}::${item.noPR}-${item.id}`);
+
                       const allGroupSelected = groupItemKeys.length > 0 && groupItemKeys.every((key) => selectedPOItemIds.includes(key));
                       const someGroupSelected = groupItemKeys.some((key) => selectedPOItemIds.includes(key));
                       return (
@@ -1976,7 +2004,7 @@ export default function BTBInputPage() {
                           {allItems.map((item: any, itemIndex: number) => (
                             <TableRow
                               key={`${po.id}-item-${itemIndex}`}
-                              className="border-b border-gray-300 align-middle"
+                              className={`border-b border-gray-300 align-middle ${poIdx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50/50 transition-colors`}
                             >
                               {/* Checkbox group (per PO), hanya di baris pertama group */}
                               {itemIndex === 0 && (
@@ -1999,6 +2027,22 @@ export default function BTBInputPage() {
                                   className="font-medium px-3 py-1 border-r border-gray-300 align-middle text-left uppercase"
                                 >
                                   {po.noPO}
+                                </TableCell>
+                              )}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-center border-r border-gray-300 align-middle min-w-[120px]"
+                                >
+                                  {formatTanggal(po.tanggalPO)}
+                                </TableCell>
+                              )}
+                              {itemIndex === 0 && (
+                                <TableCell
+                                  rowSpan={allItems.length}
+                                  className="text-center border-r border-gray-300 align-middle min-w-[140px] uppercase"
+                                >
+                                  {po.supplier}
                                 </TableCell>
                               )}
                               {/* Checkbox + Nama Barang */}
@@ -2030,7 +2074,7 @@ export default function BTBInputPage() {
                                 </HoverCard>
                               </TableCell>
                               <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px]">
-                                Rp {item.hargaSatuan.toLocaleString("id-ID")}
+                                Rp {item.hargaSatuan.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </TableCell>
                               {itemIndex === 0 ? (
                                 <TableCell
@@ -2038,17 +2082,10 @@ export default function BTBInputPage() {
                                   className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] font-semibold"
                                 >
                                   Rp{" "}
-                                  {po.totalPembayaran.toLocaleString("id-ID")}
+                                  {po.totalPembayaran.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </TableCell>
                               ) : null}
-                              {itemIndex === 0 && (
-                                <TableCell
-                                  rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[120px]"
-                                >
-                                  {formatTanggal(po.tanggalPO)}
-                                </TableCell>
-                              )}
+
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -2057,14 +2094,7 @@ export default function BTBInputPage() {
                                   {formatTanggal(po.estimasiTanggalTerima)}
                                 </TableCell>
                               )}
-                              {itemIndex === 0 && (
-                                <TableCell
-                                  rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[140px] uppercase"
-                                >
-                                  {po.supplier}
-                                </TableCell>
-                              )}
+
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
@@ -2074,13 +2104,29 @@ export default function BTBInputPage() {
                                   {po.statusPengiriman}
                                 </TableCell>
                               )}
+                              <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">
+                                {/* Status dari item.status */}
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    item.status === "WAITING PART"
+                                      ? "items-center gap-1 bg-red-50 text-red-600 border-red-200"
+                                      : item.status === "PARTIAL PART"
+                                        ? "items-center gap-1 bg-yellow-50 text-yellow-600 border-yellow-200"
+                                        : item.status === "PART COMPLETE"
+                                          ? "items-center gap-1 bg-green-50 text-green-600 border-green-200"
+                                          : "items-center gap-1"
+                                  }
+                                >
+                                  {item.status}
+                                </Badge>
+                              </TableCell>
                               {itemIndex === 0 && (
                                 <TableCell
                                   rowSpan={allItems.length}
-                                  className="text-center border-r border-gray-300 align-middle min-w-[100px] uppercase"
+                                  className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
-                                  {/* Status dari po.status */}
-                                  {po.status}
+                                  {po.termin}
                                 </TableCell>
                               )}
                               {itemIndex === 0 && (
@@ -2109,109 +2155,118 @@ export default function BTBInputPage() {
                 </Table>
               </div>
             </CardContent>
-          </Card>
-        )}
+          </Card >
+        )
+        }
 
         {/* BTB Form - show only when showForm is true */}
-        {showForm && (
-          <Card className="bg-card border-border shadow-md rounded-md">
-            <CardHeader>
-              <CardTitle>
-                {editingBTB ? "Edit BTB" : "Tambah BTB Baru"}
-              </CardTitle>
-              <CardDescription>
-                Isi form di bawah untuk{" "}
-                {editingBTB ? "mengubah" : "menambahkan"} Bukti Terima Barang
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/* Input Nomor BTB dan Tgl BTB sejajar */}
-              <div className="mb-4">
-                {/* Judul detail PO yang dipilih: warna hitam, besar */}
-                <div className="mb-2 text-2xl font-semibold text-black">
-                  Detail PO yang Dipilih
-                </div>
-                {/* Info No. PO dan Supplier, sejajar, tidak terlalu tebal/besar */}
-                <div className="mb-3 flex flex-row gap-2 items-center text-base font-normal text-foreground">
-                  <span>No. PO: {formData.noPO}</span>
-                  <span className="mx-2">|</span>
-                  <span>Supplier: {formData.supplierLabel}</span>
-                </div>
+        {
+          showForm && (
+            <Card className="bg-card border-border shadow-md rounded-md">
+              <CardHeader>
+                <CardTitle>
+                  {editingBTB ? "Edit BTB" : "Tambah BTB Baru"}
+                </CardTitle>
+                <CardDescription>
+                  Isi form di bawah untuk{" "}
+                  {editingBTB ? "mengubah" : "menambahkan"} Bukti Terima Barang
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
                 {/* Input Nomor BTB dan Tgl BTB sejajar */}
-                <div className="flex flex-row gap-4">
-                  <div className="flex-1">
-                    <Label htmlFor="noBTB">Nomor BTB</Label>
-                    <Input
-                      id="noBTB"
-                      value={formData.noBTB}
-                      onChange={(e) =>
-                        setFormData({ ...formData, noBTB: e.target.value })
-                      }
-                      placeholder="Auto-generated"
-                    />
+                <div className="mb-4">
+                  {/* Judul detail PO yang dipilih: warna hitam, besar */}
+                  <div className="mb-2 text-2xl font-semibold text-black">
+                    Detail PO yang Dipilih
                   </div>
-                  <div className="flex-1">
-                    <Label htmlFor="tanggal">Tanggal BTB</Label>
-                    <DatePicker
-                      id="tanggal"
-                      selected={formData.tanggal}
-                      onChange={(date) =>
-                        setFormData({ ...formData, tanggal: date })
-                      }
-                      dateFormat="dd-MM-yyyy"
-                      placeholderText="Pilih tanggal"
-                      className="w-full px-3 py-2 border rounded-md bg-white"
-                      showMonthDropdown
-                      showYearDropdown
-                      dropdownMode="select"
-                      dayClassName={highlightWeekends}
-                      customInput={
-                        <Input
-                          value={
-                            formData.tanggal
-                              ? (() => {
-                                const d =
-                                  formData.tanggal instanceof Date
-                                    ? formData.tanggal
-                                    : new Date(formData.tanggal);
-                                return `${String(d.getDate()).padStart(
-                                  2,
-                                  "0"
-                                )}-${String(d.getMonth() + 1).padStart(
-                                  2,
-                                  "0"
-                                )}-${d.getFullYear()}`;
-                              })()
-                              : ""
-                          }
-                          readOnly
-                          className="w-full px-3 py-2 border rounded-md bg-white"
-                        />
-                      }
-                    />
+                  {/* Info No. PO dan Supplier, sejajar, tidak terlalu tebal/besar */}
+                  <div className="mb-3 flex flex-row gap-2 items-center text-base font-normal text-foreground">
+                    <span>No. PO: {formData.noPO}</span>
+                    <span className="mx-2">|</span>
+                    <span>Supplier: {formData.supplierLabel}</span>
+                  </div>
+                  {/* Input Nomor BTB dan Tgl BTB sejajar */}
+                  <div className="flex flex-row gap-4">
+                    <div className="flex-1">
+                      <Label htmlFor="noBTB">Nomor BTB</Label>
+                      <Input
+                        id="noBTB"
+                        value={formData.noBTB}
+                        onChange={(e) =>
+                          setFormData({ ...formData, noBTB: e.target.value })
+                        }
+                        placeholder="Auto-generated"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label htmlFor="tanggal">Tanggal BTB</Label>
+                      <DatePicker
+                        id="tanggal"
+                        selected={formData.tanggal}
+                        onChange={(date) =>
+                          setFormData({ ...formData, tanggal: date })
+                        }
+                        dateFormat="dd-MM-yyyy"
+                        placeholderText="Pilih tanggal"
+                        className="w-full px-3 py-2 border rounded-md bg-white"
+                        showMonthDropdown
+                        showYearDropdown
+                        dropdownMode="select"
+                        dayClassName={highlightWeekends}
+                        customInput={
+                          <Input
+                            value={
+                              formData.tanggal
+                                ? (() => {
+                                  const d =
+                                    formData.tanggal instanceof Date
+                                      ? formData.tanggal
+                                      : new Date(formData.tanggal);
+                                  return `${String(d.getDate()).padStart(
+                                    2,
+                                    "0"
+                                  )}-${String(d.getMonth() + 1).padStart(
+                                    2,
+                                    "0"
+                                  )}-${d.getFullYear()}`;
+                                })()
+                                : ""
+                            }
+                            readOnly
+                            className="w-full px-3 py-2 border rounded-md bg-white"
+                          />
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-              {/* Tabel barang: hanya tampilkan item yang dipilih */}
-              <div className="border border-[#e5e7eb] rounded-lg overflow-x-auto mb-4">
-                <table className="w-full text-xs border-collapse">
-                  <thead>
-                    <tr className="bg-white font-semibold text-center h-12 border-b border-[#e5e7eb]">
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[200px] uppercase">NAMA BARANG</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[160px] uppercase">KUANTITAS PO</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[180px] uppercase">KUANTITAS DITERIMA</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[140px] uppercase">SATUAN</th>
-                      <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[220px] uppercase">KETERANGAN</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {selectedPOItems.flatMap((po) =>
-                      po.items
-                        .filter((item) => item.qtySisa > 0)
+                {/* Tabel barang: hanya tampilkan item yang dipilih */}
+                <div className="border border-[#e5e7eb] rounded-lg overflow-x-auto mb-4">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-white font-semibold text-center h-12 border-b border-[#e5e7eb]">
+                        <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[200px] uppercase">NAMA BARANG</th>
+                        <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[160px] uppercase">KUANTITAS PO</th>
+                        <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[180px] uppercase">KUANTITAS DITERIMA</th>
+                        <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[140px] uppercase">SATUAN</th>
+                        <th className="font-medium px-10 py-4 border-r border-gray-300 text-center min-w-[220px] uppercase">KETERANGAN</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedPOItems
+                        .flatMap((po) => po.items.filter((item) => item.qtySisa > 0))
                         .map((item, idx) => (
-                          <tr key={item.poItemId} className="border-b border-[#e5e7eb] text-center align-middle h-12">
-                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[200px] uppercase">{item.namaBarang}</td>
-                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[160px]">{item.qtySisa}</td>
+                          <tr
+                            key={item.poItemId}
+                            className={`border-b border-[#e5e7eb] text-center align-middle h-12 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                              } hover:bg-blue-50/50 transition-colors`}
+                          >
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[200px] uppercase">
+                              {item.namaBarang}
+                            </td>
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[160px]">
+                              {item.qtySisa}
+                            </td>
                             <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[180px]">
                               <Input
                                 type="number"
@@ -2239,53 +2294,58 @@ export default function BTBInputPage() {
                                 }}
                                 className="w-20 h-9 text-center mx-auto border border-[#e5e7eb] rounded bg-white appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 style={{
-                                  MozAppearance: "textfield"
+                                  MozAppearance: "textfield",
                                 }}
-                                onWheel={e => {
+                                onWheel={(e) => {
                                   e.target.blur();
                                   e.preventDefault();
                                 }}
                               />
                             </td>
-                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[140px] uppercase">{item.satuan}</td>
+                            <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[140px] uppercase">
+                              {item.satuan}
+                            </td>
                             <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[220px]">
-                              <div className="text-muted-foreground max-w-xs truncate uppercase" title={item.keterangan}>
+                              <div
+                                className="text-muted-foreground max-w-xs truncate uppercase"
+                                title={item.keterangan}
+                              >
                                 {item.keterangan}
                               </div>
                             </td>
                           </tr>
-                        ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {/* Form bawah: Skema saja */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Skema di-hide, tetap dikirim */}
-                <input type="hidden" name="skema" value={formData.skema} />
-                <div className="flex space-x-2 justify-end">
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/90"
-                  >
-                    {editingBTB ? "Update BTB" : "Simpan BTB"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowForm(false);
-                      setSelectedPOItems([]);
-                    }}
-                  >
-                    Batal
-                  </Button>
+                        ))}
+                    </tbody>
+                  </table>
                 </div>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </MainLayout>
+                {/* Form bawah: Skema saja */}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Skema di-hide, tetap dikirim */}
+                  <input type="hidden" name="skema" value={formData.skema} />
+                  <div className="flex space-x-2 justify-end">
+                    <Button
+                      type="submit"
+                      className="bg-primary hover:bg-primary/90"
+                    >
+                      {editingBTB ? "Update BTB" : "Simpan BTB"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowForm(false);
+                        setSelectedPOItems([]);
+                      }}
+                    >
+                      Batal
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )
+        }
+      </div >
+    </MainLayout >
   );
 }

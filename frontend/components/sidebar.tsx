@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -142,133 +142,173 @@ export function Sidebar() {
   };
 
   // Filter menu sesuai id_peran
-  const id_peran = user?.id_peran;
-  let filteredMenu = menuItems;
+  const filteredMenu = useMemo(() => {
+    const id_peran = user?.id_peran;
+    let menu = menuItems;
 
-  if (id_peran === 2) {
-    // Menu khusus Divisi (id_peran = 2)
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/divisi/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "Pesanan Anda",
-        href: "/divisi/pesanan-anda",
-        icon: ShoppingCart,
-      },
-    ];
-  } else if (id_peran === 3) {
-    // Dashboard, PR, BTB, BKB, Rekap Full
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "PR (Purchase Request)",
-        icon: FileText,
-        submenu: [
-          { title: "Input PR", href: "/pr/input-baru" },
-          { title: "Monitoring PR", href: "/pr/monitoring" },
-        ],
-      },
-      {
-        title: "BTB",
-        icon: Package,
-        submenu: [
-          { title: "Input BTB", href: "/btb/input" },
-          { title: "Monitoring BTB", href: "/btb/monitoring" },
-        ],
-      },
-      {
-        title: "BKB",
-        icon: PackageOpen,
-        submenu: [
-          { title: "Input BKB", href: "/bkb/input" },
-          { title: "Monitoring BKB", href: "/bkb/monitoring" },
-        ],
-      },
-      {
-        title: "Rekap Keseluruhan",
-        href: "/dashboard/rekap-full",
-        icon: BarChart3,
-      },
-    ];
-  } else if (id_peran === 4) {
-    // Dashboard, PO, Rekap Full
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "PO (Purchase Order)",
-        icon: ShoppingCart,
-        submenu: [
-          { title: "Input PO", href: "/po/status" },
-          { title: "Monitoring PO", href: "/po/monitoring" },
-          { title: "Rekap PO", href: "/po/rekap" },
-        ],
-      },
-      {
-        title: "Rekap Keseluruhan",
-        href: "/dashboard/rekap-full",
-        icon: BarChart3,
-      },
-      {
-        title: "Pengaturan",
-        icon: Settings,
-        submenu: [
-          { title: "Hari Libur", href: "/settings/holidays" },
-        ],
-      },
-    ];
-  } else if (
-    (user &&
-      (user.id_peran === 3 || (user.role ?? "").toLowerCase() === "divisi")) ||
-    (role && role.toLowerCase() === "divisi")
-  ) {
-    // Fallback untuk divisi lama
-    filteredMenu = [
-      {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: "PR (Purchase Request)",
-        icon: FileText,
-        submenu: [
-          { title: "Input PR", href: "/pr/input-baru" },
-          { title: "Monitoring PR", href: "/pr/monitoring" },
-        ],
-      },
-      {
-        title: "BKB",
-        icon: PackageOpen,
-        submenu: [
-          { title: "Input BKB", href: "/bkb/input" },
-          { title: "Monitoring BKB", href: "/bkb/monitoring" },
-        ],
-      },
-      {
-        title: "Rekap Keseluruhan",
-        href: "/dashboard/rekap-full",
-        icon: BarChart3,
-      },
-      {
-        title: "Pengaturan",
-        icon: Settings,
-        submenu: [
-          { title: "Hari Libur", href: "/settings/holidays" },
-        ],
-      },
-    ];
-  }
+    if (user && (Number(user.id) === 112 || Number(user.id) === 113)) {
+      // Spesifik untuk user IRVAN (113) dan JOHN (112)
+      // View Only access for PO
+      menu = [
+        {
+          title: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          title: "PO (Purchase Order)",
+          icon: ShoppingCart,
+          submenu: [
+            { title: "Monitoring PO", href: "/po/monitoring" },
+          ],
+        },
+        {
+          title: "Rekap Keseluruhan",
+          href: "/dashboard/rekap-full",
+          icon: BarChart3,
+        },
+      ];
+    } else if (id_peran === 2) {
+      // Menu khusus Divisi (id_peran = 2)
+      menu = [
+        {
+          title: "Dashboard",
+          href: "/divisi/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          title: "Pesanan Anda",
+          href: "/divisi/pesanan-anda",
+          icon: ShoppingCart,
+        },
+        {
+          title: "Full Rekap",
+          href: "/divisi/rekap-full",
+          icon: BarChart3,
+        },
+      ];
+    } else if (id_peran === 3) {
+      // PURCHASING (Role 3)
+      menu = [
+        {
+          title: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          title: "PO (Purchase Order)",
+          icon: ShoppingCart,
+          submenu: [
+            { title: "Input PO", href: "/po/status" },
+            { title: "Monitoring PO", href: "/po/monitoring" },
+          ],
+        },
+        {
+          title: "Rekap Keseluruhan",
+          href: "/dashboard/rekap-full",
+          icon: BarChart3,
+        },
+      ];
+    } else if (id_peran === 4) {
+      // STORE (Role 4)
+      menu = [
+        {
+          title: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          title: "PR (Purchase Request)",
+          icon: FileText,
+          submenu: [
+            { title: "Input PR", href: "/pr/input-baru" },
+            { title: "Monitoring PR", href: "/pr/monitoring" },
+          ],
+        },
+        {
+          title: "BTB",
+          icon: Package,
+          submenu: [
+            { title: "Input BTB", href: "/btb/input" },
+            { title: "Monitoring BTB", href: "/btb/monitoring" },
+          ],
+        },
+        {
+          title: "BKB",
+          icon: PackageOpen,
+          submenu: [
+            { title: "Input BKB", href: "/bkb/input" },
+            { title: "Monitoring BKB", href: "/bkb/monitoring" },
+          ],
+        },
+        {
+          title: "Rekap Keseluruhan",
+          href: "/dashboard/rekap-full",
+          icon: BarChart3,
+        },
+      ];
+    } else if (
+      (user &&
+        (user.id_peran === 3 || (user.role ?? "").toLowerCase() === "divisi")) ||
+      (role && role.toLowerCase() === "divisi")
+    ) {
+      // Fallback untuk divisi lama
+      menu = [
+        {
+          title: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          title: "PR (Purchase Request)",
+          icon: FileText,
+          submenu: [
+            { title: "Input PR", href: "/pr/input-baru" },
+            { title: "Monitoring PR", href: "/pr/monitoring" },
+          ],
+        },
+        {
+          title: "BKB",
+          icon: PackageOpen,
+          submenu: [
+            { title: "Input BKB", href: "/bkb/input" },
+            { title: "Monitoring BKB", href: "/bkb/monitoring" },
+          ],
+        },
+        {
+          title: "Rekap Keseluruhan",
+          href: "/dashboard/rekap-full",
+          icon: BarChart3,
+        },
+        {
+          title: "Pengaturan",
+          icon: Settings,
+          submenu: [
+            { title: "Hari Libur", href: "/settings/holidays" },
+          ],
+        },
+      ];
+    }
+    return menu;
+  }, [user, role]);
+
+  // Efek untuk otomatis membuka submenu jika item di dalamnya aktif
+  useEffect(() => {
+    if (!filteredMenu) return;
+
+    // Cari item menu yang submenu-nya memiliki href yang sama dengan pathname saat ini
+    const activeParent = filteredMenu.find((item) =>
+      item.submenu?.some((sub) => sub.href === pathname)
+    );
+
+    if (activeParent) {
+      setExpandedItems((prev) => {
+        // Jika sudah ada, jangan tambahkan lagi (cegah duplikat)
+        if (prev.includes(activeParent.title)) return prev;
+        return [...prev, activeParent.title];
+      });
+    }
+  }, [pathname, filteredMenu]);
 
   return (
     <div
@@ -400,3 +440,5 @@ export function Sidebar() {
     </div>
   );
 }
+
+

@@ -1,0 +1,14 @@
+=== STARTING PO STATUS AUTOMATION TEST ===
+Created PR 361
+Created PR Item 571
+Created PO 280 with status WAITING PART
+Created PO Item 492 (10/10)
+[TEST 1] Full Item (10/10) -> Expect WAITING PART. Result: WAITING PART
+Updated PO Item to 5/10
+[TEST 2] Partial Item (5/10) -> Expect PARTIAL PART. Result: PARTIAL PART
+Updated PO Item to 0/10
+[TEST 3] Zero Item (0/10) -> Expect PART COMPLETE. Result: PART COMPLETE
+[TEST 4] PR Status -> Expect PART COMPLETE. Result: PART COMPLETE
+Deleted PO Item
+[TEST 5] Empty PO -> Expect WAITING PART. Result: WAITING PART
+Cleanup done.

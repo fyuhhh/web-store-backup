@@ -280,6 +280,66 @@ export default function StatusPOPage() {
     );
   };
 
+  // Helper mapping id_satuan ke nama satuan
+  const satuanMap = Object.fromEntries(
+    satuanOptions.map((s: any) => [String(s.id_satuan), s.satuan])
+  );
+  // Helper mapping id_divisi ke nama divisi
+  const divisiMap = Object.fromEntries(
+    divisiOptions.map((d: any) => [String(d.id_divisi), d.divisi])
+  );
+  // Helper mapping id_urgensi ke nama urgensi
+  const urgensiMap = Object.fromEntries(
+    urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
+  );
+
+  // Mapping PR + items
+  const processedPRs = prData
+    .filter(
+      (pr) => {
+        const validStatuses = [
+          "MENUNGGU", // legacy
+          "GANTUNG",  // legacy
+          "WAITING PO",
+          "PARTIAL PO",
+          "DRAFT"
+        ];
+        const s = (pr.status || "").toUpperCase();
+        // Exclude WAITING PART / SELESAI / TELAH SELESAI / DITOLAK
+        if (["SELESAI", "TELAH SELESAI", "DITOLAK", "WAITING PART"].includes(s)) return false;
+        return validStatuses.includes(s) &&
+          // Filter hanya PR dengan id_skema sesuai user login
+          (!userSkemaId || String(pr.id_skema ?? pr.skema) === userSkemaId);
+      }
+    )
+    .map((pr) => ({
+      ...pr,
+      items: prItemData
+        .filter((item) => String(item.id_PR) === String(pr.id_PR))
+        // --- Pastikan urutan item sesuai urutan input PR ---
+        .sort((a, b) => Number(a.id_PRItem) - Number(b.id_PRItem))
+        .map((item) => ({
+          namaBarang: item.namaBarang,
+          jumlah: item.jumlah,
+          satuan:
+            satuanMap[String(item.id_satuan)] ||
+            item.satuanLabel ||
+            item.id_satuan,
+          keterangan: item.keterangan,
+          id: item.id_PRItem,
+          status: item.status || "",
+        })),
+      urgensi:
+        urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
+      divisi: divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
+      dibuatOleh: pr.dibuatOleh,
+      skema: pr.id_skema,
+      skemaLabel: pr.skemaLabel ?? "",
+      noPR: pr.noPR,
+      tanggalPR: pr.tanggalPR,
+      status: pr.status,
+    }));
+
   // When user toggles PR-level checkbox, select/deselect all items of that PR
   const handleSelectPR = (prId: string, checked: boolean) => {
     if (checked) {
@@ -303,37 +363,7 @@ export default function StatusPOPage() {
     }
   };
 
-  // Per-page select all -> select all items of PRs on current page
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      // Pilih semua item pada semua PR di halaman ini
-      const newSelectedItemsMap = { ...selectedItemsMap };
-      const newSelectedPRs: string[] = [...selectedPRsForProcess];
-      paginatedData.forEach((pr) => {
-        const prId = String(pr.id_PR);
-        const itemIds = (pr.items || [])
-          .filter((item: any) => item.jumlah > 0)
-          .map((item: any) => String(item.id));
-        newSelectedItemsMap[prId] = itemIds;
-        if (!newSelectedPRs.includes(prId)) newSelectedPRs.push(prId);
-      });
-      setSelectedItemsMap(newSelectedItemsMap);
-      setSelectedPRsForProcess(newSelectedPRs);
-    } else {
-      // Deselect semua item pada semua PR di halaman ini
-      const newSelectedItemsMap = { ...selectedItemsMap };
-      paginatedData.forEach((pr) => {
-        const prId = String(pr.id_PR);
-        newSelectedItemsMap[prId] = [];
-      });
-      setSelectedItemsMap(newSelectedItemsMap);
-      setSelectedPRsForProcess((prev) =>
-        prev.filter(
-          (id) => !paginatedData.some((pr) => String(pr.id_PR) === id)
-        )
-      );
-    }
-  };
+
 
   // Badge status
   function getStatusBadge(status: string) {
@@ -346,10 +376,10 @@ export default function StatusPOPage() {
         </span>
       );
     }
-    if (s === "PARCIAL PO" || s === "GANTUNG") {
+    if (s === "PARCIAL PO" || s === "PARTIAL PO" || s === "GANTUNG") {
       return (
         <span className="inline-block px-2 py-1 rounded bg-orange-100 text-orange-700 border border-orange-300 text-xs font-semibold">
-          PARCIAL PO
+          PARTIAL PO
         </span>
       );
     }
@@ -357,6 +387,13 @@ export default function StatusPOPage() {
       return (
         <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 text-xs font-semibold">
           WAITING PART
+        </span>
+      );
+    }
+    if (s === "DITOLAK") {
+      return (
+        <span className="inline-block px-2 py-1 rounded bg-red-100 text-red-700 border border-red-300 text-xs font-semibold">
+          DITOLAK
         </span>
       );
     }
@@ -395,60 +432,7 @@ export default function StatusPOPage() {
     );
   };
 
-  // Helper mapping id_satuan ke nama satuan
-  const satuanMap = Object.fromEntries(
-    satuanOptions.map((s: any) => [String(s.id_satuan), s.satuan])
-  );
-  // Helper mapping id_divisi ke nama divisi
-  const divisiMap = Object.fromEntries(
-    divisiOptions.map((d: any) => [String(d.id_divisi), d.divisi])
-  );
-  // Helper mapping id_urgensi ke nama urgensi
-  const urgensiMap = Object.fromEntries(
-    urgensiOptions.map((u: any) => [String(u.id_urgensi), u.urgensi])
-  );
 
-  // Mapping PR + items
-  const processedPRs = prData
-    .filter(
-
-      (pr) => {
-        const s = (pr.status || "").toUpperCase();
-        // Tampilkan WAITING PO, PARCIAL PO, MENUNGGU (Legacy), GANTUNG (Legacy)
-        // Sembunyikan WAITING PART, SELESAI
-        const validStatuses = ["WAITING PO", "PARCIAL PO", "MENUNGGU", "GANTUNG", "DRAFT"];
-        return validStatuses.includes(s) &&
-          // Filter hanya PR dengan id_skema sesuai user login
-          (!userSkemaId || String(pr.id_skema ?? pr.skema) === userSkemaId);
-      }
-    )
-    .map((pr) => ({
-      ...pr,
-      items: prItemData
-        .filter((item) => String(item.id_PR) === String(pr.id_PR))
-        // --- Pastikan urutan item sesuai urutan input PR ---
-        .sort((a, b) => Number(a.id_PRItem) - Number(b.id_PRItem))
-        .map((item) => ({
-          namaBarang: item.namaBarang,
-          jumlah: item.jumlah,
-          satuan:
-            satuanMap[String(item.id_satuan)] ||
-            item.satuanLabel ||
-            item.id_satuan,
-          keterangan: item.keterangan,
-          id: item.id_PRItem,
-          status: item.status || "",
-        })),
-      urgensi:
-        urgensiMap[String(pr.id_urgensi)] || pr.urgensiLabel || pr.id_urgensi,
-      divisi: divisiMap[String(pr.id_divisi)] || pr.divisiLabel || pr.id_divisi,
-      dibuatOleh: pr.dibuatOleh,
-      skema: pr.id_skema,
-      skemaLabel: pr.skemaLabel ?? "",
-      noPR: pr.noPR,
-      tanggalPR: pr.tanggalPR,
-      status: pr.status,
-    }));
 
   // --- FILTER & SEARCH ---
   // Compute unique values for dropdowns
@@ -472,9 +456,8 @@ export default function StatusPOPage() {
       processedPRs.flatMap((pr) => pr.items?.map((item) => item.jumlah) || [])
     )
   ).sort((a, b) => a - b);
-  const uniqueUrgensi = ["High", "Medium", "Low"];
-
-  const uniqueStatus = ["WAITING PO", "PARCIAL PO"];
+  const uniqueUrgensi = ["High", "Medium", "Low"]; // List opsi untuk filter MultiSelect
+  const uniqueStatus = ["WAITING PO", "PARTIAL PO", "MENUNGGU", "GANTUNG", "DRAFT"];
   const uniqueDivisi = divisiOptions.map((d: any) => d.divisi);
   const uniqueDibuatOleh = Array.from(
     new Set(processedPRs.map((pr) => pr.dibuatOleh))
@@ -601,6 +584,38 @@ export default function StatusPOPage() {
   // --- PAGINATION ---
   // --- PAGINATION REMOVED ---
   const paginatedData = filteredPRs;
+
+  // Per-page select all -> select all items of PRs on current page
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      // Pilih semua item pada semua PR di halaman ini
+      const newSelectedItemsMap = { ...selectedItemsMap };
+      const newSelectedPRs: string[] = [...selectedPRsForProcess];
+      paginatedData.forEach((pr) => {
+        const prId = String(pr.id_PR);
+        const itemIds = (pr.items || [])
+          .filter((item: any) => item.jumlah > 0)
+          .map((item: any) => String(item.id));
+        newSelectedItemsMap[prId] = itemIds;
+        if (!newSelectedPRs.includes(prId)) newSelectedPRs.push(prId);
+      });
+      setSelectedItemsMap(newSelectedItemsMap);
+      setSelectedPRsForProcess(newSelectedPRs);
+    } else {
+      // Deselect semua item pada semua PR di halaman ini
+      const newSelectedItemsMap = { ...selectedItemsMap };
+      paginatedData.forEach((pr) => {
+        const prId = String(pr.id_PR);
+        newSelectedItemsMap[prId] = [];
+        setSelectedItemsMap(newSelectedItemsMap);
+        setSelectedPRsForProcess((prev) =>
+          prev.filter(
+            (id) => !paginatedData.some((pr) => String(pr.id_PR) === id)
+          )
+        );
+      });
+    }
+  };
 
   // Auto-logout logic (testing: 5 detik idle)
   useEffect(() => {
@@ -1734,12 +1749,10 @@ export default function StatusPOPage() {
                                   {pr.divisi}
                                 </TableCell>
                               ) : null}
-                              {/* Status hanya di baris pertama */}
-                              {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
-                                  {getStatusBadge(pr.status)}
-                                </TableCell>
-                              ) : null}
+                              {/* Status (Un-merged) */}
+                              <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
+                                {getStatusBadge(item.status)}
+                              </TableCell>
                               {/* Dibuat Oleh hanya di baris pertama */}
                               {idx === 0 ? (
                                 <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">

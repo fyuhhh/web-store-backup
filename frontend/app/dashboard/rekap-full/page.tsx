@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
 import DatePicker from "react-datepicker";
+import { toast } from "sonner"; // Import from sonner
 import "react-datepicker/dist/react-datepicker.css";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
@@ -29,7 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Wrench } from "lucide-react";
 import { Pencil } from "lucide-react"; // untuk ikon edit
 
 import { Label } from "@/components/ui/label";
@@ -81,8 +82,9 @@ const columns = [
   { key: "totalHarga", label: "Total Harga" },
   { key: "statusPengiriman", label: "Status Pengiriman" },
   { key: "tanggalEstimasiDiterima", label: "Estimasi Diterima" },
-  { key: "diorderOleh", label: "Diorder Oleh" },
-  { key: "diinputOleh", label: "Diinput Oleh" },
+  { key: "diorderOleh", label: "Pembuat PO" },
+  { key: "diinputOleh", label: "Ordered By" },
+  { key: "terminPembayaran", label: "Termin Pembayaran" },
   { key: "targetPencapaianPO", label: "Target Pencapaian PO" },
   { key: "delay", label: "Status" },
   { key: "quantityPO", label: "Quantity Belum PO" },
@@ -127,7 +129,7 @@ function formatInt(val: any) {
 // Helper format rupiah dengan prefix
 function formatRupiahFull(val: any) {
   if (val === undefined || val === "" || isNaN(val)) return "";
-  return "Rp. " + Number(val).toLocaleString("id-ID");
+  return "Rp. " + Number(val).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // ===== New helpers: parse percent and compute per-item total =====
@@ -155,7 +157,7 @@ function computeItemTotal(po: any, poItem: any) {
   // apply ppn on post-discount amount
   total = total + (total * ppnPercent) / 100;
 
-  return Number.isFinite(total) ? Math.round(total) : total;
+  return Number.isFinite(total) ? total : total;
 }
 // ===== end new helpers =====
 
@@ -361,6 +363,31 @@ export default function RekapFullPage() {
   // Ganti state exportStartDate/exportEndDate ke Date | null agar cocok dengan DatePicker
   const [exportStartDate, setExportStartDate] = useState<Date | null>(null);
   const [exportEndDate, setExportEndDate] = useState<Date | null>(null);
+  const [isSuperpowerLoading, setIsSuperpowerLoading] = useState(false);
+
+  // Superpower Function
+  const handleSuperpower = async () => {
+    if (!confirm("Apakah Anda yakin ingin memperbaiki semua data PO? Proses ini akan menghitung ulang total harga item dan PO berdasarkan harga satuan dan quantity terbaru.")) return;
+
+    setIsSuperpowerLoading(true);
+    try {
+      const res = await fetch("http://192.168.10.10:5000/api/po/recalculate", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || "Perbaikan data berhasil!");
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast.error("Gagal: " + (data.message || "Terjadi kesalahan"));
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Error: " + err.message);
+    } finally {
+      setIsSuperpowerLoading(false);
+    }
+  };
 
   // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
   useEffect(() => {
@@ -372,6 +399,25 @@ export default function RekapFullPage() {
       setExportEndDate(lastDay);
     }
   }, [exportStartDate, exportEndDate]);
+
+  // Check current user role
+  const [currentUserRole, setCurrentUserRole] = useState<number | null>(null); // Changed to number | null
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null); // Add User ID state
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("userData");
+      if (saved) {
+        try {
+          const p = JSON.parse(saved);
+          setCurrentUserRole(Number(p.id_peran || p.role)); // Ensure it's a number
+          setCurrentUserId(Number(p.id)); // Set User ID
+        } catch {
+          console.error("Error parsing userData from localStorage");
+        }
+      }
+    }
+  }, []);
 
   // Tambahkan state untuk label referensi
   const [supplierMap, setSupplierMap] = useState<{ [key: string]: string }>({});
@@ -401,14 +447,14 @@ export default function RekapFullPage() {
           bkbRes,
           bkbItemRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb-item", { cache: "no-store" }).then((r) => r.json()),
         ]);
 
         // Log the fetched data for verification
@@ -507,7 +553,7 @@ export default function RekapFullPage() {
           };
 
           // Try to find year (2 digits) and month (roman)
-          // Regex: \/(\d{2})\/([IVX]+)\/
+          // Regex: \/(\d{2})\/([IVX]+)(?:\/|$)/
           const matchMid = prNo.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
           let year = 0;
           let month = 0;
@@ -567,21 +613,21 @@ export default function RekapFullPage() {
           satuanRes,
           divisiRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/supplier").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/user").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/skema").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/status-permintaan").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/btb-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/bkb-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/supplier", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/user", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/skema", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/status-pengiriman", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/status-permintaan", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/satuan", { cache: "no-store" }).then((r) => r.json()),
+          fetch("http://192.168.10.10:5000/api/divisi", { cache: "no-store" }).then((r) => r.json()),
         ]);
 
         // --- Build maps locally to ensure availability ---
@@ -689,6 +735,7 @@ export default function RekapFullPage() {
                 statusPengiriman: "",
                 diorderOleh: "",
                 diinputOleh: "",
+                terminPembayaran: "",
                 skemaPO: "",
                 noBTB: "",
                 tanggalBTB: "",
@@ -814,6 +861,7 @@ export default function RekapFullPage() {
                       ? localUserMap[String(po.orderedBy)] || po.orderedBy
                       : "",
                     diinputOleh: poItem?.namaPembeli ?? "",
+                    terminPembayaran: po?.termin || po?.id_termin || "",
                     skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
                     noBTB: "",
                     tanggalBTB: "",
@@ -854,7 +902,7 @@ export default function RekapFullPage() {
                       hariPR: getDayName(pr.tanggalPR),
                       daftarBarangPR: item.namaBarang,
                       quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
-                      quantityPO: item.jumlah ?? "",
+                      // quantityPO removed (duplicate)
                       satuanPR: item.id_satuan
                         ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                         : "",
@@ -868,12 +916,12 @@ export default function RekapFullPage() {
                         ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
                         : "",
                       targetTanggalPO: formatDateSimple(pr.estimasipo),
-                      delay: po?.estimasiTanggalTerima && btb?.tanggal_btb
+                      delay: btbItem?.delay || (po?.estimasiTanggalTerima && btb?.tanggal_btb
                         ? (() => {
                           const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
                           return String(days);
                         })()
-                        : "",
+                        : ""),
                       id_POItem: poItem.id_POItem,
                       status: (() => {
                         if (poItem?.statusTerima) return poItem.statusTerima;
@@ -948,6 +996,7 @@ export default function RekapFullPage() {
                         ? localUserMap[String(po.orderedBy)] || po.orderedBy
                         : "",
                       diinputOleh: poItem?.namaPembeli ?? "",
+                      terminPembayaran: po?.termin || po?.id_termin || "",
                       skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
                       noBTB: btb?.no_btb || "",
                       id_btb: btb?.id_btb || "",
@@ -1074,20 +1123,35 @@ export default function RekapFullPage() {
 
   // Filtered data (bandingkan id skema, bukan label)
   const filteredData = React.useMemo(() => {
-    // Jika tanggal belum diisi, return []
-    if (!exportStartDate || !exportEndDate) return [];
+    // Jika tanggal belum diisi, jangan return [], tapi biarkan filter berjalan (open ended)
+    // if (!exportStartDate || !exportEndDate) return [];
     return (
       rekapData.filter((row) => {
-        // Filter skemaPR sesuai user login (bandingkan id)
-        if (userSkemaId && String(row.skemaPR) !== userSkemaId) {
+        // Filter skemaPR sesuai user login (bandingkan id), KECUALI Admin (id_peran 1)
+        if (currentUserRole !== 1 && userSkemaId && String(row.skemaPR) !== userSkemaId) {
           return false;
         }
         // Filter tanggal PR
         if (row.tanggalPR) {
           const tglPR = parseTanggalToDate(row.tanggalPR);
-          if (!tglPR || !exportStartDate || !exportEndDate) return false;
-          // Bandingkan dengan exportStartDate/exportEndDate (Date)
-          if (tglPR < exportStartDate || tglPR > exportEndDate) return false;
+          if (!tglPR) return false;
+
+          let afterStart = true;
+          let beforeEnd = true;
+
+          if (exportStartDate) {
+            const start = new Date(exportStartDate);
+            start.setHours(0, 0, 0, 0);
+            afterStart = tglPR >= start;
+          }
+
+          if (exportEndDate) {
+            const end = new Date(exportEndDate);
+            end.setHours(23, 59, 59, 999); // End of day
+            beforeEnd = tglPR <= end;
+          }
+
+          if (!afterStart || !beforeEnd) return false;
         } else {
           return false;
         }
@@ -1145,7 +1209,7 @@ export default function RekapFullPage() {
         };
 
         // Try to find year (2 digits) and month (roman)
-        // Regex: \/(\d{2})\/([IVX]+)\/
+        // Regex: \/(\d{2})\/([IVX]+)(?:\/|$)/
         const matchMid = prNo.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
         let year = 0;
         let month = 0;
@@ -1245,12 +1309,8 @@ export default function RekapFullPage() {
       return filteredData.filter((row) => selectedIds.includes(row.id));
     }
     if (exportMode === "range" && exportStartDate && exportEndDate) {
-      return filteredData.filter(
-        (row) =>
-          row.tanggalPR &&
-          row.tanggalPR >= exportStartDate &&
-          row.tanggalPR <= exportEndDate
-      );
+      // FilteredData is already filtered by date range, so just return it
+      return filteredData;
     }
     return filteredData;
   };
@@ -1452,7 +1512,7 @@ export default function RekapFullPage() {
           // Columns: periodePO, noPO, tanggalPO, supplier, quantityAwalPO, satuanPO, hargaSatuanPO, diskonPersen, diskonRp, ppnPersen, ppnRp, totalHarga, statusPengiriman, tanggalEstimasiDiterima, diorderOleh, diinputOleh, targetPencapaianPO, delay, quantityPO, skemaPO
           if (poGroup.rowSpan > 1) {
             const poEndRow = poStartRow + poGroup.rowSpan - 1;
-            const poKeys = ["periodePO", "noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO", "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman", "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "targetPencapaianPO", "delay", "quantityPO", "skemaPO"];
+            const poKeys = ["periodePO", "noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO", "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman", "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "terminPembayaran", "targetPencapaianPO", "delay", "quantityPO", "skemaPO"];
             poKeys.forEach(k => {
               const idx = columns.findIndex(c => c.key === k);
               if (idx >= 0) {
@@ -1549,6 +1609,56 @@ export default function RekapFullPage() {
   const [editingStatusLoading, setEditingStatusLoading] = useState<boolean>(false);
   const [customStatusInput, setCustomStatusInput] = useState<string>("");
 
+  // State untuk edit Delay
+  const [editingDelayId, setEditingDelayId] = useState<string | null>(null);
+  const [editingDelayValue, setEditingDelayValue] = useState<string>("");
+  const [editingDelayLoading, setEditingDelayLoading] = useState<boolean>(false);
+  const [customDelayInput, setCustomDelayInput] = useState<string>("");
+
+  // Handler klik kolom delay: buka popover (input text direct)
+  function handleDelayEditClick(item: any) {
+    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
+      // Store (Role 4) and Restricted Users cannot edit
+      return;
+    }
+    if (!item.id_btb_item) return;
+    setEditingDelayId(item.id);
+    // Jika delay sudah ada value, set ke custom input
+    setCustomDelayInput(item.delay || "");
+    setEditingDelayValue("Custom..."); // Assume custom for delay since it's free text mostly
+  }
+
+  // Handler submit custom delay
+  async function handleCustomDelaySubmit(item: any) {
+    const customVal = customDelayInput.trim();
+    // if (!customVal) return; // Allow empty to reset? Maybe.
+    setEditingDelayLoading(true);
+
+    if (!item.id_btb_item) {
+      alert("BTB Item ID tidak ditemukan");
+      setEditingDelayId(null);
+      setEditingDelayLoading(false);
+      return;
+    }
+
+    try {
+      await fetch(`http://192.168.10.10:5000/api/btb-item/${item.id_btb_item}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ delay: customVal }),
+      });
+      setRekapData((prev) =>
+        prev.map((row) =>
+          row.id_btb_item === item.id_btb_item ? { ...row, delay: customVal } : row
+        )
+      );
+    } catch (err) {
+      alert("Gagal update Delay");
+    }
+    setEditingDelayId(null);
+    setEditingDelayLoading(false);
+  }
+
   // Opsi status yang diizinkan
   const statusOptions = [
     "SCHEDULE",
@@ -1567,6 +1677,11 @@ export default function RekapFullPage() {
 
   // Handler klik kolom status: buka dropdown
   function handleStatusEditClick(item: any) {
+    // Block editing for Store (id_peran 4) and Restricted Users
+    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
+      // Optional: alert("Store tidak memiliki akses edit status");
+      return;
+    }
     if (!item.id_POItem) return;
     setEditingStatusId(item.id);
     setEditingStatusValue(item.status || "");
@@ -1575,6 +1690,9 @@ export default function RekapFullPage() {
 
   // Handler klik kolom target pencapaian: buka dropdown
   function handleTargetEditClick(item: any) {
+    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
+      return;
+    }
     if (!item.id_btb_item) return; // Use item ID check
     setEditingTargetId(item.id); // pakai id unik row
     setEditingTargetValue(item.targetPencapaianPO || "");
@@ -1901,6 +2019,17 @@ export default function RekapFullPage() {
                 <ChevronDown className="h-4 w-4 mr-2" />
                 Export Excel
               </Button>
+
+              {/* Superpower Button */}
+              <Button
+                onClick={handleSuperpower}
+                disabled={isSuperpowerLoading}
+                className="bg-red-600 hover:bg-red-700 text-white h-9 ml-2"
+                title="Perbaiki Data PO (Hitung Ulang Total)"
+              >
+                <Wrench className={`h-4 w-4 mr-2 ${isSuperpowerLoading ? 'animate-spin' : ''}`} />
+                {isSuperpowerLoading ? "Memproses..." : "Perbaiki Data"}
+              </Button>
             </div>
           </div>
         </div>
@@ -1946,7 +2075,8 @@ export default function RekapFullPage() {
           `}</style>
         </div>
         {/* Jika tanggal belum diisi, tampilkan pesan */}
-        {!exportStartDate || !exportEndDate ? (
+        {/* Jika tanggal belum diisi, tetap tampilkan tabel (default all/open-ended) */}
+        {false ? (
           <Card className="bg-card border-border">
             <CardHeader>
               <CardTitle>Daftar Rekap Full</CardTitle>
@@ -2040,7 +2170,7 @@ export default function RekapFullPage() {
                                       "-item-" +
                                       idx
                                     }
-                                    className="hover:bg-gray-50 transition-colors"
+                                    className="hover:bg-gray-50 even:bg-gray-50 transition-colors"
                                   >
                                     {/* Periode PR */}
                                     {isFirstPR ? (
@@ -2052,8 +2182,9 @@ export default function RekapFullPage() {
                                     {isFirstPR ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
                                         <span
-                                          className="cursor-pointer font-bold text-black hover:text-blue-600 hover:underline"
+                                          className={`font-bold text-black ${currentUserRole === 3 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
                                           onClick={() => {
+                                            if (currentUserRole === 3 || currentUserId === 112 || currentUserId === 113) return; // Disable for Purchasing & Restricted
                                             if (item.noPR) {
                                               window.location.href = `/pr/monitoring?highlight=${encodeURIComponent(item.noPR)}`;
                                             }
@@ -2122,22 +2253,22 @@ export default function RekapFullPage() {
                                     {isFirstPR ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
                                         {typeof item.targetTanggalPO === "string"
-                                          ? item.targetTanggalPO.toUpperCase()
+                                          ? formatTanggalDisplay(item.targetTanggalPO).toUpperCase()
                                           : item.targetTanggalPO ?? ""}
                                       </TableCell>
                                     ) : null}
                                     {/* Status */}
                                     {/* Status - Per Item */}
                                     <TableCell
-                                      className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase cursor-pointer ${editingStatusId === item.id
+                                      className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"} ${editingStatusId === item.id
                                         ? "bg-gray-200"
                                         : getStatusBg(item.status)
                                         }`}
-                                      onClick={() => handleStatusEditClick(item)}
+                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? undefined : () => handleStatusEditClick(item)}
                                       style={{ opacity: editingStatusLoading && editingStatusId === item.id ? 0.5 : 1 }}
-                                      title="Klik untuk edit status"
+                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "Tidak dapat mengedit status" : "Klik untuk edit status"}
                                     >
-                                      {editingStatusId === item.id ? (
+                                      {editingStatusId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 ? (
                                         <Popover open={true} onOpenChange={(open) => { if (!open) setEditingStatusId(null); }}>
                                           <PopoverTrigger asChild>
                                             <div className="cursor-pointer">{item.status || "Pilih Status"}</div>
@@ -2249,8 +2380,9 @@ export default function RekapFullPage() {
                                     {isFirstPO ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
                                         <span
-                                          className="cursor-pointer font-bold text-black hover:text-blue-600 hover:underline"
+                                          className={`font-bold text-black ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
                                           onClick={() => {
+                                            if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) return;
                                             if (item.noPO) {
                                               window.location.href = `/po/monitoring?highlight=${encodeURIComponent(item.noPO)}`;
                                             }
@@ -2285,7 +2417,7 @@ export default function RekapFullPage() {
                                     {/* Harga Satuan PO */}
                                     <TableCell className="px-3 py-1 border-b border-r border-gray-300 text-right uppercase">
                                       {item.hargaSatuanPO !== undefined && item.hargaSatuanPO !== null && item.hargaSatuanPO !== ""
-                                        ? ("Rp. " + Number(item.hargaSatuanPO).toLocaleString("id-ID")).toUpperCase()
+                                        ? formatRupiahFull(item.hargaSatuanPO).toUpperCase()
                                         : ""}
                                     </TableCell>
                                     {/* Diskon (%) */}
@@ -2326,10 +2458,16 @@ export default function RekapFullPage() {
                                         ? item.diinputOleh.toUpperCase()
                                         : item.diinputOleh ?? ""}
                                     </TableCell>
+                                    {/* Termin Pembayaran */}
+                                    {isFirstPO ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                        {(item.terminPembayaran || "").toUpperCase()}
+                                      </TableCell>
+                                    ) : null}
                                     {/* Target Pencapaian PO */}
                                     <TableCell
-                                      className={`px-3 py-1 border-b border-r border-gray-300 ${getTargetPencapaianPoBg(item.targetPencapaianPO)} cursor-pointer uppercase`}
-                                      onClick={() => handleTargetEditClick(item)}
+                                      className={`px-3 py-1 border-b border-r border-gray-300 ${getTargetPencapaianPoBg(item.targetPencapaianPO)} ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"} uppercase`}
+                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? undefined : () => handleTargetEditClick(item)}
                                       style={{
                                         opacity:
                                           updatingTargetId &&
@@ -2338,9 +2476,9 @@ export default function RekapFullPage() {
                                             ? 0.5
                                             : 1
                                       }}
-                                      title="Klik untuk update Target Pencapaian PO"
+                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "Tidak dapat mengedit target" : "Klik untuk update Target Pencapaian PO"}
                                     >
-                                      {editingTargetId === item.id ? (
+                                      {editingTargetId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 ? (
                                         <Popover open={true} onOpenChange={(open) => { if (!open) setEditingTargetId(null); }}>
                                           <PopoverTrigger asChild>
                                             <div className="cursor-pointer">{item.targetPencapaianPO || "Pilih Target"}</div>
@@ -2432,8 +2570,62 @@ export default function RekapFullPage() {
                                       )}
                                     </TableCell>
                                     {/* Delay - Ungrouped / Per Row */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
-                                      {(item.delay || "").toUpperCase()}
+                                    <TableCell
+                                      className={`px-3 py-1 border-b border-r border-gray-300 uppercase ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"}`}
+                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? undefined : () => handleDelayEditClick(item)}
+                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "Tidak dapat mengedit delay" : "Klik untuk update Delay"}
+                                    >
+                                      {editingDelayId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 ? (
+                                        <Popover open={true} onOpenChange={(open) => { if (!open) setEditingDelayId(null); }}>
+                                          <PopoverTrigger asChild>
+                                            <div className="cursor-pointer">{item.delay || "Set Delay"}</div>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-56 p-2 bg-white shadow-lg border rounded-md z-50">
+                                            <form
+                                              onSubmit={(e) => {
+                                                e.preventDefault();
+                                                handleCustomDelaySubmit(item);
+                                              }}
+                                              className="space-y-2"
+                                            >
+                                              <Label className="text-xs font-medium">Input Delay/Status</Label>
+                                              <Input
+                                                autoFocus
+                                                className="h-8 text-xs uppercase"
+                                                placeholder="Isi delay..."
+                                                value={customDelayInput}
+                                                onChange={(e) => setCustomDelayInput(e.target.value)}
+                                                onClick={(e) => e.stopPropagation()}
+                                              />
+                                              <div className="flex justify-end gap-2">
+                                                <Button
+                                                  type="button"
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  className="h-7 text-xs"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setEditingDelayId(null);
+                                                    setCustomDelayInput("");
+                                                  }}
+                                                >
+                                                  Batal
+                                                </Button>
+                                                <Button
+                                                  type="submit"
+                                                  size="sm"
+                                                  className="h-7 text-xs"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  Simpan
+                                                </Button>
+                                              </div>
+                                            </form>
+                                          </PopoverContent>
+                                        </Popover>
+                                      ) : (
+                                        <span>{(item.delay || "").toUpperCase()}</span>
+                                      )}
                                     </TableCell>
                                     {/* Quantity PO */}
                                     <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.quantityPO)}</TableCell>

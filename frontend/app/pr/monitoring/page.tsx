@@ -66,6 +66,17 @@ import { type PRData } from "@/lib/dummy-data";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+const formatTanggal = (dateString: string | undefined) => {
+  if (!dateString) return "-";
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return "Invalid Date";
+  return date.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+};
+
 export default function MonitoringPRPage() {
   const searchParams = useSearchParams();
   const highlight = searchParams.get("highlight");
@@ -267,6 +278,7 @@ export default function MonitoringPRPage() {
           satuan: satuanMap[String(item.id_satuan)] || item.id_satuan,
           id_satuan: item.id_satuan, // Pass id_satuan explicitly
           keterangan: item.keterangan,
+          status: item.status,
         }));
 
       return {
@@ -682,24 +694,58 @@ export default function MonitoringPRPage() {
 
   // Fungsi badge status PR (samakan dengan PO/Status)
   function getStatusBadge(status: string) {
-    if (status === "Menunggu") {
+    const s = (status || "").toUpperCase();
+    if (s === "WAITING PO" || s === "MENUNGGU") {
       return (
-        <span className="inline-block px-2 py-1 rounded bg-orange-100 text-orange-700 border border-orange-300 text-xs font-semibold">
-          Menunggu
+        <span className="inline-block px-2 py-1 rounded bg-blue-100 text-blue-800 border-blue-200 text-xs font-semibold">
+          WAITING PO
         </span>
       );
     }
-    if (status === "Gantung") {
+    if (s === "PARTIAL PO" || s === "PARCIAL PO" || s === "GANTUNG") {
       return (
-        <span className="inline-block px-2 py-1 rounded bg-red-100 text-red-700 border border-red-300 text-xs font-semibold">
-          Gantung
+        <span className="inline-block px-2 py-1 rounded bg-orange-100 text-orange-800 border-orange-200 text-xs font-semibold">
+          PARTIAL PO
         </span>
       );
     }
-    // Default: anggap Telah Selesai
+
+    // Handle PART COMPLETE separately (Green)
+    if (s === "PART COMPLETE" || s === "SELESAI" || s === "TELAH SELESAI") {
+      return (
+        <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-800 border-green-200 text-xs font-semibold">
+          PART COMPLETE
+        </span>
+      );
+    }
+    // Handle WAITING PART and PARTIAL PART (Yellow/Orange family or distinct)
+    // User wants "PARTIAL PART" to be visible
+    if (s === "PARTIAL PART") {
+      return (
+        <span className="inline-block px-2 py-1 rounded bg-yellow-100 text-yellow-800 border-yellow-200 text-xs font-semibold">
+          PARTIAL PART
+        </span>
+      );
+    }
+    // WAITING PART (Green/Blue indicator that order is placed but waiting arrival)
+    if (s === "WAITING PART") {
+      return (
+        <span className="inline-block px-2 py-1 rounded bg-indigo-100 text-indigo-800 border-indigo-200 text-xs font-semibold">
+          WAITING PART
+        </span>
+      );
+    }
+    if (s === "DITOLAK") {
+      return (
+        <span className="inline-block px-2 py-1 rounded bg-red-100 text-red-800 border-red-200 text-xs font-semibold">
+          DITOLAK
+        </span>
+      );
+    }
+    // Default
     return (
-      <span className="inline-block px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 text-xs font-semibold">
-        Telah Selesai
+      <span className="inline-block px-2 py-1 rounded bg-gray-100 text-gray-800 border-gray-200 text-xs font-semibold">
+        {status}
       </span>
     );
   }
@@ -988,10 +1034,7 @@ export default function MonitoringPRPage() {
   }, []);
 
   // Hitung summary status
-  const totalPR = prData.length;
-  const selesaiCount = prData.filter((pr) => pr.status === "Processed").length;
-  const gantungCount = prData.filter((pr) => pr.status === "Gantung").length;
-  const menungguCount = prData.filter((pr) => pr.status === "Menunggu").length;
+
 
   // Tambahkan ref dan state untuk sticky scrollbar
   const tableWrapperRef = useRef<HTMLDivElement>(null);
@@ -1000,25 +1043,7 @@ export default function MonitoringPRPage() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        {/* Status Overview */}
-        <div className="flex gap-6 mb-2">
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-bold">{totalPR}</span>
-            <span className="text-xs text-muted-foreground">Total PR</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-bold">{selesaiCount}</span>
-            <span className="text-xs text-green-700">Selesai</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-bold">{gantungCount}</span>
-            <span className="text-xs text-red-700">Gantung</span>
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-lg font-bold">{menungguCount}</span>
-            <span className="text-xs text-orange-700">Menunggu</span>
-          </div>
-        </div>
+
         {/* Header */}
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
@@ -1525,6 +1550,7 @@ export default function MonitoringPRPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
+
                       <TableHead
                         className="min-w-[160px] border border-gray-300 px-3 py-1 text-center"
                         style={{
@@ -1933,15 +1959,16 @@ export default function MonitoringPRPage() {
                                   <TooltipTrigger asChild>
                                     <span
                                       onClick={() => {
-                                        if (pr.status !== "Menunggu") {
+                                        const s = (pr.status || "").toUpperCase();
+                                        if (["MENUNGGU", "WAITING PO", "PARTIAL PO", "DRAFT"].includes(s)) {
+                                          window.location.href = `/pr/input-baru?id=${pr.id}`;
+                                        } else {
                                           setToastMsg("Tidak dapat edit, hapus PO terlebih dahulu");
                                           setToastType("error");
                                           setToastOpen(true);
-                                        } else {
-                                          window.location.href = `/pr/input-baru?id=${pr.id}`;
                                         }
                                       }}
-                                      className={`cursor-pointer transition-colors duration-200 ${pr.status !== "Menunggu"
+                                      className={`cursor-pointer transition-colors duration-200 ${!["MENUNGGU", "WAITING PO", "PARTIAL PO", "DRAFT"].includes((pr.status || "").toUpperCase())
                                         ? "hover:text-red-500 text-gray-700"
                                         : "hover:text-blue-600"
                                         }`}
@@ -1969,6 +1996,7 @@ export default function MonitoringPRPage() {
                                 : validItems[0]?.quantityAwalPR}
                             </TableCell>
                             <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{validItems[0]?.satuan}</TableCell>
+
                             <TableCell className="border border-gray-300 px-3 py-1 text-left uppercase">
                               <div
                                 className="text-sm text-muted-foreground max-w-xs truncate"
@@ -1984,7 +2012,7 @@ export default function MonitoringPRPage() {
                               {pr.divisi}
                             </TableCell>
                             <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                              {getStatusBadge(pr.status)}
+                              {getStatusBadge(validItems[0]?.status)}
                             </TableCell>
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                               {pr.dibuatOleh}
@@ -2020,6 +2048,7 @@ export default function MonitoringPRPage() {
                                   : item.quantityAwalPR}
                               </TableCell>
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
+
                               <TableCell className="border border-gray-300 px-3 py-1 text-left uppercase">
                                 <div
                                   className="text-sm text-muted-foreground max-w-xs truncate"
@@ -2035,7 +2064,7 @@ export default function MonitoringPRPage() {
                               {/* Divisi (Merged - skipped) */}
                               {/* Status (Un-merged) */}
                               <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                                {getStatusBadge(pr.status)}
+                                {getStatusBadge(item.status)}
                               </TableCell>
                               {/* Dibuat Oleh (Merged - skipped) */}
                             </TableRow>

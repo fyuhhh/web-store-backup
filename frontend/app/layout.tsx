@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Sistem monitoring pengadaan barang untuk perusahaan",
   generator: "v0.app",
 };
+import { Toaster } from "@/components/ui/sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -30,6 +32,7 @@ export default function RootLayout({
             {children}
             {/* <Analytics /> */}
           </Suspense>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

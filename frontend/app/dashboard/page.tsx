@@ -34,6 +34,12 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import dayjs from "dayjs";
+import isBetween from "dayjs/plugin/isBetween";
+import "dayjs/locale/id";
+
+dayjs.extend(isBetween);
+dayjs.locale("id");
 
 // Dummy data for dashboard
 const kpiData = {
@@ -71,12 +77,7 @@ export default function DashboardPage() {
   const [totalBTBItem, setTotalBTBItem] = useState(0);
   const [totalBKBItem, setTotalBKBItem] = useState(0);
 
-  // State untuk status PR
-  const [prStatusCount, setPrStatusCount] = useState({
-    selesai: 0,
-    gantung: 0,
-    menunggu: 0,
-  });
+
 
   // State untuk jam
   const [now, setNow] = useState(new Date());
@@ -101,42 +102,7 @@ export default function DashboardPage() {
     });
   }
 
-  useEffect(() => {
-    // Fetch total PR item
-    fetch("http://192.168.10.10:5000/api/pr")
-      .then((r) => r.json())
-      .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
-    // Fetch total PO item
-    fetch("http://192.168.10.10:5000/api/po")
-      .then((r) => r.json())
-      .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
-    // Fetch total BTB item
-    fetch("http://192.168.10.10:5000/api/btb")
-      .then((r) => r.json())
-      .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
-    // Fetch total BKB item
-    fetch("http://192.168.10.10:5000/api/bkb")
-      .then((r) => r.json())
-      .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
-    // Fetch status PR dari backend
-    fetch("http://192.168.10.10:5000/api/pr")
-      .then((r) => r.json())
-      .then((data) => {
-        let selesai = 0,
-          gantung = 0,
-          menunggu = 0;
-        if (Array.isArray(data)) {
-          data.forEach((pr) => {
-            // Selesai = status === "Diproses"
-            if (pr.status === "Diproses") selesai++;
-            else if (pr.status === "Gantung") gantung++;
-            else if (pr.status === "Menunggu") menunggu++;
-          });
-        }
-        setPrStatusCount({ selesai, gantung, menunggu });
-      });
-  }, []);
 
   // Auto-logout logic (testing: 5 detik idle)
   useEffect(() => {
@@ -159,16 +125,29 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // State for PR status distribution (bukan PO!)
+  // State for properties
+  const [prStatusCount, setPrStatusCount] = useState({
+    waitingPart: 0,
+    partialPO: 0,
+    waitingPO: 0,
+  });
   const [prStatusDist, setPrStatusDist] = useState({
-    selesai: 0,
-    gantung: 0,
-    menunggu: 0,
+    waitingPart: 0,
+    partialPO: 0,
+    waitingPO: 0,
   });
 
-  // State for monthly trend data (grouped by year, dari PR)
   const [trendData, setTrendData] = useState<{ [year: string]: any[] }>({});
-  const [selectedYear, setSelectedYear] = useState<string>("");
+  // const [selectedYear, setSelectedYear] = useState<string>(""); // HAPUS or Comment
+
+  // -- NEW STATE FOR DATE RANGE --
+  const [startDate, setStartDate] = useState(
+    dayjs().subtract(1, "month").startOf("month").format("YYYY-MM-DD")
+  );
+  const [endDate, setEndDate] = useState(
+    dayjs().endOf("month").format("YYYY-MM-DD")
+  );
+  // -----------------------------
 
   useEffect(() => {
     // Fetch total PR item
@@ -188,76 +167,84 @@ export default function DashboardPage() {
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
 
-    // Fetch status PR dari backend
+    // Fetch status PR dari backend (GLOBAL COUNT - NO FILTER)
     fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
-        let selesai = 0,
-          gantung = 0,
-          menunggu = 0;
+        let waitingPart = 0,
+          partialPO = 0,
+          waitingPO = 0;
         if (Array.isArray(data)) {
           data.forEach((pr) => {
-            // Selesai = status === "Diproses"
-            if (pr.status === "Diproses") selesai++;
-            else if (pr.status === "Gantung") gantung++;
-            else if (pr.status === "Menunggu") menunggu++;
+            // Mapping Status
+            // Mapping Status (Case Insensitive & Inclusive)
+            const s = (pr.status || "").toUpperCase();
+            if (s === "WAITING PART" || s === "DIPROSES" || s === "SELESAI" || s === "TELAH SELESAI") waitingPart++;
+            else if (s === "PARTIAL PO" || s === "PARCIAL PO" || s === "GANTUNG") partialPO++;
+            else if (s === "WAITING PO" || s === "MENUNGGU") waitingPO++;
           });
         }
-        setPrStatusCount({ selesai, gantung, menunggu });
+        setPrStatusCount({ waitingPart, partialPO, waitingPO });
       });
 
-    // Fetch status PR untuk distribusi status dan trend bulanan
+    // Fetch status PR untuk distribusi status dan trend bulanan (FILTERED BY DATE)
     fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
       .then((data) => {
-        // Distribusi Status
-        let selesai = 0,
-          gantung = 0,
-          menunggu = 0;
-        if (Array.isArray(data)) {
-          data.forEach((pr) => {
-            // Selesai = status === "Diproses"
-            if (pr.status === "Diproses") selesai++;
-            else if (pr.status === "Gantung") gantung++;
-            else if (pr.status === "Menunggu") menunggu++;
-          });
-        }
-        setPrStatusDist({ selesai, gantung, menunggu });
+        if (!Array.isArray(data)) return;
 
-        // Trend Bulanan (group by year and month, count status)
-        const grouped: { [year: string]: { [month: string]: any } } = {};
-        if (Array.isArray(data)) {
-          data.forEach((pr) => {
-            const date = pr.tanggalPR ? new Date(pr.tanggalPR) : null;
-            if (!date || isNaN(date.getTime())) return;
-            const year = date.getFullYear().toString();
-            const month = date.toLocaleString("id-ID", { month: "short" });
-            if (!grouped[year]) grouped[year] = {};
-            if (!grouped[year][month]) {
-              grouped[year][month] = {
-                month,
-                selesai: 0,
-                gantung: 0,
-                menunggu: 0,
-              };
-            }
-            // Selesai = status === "Diproses"
-            if (pr.status === "Diproses") grouped[year][month].selesai++;
-            else if (pr.status === "Gantung") grouped[year][month].gantung++;
-            else if (pr.status === "Menunggu") grouped[year][month].menunggu++;
-          });
-        }
-        // Convert to array per year
-        const trend: { [year: string]: any[] } = {};
-        Object.keys(grouped).forEach((year) => {
-          trend[year] = Object.values(grouped[year]);
+        // 1. FILTER DATA BY RANGE
+        const filtered = data.filter((pr) => {
+          if (!pr.tanggalPR) return false;
+          // compare as day (ignoring time)
+          const prDate = dayjs(pr.tanggalPR);
+          // inclusive [start, end]
+          return prDate.isBetween(startDate, endDate, "day", "[]");
         });
-        setTrendData(trend);
-        // Default to latest year
-        const years = Object.keys(trend).sort();
-        setSelectedYear(years[years.length - 1] || "");
+
+        // 2. Distribusi Status (Filtered)
+        let waitingPart = 0,
+          partialPO = 0,
+          waitingPO = 0;
+
+        filtered.forEach((pr) => {
+          const s = (pr.status || "").toUpperCase();
+          if (s === "WAITING PART" || s === "DIPROSES" || s === "SELESAI" || s === "TELAH SELESAI") waitingPart++;
+          else if (s === "PARTIAL PO" || s === "PARCIAL PO" || s === "GANTUNG") partialPO++;
+          else if (s === "WAITING PO" || s === "MENUNGGU") waitingPO++;
+        });
+        setPrStatusDist({ waitingPart, partialPO, waitingPO });
+
+        // 3. Trend Bulanan (Based on Filtered Data)
+        // Group by Year-Month
+        const grouped: { [key: string]: any } = {};
+
+        filtered.forEach((pr) => {
+          const date = dayjs(pr.tanggalPR);
+          const key = date.format("MMM YYYY"); // e.g. "Jan 2025"
+          const monthLabel = date.format("MMM"); // "Jan"
+
+          if (!grouped[key]) {
+            grouped[key] = {
+              month: monthLabel, // X-Axis label
+              fullDate: date.valueOf(), // For sorting
+              waitingPart: 0,
+              partialPO: 0,
+              waitingPO: 0,
+            };
+          }
+
+          const s = (pr.status || "").toUpperCase();
+          if (s === "WAITING PART" || s === "DIPROSES" || s === "SELESAI" || s === "TELAH SELESAI") grouped[key].waitingPart++;
+          else if (s === "PARTIAL PO" || s === "PARCIAL PO" || s === "GANTUNG") grouped[key].partialPO++;
+          else if (s === "WAITING PO" || s === "MENUNGGU") grouped[key].waitingPO++;
+        });
+
+        // Convert to array and Sort by date
+        const result = Object.values(grouped).sort((a, b) => a.fullDate - b.fullDate);
+        setTrendData({ current: result });
       });
-  }, []);
+  }, [startDate, endDate]);
 
   // Auto-logout logic (testing: 5 detik idle)
   useEffect(() => {
@@ -283,19 +270,19 @@ export default function DashboardPage() {
   // PieChart data for Distribusi Status (pakai PR, bukan PO)
   const pieStatusData = [
     {
-      name: "Telah Selesai",
-      value: prStatusDist.selesai,
-      color: "hsl(var(--success))",
+      name: "Waiting Part",
+      value: prStatusDist.waitingPart,
+      color: "hsl(var(--success))", // Green
     },
     {
-      name: "Gantung",
-      value: prStatusDist.gantung,
-      color: "hsl(var(--primary))",
+      name: "Partial PO",
+      value: prStatusDist.partialPO,
+      color: "hsl(30, 90%, 55%)", // Orange (approx) or use a variable if available
     },
     {
-      name: "Menunggu",
-      value: prStatusDist.menunggu,
-      color: "hsl(var(--warning))",
+      name: "Waiting PO",
+      value: prStatusDist.waitingPO,
+      color: "hsl(210, 90%, 55%)", // Blue (approx)
     },
   ];
 
@@ -443,7 +430,7 @@ export default function DashboardPage() {
       if (userRaw) {
         try {
           setUser(JSON.parse(userRaw));
-        } catch {}
+        } catch { }
       }
     }
   }, []);
@@ -451,9 +438,8 @@ export default function DashboardPage() {
   return (
     <MainLayout>
       <div
-        className={`transition-all duration-700 ${
-          isMounted ? "opacity-100 scale-100" : "opacity-0 scale-95"
-        }`}
+        className={`transition-all duration-700 ${isMounted ? "opacity-100 scale-100" : "opacity-0 scale-95"
+          }`}
       >
         {/* Jam digital besar dan tanggal */}
         <div className="flex flex-col items-center justify-center py-2">
@@ -481,8 +467,8 @@ export default function DashboardPage() {
         </div>
 
         {/* KPI Cards */}
-        {user && user.id_peran === 3 ? (
-          // Hanya tampilkan PR, BTB, BKB untuk id_peran 3
+        {user && user.id_peran === 4 ? (
+          // Hanya tampilkan PR, BTB, BKB untuk id_peran 4 (Stock/Store)
           <div className="flex justify-center">
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 w-full max-w-6xl">
               {/* Total PR */}
@@ -613,8 +599,8 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        ) : user && user.id_peran === 4 ? (
-          // Hanya tampilkan PO untuk id_peran 4
+        ) : user && user.id_peran === 3 ? (
+          // Hanya tampilkan PO untuk id_peran 3 (Purchasing)
           <div className="flex justify-center">
             <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6 w-full max-w-md">
               {/* Total PO */}
@@ -844,26 +830,26 @@ export default function DashboardPage() {
               <CardTitle>Status Overview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-row gap-6 justify-between items-center">
+              <div className="flex flex-row gap-4 justify-between items-center px-2">
                 <div className="flex flex-col items-center">
                   <CheckCircle className="h-5 w-5 text-success mb-1" />
-                  <span className="text-xs">Selesai</span>
+                  <span className="text-[10px] text-center whitespace-nowrap">Waiting Part</span>
                   <span className="text-base font-bold text-success">
-                    {prStatusCount.selesai}
+                    {prStatusCount.waitingPart}
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <Clock className="h-5 w-5 text-primary mb-1" />
-                  <span className="text-xs">Gantung</span>
-                  <span className="text-base font-bold text-primary">
-                    {prStatusCount.gantung}
+                  <Clock className="h-5 w-5 text-orange-500 mb-1" />
+                  <span className="text-[10px] text-center whitespace-nowrap">Partial PO</span>
+                  <span className="text-base font-bold text-orange-500">
+                    {prStatusCount.partialPO}
                   </span>
                 </div>
                 <div className="flex flex-col items-center">
-                  <TrendingDown className="h-5 w-5 text-warning mb-1" />
-                  <span className="text-xs">Menunggu</span>
-                  <span className="text-base font-bold text-warning">
-                    {prStatusCount.menunggu}
+                  <TrendingDown className="h-5 w-5 text-blue-500 mb-1" />
+                  <span className="text-[10px] text-center whitespace-nowrap">Waiting PO</span>
+                  <span className="text-base font-bold text-blue-500">
+                    {prStatusCount.waitingPO}
                   </span>
                 </div>
               </div>
@@ -918,44 +904,54 @@ export default function DashboardPage() {
               <CardDescription>
                 Aktivitas Perbulan
                 {/* Year selector */}
-                {Object.keys(trendData).length > 0 && (
-                  <select
-                    value={selectedYear}
-                    onChange={(e) => setSelectedYear(e.target.value)}
-                    className="ml-4 px-2 py-1 border rounded text-sm"
-                  >
-                    {Object.keys(trendData)
-                      .sort()
-                      .map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                  </select>
-                )}
+                {/* Date Range Selectors */}
+                <div className="flex flex-col xl:flex-row gap-2 mt-2 xl:mt-0 items-start xl:items-center">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                      Dari
+                    </span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="px-2 py-1 h-8 border border-slate-200 bg-white rounded-md text-xs w-[130px] shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                      Sampai
+                    </span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="px-2 py-1 h-8 border border-slate-200 bg-white rounded-md text-xs w-[130px] shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
               </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={trendData[selectedYear] || []}>
+                <BarChart data={trendData["current"] || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
                   <Bar
-                    dataKey="selesai"
+                    dataKey="waitingPart"
                     fill="hsl(var(--success))"
-                    name="Telah Selesai"
+                    name="Waiting Part"
                   />
                   <Bar
-                    dataKey="gantung"
-                    fill="hsl(var(--primary))"
-                    name="Gantung"
+                    dataKey="partialPO"
+                    fill="hsl(30, 90%, 55%)"
+                    name="Partial PO"
                   />
                   <Bar
-                    dataKey="menunggu"
-                    fill="hsl(var(--warning))"
-                    name="Menunggu"
+                    dataKey="waitingPO"
+                    fill="hsl(210, 90%, 55%)"
+                    name="Waiting PO"
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -966,7 +962,7 @@ export default function DashboardPage() {
             <CardHeader>
               <CardTitle>Distribusi Status</CardTitle>
               <CardDescription>
-                Status PR: Selesai, Gantung, Menunggu
+                Status PR: Waiting Part, Partial PO, Waiting PO
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -977,7 +973,7 @@ export default function DashboardPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) =>
+                    label={({ name, percent }: any) =>
                       `${name} ${(percent * 100).toFixed(0)}%`
                     }
                     outerRadius={80}

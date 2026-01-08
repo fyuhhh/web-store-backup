@@ -19,14 +19,14 @@ export interface PRData {
   urgensi: "Low" | "Medium" | "High";
   dibuatOleh: string;
   status:
-    | "Draft"
-    | "Submitted"
-    | "Approved"
-    | "Processed"
-    | "Clear"
-    | "Gantung"
-    | "Menunggu"
-    | "Telah Selesai";
+  | "Draft"
+  | "Submitted"
+  | "Approved"
+  | "Processed"
+  | "Clear"
+  | "Gantung"
+  | "Menunggu"
+  | "Telah Selesai";
   createdAt: string;
   keterangan?: string;
   skema?: string;
@@ -55,16 +55,17 @@ export interface POData {
     >;
   }>;
   status:
-    | "Draft"
-    | "Submitted"
-    | "Approved"
-    | "Delivered"
-    | "Completed"
-    | "Menunggu"
-    | "Gantung"
-    | "Telah dibuat BTB";
+  | "Draft"
+  | "Submitted"
+  | "Approved"
+  | "Delivered"
+  | "Completed"
+  | "Menunggu"
+  | "Gantung"
+  | "Telah dibuat BTB";
   keterangan?: string;
   skema?: string;
+  termin?: string;
   createdAt: string;
 }
 
@@ -235,9 +236,8 @@ export const generateDummyPRData = (): PRData[] => {
       const keterangan =
         jumlah === 0
           ? "Selesai"
-          : `Kebutuhan ${
-              divisi[Math.floor(Math.random() * divisi.length)]
-            } untuk operasional`;
+          : `Kebutuhan ${divisi[Math.floor(Math.random() * divisi.length)]
+          } untuk operasional`;
       items.push({
         id: `item-${i + 1}-${j}`,
         namaBarang: barang[Math.floor(Math.random() * barang.length)],
@@ -260,9 +260,8 @@ export const generateDummyPRData = (): PRData[] => {
         .toISOString()
         .split("T")[0],
       items,
-      keterangan: `Kebutuhan ${
-        divisi[Math.floor(Math.random() * divisi.length)]
-      } untuk operasional`,
+      keterangan: `Kebutuhan ${divisi[Math.floor(Math.random() * divisi.length)]
+        } untuk operasional`,
       divisi: divisi[Math.floor(Math.random() * divisi.length)],
       urgensi: urgensi[Math.floor(Math.random() * urgensi.length)],
       dibuatOleh: `User${Math.floor(Math.random() * 10) + 1}`,
@@ -339,9 +338,8 @@ export const generateDummyRekapFullData = (): RekapFullData[] => {
       quantityAwalPR: quantityAwal,
       quantityPR: quantityPR,
       satuanPR: satuan[Math.floor(Math.random() * satuan.length)],
-      keteranganPR: `Kebutuhan ${
-        divisi[Math.floor(Math.random() * divisi.length)]
-      }`,
+      keteranganPR: `Kebutuhan ${divisi[Math.floor(Math.random() * divisi.length)]
+        }`,
       divisi: divisi[Math.floor(Math.random() * divisi.length)],
       targetTanggalPO: targetTanggalPO.toISOString().split("T")[0],
       delay: delay,
@@ -350,9 +348,8 @@ export const generateDummyRekapFullData = (): RekapFullData[] => {
       daftarBarangPO: barangPO[Math.floor(Math.random() * barangPO.length)],
       quantityPO: quantityPO,
       satuanPO: satuan[Math.floor(Math.random() * satuan.length)],
-      keteranganPO: `PO untuk ${
-        barangPO[Math.floor(Math.random() * barangPO.length)]
-      }`,
+      keteranganPO: `PO untuk ${barangPO[Math.floor(Math.random() * barangPO.length)]
+        }`,
       diskonPersen: diskonPersen,
       diskonRp: diskonRp,
       subHargaDiskonRp: subHargaDiskonRp,

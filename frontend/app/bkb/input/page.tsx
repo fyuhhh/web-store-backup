@@ -56,9 +56,6 @@ export default function BKBInputPage() {
   const [endDate, setEndDate] = useState<Date | null>(null);
 
   // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
-  // Set default rentang tanggal ke awal & akhir bulan saat halaman diakses
-  // REMOVED: Default filter date removed to show ALL available stock by default
-  /*
   useEffect(() => {
     if (startDate === null && endDate === null) {
       const now = new Date();
@@ -68,7 +65,6 @@ export default function BKBInputPage() {
       setEndDate(lastDay);
     }
   }, [startDate, endDate]);
-  */
 
   // Tambahkan state untuk pencarian seperti monitoring BKB
   const [searchTerm, setSearchTerm] = useState("");
@@ -376,7 +372,7 @@ export default function BKBInputPage() {
     // Filter berdasarkan rentang tanggal BTB jika diisi
     .filter((row) => {
       let matchDateRange = true;
-      if (startDate && endDate) {
+      if (startDate || endDate) {
         // row.tanggalBTB format: yyyy-mm-dd atau yyyy-mm-ddTHH:mm:ss
         const tgl = (row.tanggalBTB || "").split("T")[0];
         if (tgl) {
@@ -386,9 +382,21 @@ export default function BKBInputPage() {
             Number(parts[1]) - 1,
             Number(parts[2])
           );
-          const end = new Date(endDate);
-          end.setHours(23, 59, 59, 999);
-          matchDateRange = tglDate >= startDate && tglDate <= end;
+
+          let afterStart = true;
+          let beforeEnd = true;
+
+          if (startDate) {
+            afterStart = tglDate >= startDate;
+          }
+
+          if (endDate) {
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            beforeEnd = tglDate <= end;
+          }
+
+          matchDateRange = afterStart && beforeEnd;
         } else {
           matchDateRange = false;
         }
@@ -944,7 +952,7 @@ export default function BKBInputPage() {
                         }
                       }
                       return (
-                        <TableRow key={idx}>
+                        <TableRow key={idx} className={`${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-blue-50/50 transition-colors`}>
                           {/* Nama Barang */}
                           <TableCell className="text-center align-middle px-4 py-3 uppercase">{b.barang}</TableCell>
                           {/* No. BTB */}
@@ -1565,7 +1573,7 @@ export default function BKBInputPage() {
                         return (
                           <React.Fragment key={fragmentKey}>
                             {sortedItems.map((item, itemIdx) => (
-                              <TableRow key={`${id_btb}-item-${itemIdx}`} className="hover:bg-gray-50 transition-colors">
+                              <TableRow key={`${id_btb}-item-${itemIdx}`} className={`hover:bg-blue-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                                 {/* Checkbox group (select all per BTB), hanya di baris pertama */}
                                 {itemIdx === 0 && (
                                   <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle">

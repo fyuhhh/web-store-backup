@@ -1,6 +1,8 @@
 import express from "express";
 const router = express.Router();
+
 import db from "../config/database.js";
+import { updatePOStatus } from '../utils/statusHelper.js';
 
 // GET semua BTB Item (opsional: filter by id_btb)
 router.get("/", async (req, res) => {
@@ -69,14 +71,24 @@ router.post("/", async (req, res) => {
     } = req.body;
 
     // --- FIX: pastikan jumlah_diterima dan qty_sisa integer ---
+    // --- FIX: pastikan jumlah_diterima dan qty_sisa integer ---
+    const cleanCurrency = (val) => {
+      if (typeof val === "string") {
+        return parseFloat(val.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+      }
+      return Number(val) || 0;
+    };
+
     const jumlahDiterimaInt = jumlah_diterima !== undefined && jumlah_diterima !== null
-      ? Math.round(Number(jumlah_diterima))
-      : 0;
+      ? cleanCurrency(jumlah_diterima)
+      : 0; // Usually Qty is decimal too if units like liters allow it, but variable name says Int... assume float is allowed now.
+
     const qtySisaInt = qty_sisa !== undefined && qty_sisa !== null
-      ? Math.round(Number(qty_sisa))
+      ? cleanCurrency(qty_sisa)
       : jumlahDiterimaInt;
+
     const biayaInt = biaya !== undefined && biaya !== null
-      ? Math.round(Number(biaya))
+      ? cleanCurrency(biaya)
       : 0;
 
     // Validasi wajib
@@ -88,8 +100,8 @@ router.post("/", async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO btb_item 
-      (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa, biaya, targetPencapaianPo)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id_btb, id_POItem, nama_barang, jumlah_diterima, id_satuan, keterangan, qty_sisa, biaya, targetPencapaianPo, delay)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_btb,
         id_POItem,
@@ -100,6 +112,7 @@ router.post("/", async (req, res) => {
         qtySisaInt, // <-- integer
         biayaInt, // <-- biaya per item
         targetPencapaianPo || null, // <-- NEW value
+        req.body.delay || null, // <-- NEW value
       ]
     );
     // Setelah insert, update biaya pada btb
@@ -117,6 +130,12 @@ router.post("/", async (req, res) => {
         const sisa = Math.max(0, currentQty - jumlahDiterimaInt);
         // Direct SQL update to avoid side effects
         await db.query("UPDATE po_item SET jumlahPO = ? WHERE id_POItem = ?", [sisa, id_POItem]);
+
+        // --- FIX: Update PO Status ---
+        const [[poRow]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [id_POItem]);
+        if (poRow) {
+          await updatePOStatus(poRow.id_PO);
+        }
       }
     }
 
@@ -137,21 +156,51 @@ router.put("/:id", async (req, res) => {
     if (fields.length === 0)
       return res.status(400).json({ message: "Tidak ada data untuk update" });
 
+    // 1. Fetch old data BEFORE update
+    const [[oldData]] = await db.query(
+      "SELECT id_btb, id_POItem, jumlah_diterima FROM btb_item WHERE id_btb_item = ?",
+      [id]
+    );
+
+    if (!oldData) {
+      return res.status(404).json({ message: "BTB Item tidak ditemukan" });
+    }
+
     const sql =
       `UPDATE btb_item SET ` +
       fields.map((f) => `${f} = ?`).join(", ") +
       ` WHERE id_btb_item = ?`;
 
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
-    // Setelah update, update biaya pada btb
-    // Ambil id_btb dari btb_item
-    const [[row]] = await db.query("SELECT id_btb FROM btb_item WHERE id_btb_item = ?", [id]);
-    if (row && row.id_btb) {
-      await db.query(
-        "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
-        [row.id_btb, row.id_btb]
-      );
+
+    // 2. Update biaya pada btb (selalu update biaya)
+    const btbId = oldData.id_btb; // ID BTB tidak berubah biasanya
+    await db.query(
+      "UPDATE btb SET biaya = (SELECT IFNULL(SUM(biaya),0) FROM btb_item WHERE id_btb = ?) WHERE id_btb = ?",
+      [btbId, btbId]
+    );
+
+    // 3. Sync PO Item Quantity if jumlah_diterima changed
+    if (payload.jumlah_diterima !== undefined && oldData.id_POItem) {
+      const oldQty = Math.round(Number(oldData.jumlah_diterima));
+      const newQty = Math.round(Number(payload.jumlah_diterima));
+      const diff = newQty - oldQty; // Positif jika nambah, Negatif jika kurang
+
+      if (diff !== 0) {
+        // Update PO Item: sisa jumlahPO berkurang jika diff positif
+        await db.query(
+          "UPDATE po_item SET jumlahPO = GREATEST(0, jumlahPO - ?) WHERE id_POItem = ?",
+          [diff, oldData.id_POItem]
+        );
+
+        // 4. Update PO Status
+        const [[poRow]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [oldData.id_POItem]);
+        if (poRow) {
+          await updatePOStatus(poRow.id_PO);
+        }
+      }
     }
+
     res.json({ message: "BTB Item berhasil diupdate" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -184,6 +233,12 @@ router.delete("/:id", async (req, res) => {
       // 2. Restore PO Quantity (tambahkan kembali jumlah_diterima ke jumlahPO)
       if (row.id_POItem && row.jumlah_diterima > 0) {
         await db.query("UPDATE po_item SET jumlahPO = jumlahPO + ? WHERE id_POItem = ?", [row.jumlah_diterima, row.id_POItem]);
+
+        // --- FIX: Update PO Status ---
+        const [[poRow]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [row.id_POItem]);
+        if (poRow) {
+          await updatePOStatus(poRow.id_PO);
+        }
       }
     }
     res.json({ message: "BTB Item berhasil dihapus" });

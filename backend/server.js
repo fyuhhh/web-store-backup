@@ -19,6 +19,7 @@ import btbItemRoutes from "./routes/btb_item.js";
 import bkbRoutes from "./routes/bkb.js";
 import bkbItemRoutes from "./routes/bkb_item.js";
 import holidayRoutes, { ensureHolidaysTable } from "./routes/holiday.js";
+import terminRoutes from "./routes/termin_pembayaran.js";
 
 const app = express();
 app.use(cors());
@@ -50,6 +51,7 @@ app.use("/api/btb-item", btbItemRoutes);
 app.use("/api/bkb", bkbRoutes);
 app.use("/api/bkb-item", bkbItemRoutes);
 app.use("/api/holidays", holidayRoutes);
+app.use("/api/termin", terminRoutes);
 
 // === ADDED: debug endpoint to list registered routes ===
 app.get("/api/debug/routes", (req, res) => {

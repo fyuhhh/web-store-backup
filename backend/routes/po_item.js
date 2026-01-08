@@ -2,6 +2,7 @@ import express from "express";
 import db from "../config/database.js";
 import { updateTargetPencapaianPoByBTB } from "./btb.js"; // pastikan export fungsi ini dari btb.js
 import { updateStatusTerimaPO } from "./po.js";
+import { updatePRStatus, updatePOStatus } from '../utils/statusHelper.js';
 
 const router = express.Router();
 
@@ -16,15 +17,15 @@ router.get("/", async (req, res, next) => {
       ...row,
       hargaSatuan:
         row.hargaSatuan !== undefined && row.hargaSatuan !== null
-          ? Math.round(Number(row.hargaSatuan))
+          ? Number(row.hargaSatuan)
           : 0,
       jumlahPO:
         row.jumlahPO !== undefined && row.jumlahPO !== null
-          ? Math.round(Number(row.jumlahPO))
+          ? Number(row.jumlahPO)
           : 0,
       jumlahAsli:
         row.jumlahAsli !== undefined && row.jumlahAsli !== null
-          ? Math.round(Number(row.jumlahAsli))
+          ? Number(row.jumlahAsli)
           : 0,
       // namaPembeli sudah otomatis ikut dari SELECT *
     }));
@@ -81,15 +82,15 @@ router.get("/:id", async (req, res, next) => {
     // --- FIX: pastikan hargaSatuan, jumlahPO, jumlahAsli integer ---
     row.hargaSatuan =
       row.hargaSatuan !== undefined && row.hargaSatuan !== null
-        ? Math.round(Number(row.hargaSatuan))
+        ? Number(row.hargaSatuan)
         : 0;
     row.jumlahPO =
       row.jumlahPO !== undefined && row.jumlahPO !== null
-        ? Math.round(Number(row.jumlahPO))
+        ? Number(row.jumlahPO)
         : 0;
     row.jumlahAsli =
       row.jumlahAsli !== undefined && row.jumlahAsli !== null
-        ? Math.round(Number(row.jumlahAsli))
+        ? Number(row.jumlahAsli)
         : 0;
     // namaPembeli sudah otomatis ikut dari SELECT *
     res.json(row);
@@ -119,47 +120,30 @@ router.post("/", async (req, res, next) => {
     } = req.body;
 
     // Normalize decimals for all numeric fields
-    const hargaSatuanVal =
-      typeof hargaSatuan === "string"
-        ? parseFloat(hargaSatuan.replace(/\./g, "").replace(",", "."))
-        : Number(hargaSatuan) || 0;
-    const jumlahPOVal =
-      typeof jumlahPO === "string"
-        ? parseFloat(jumlahPO.replace(/\./g, "").replace(",", "."))
-        : Number(jumlahPO) || 0;
-    const jumlahAsliVal =
-      typeof jumlahAsli === "string"
-        ? parseFloat(jumlahAsli.replace(/\./g, "").replace(",", "."))
-        : Number(jumlahAsli) || 0;
+    const cleanCurrency = (val) => {
+      if (typeof val === "string") {
+        return parseFloat(val.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+      }
+      return Number(val) || 0;
+    };
+
+    const hargaSatuanVal = cleanCurrency(hargaSatuan);
+    const jumlahPOVal = cleanCurrency(jumlahPO);
+    const jumlahAsliVal = cleanCurrency(jumlahAsli);
+
     let diskonPersenValue = diskonPersen;
     if (typeof diskonPersen === "string") {
       if (diskonPersen.includes("+")) {
-        // Stacked discount (e.g. "10%+20%"), simpan sebagai string. 
-        // Normalisasi koma ke titik, tapi biarkan formatnya.
         diskonPersenValue = diskonPersen.replace(/,/g, ".");
-      } else if (diskonPersen.includes("%")) {
-        const match = diskonPersen.match(/(\d+(\.\d+)?)/);
-        diskonPersenValue = match ? parseFloat(match[1].replace(",", ".")) : 0;
       } else {
         diskonPersenValue = parseFloat(diskonPersen.replace(",", ".")) || 0;
       }
     }
-    const diskonRupiahValue =
-      typeof diskonRupiah === "string"
-        ? parseFloat(diskonRupiah.replace(/\./g, "").replace(",", "."))
-        : Number(diskonRupiah) || 0;
-    const ppnPersenValue =
-      typeof ppnPersen === "string"
-        ? parseFloat(ppnPersen.replace(",", "."))
-        : Number(ppnPersen) || 0;
-    const ppnRupiahValue =
-      typeof ppnRupiah === "string"
-        ? parseFloat(ppnRupiah.replace(/\./g, "").replace(",", "."))
-        : Number(ppnRupiah) || 0;
-    const totalPerItemVal =
-      typeof totalPerItem === "string"
-        ? parseFloat(totalPerItem.replace(/\./g, "").replace(",", "."))
-        : Number(totalPerItem) || 0;
+
+    const diskonRupiahValue = cleanCurrency(diskonRupiah);
+    const ppnPersenValue = typeof ppnPersen === "string" ? parseFloat(ppnPersen.replace(",", ".")) : Number(ppnPersen) || 0;
+    const ppnRupiahValue = cleanCurrency(ppnRupiah);
+    const totalPerItemVal = cleanCurrency(totalPerItem);
 
     // --- Auto-calculate statusTerima ---
     let autoStatus = statusTerima || null;
@@ -230,6 +214,25 @@ router.post("/", async (req, res, next) => {
     // if (newRow && newRow.id_PO) {
     //   await updateStatusTerimaPO(db, newRow.id_PO);
     // }
+
+    // --- FIX: Deduct PR quantity and Update PR Status ---
+    if (id_PRItem && jumlahPOVal > 0) {
+      await db.query(
+        "UPDATE pr_item SET jumlah = GREATEST(0, jumlah - ?) WHERE id_PRItem = ?",
+        [jumlahPOVal, id_PRItem]
+      );
+      // Update PR status
+      const [[prItem]] = await db.query("SELECT id_PR FROM pr_item WHERE id_PRItem = ?", [id_PRItem]);
+      if (prItem) {
+        await updatePRStatus(prItem.id_PR);
+      }
+    }
+
+    // --- FIX: Update PO Status ---
+    if (id_PO) {
+      await updatePOStatus(id_PO);
+    }
+
     res.status(201).json(newRow || { id_POItem: insertId });
   } catch (err) {
     next(err);
@@ -242,55 +245,30 @@ router.put("/:id", async (req, res, next) => {
     const { id } = req.params;
     const payload = req.body;
     // Normalize decimals for all numeric fields
-    if (payload.hargaSatuan)
-      payload.hargaSatuan =
-        typeof payload.hargaSatuan === "string"
-          ? parseFloat(payload.hargaSatuan.replace(/\./g, "").replace(",", "."))
-          : Number(payload.hargaSatuan) || 0;
-    if (payload.jumlahPO)
-      payload.jumlahPO =
-        typeof payload.jumlahPO === "string"
-          ? parseFloat(payload.jumlahPO.replace(/\./g, "").replace(",", "."))
-          : Number(payload.jumlahPO) || 0;
-    if (payload.jumlahAsli)
-      payload.jumlahAsli =
-        typeof payload.jumlahAsli === "string"
-          ? parseFloat(payload.jumlahAsli.replace(/\./g, "").replace(",", "."))
-          : Number(payload.jumlahAsli) || 0;
-    if (
-      payload.diskonPersen &&
-      typeof payload.diskonPersen === "string"
-    ) {
+    // Normalize decimals for all numeric fields
+    const cleanCurrency = (val) => {
+      if (typeof val === "string") {
+        return parseFloat(val.replace(/[^0-9,-]/g, "").replace(",", ".")) || 0;
+      }
+      return Number(val) || 0;
+    };
+
+    if (payload.hargaSatuan) payload.hargaSatuan = cleanCurrency(payload.hargaSatuan);
+    if (payload.jumlahPO) payload.jumlahPO = cleanCurrency(payload.jumlahPO);
+    if (payload.jumlahAsli) payload.jumlahAsli = cleanCurrency(payload.jumlahAsli);
+
+    if (payload.diskonPersen && typeof payload.diskonPersen === "string") {
       if (payload.diskonPersen.includes("+")) {
-        // Stacked discount logic
         payload.diskonPersen = payload.diskonPersen.replace(/,/g, ".");
-      } else if (payload.diskonPersen.includes("%")) {
-        const match = payload.diskonPersen.match(/(\d+(\.\d+)?)/);
-        payload.diskonPersen = match ? parseFloat(match[1].replace(",", ".")) : 0;
       } else {
         payload.diskonPersen = parseFloat(payload.diskonPersen.replace(",", ".")) || 0;
       }
     }
-    if (payload.diskonRupiah)
-      payload.diskonRupiah =
-        typeof payload.diskonRupiah === "string"
-          ? parseFloat(payload.diskonRupiah.replace(/\./g, "").replace(",", "."))
-          : Number(payload.diskonRupiah) || 0;
-    if (payload.ppnPersen)
-      payload.ppnPersen =
-        typeof payload.ppnPersen === "string"
-          ? parseFloat(payload.ppnPersen.replace(",", "."))
-          : Number(payload.ppnPersen) || 0;
-    if (payload.ppnRupiah)
-      payload.ppnRupiah =
-        typeof payload.ppnRupiah === "string"
-          ? parseFloat(payload.ppnRupiah.replace(/\./g, "").replace(",", "."))
-          : Number(payload.ppnRupiah) || 0;
-    if (payload.totalPerItem)
-      payload.totalPerItem =
-        typeof payload.totalPerItem === "string"
-          ? parseFloat(payload.totalPerItem.replace(/\./g, "").replace(",", "."))
-          : Number(payload.totalPerItem) || 0;
+
+    if (payload.diskonRupiah) payload.diskonRupiah = cleanCurrency(payload.diskonRupiah);
+    if (payload.ppnPersen) payload.ppnPersen = typeof payload.ppnPersen === "string" ? parseFloat(payload.ppnPersen.replace(",", ".")) : Number(payload.ppnPersen) || 0;
+    if (payload.ppnRupiah) payload.ppnRupiah = cleanCurrency(payload.ppnRupiah);
+    if (payload.totalPerItem) payload.totalPerItem = cleanCurrency(payload.totalPerItem);
 
     // namaPembeli ikut di payload, bisa diupdate
     // Filter payload to only valid columns to avoid SQL error
@@ -327,9 +305,15 @@ router.put("/:id", async (req, res, next) => {
         // If diff is positive (increased PO), PR qty decreases.
         // If diff is negative (decreased PO), PR qty increases.
         await db.query(
-          "UPDATE pr_item SET jumlah = jumlah - ? WHERE id_PRItem = ?",
+          "UPDATE pr_item SET jumlah = GREATEST(0, jumlah - ?) WHERE id_PRItem = ?",
           [diff, oldItem.id_PRItem]
         );
+
+        // Update PR Status
+        const [[prItem]] = await db.query("SELECT id_PR FROM pr_item WHERE id_PRItem = ?", [oldItem.id_PRItem]);
+        if (prItem) {
+          await updatePRStatus(prItem.id_PR);
+        }
       }
     }
 
@@ -347,6 +331,13 @@ router.put("/:id", async (req, res, next) => {
       "SELECT * FROM po_item WHERE id_POItem = ?",
       [id]
     );
+
+    // --- FIX: Update PO Status ---
+    const [[poItemRow]] = await db.query("SELECT id_PO FROM po_item WHERE id_POItem = ?", [id]);
+    if (poItemRow && poItemRow.id_PO) {
+      await updatePOStatus(poItemRow.id_PO);
+    }
+
     res.json(updated || { message: "Diperbarui" });
   } catch (err) {
     next(err);
@@ -380,9 +371,10 @@ router.delete("/:id", async (req, res, next) => {
       );
 
       // Update PR status to 'Diproses' if needed (to reopen it if it was finished)
+      // FIX: Use centralized updatePRStatus
       const [[prItem]] = await db.query("SELECT id_PR FROM pr_item WHERE id_PRItem = ?", [poItemRow.id_PRItem]);
       if (prItem) {
-        await db.query("UPDATE pr SET status = 'Diproses' WHERE id_PR = ?", [prItem.id_PR]);
+        await updatePRStatus(prItem.id_PR);
       }
     }
 
@@ -396,6 +388,19 @@ router.delete("/:id", async (req, res, next) => {
     // if (poItemRow && poItemRow.id_PO) {
     //   await updateStatusTerimaPO(db, poItemRow.id_PO);
     // }
+
+    // If this PO item was linked to a PR item, update the PR status
+    if (poItemRow && poItemRow.id_PRItem) {
+      const [[prItem]] = await db.query("SELECT id_PR FROM pr_item WHERE id_PRItem = ?", [poItemRow.id_PRItem]);
+      if (prItem) {
+        await updatePRStatus(prItem.id_PR);
+      }
+    }
+
+    // --- FIX: Update PO Status ---
+    if (poItemRow && poItemRow.id_PO) {
+      await updatePOStatus(poItemRow.id_PO);
+    }
 
     res.json({ message: "PO item dihapus" });
   } catch (err) {

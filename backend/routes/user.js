@@ -97,20 +97,43 @@ router.delete("/:id", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { nama_pengguna, password } = req.body;
+    console.log(`[LOGIN DEBUG] Attempting login for username: '${nama_pengguna}'`);
+
+    // FETCH ALL users with this username (MySQL typically ignores trailing spaces in comparisons)
+    // This supports both "mega selvia" (duplicate) AND "mega selvia " (space trick)
     const [rows] = await db.query("SELECT * FROM user WHERE nama_pengguna=?", [
       nama_pengguna,
     ]);
-    if (rows.length === 0)
+    console.log(`[LOGIN DEBUG] Found ${rows.length} user(s) matching username '${nama_pengguna}'`);
+
+    if (rows.length === 0) {
+      console.log(`[LOGIN DEBUG] User not found.`);
       return res.status(404).json({ message: "User tidak ditemukan" });
+    }
 
-    const user = rows[0];
+    // Loop semua user candidate
+    // Cari yang password-nya cocok
+    let loggedInUser = null;
+    for (const user of rows) {
+      // NOTE: bcrypt.compare handles the hashing verification
+      const valid = await bcrypt.compare(password, user.password);
+      console.log(`[LOGIN DEBUG] Checking User ID: ${user.id_user} | Role: ${user.id_peran} | Password Match: ${valid}`);
 
-    // Selalu bandingkan hash, tidak perlu pengecualian
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ message: "Password salah" });
+      if (valid) {
+        loggedInUser = user;
+        break; // Stop jika sudah ketemu yang cocok
+      }
+    }
 
-    res.json({ message: "Login berhasil", user });
+    if (!loggedInUser) {
+      console.log(`[LOGIN DEBUG] No matching password found for any candidate.`);
+      return res.status(401).json({ message: "Password salah" });
+    }
+
+    console.log(`[LOGIN DEBUG] Login successful for User ID: ${loggedInUser.id_user}`);
+    res.json({ message: "Login berhasil", user: loggedInUser });
   } catch (err) {
+    console.error(`[LOGIN DEBUG] Error:`, err);
     res.status(500).json({ error: err.message });
   }
 });

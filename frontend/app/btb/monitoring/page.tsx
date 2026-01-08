@@ -326,22 +326,9 @@ export default function BTBMonitoringPage() {
         const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`);
         if (!btbItemRes.ok) continue;
         const btbItem = await btbItemRes.json();
-        // Hapus item BTB
+        // Hapus item BTB (Backend akan handle restore jumlahPO)
         await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`, { method: "DELETE" });
-        // Update jumlahPO di po_item (tambah kembali jumlah_diterima)
-        const poItemRes = await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`);
-        if (poItemRes.ok) {
-          const poItem = await poItemRes.json();
-          const newJumlahPO = Number(poItem.jumlahPO) + Number(btbItem.jumlah_diterima);
-          await fetch(`http://192.168.10.10:5000/api/po-item/${btbItem.id_POItem}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jumlahPO: newJumlahPO
-            }),
-          });
-          if (poItem.id_PO) poIdsToCheck.add(String(poItem.id_PO));
-        }
+
       }
       // Hapus BTB parent jika semua item sudah dihapus
       for (const { btbId } of selectedBTBItemsForRestore) {
@@ -550,7 +537,7 @@ export default function BTBMonitoringPage() {
 
       // --- FILTER BY TANGGAL RENTANG (pakai DatePicker) ---
       let matchesDateRange = true;
-      if (filterStartDate && filterEndDate) {
+      if (filterStartDate || filterEndDate) {
         // Assume row.tanggal is yyyy-mm-dd or yyyy-mm-ddTHH:mm:ss
         const tgl = (row.tanggal || "").split("T")[0];
         if (tgl) {
@@ -561,11 +548,22 @@ export default function BTBMonitoringPage() {
             Number(parts[1]) - 1,
             Number(parts[2])
           );
-          // Set filterEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
-          const end = new Date(filterEndDate);
-          end.setHours(23, 59, 59, 999);
 
-          matchesDateRange = tglDate >= filterStartDate && tglDate <= end;
+          let afterStart = true;
+          let beforeEnd = true;
+
+          if (filterStartDate) {
+            afterStart = tglDate >= filterStartDate;
+          }
+
+          if (filterEndDate) {
+            // Set filterEndDate ke akhir hari (23:59:59) untuk perbandingan inklusif
+            const end = new Date(filterEndDate);
+            end.setHours(23, 59, 59, 999);
+            beforeEnd = tglDate <= end;
+          }
+
+          matchesDateRange = afterStart && beforeEnd;
         } else {
           matchesDateRange = false;
         }
@@ -1467,7 +1465,7 @@ export default function BTBMonitoringPage() {
                         grouped[key].push(row);
                       });
 
-                      return Object.entries(grouped).map(([noBTB, items]) => {
+                      return Object.entries(grouped).map(([noBTB, items], idx) => {
                         if (!items || items.length === 0) return null;
                         // Urutkan items ASC by id_btb_item (atau id_btbItem/id)
                         const sortedItems = [...items].sort((a, b) => {
@@ -1478,7 +1476,7 @@ export default function BTBMonitoringPage() {
                           <React.Fragment key={noBTB}>
                             <TableRow
                               id={items[0].noBTB}
-                              className={`hover:bg-gray-50 transition-colors border border-gray-300 ${highlight && items[0].noBTB === highlight ? "bg-yellow-100" : ""
+                              className={`hover:bg-blue-50/50 transition-colors border border-gray-300 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"} ${highlight && items[0].noBTB === highlight ? "bg-yellow-100" : ""
                                 }`}
                             >
                               {/* Checkbox hanya di baris pertama */}
@@ -1568,8 +1566,8 @@ export default function BTBMonitoringPage() {
                               </TableCell>
                             </TableRow>
                             {/* Baris item berikutnya */}
-                            {sortedItems.slice(1).map((item, idx) => (
-                              <TableRow key={`${noBTB}-item-${idx + 1}`} className="hover:bg-gray-50 transition-colors border border-gray-300">
+                            {sortedItems.slice(1).map((item, idx2) => (
+                              <TableRow key={`${noBTB}-item-${idx2 + 1}`} className={`hover:bg-blue-50/50 transition-colors border border-gray-300 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                                 {/* Kolom yang di-rowSpan tidak ditampilkan lagi */}
                                 {/* Nama Barang - item berikutnya */}
                                 <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">

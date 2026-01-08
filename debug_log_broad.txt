@@ -1,0 +1,10 @@
+Starting Broad Debug PO Status...
+
+--- Checking for Items with 10/10 Qty ---
+Found 1 items with 10/10 qty.
+- PO PO TEST (ID 281): Status 'WAITING PART' | Item 493 10/10
+
+--- Checking for 'PART COMPLETE' POs with items > 0 ---
+Found 0 suspicious items in PART COMPLETE POs.
+
+--- Sample PART COMPLETE PO ---

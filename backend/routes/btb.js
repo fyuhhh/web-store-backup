@@ -1,5 +1,6 @@
 import express from "express";
 import db from "../config/database.js";
+import { updatePOStatus } from '../utils/statusHelper.js';
 
 const router = express.Router();
 
@@ -294,6 +295,13 @@ router.delete("/:id", async (req, res) => {
     const [result] = await db.query("DELETE FROM btb WHERE id_btb = ?", [id]);
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "BTB tidak ditemukan" });
+
+    // Update status PO untuk semua PO yang terlibat (biasanya 1 BTB -> 1 PO)
+    const uniquePOIds = [...new Set(btbItems.map(item => item.id_PO))].filter(Boolean);
+    for (const pid of uniquePOIds) {
+      await updatePOStatus(pid);
+    }
+
     res.json({ message: "BTB berhasil dihapus" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -431,6 +439,12 @@ router.post("/full", async (req, res) => {
     await updateTargetPencapaianPoByBTB(conn, id_btb);
 
     await conn.commit();
+
+    // Update status PO setelah transaksi berhasil
+    if (id_po) {
+      await updatePOStatus(id_po);
+    }
+
     res.status(201).json({ message: "BTB dan item berhasil dibuat", id_btb });
   } catch (err) {
     await conn.rollback();

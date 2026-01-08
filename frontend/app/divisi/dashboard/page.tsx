@@ -266,6 +266,7 @@ export default function DivisiDashboardPage() {
                             <Button variant="outline" size="sm" onClick={() => router.push('/divisi/pesanan-anda')} className="rounded-full">
                                 Lihat Semua <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
+
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
@@ -274,7 +275,7 @@ export default function DivisiDashboardPage() {
                                 <TableRow>
                                     <TableHead className="w-[180px]">No. PR</TableHead>
                                     <TableHead>Tanggal</TableHead>
-                                    <TableHead>Barang</TableHead>
+                                    <TableHead>Item</TableHead>
                                     <TableHead>Jumlah Item</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Aksi</TableHead>
