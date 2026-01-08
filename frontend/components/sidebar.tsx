@@ -289,6 +289,18 @@ export function Sidebar() {
         },
       ];
     }
+
+    // Tambahan menu Maintenance khusus user ID 141
+    const userId = user ? String(user.id ?? user.id_user ?? "") : "";
+    if (userId === "141") {
+      // Pastikan menu adalah array baru agar tidak memutasi aslinya jika referensi
+      menu = [...menu, {
+        title: "Mode Maintenance",
+        href: "/maintenance/admin",
+        icon: Settings,
+      }];
+    }
+
     return menu;
   }, [user, role]);
 

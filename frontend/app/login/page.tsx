@@ -132,6 +132,24 @@ export default function LoginPage() {
 
             localStorage.setItem("userData", JSON.stringify(data.user));
 
+            // --- MAINTENANCE CHECK START ---
+            try {
+                const maintRes = await fetch("http://192.168.10.10:5000/api/maintenance");
+                const maintData = await maintRes.json();
+                if (maintData.isActive) {
+                    const whitelist = ["141", "90", "89", "85"];
+                    // Robust ID check
+                    const currentId = String(data.user.id ?? data.user.id_user ?? "");
+                    if (!whitelist.includes(currentId)) {
+                        router.push("/maintenance");
+                        return; // Stop further redirects
+                    }
+                }
+            } catch (e) {
+                console.error("Maintenance check on login failed", e);
+            }
+            // --- MAINTENANCE CHECK END ---
+
             setTimeout(() => {
                 if (data.user.id_peran === 5) {
                     router.push("/kelola-akun");

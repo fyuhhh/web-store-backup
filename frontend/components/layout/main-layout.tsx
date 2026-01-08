@@ -44,6 +44,34 @@ export function MainLayout({ children }: MainLayoutProps) {
     fetch("http://192.168.10.10:5000/api/peran")
       .then((r) => r.json())
       .then((data) => setPeranList(data));
+
+    // --- MAINTENANCE CHECK ---
+    const checkMaintenance = async () => {
+      try {
+        const res = await fetch("http://192.168.10.10:5000/api/maintenance");
+        const data = await res.json();
+        if (data.isActive) {
+          const whitelist = ["141", "90", "89", "85"];
+          const currentId = String(parsed.id ?? parsed.id_user ?? "");
+          if (!whitelist.includes(currentId)) {
+            // Redirect to maintenance page
+            // But wait, if we use router.push, we need to ensure we are not already there
+            // Since MainLayout is likely NOT used on maintenance page, this is safe.
+            // However, to be extra safe:
+            if (window.location.pathname !== "/maintenance") {
+              window.location.href = "/maintenance";
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Maintenance check failed", e);
+      }
+    };
+
+    checkMaintenance();
+    const interval = setInterval(checkMaintenance, 10000); // Check every 10s
+    return () => clearInterval(interval);
+
   }, [router]);
 
   const handleLogout = () => {
@@ -68,7 +96,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       ?.peran || "-";
 
   return (
-    <RoleGuard allowed={["/dashboard/rekap-full"]}>
+    <RoleGuard allowed={["/dashboard/rekap-full", "/maintenance/admin"]}>
       <div className="flex h-screen bg-background">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
