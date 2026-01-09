@@ -407,22 +407,35 @@ function InputPOContent() {
           diskonAmount = 0;
         }
 
-        // --- LOGIKA BARU: jika ppnIncluded, total = subtotal, ppn dihitung dari subtotal ---
         const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
-        let ppnAmount = afterDiskon * (ppn / 100);
-        let subtotalItem = afterDiskon;
-        let total = 0;
+
+        // --- LOGIKA BARU (FIXED): Handle PPN Inclusive/Exclusive correctly ---
+        let ppnAmount = 0;
+        let subtotalItem = 0; // This is the DPP (Dasar Pengenaan Pajak) / taxable amount
+        let total = 0; // This is the final amount to pay (Item + Tax)
 
         if (ppnIncluded) {
-          subtotalItem = afterDiskon;
+          // Case: Harga sudah termasuk PPN (Inclusive)
+          // Formula:
+          // Total = afterDiskon (karena input harga sudah inkulude)
+          // DPP = Total / (1 + rate)
+          // PPN = Total - DPP
           total = afterDiskon;
+          subtotalItem = total / (1 + (ppn / 100));
+          ppnAmount = total - subtotalItem;
         } else {
+          // Case: Harga belum termasuk PPN (Exclusive)
+          // Formula:
+          // DPP = afterDiskon
+          // PPN = DPP * rate
+          // Total = DPP + PPN
           subtotalItem = afterDiskon;
-          total = afterDiskon + ppnAmount;
+          ppnAmount = subtotalItem * (ppn / 100);
+          total = subtotalItem + ppnAmount;
         }
 
-        // Tambahkan totalPerItem (setelah diskon + ppn)
-        const totalPerItem = subtotalItem + ppnAmount;
+        // Tambahkan totalPerItem (subtotalItem + ppnAmount harus main sama dengan total)
+        const totalPerItem = total;
 
         subtotal += subtotalItem;
         totalDiskon += diskonAmount;
@@ -2601,7 +2614,7 @@ function InputPOContent() {
                                 />
                               </TableCell>
                               <TableCell className="p-1 text-xs">
-                                Rp {afterDiskon.toLocaleString("id-ID")}
+                                Rp {afterDiskon.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                               </TableCell>
                               <TableCell className="p-1">
                                 <Input
@@ -2632,10 +2645,10 @@ function InputPOContent() {
                                 />
                               </TableCell>
                               <TableCell className="p-1 text-xs">
-                                Rp {ppnAmount.toLocaleString("id-ID")}
+                                Rp {ppnAmount.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                               </TableCell>
                               <TableCell className="p-1 text-xs">
-                                Rp {totalPerItem.toLocaleString("id-ID")}
+                                Rp {totalPerItem.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                               </TableCell>
                               <TableCell className="p-1 text-xs">
                                 <div
@@ -2719,14 +2732,14 @@ function InputPOContent() {
                         <div className="flex justify-between">
                           <span>Subtotal:</span>
                           <span>
-                            Rp {calculations.subtotal.toLocaleString("id-ID")}
+                            Rp {calculations.subtotal.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                           </span>
                         </div>
                         <div className="flex justify-between font-medium">
                           <span>Total Diskon:</span>
                           <span className="text-destructive">
                             -Rp{" "}
-                            {calculations.totalDiskon.toLocaleString("id-ID")}
+                            {calculations.totalDiskon.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -2737,9 +2750,9 @@ function InputPOContent() {
                           <span className="text-success">
                             {ppnIncluded
                               ? "Rp " +
-                              calculations.totalPPN.toLocaleString("id-ID")
+                              calculations.totalPPN.toLocaleString("id-ID", { maximumFractionDigits: 0 })
                               : "+Rp " +
-                              calculations.totalPPN.toLocaleString("id-ID")}
+                              calculations.totalPPN.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                           </span>
                         </div>
                         <hr className="my-2" />
@@ -2747,7 +2760,7 @@ function InputPOContent() {
                           <span>Total Pembayaran:</span>
                           <span className="text-primary">
                             Rp{" "}
-                            {calculations.totalPayment.toLocaleString("id-ID")}
+                            {calculations.totalPayment.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
                           </span>
                         </div>
                         {ppnIncluded && (

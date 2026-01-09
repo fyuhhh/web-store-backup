@@ -298,6 +298,10 @@ export function Sidebar() {
         title: "Mode Maintenance",
         href: "/maintenance/admin",
         icon: Settings,
+      }, {
+        title: "Broadcast",
+        href: "/maintenance/broadcast",
+        icon: Users, // Using Users icon as a placeholder for broadcast
       }];
     }
 

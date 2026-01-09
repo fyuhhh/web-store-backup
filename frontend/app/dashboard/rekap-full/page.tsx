@@ -1127,8 +1127,8 @@ export default function RekapFullPage() {
     // if (!exportStartDate || !exportEndDate) return [];
     return (
       rekapData.filter((row) => {
-        // Filter skemaPR sesuai user login (bandingkan id), KECUALI Admin (id_peran 1)
-        if (currentUserRole !== 1 && userSkemaId && String(row.skemaPR) !== userSkemaId) {
+        // Filter skemaPR sesuai user login (bandingkan id)
+        if (userSkemaId && String(row.skemaPR) !== userSkemaId) {
           return false;
         }
         // Filter tanggal PR
