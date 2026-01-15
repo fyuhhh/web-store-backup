@@ -60,7 +60,10 @@ import {
   Search,
   Download,
   ChevronDown,
+  Calendar as CalendarIcon,
+  FileSpreadsheet,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { type PRData } from "@/lib/dummy-data";
 import { useSearchParams } from "next/navigation";
@@ -70,11 +73,11 @@ const formatTanggal = (dateString: string | undefined) => {
   if (!dateString) return "-";
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "Invalid Date";
-  return date.toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  // Force DD/MM/YYYY
+  const d = date.getDate().toString().padStart(2, '0');
+  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
 };
 
 export default function MonitoringPRPage() {
@@ -774,18 +777,18 @@ export default function MonitoringPRPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PR");
 
-    // Header sesuai UI persis (tanpa Skema karena di-hide)
+    // Header sesuai UI persis (tanpa Skema karena di-hide) - Uppercase Request
     const headers = [
-      "No. PR",
-      "Tanggal",
-      "Daftar Barang",
-      "Kuantitas",
-      "Satuan",
-      "Keterangan",
-      "Urgensi",
-      "Divisi",
-      "Status",
-      "Dibuat Oleh",
+      "NO. PR",
+      "TANGGAL",
+      "DAFTAR BARANG",
+      "KUANTITAS",
+      "SATUAN",
+      "KETERANGAN",
+      "URGENSI",
+      "DIVISI",
+      "STATUS",
+      "DIBUAT OLEH",
     ];
 
     // Add header row with bold font and styling
@@ -809,8 +812,9 @@ export default function MonitoringPRPage() {
     // Helper format tanggal persis seperti frontend
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      // Handle DD-MM-YYYY
-      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
+      // Handle DD/MM/YYYY or DD-MM-YYYY -> Convert to DD/MM/YYYY
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(tgl)) return tgl;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl.replace(/-/g, '/');
 
       // Ambil bagian tanggal saja jika format ISO (YYYY-MM-DDTHH:mm:ss...)
       let datePart = tgl;
@@ -821,12 +825,12 @@ export default function MonitoringPRPage() {
       // Handle YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
         const [y, m, d] = datePart.split("-");
-        return `${d}-${m}-${y}`;
+        return `${d}/${m}/${y}`;
       }
 
       // Fallback
       const d = dayjs(tgl);
-      if (d.isValid()) return d.format("DD-MM-YYYY");
+      if (d.isValid()) return d.format("DD/MM/YYYY");
       return tgl;
     }
 
@@ -839,18 +843,20 @@ export default function MonitoringPRPage() {
       const validItems = pr.items || [];
 
       if (validItems.length > 0) {
-        validItems.forEach((item, index) => {
+        validItems.forEach((item: any, index: number) => {
           worksheet.addRow([
-            index === 0 ? pr.noPR : "",
+            index === 0 ? (pr.noPR ? pr.noPR.toUpperCase() : "") : "",
             index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
-            item.namaBarang,
+            item.namaBarang ? item.namaBarang.toUpperCase() : "",
             Number(item.quantityAwalPR || item.jumlah || 0), // Use Number() for correct Excel format
-            item.satuan ?? "",
-            item.keterangan || "",
-            pr.urgensi,
-            index === 0 ? pr.divisi : "",
-            pr.status,
-            index === 0 ? pr.dibuatOleh : "",
+            item.satuan ? item.satuan.toUpperCase() : "",
+            item.keterangan ? item.keterangan.toUpperCase() : "",
+            pr.urgensi ? pr.urgensi.toUpperCase() : "",
+            index === 0 ? (pr.divisi ? pr.divisi.toUpperCase() : "") : "",
+            pr.status ? pr.status.toUpperCase() : "",
+            index === 0
+              ? (pr.dibuatOleh ? pr.dibuatOleh.toUpperCase() : "")
+              : "",
           ]);
         });
         // Set number format for 'Kuantitas' (column 4)
@@ -858,16 +864,16 @@ export default function MonitoringPRPage() {
       } else {
         // Handle PR tanpa item
         worksheet.addRow([
-          pr.noPR,
+          pr.noPR ? pr.noPR.toUpperCase() : "",
           formatTanggalExcel(pr.tanggalPR),
           "",
           "",
           "",
           "",
-          pr.urgensi,
-          pr.divisi,
-          pr.status,
-          pr.dibuatOleh,
+          pr.urgensi ? pr.urgensi.toUpperCase() : "",
+          pr.divisi ? pr.divisi.toUpperCase() : "",
+          pr.status ? pr.status.toUpperCase() : "",
+          pr.dibuatOleh ? pr.dibuatOleh.toUpperCase() : "",
         ]);
       }
     });
@@ -1078,57 +1084,102 @@ export default function MonitoringPRPage() {
               </Select>
             </div> */}
             {/* --- existing export mode filter --- */}
+            {/* Export section: Enhanced Next Level UI */}
             <div className="flex items-center gap-2">
-              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
-                Mode Export
-              </Label>
-              <Select
-                value={exportMode}
-                onValueChange={(val) =>
-                  setExportMode(val as "all" | "selected" | "range")
-                }
-              >
-                <SelectTrigger id="exportMode" className="w-[140px] h-9">
-                  <SelectValue placeholder="Export Mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua</SelectItem>
-                  <SelectItem value="selected">Terpilih</SelectItem>
-                  <SelectItem value="range">Rentang Tanggal</SelectItem>
-                </SelectContent>
-              </Select>
-              {exportMode === "range" && (
-                <div className="flex items-center gap-2 ml-2">
-                  <Label className="text-xs font-medium">Tanggal PR</Label>
-                  <Input
-                    type="date"
-                    value={exportStartDate}
-                    onChange={(e) => setExportStartDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Mulai"
-                  />
-                  <span className="mx-1">-</span>
-                  <Input
-                    type="date"
-                    value={exportEndDate}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Akhir"
-                  />
-                </div>
-              )}
-              <Button
-                onClick={handleExport}
-                className="bg-primary hover:bg-primary/90 h-9 ml-2"
-                disabled={
-                  (exportMode === "selected" && selectedPRs.length === 0) ||
-                  (exportMode === "range" &&
-                    (!exportStartDate || !exportEndDate))
-                }
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Excel
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-10 px-4 gap-2 border-dashed border-gray-400 hover:bg-gray-50 hover:border-gray-500">
+                    <Download className="h-4 w-4" />
+                    <span className="font-medium">Export Excel</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4 z-[9999] bg-white" align="end">
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                        Export Data PR
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Pilih format dan filter data yang ingin diunduh.
+                      </p>
+                    </div>
+
+                    <Tabs defaultValue={exportMode} onValueChange={(v) => setExportMode(v as any)} className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="all" className="text-xs">Semua</TabsTrigger>
+                        <TabsTrigger value="selected" className="text-xs">Pilihan</TabsTrigger>
+                        <TabsTrigger value="range" className="text-xs">Tanggal</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="all" className="mt-4 space-y-2">
+                        <div className="p-3 bg-gray-50 rounded-md border text-center">
+                          <span className="text-xs text-muted-foreground block mb-1">Total Data</span>
+                          <span className="text-xl font-bold text-primary">{filteredPRData.length}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground text-center">
+                          Mengunduh semua data yang tampil saat ini.
+                        </p>
+                      </TabsContent>
+
+                      <TabsContent value="selected" className="mt-4 space-y-2">
+                        <div className="p-3 bg-gray-50 rounded-md border text-center">
+                          <span className="text-xs text-muted-foreground block mb-1">Data Terpilih</span>
+                          <span className={`text-xl font-bold ${selectedPRs.length > 0 ? 'text-primary' : 'text-gray-400'}`}>
+                            {selectedPRs.length}
+                          </span>
+                        </div>
+                        {selectedPRs.length === 0 && (
+                          <p className="text-[10px] text-red-500 text-center">
+                            Pilih checkbox pada tabel terlebih dahulu.
+                          </p>
+                        )}
+                      </TabsContent>
+
+                      <TabsContent value="range" className="mt-4 space-y-3">
+                        <div className="grid gap-2">
+                          <div className="grid gap-1">
+                            <Label className="text-xs">Tanggal Mulai</Label>
+                            <div className="relative">
+                              <Input
+                                type="date"
+                                value={exportStartDate}
+                                onChange={(e) => setExportStartDate(e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-1">
+                            <Label className="text-xs">Tanggal Akhir</Label>
+                            <div className="relative">
+                              <Input
+                                type="date"
+                                value={exportEndDate}
+                                onChange={(e) => setExportEndDate(e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
+                    <Button
+                      onClick={() => {
+                        handleExport();
+                      }}
+                      className="w-full h-9 bg-green-600 hover:bg-green-700 text-white gap-2"
+                      disabled={
+                        (exportMode === "selected" && selectedPRs.length === 0) ||
+                        (exportMode === "range" && (!exportStartDate || !exportEndDate))
+                      }
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download .xlsx
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>

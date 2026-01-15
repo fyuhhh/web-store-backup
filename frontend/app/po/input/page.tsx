@@ -68,7 +68,7 @@ function InputPOContent() {
   // PO Form state
   const [poFormData, setPoFormData] = useState({
     noPO: "",
-    tanggalPO: null as Date | null,
+    tanggalPO: new Date() as Date | null, // Default to Today
     supplier: "",
     estimasiTanggalDiterima: null as Date | null,
     diskon: "",
@@ -79,15 +79,58 @@ function InputPOContent() {
     termin: "", // <-- Tambahkan state termin
   });
 
+  // Helper date formatter needed inside component or accessible
+  function formatDateForBackend(date: Date | null) {
+    if (!date) return null;
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
   const [userSkema, setUserSkema] = useState("");
+
+  const searchParams = useSearchParams();
+  const editPoId = searchParams.get("id");
+  const isEditing = !!editPoId;
+
+  // ... (rest of state) ...
+
+  // Auto-fill PO Number on Skema/Date change (Only when creating)
+  useEffect(() => {
+    if (isEditing) return; // Ignore if editing existing PO
+
+    const { skema: id_skema, tanggalPO, noPO } = poFormData;
+    // Note: poFormData.skema is used here, ensure it is populated from user/selection
+    if (!id_skema || !tanggalPO) return;
+
+    // Guard: Only auto-fill if field is empty OR looks like a standard format "PO..."
+    const isEmpryOrStandard = !noPO || noPO.startsWith("PO");
+    if (!isEmpryOrStandard) return;
+
+    const fetchNextNumber = async () => {
+      try {
+        const dateParam = formatDateForBackend(tanggalPO);
+        if (!dateParam) return;
+
+        const res = await fetch(`http://192.168.10.10:5000/api/po/next-number?id_skema=${id_skema}&tanggalPO=${dateParam}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.nextNoPO) {
+            setPoFormData(prev => ({ ...prev, noPO: data.nextNoPO }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch next PO number", err);
+      }
+    };
+
+    fetchNextNumber();
+  }, [poFormData.skema, poFormData.tanggalPO, isEditing]);
 
   // Tambahkan state untuk checkbox "Harga sudah termasuk PPN"
   const [ppnIncluded, setPpnIncluded] = useState(false);
 
-  // Edit Mode State
-  const searchParams = useSearchParams();
-  const editPoId = searchParams.get("id");
-  const isEditing = !!editPoId;
 
   // State for PO items with pricing
   const [poItems, setPoItems] = useState<
@@ -231,21 +274,6 @@ function InputPOContent() {
       .filter((poItem) => poItem.items.length > 0)
   );
 
-  // Flatten all items for pagination
-  // const allFilteredItems = filteredPOItems.flatMap((poItem) =>
-  //   poItem.items.map((item) => ({
-  //     ...item,
-  //     noPR: poItem.noPR,
-  //     prId: poItem.prId,
-  //   }))
-  // );
-
-  // const totalPages = Math.ceil(allFilteredItems.length / itemsPerPage);
-  // const pagedItems = allFilteredItems.slice(
-  //   (currentPage - 1) * itemsPerPage,
-  //   currentPage * itemsPerPage
-  // );
-
   // Flatten semua item PR siap proses ke PO
   const allPRItems = filteredPOItems.flatMap((poItem) =>
     poItem.items.map((item) => ({
@@ -282,8 +310,8 @@ function InputPOContent() {
     return isNaN(val) ? 0 : val;
   }
 
-  // Helper untuk menentukan mode diskon (persen/nominal)
-  function getDiskonMode(item: any, prId: string, lastMap: any) {
+  // Helper untuk menentukan mode diskon (persen/nominal) with default empty map
+  function getDiskonMode(item: any, prId: string, lastMap: any = {}) {
     const key = prId + "-" + item.id;
     if (lastMap && lastMap[key]) return lastMap[key];
 
@@ -320,6 +348,8 @@ function InputPOContent() {
     return totalDiskon;
   }
 
+  const [lastDiskonChanged, setLastDiskonChanged] = useState<Record<string, "persen" | "nominal">>({});
+
   // Calculation functions
   const calculateTotal = () => {
     let subtotal = 0;
@@ -341,7 +371,7 @@ function InputPOContent() {
     }> = [];
 
     poItems.forEach((poItem) => {
-      poItem.items.forEach((item) => {
+      poItem.items.forEach((item: any) => {
         // Parse hargaSatuan as float, support comma/period
         let harga = 0;
         if (typeof item.hargaSatuan === "string") {
@@ -356,7 +386,7 @@ function InputPOContent() {
         const ppn = parseFloat(String(item.ppnItem).replace("%", "")) || 0;
         const itemSubtotal = harga * qty;
 
-        // Determine mode using helper
+        // Determine mode using helper - use current state logic if available or passed param
         const mode = getDiskonMode(item, poItem.prId, lastDiskonChanged);
         let diskonAmount = 0;
         let diskonBreakdown: Array<{
@@ -373,13 +403,13 @@ function InputPOContent() {
           let currentBreakdown = itemSubtotal;
           const diskonPersenArr = (item.diskonPersen || "")
             .split("+")
-            .map((d) => d.trim())
-            .filter((d) => d.endsWith("%"))
-            .map((d) => {
+            .map((d: any) => d.trim())
+            .filter((d: any) => d.endsWith("%"))
+            .map((d: any) => {
               const val = parseFloat(d.replace("%", "").replace(",", "."));
               return isNaN(val) ? null : val;
             })
-            .filter((v) => v !== null) as number[];
+            .filter((v: any) => v !== null) as number[];
 
           diskonPersenArr.forEach((persen, idx) => {
             const amount = currentBreakdown * (persen / 100);
@@ -415,27 +445,14 @@ function InputPOContent() {
         let total = 0; // This is the final amount to pay (Item + Tax)
 
         if (ppnIncluded) {
-          // Case: Harga sudah termasuk PPN (Inclusive)
-          // Formula:
-          // Total = afterDiskon (karena input harga sudah inkulude)
-          // DPP = Total / (1 + rate)
-          // PPN = Total - DPP
           total = afterDiskon;
           subtotalItem = total / (1 + (ppn / 100));
           ppnAmount = total - subtotalItem;
         } else {
-          // Case: Harga belum termasuk PPN (Exclusive)
-          // Formula:
-          // DPP = afterDiskon
-          // PPN = DPP * rate
-          // Total = DPP + PPN
           subtotalItem = afterDiskon;
           ppnAmount = subtotalItem * (ppn / 100);
           total = subtotalItem + ppnAmount;
         }
-
-        // Tambahkan totalPerItem (subtotalItem + ppnAmount harus main sama dengan total)
-        const totalPerItem = total;
 
         subtotal += subtotalItem;
         totalDiskon += diskonAmount;
@@ -504,6 +521,7 @@ function InputPOContent() {
 
   // Fetch supplier, status_pengiriman, status_permintaan, termin dari backend
   useEffect(() => {
+    // ... REST IS SAME ...
     fetch("http://192.168.10.10:5000/api/supplier")
       .then((res) => res.json())
       .then((data) => setSupplierOptions(data));
@@ -763,11 +781,16 @@ function InputPOContent() {
 
       if (isEditing && poId) {
         // --- UPDATE EXISTING PO ---
-        await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
+        const updateRes = await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadHeader),
         });
+
+        if (!updateRes.ok) {
+          const err = await updateRes.json().catch(() => ({}));
+          throw new Error(err.message || "Gagal update PO");
+        }
 
         // Loop items to update directly
         let breakdownIndex = 0;
@@ -825,8 +848,10 @@ function InputPOContent() {
           body: JSON.stringify(payloadHeader),
         });
 
-        if (!res.ok) throw new Error("Gagal membuat PO");
         const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || "Gagal membuat PO");
+        }
         const newPoId = data.id_PO || data.insertId;
 
         // Create PO Items
@@ -882,9 +907,13 @@ function InputPOContent() {
           window.location.href = "/po/status";
         }, 1500);
       }
-    } catch (err) {
-      console.error(err);
-      setNotif({ type: "error", message: "Gagal menyimpan PO" });
+    } catch (err: any) {
+      if (err.message?.includes("digunakan")) {
+        console.warn("Validation error:", err.message);
+      } else {
+        console.error("Error creating PO:", err);
+      }
+      setNotif({ type: "error", message: err.message || "Gagal menyimpan PO" });
     }
   };
 
@@ -1446,14 +1475,6 @@ function InputPOContent() {
     );
   }
 
-  // Tambahkan state untuk tracking field diskon mana yang terakhir diubah
-  const [lastDiskonChanged, setLastDiskonChanged] = useState<{
-    [key: string]: "persen" | "nominal";
-  }>({
-    // Contoh inisialisasi, jika perlu
-    // "prId-itemId": "persen",
-  });
-
   // Handler perubahan diskon persen per item
   function handleDiskonPersenChange(
     prId: string,
@@ -1592,18 +1613,6 @@ function InputPOContent() {
       (s: any) => String(s.id_satuan) === String(satuanValue)
     );
     return found ? found.satuan : satuanValue;
-  }
-
-  // Helper format tanggal ke yyyy-mm-dd untuk backend (KONSISTEN, TANPA JAM, TANPA TIMEZONE)
-  function formatDateForBackend(date: Date | string | null) {
-    if (!date) return "";
-    let d = date instanceof Date ? date : new Date(date);
-    // Jika invalid date, return string kosong
-    if (isNaN(d.getTime())) return "";
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
   }
 
   // KEYBOARD NAVIGATION HANDLER

@@ -142,6 +142,73 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// GET Next PR Number
+router.get("/next-number", async (req, res, next) => {
+  try {
+    const { id_skema, tanggalPR } = req.query;
+
+    if (!id_skema || !tanggalPR) {
+      return res.status(400).json({ message: "id_skema and tanggalPR required" });
+    }
+
+    // Determine Schema Code
+    let skemaCode = "PRQ"; // Default fallback (Pentacity)
+    // Mapping based on DB check: 2 -> E-WALK, 1 -> PRQ (Pentacity)
+    if (String(id_skema) === "2" || String(id_skema).toLowerCase() === "ewalk") {
+      skemaCode = "E-WALK";
+    } else {
+      skemaCode = "PRQ";
+    }
+
+    // Parse Date
+    const d = new Date(tanggalPR);
+    if (isNaN(d.getTime())) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+
+    const yearFull = d.getFullYear();
+    const yearShort = String(yearFull).substring(2); // 26
+    const monthIndex = d.getMonth(); // 0-11
+
+    // Roman Month Map
+    const romanMonths = [
+      "I", "II", "III", "IV", "V", "VI",
+      "VII", "VIII", "IX", "X", "XI", "XII"
+    ];
+    const monthRoman = romanMonths[monthIndex];
+
+    // Pattern: PR/[CODE]/[YY]/[ROMAN]/%
+    // e.g., PR/E-WALK/26/I/%
+    const pattern = `PR/${skemaCode}/${yearShort}/${monthRoman}/%`;
+
+    // Query matching PRs
+    const [rows] = await db.query(
+      "SELECT noPR FROM pr WHERE noPR LIKE ? ORDER BY LENGTH(noPR) DESC, noPR DESC LIMIT 1",
+      [pattern]
+    );
+
+    let nextSeq = 1;
+    if (rows.length > 0) {
+      const lastNoPR = rows[0].noPR;
+      // Extract last part
+      const parts = lastNoPR.split("/");
+      const lastSeqStr = parts[parts.length - 1];
+      const lastSeq = parseInt(lastSeqStr, 10);
+      if (!isNaN(lastSeq)) {
+        nextSeq = lastSeq + 1;
+      }
+    }
+
+    const padLength = skemaCode === "PRQ" ? 5 : 3;
+    const nextSeqStr = String(nextSeq).padStart(padLength, "0");
+    const nextNoPR = `PR/${skemaCode}/${yearShort}/${monthRoman}/${nextSeqStr}`;
+
+    res.json({ nextNoPR });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET PR by ID
 router.get("/:id", async (req, res, next) => {
   try {
@@ -167,7 +234,7 @@ router.post("/", async (req, res, next) => {
       id_divisi,
       id_urgensi,
       id_skema,
-      estimasipo, // User might send it, but we overwrite/recalc
+      estimasipo,
       dibuatOleh,
       status,
       plan,
@@ -176,6 +243,12 @@ router.post("/", async (req, res, next) => {
     // Basic Validation
     if (!noPR) return res.status(400).json({ message: "No PR is required" });
     if (!tanggalPR) return res.status(400).json({ message: "Tanggal PR is required" });
+
+    // --- Check Duplicate No PR ---
+    const [[existingPR]] = await db.query("SELECT id_PR FROM pr WHERE noPR = ?", [noPR]);
+    if (existingPR) {
+      return res.status(400).json({ message: "Nomor PR telah digunakan" });
+    }
 
     // Auto-determine Plan if not provided (fallback)
     let finalPlan = plan;
@@ -234,6 +307,12 @@ router.put("/:id", async (req, res, next) => {
     // Validate minimal requirements
     if (!noPR) return res.status(400).json({ message: "No PR is required" });
     if (!tanggalPR) return res.status(400).json({ message: "Tanggal PR is required" });
+
+    // --- Check Duplicate No PR (exclude current ID) ---
+    const [[existingPR]] = await db.query("SELECT id_PR FROM pr WHERE noPR = ? AND id_PR != ?", [noPR, id]);
+    if (existingPR) {
+      return res.status(400).json({ message: "Nomor PR telah digunakan" });
+    }
 
     // Auto-determine Plan if not provided (fallback)
     let finalPlan = plan;

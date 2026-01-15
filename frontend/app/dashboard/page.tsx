@@ -77,6 +77,37 @@ export default function DashboardPage() {
   const [totalBTBItem, setTotalBTBItem] = useState(0);
   const [totalBKBItem, setTotalBKBItem] = useState(0);
 
+  // State untuk user (Moved to top)
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userRaw = localStorage.getItem("userData");
+      if (userRaw) {
+        try {
+          const localUser = JSON.parse(userRaw);
+          setUser(localUser);
+
+          // Fetch fresh user data to ensure we have the latest id_skema
+          const userId = localUser.id || localUser.id_user;
+          if (userId) {
+            fetch(`http://192.168.10.10:5000/api/user/${userId}`)
+              .then((r) => r.json())
+              .then((freshUser) => {
+                // Validate if it's a real user object
+                if (freshUser && (freshUser.id || freshUser.id_user)) {
+                  setUser(freshUser);
+                } else {
+                  console.warn("Fetched user data invalid:", freshUser);
+                }
+              })
+              .catch((err) => console.error("Failed to fetch fresh user data", err));
+          }
+        } catch { }
+      }
+    }
+  }, []);
+
 
 
   // State untuk jam
@@ -150,59 +181,59 @@ export default function DashboardPage() {
   // -----------------------------
 
   useEffect(() => {
+    // BLOCK FETCH UNTIL USER IS LOADED & HAS ID
+    // We strictly need a user object that looks like a user (has id).
+    // If user contains "message" (error from backend), it's not a user.
+    const userId = user?.id || user?.id_user;
+
+    if (!user || !userId) {
+      console.log("[Dashboard Filter] Waiting for VALID user login state...", user);
+      return;
+    }
+
+    // Helper to filter by Schema
+    const filterBySchema = (data: any[]) => {
+      if (!Array.isArray(data)) return [];
+
+      const userSchema = user?.id_skema ?? user?.skema;
+
+      // DEBUG LOG
+      console.log("[Dashboard Filter] Filtering Data:", {
+        userFull: user,
+        userSchema,
+        userId,
+        username: user?.nama_pengguna,
+        dataLength: data.length
+      });
+
+      // If user exists but schema is not found, we generally want to return empty (or handle superadmin).
+      // For now, if no schema is found on a logged-in user, let's assume they are Superadmin/Central allow ALL?
+      // OR if we want to be strict: 
+      // if (!userSchema) return []; 
+
+      if (!user) return data; // Not logged in yet? usually handled by middleware/redirect.
+
+      if (userSchema === undefined || userSchema === null) {
+        // Check if user role is specifically one that SHOULD have schema (e.g. Pentagon/Ewalk role)
+        // If so, maybe we are still loading?
+        console.warn("[Dashboard Filter] No schema found. Displaying ALL data.");
+        return data;
+      }
+
+      // Filter strictly by id_skema
+      const filtered = data.filter((item) => String(item.id_skema) === String(userSchema));
+      console.log(`[Dashboard Filter] Result: ${data.length} -> ${filtered.length} items`);
+      return filtered;
+    };
+
     // Fetch total PR item
     fetch("http://192.168.10.10:5000/api/pr")
       .then((r) => r.json())
-      .then((data) => setTotalPRItem(Array.isArray(data) ? data.length : 0));
-    // Fetch total PO item
-    fetch("http://192.168.10.10:5000/api/po")
-      .then((r) => r.json())
-      .then((data) => setTotalPOItem(Array.isArray(data) ? data.length : 0));
-    // Fetch total BTB item
-    fetch("http://192.168.10.10:5000/api/btb")
-      .then((r) => r.json())
-      .then((data) => setTotalBTBItem(Array.isArray(data) ? data.length : 0));
-    // Fetch total BKB item
-    fetch("http://192.168.10.10:5000/api/bkb")
-      .then((r) => r.json())
-      .then((data) => setTotalBKBItem(Array.isArray(data) ? data.length : 0));
-
-    // Fetch status PR dari backend (GLOBAL COUNT - NO FILTER)
-    fetch("http://192.168.10.10:5000/api/pr")
-      .then((r) => r.json())
       .then((data) => {
-        let waitingPart = 0,
-          partialPO = 0,
-          waitingPO = 0;
-        if (Array.isArray(data)) {
-          data.forEach((pr) => {
-            // Mapping Status
-            // Mapping Status (Case Insensitive & Inclusive)
-            const s = (pr.status || "").toUpperCase();
-            if (s === "WAITING PART" || s === "DIPROSES" || s === "SELESAI" || s === "TELAH SELESAI") waitingPart++;
-            else if (s === "PARTIAL PO" || s === "PARCIAL PO" || s === "GANTUNG") partialPO++;
-            else if (s === "WAITING PO" || s === "MENUNGGU") waitingPO++;
-          });
-        }
-        setPrStatusCount({ waitingPart, partialPO, waitingPO });
-      });
+        const filtered = filterBySchema(data);
+        setTotalPRItem(filtered.length);
 
-    // Fetch status PR untuk distribusi status dan trend bulanan (FILTERED BY DATE)
-    fetch("http://192.168.10.10:5000/api/pr")
-      .then((r) => r.json())
-      .then((data) => {
-        if (!Array.isArray(data)) return;
-
-        // 1. FILTER DATA BY RANGE
-        const filtered = data.filter((pr) => {
-          if (!pr.tanggalPR) return false;
-          // compare as day (ignoring time)
-          const prDate = dayjs(pr.tanggalPR);
-          // inclusive [start, end]
-          return prDate.isBetween(startDate, endDate, "day", "[]");
-        });
-
-        // 2. Distribusi Status (Filtered)
+        // Count statuses for Global (Cards) - also filtered
         let waitingPart = 0,
           partialPO = 0,
           waitingPO = 0;
@@ -213,21 +244,40 @@ export default function DashboardPage() {
           else if (s === "PARTIAL PO" || s === "PARCIAL PO" || s === "GANTUNG") partialPO++;
           else if (s === "WAITING PO" || s === "MENUNGGU") waitingPO++;
         });
-        setPrStatusDist({ waitingPart, partialPO, waitingPO });
+        setPrStatusCount({ waitingPart, partialPO, waitingPO });
 
-        // 3. Trend Bulanan (Based on Filtered Data)
-        // Group by Year-Month
+        // Calculate Trend & Dist based on same filtered data ( + Date Range)
+        // 1. Filter by Date Range
+        const dateFiltered = filtered.filter((pr) => {
+          if (!pr.tanggalPR) return false;
+          const prDate = dayjs(pr.tanggalPR);
+          return prDate.isBetween(startDate, endDate, "day", "[]");
+        });
+
+        // 2. Distribusi Status (Filtered by Date & Schema)
+        let distWaitingPart = 0,
+          distPartialPO = 0,
+          distWaitingPO = 0;
+
+        dateFiltered.forEach((pr) => {
+          const s = (pr.status || "").toUpperCase();
+          if (s === "WAITING PART" || s === "DIPROSES" || s === "SELESAI" || s === "TELAH SELESAI") distWaitingPart++;
+          else if (s === "PARTIAL PO" || s === "PARCIAL PO" || s === "GANTUNG") distPartialPO++;
+          else if (s === "WAITING PO" || s === "MENUNGGU") distWaitingPO++;
+        });
+        setPrStatusDist({ waitingPart: distWaitingPart, partialPO: distPartialPO, waitingPO: distWaitingPO });
+
+        // 3. Trend Bulanan (Filtered by Date & Schema)
         const grouped: { [key: string]: any } = {};
-
-        filtered.forEach((pr) => {
+        dateFiltered.forEach((pr) => {
           const date = dayjs(pr.tanggalPR);
-          const key = date.format("MMM YYYY"); // e.g. "Jan 2025"
-          const monthLabel = date.format("MMM"); // "Jan"
+          const key = date.format("MMM YYYY");
+          const monthLabel = date.format("MMM");
 
           if (!grouped[key]) {
             grouped[key] = {
-              month: monthLabel, // X-Axis label
-              fullDate: date.valueOf(), // For sorting
+              month: monthLabel,
+              fullDate: date.valueOf(),
               waitingPart: 0,
               partialPO: 0,
               waitingPO: 0,
@@ -240,11 +290,26 @@ export default function DashboardPage() {
           else if (s === "WAITING PO" || s === "MENUNGGU") grouped[key].waitingPO++;
         });
 
-        // Convert to array and Sort by date
         const result = Object.values(grouped).sort((a, b) => a.fullDate - b.fullDate);
         setTrendData({ current: result });
       });
-  }, [startDate, endDate]);
+
+    // Fetch total PO item
+    fetch("http://192.168.10.10:5000/api/po")
+      .then((r) => r.json())
+      .then((data) => setTotalPOItem(filterBySchema(data).length));
+
+    // Fetch total BTB item
+    fetch("http://192.168.10.10:5000/api/btb")
+      .then((r) => r.json())
+      .then((data) => setTotalBTBItem(filterBySchema(data).length));
+
+    // Fetch total BKB item
+    fetch("http://192.168.10.10:5000/api/bkb")
+      .then((r) => r.json())
+      .then((data) => setTotalBKBItem(filterBySchema(data).length));
+
+  }, [startDate, endDate, user]);
 
   // Auto-logout logic (testing: 5 detik idle)
   useEffect(() => {
@@ -422,18 +487,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   // State untuk user (tambahan)
-  const [user, setUser] = useState<any>(null);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userRaw = localStorage.getItem("userData");
-      if (userRaw) {
-        try {
-          setUser(JSON.parse(userRaw));
-        } catch { }
-      }
-    }
-  }, []);
 
   return (
     <MainLayout>

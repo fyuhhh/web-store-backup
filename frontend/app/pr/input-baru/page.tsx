@@ -40,7 +40,7 @@ export default function InputBaruPRPage() {
   // Form state
   const [formData, setFormData] = useState({
     noPR: "",
-    tanggalPR: null as Date | null, // ubah ke Date | null
+    tanggalPR: new Date() as Date | null, // Default to Today
     divisi: "",
     urgensi: "",
     items: [
@@ -205,6 +205,38 @@ export default function InputBaruPRPage() {
     }
   }, []);
 
+  // Auto-fill PR Number on Skema/Date change (Only when creating)
+  useEffect(() => {
+    if (editId) return; // Ignore if editing existing PR
+
+    const { id_skema, tanggalPR, noPR } = formData;
+    if (!id_skema || !tanggalPR) return;
+
+    // Guard: Only auto-fill if field is empty OR looks like a standard format "PR/..."
+    // This allows users to type custom formats ("CUSTOM-123") without being overwritten by date changes.
+    const isEmpryOrStandard = !noPR || noPR.startsWith("PR/");
+    if (!isEmpryOrStandard) return;
+
+    const fetchNextNumber = async () => {
+      try {
+        const dateParam = formatDateForBackend(tanggalPR);
+        if (!dateParam) return;
+
+        const res = await fetch(`http://192.168.10.10:5000/api/pr/next-number?id_skema=${id_skema}&tanggalPR=${dateParam}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.nextNoPR) {
+            setFormData(prev => ({ ...prev, noPR: data.nextNoPR }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch next PR number", err);
+      }
+    };
+
+    fetchNextNumber();
+  }, [formData.id_skema, formData.tanggalPR, editId]);
+
   const loadPRData = () => {
     const stored = localStorage.getItem("prData");
     if (stored) {
@@ -351,7 +383,11 @@ export default function InputBaruPRPage() {
             plan: planValue, // Send explicit plan
           }),
         });
-        if (!prRes.ok) throw new Error("Gagal mengupdate PR");
+
+        if (!prRes.ok) {
+          const errorData = await prRes.json().catch(() => ({}));
+          throw new Error(errorData.message || "Gagal mengupdate PR");
+        }
 
         // 2. Handle Items (Diffing)
         const currentItemIds = new Set(formData.items.map(i => i.id).filter(id => !id.startsWith("new-")));
@@ -417,6 +453,11 @@ export default function InputBaruPRPage() {
         });
 
         const prDataRes = await prRes.json();
+
+        if (!prRes.ok) {
+          throw new Error(prDataRes.message || "Gagal membuat PR");
+        }
+
         const id_PR = prDataRes.id_PR;
 
         for (const item of formData.items) {
@@ -445,7 +486,11 @@ export default function InputBaruPRPage() {
       } // end if-else editId
 
     } catch (err: any) {
-      console.error("Error submitting PR:", err);
+      if (err.message?.includes("digunakan")) {
+        console.warn("Validation error:", err.message);
+      } else {
+        console.error("Error submitting PR:", err);
+      }
       // Jangan reset form kalau error, biar user bisa benerin
       setNotif({ type: "error", message: err.message || "Gagal menyimpan PR" });
       setTimeout(() => {

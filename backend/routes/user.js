@@ -41,6 +41,18 @@ router.get("/", async (req, res) => {
   }
 });
 
+// ✅ READ user by ID (GET)
+router.get("/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [[row]] = await db.query("SELECT * FROM user WHERE id_user = ?", [id]);
+    if (!row) return res.status(404).json({ message: "User tidak ditemukan" });
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ✅ UPDATE user (PUT)
 router.put("/:id", async (req, res) => {
   try {

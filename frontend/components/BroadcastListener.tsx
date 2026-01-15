@@ -57,10 +57,10 @@ export function BroadcastListener() {
                     // Tandai sudah dilihat agar tidak muncul saat refresh
                     sessionStorage.setItem(seenKey, "true");
 
-                    // Auto hide after 20 seconds
+                    // Auto hide after 60 seconds
                     const timer = setTimeout(() => {
                         setVisible(false);
-                    }, 20000); // 20 detik
+                    }, 60000); // 60 detik
 
                     return () => clearTimeout(timer);
                 }
@@ -81,7 +81,7 @@ export function BroadcastListener() {
                 <AlertCircle className="h-8 w-8 text-blue-600 mt-1" />
                 <div className="ml-2">
                     <AlertTitle className="text-blue-800 font-bold text-xl mb-2">Pemberitahuan</AlertTitle>
-                    <AlertDescription className="text-slate-700 text-lg leading-relaxed">
+                    <AlertDescription className="text-slate-700 text-lg leading-relaxed text-justify">
                         {notification.message}
                     </AlertDescription>
                 </div>

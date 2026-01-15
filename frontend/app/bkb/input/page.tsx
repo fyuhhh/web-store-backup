@@ -300,6 +300,42 @@ export default function BKBInputPage() {
       .then((data) => setPrItemList(data));
   }, []);
 
+  // Auto-fill BKB Number on Form Show/Date Change
+  useEffect(() => {
+    // Only run if form is shown or formData has relevant values
+    if (!showForm) return;
+
+    const tanggal = formData.tanggalBKB;
+    const noBKB = formData.noBKB;
+    const skema = formData.skema || userSkemaId;
+
+    if (!skema || !tanggal) return;
+
+    // Guard: Only auto-fill if field is empty OR looks like a standard format "BKB/..."
+    const isEmpryOrStandard = !noBKB || noBKB.startsWith("BKB/");
+    if (!isEmpryOrStandard) return;
+
+    const fetchNextNumber = async () => {
+      try {
+        const dateParam = formatDateForBackend(tanggal);
+        if (!dateParam) return;
+
+        const res = await fetch(`http://192.168.10.10:5000/api/bkb/next-number?id_skema=${skema}&tanggal_bkb=${dateParam}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.nextNoBKB) {
+            setFormData((prev: any) => ({ ...prev, noBKB: data.nextNoBKB }));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch next BKB number", err);
+      }
+    };
+
+    fetchNextNumber();
+  }, [showForm, formData.skema, formData.tanggalBKB]);
+
+
   // Helper format tanggal DD-MM-YYYY (sama seperti monitoring PO)
   function formatTanggal(tgl: string | null | undefined) {
     if (!tgl) return "-";
@@ -508,8 +544,34 @@ export default function BKBInputPage() {
     }
 
     setShowForm(true);
+    // Determine schema (Priority: Item Schema > User Schema > Default)
+    const skemaToUse = selectedItems[0]?.skema ||
+      JSON.parse(localStorage.getItem("userData") || "{}").skema ||
+      "";
+
+    // Prepare initial date
+    const initialDate = new Date();
+
+    // Explicitly fetch next number immediately
+    const fetchAndSetNumber = async () => {
+      try {
+        const dateParam = formatDateForBackend(initialDate); // Re-use helper
+        if (dateParam && skemaToUse) {
+          const res = await fetch(`http://192.168.10.10:5000/api/bkb/next-number?id_skema=${skemaToUse}&tanggal_bkb=${dateParam}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.nextNoBKB) {
+              setFormData((prev: any) => ({ ...prev, noBKB: data.nextNoBKB }));
+            }
+          }
+        }
+      } catch (err) { console.error(err); }
+    };
+    fetchAndSetNumber();
+
     setFormData((prev: any) => ({
       ...prev,
+      tanggalBKB: initialDate,
       barang: selectedItems.map((row) => ({
         barang: row.nama_barang,
         jumlah: row.sisa ?? row.jumlah,
@@ -525,9 +587,7 @@ export default function BKBInputPage() {
         keterangan: row.keterangan ?? "", // <-- pastikan mapping keterangan dari backend
       })),
       sumberBTB: selectedItems.map((row) => row.noBTB),
-      skema: selectedItems[0]?.skema ||
-        JSON.parse(localStorage.getItem("userData") || "{}").skema ||
-        "",
+      skema: skemaToUse,
       divisi: divisiOtomatis,
     }));
   };
@@ -697,7 +757,7 @@ export default function BKBInputPage() {
       });
       if (!res.ok) {
         const err = await res.json();
-        setNotif({ type: "error", message: err.error || "Gagal simpan BKB" });
+        setNotif({ type: "error", message: err.message || err.error || "Gagal simpan BKB" });
         setTimeout(() => setNotif(null), 2500);
         return;
       }
@@ -711,7 +771,13 @@ export default function BKBInputPage() {
         window.location.reload();
       }, 1200);
     } catch (err: any) {
-      setNotif({ type: "error", message: "Gagal simpan BKB ke backend." });
+      if (err.message?.includes("digunakan")) {
+        console.warn("Validation error:", err.message);
+        setNotif({ type: "error", message: err.message });
+      } else {
+        console.error(err);
+        setNotif({ type: "error", message: "Gagal simpan BKB ke backend." });
+      }
       setTimeout(() => setNotif(null), 2500);
     }
   };

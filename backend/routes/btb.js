@@ -71,6 +71,73 @@ function hitungDelayTanggal(estimasi, aktual) {
   return Math.round((dateAktual - dateEstimasi) / msPerDay);
 }
 
+// GET Next BTB Number
+router.get("/next-number", async (req, res) => {
+  try {
+    const { id_skema, tanggal_btb } = req.query;
+
+    if (!id_skema || !tanggal_btb) {
+      return res.status(400).json({ message: "id_skema and tanggal_btb required" });
+    }
+
+    // Determine Schema Code
+    let skemaCode = "PENTACITY"; // Default fallback (Pentacity)
+    // Mapping based on DB check: 2 -> E-WALK, 1 -> PENTACITY
+    if (String(id_skema) === "2" || String(id_skema).toLowerCase() === "ewalk") {
+      skemaCode = "E-WALK";
+    } else {
+      skemaCode = "PENTACITY";
+    }
+
+    // Parse Date
+    const d = new Date(tanggal_btb);
+    if (isNaN(d.getTime())) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+
+    const yearFull = d.getFullYear();
+    const yearShort = String(yearFull).substring(2); // 26
+    const monthIndex = d.getMonth(); // 0-11
+
+    // Roman Month Map
+    const romanMonths = [
+      "I", "II", "III", "IV", "V", "VI",
+      "VII", "VIII", "IX", "X", "XI", "XII"
+    ];
+    const monthRoman = romanMonths[monthIndex];
+
+    // Pattern: BTB/[CODE]/[YY]/[ROMAN]/%
+    // e.g., BTB/E-WALK/26/I/%
+    const pattern = `BTB/${skemaCode}/${yearShort}/${monthRoman}/%`;
+
+    // Query matching BTBs
+    const [rows] = await db.query(
+      "SELECT no_btb FROM btb WHERE no_btb LIKE ? ORDER BY LENGTH(no_btb) DESC, no_btb DESC LIMIT 1",
+      [pattern]
+    );
+
+    let nextSeq = 1;
+    if (rows.length > 0) {
+      const lastNoBTB = rows[0].no_btb;
+      // Extract last part
+      const parts = lastNoBTB.split("/");
+      const lastSeqStr = parts[parts.length - 1];
+      const lastSeq = parseInt(lastSeqStr, 10);
+      if (!isNaN(lastSeq)) {
+        nextSeq = lastSeq + 1;
+      }
+    }
+
+    const padLength = 3; // Standardize to 3 digits for BTB/BKB usually
+    const nextSeqStr = String(nextSeq).padStart(padLength, "0");
+    const nextNoBTB = `BTB/${skemaCode}/${yearShort}/${monthRoman}/${nextSeqStr}`;
+
+    res.json({ nextNoBTB });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET semua BTB
 router.get("/", async (req, res) => {
   try {
@@ -150,6 +217,16 @@ router.post("/", async (req, res) => {
       status,
     } = req.body;
 
+    // --- Check Duplicate No BTB ---
+    if (no_btb) {
+      const [[existingBTB]] = await conn.query("SELECT id_btb FROM btb WHERE no_btb = ?", [no_btb]);
+      if (existingBTB) {
+        // Must release connection before return in transaction-less or manual connection handling
+        conn.release();
+        return res.status(400).json({ message: "Nomor BTB telah digunakan" });
+      }
+    }
+
     // --- Ambil tanggal estimasi diterima dari PO ---
     let targetPencapaianPo = "";
     let delay = null;
@@ -173,7 +250,7 @@ router.post("/", async (req, res) => {
     // --- FIX: pastikan biaya integer dan tidak null ---
     const biayaInt =
       biaya !== undefined && biaya !== null && biaya !== ""
-        ? Number(biaya)
+        ? Math.round(Number(biaya))
         : 0;
     const [result] = await conn.query(
       `INSERT INTO btb 
@@ -218,6 +295,15 @@ router.put("/:id", async (req, res) => {
   const payload = req.body;
   const conn = await db.getConnection();
   try {
+    // --- Check Duplicate No BTB (exclude current ID) ---
+    if (payload.no_btb) {
+      const [[existingBTB]] = await conn.query("SELECT id_btb FROM btb WHERE no_btb = ? AND id_btb != ?", [payload.no_btb, id]);
+      if (existingBTB) {
+        conn.release();
+        return res.status(400).json({ message: "Nomor BTB telah digunakan" });
+      }
+    }
+
     // --- Jika tanggal_btb atau id_po diupdate, update delay juga ---
     let delay = null;
     let estimasiTanggal = null;
@@ -327,6 +413,16 @@ router.post("/full", async (req, res) => {
       tanggal_diterima,
       items,
     } = req.body;
+
+    // --- Check Duplicate No BTB ---
+    if (no_btb) {
+      const [[existingBTB]] = await conn.query("SELECT id_btb FROM btb WHERE no_btb = ?", [no_btb]);
+      if (existingBTB) {
+        await conn.rollback(); // safe to rollback even if nothing done? yes.
+        conn.release();
+        return res.status(400).json({ message: "Nomor BTB telah digunakan" });
+      }
+    }
 
     // --- Ambil tanggal estimasi diterima dari PO ---
     let targetPencapaianPo = "";

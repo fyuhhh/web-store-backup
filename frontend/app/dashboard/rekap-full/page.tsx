@@ -30,7 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-import { ChevronDown, Wrench } from "lucide-react";
+import { ChevronDown, Wrench, Calendar as CalendarIcon, FileSpreadsheet, Download } from "lucide-react";
 import { Pencil } from "lucide-react"; // untuk ikon edit
 
 import { Label } from "@/components/ui/label";
@@ -42,6 +42,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import ExcelJS from "exceljs";
 
@@ -55,7 +56,6 @@ import {
 // Kolom sesuai urutan permintaan (Periode, No. PR, dst)
 // Kembalikan urutan kolom seperti sebelumnya, delay tetap kosong dan di posisi aslinya (setelah status)
 const columns = [
-  { key: "periodePR", label: "Periode" },
   { key: "noPR", label: "No. PR" },
   { key: "tanggalPR", label: "Tanggal PR" },
   { key: "hariPR", label: "Hari" },
@@ -68,7 +68,6 @@ const columns = [
   { key: "targetTanggalPO", label: "Target Tanggal PO" },
   { key: "status", label: "Status" },
   { key: "skemaPR", label: "Skema PR" },
-  { key: "periodePO", label: "Periode" },
   { key: "noPO", label: "No. PO" },
   { key: "tanggalPO", label: "Tanggal PO" },
   { key: "supplier", label: "Nama Supplier" },
@@ -82,14 +81,13 @@ const columns = [
   { key: "totalHarga", label: "Total Harga" },
   { key: "statusPengiriman", label: "Status Pengiriman" },
   { key: "tanggalEstimasiDiterima", label: "Estimasi Diterima" },
-  { key: "diorderOleh", label: "Pembuat PO" },
-  { key: "diinputOleh", label: "Ordered By" },
+  { key: "diinputOleh", label: "DIBUAT OLEH" },
+  { key: "diorderOleh", label: "DIORDER OLEH" },
   { key: "terminPembayaran", label: "Termin Pembayaran" },
   { key: "targetPencapaianPO", label: "Target Pencapaian PO" },
   { key: "delay", label: "Status" },
   { key: "quantityPO", label: "Quantity Belum PO" },
   { key: "skemaPO", label: "Skema PO" },
-  { key: "periodeBTB", label: "Periode" },
   { key: "noBTB", label: "No. BTB" },
   { key: "tanggalBTB", label: "Tanggal Terima" },
   { key: "quantityBTB", label: "Quantity BTB" },
@@ -239,9 +237,12 @@ function countCalendarDaysBetween(startDateStr: string, endDateStr: string) {
 // Helper format tanggal dd-mm-yyyy +1 hari (fix: handle dd-mm-yyyy and yyyy-mm-dd)
 function formatTanggalTambahSehari(tgl: string) {
   if (!tgl) return "";
-  // Jika sudah dd-mm-yyyy, ubah ke Date dulu
+  // Jika sudah dd/mm/yyyy, ubah ke Date dulu
   let dateObj;
-  if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(tgl)) {
+    const [d, m, y] = tgl.split("/");
+    dateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
     const [d, m, y] = tgl.split("-");
     dateObj = new Date(`${y}-${m}-${d}`);
   } else if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
@@ -254,14 +255,17 @@ function formatTanggalTambahSehari(tgl: string) {
   const day = String(dateObj.getDate()).padStart(2, "0");
   const month = String(dateObj.getMonth() + 1).padStart(2, "0");
   const year = dateObj.getFullYear();
-  return `${day}-${month}-${year}`;
+  return `${day}/${month}/${year}`;
 }
 
 // Helper format tanggal dd-mm-yyyy +2 hari (fix: handle dd-mm-yyyy and yyyy-mm-dd)
 function formatTanggalTambahDuaHari(tgl: string) {
   if (!tgl) return "";
   let dateObj;
-  if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(tgl)) {
+    const [d, m, y] = tgl.split("/");
+    dateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
     const [d, m, y] = tgl.split("-");
     dateObj = new Date(`${y}-${m}-${d}`);
   } else if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
@@ -274,7 +278,7 @@ function formatTanggalTambahDuaHari(tgl: string) {
   const day = String(dateObj.getDate()).padStart(2, "0");
   const month = String(dateObj.getMonth() + 1).padStart(2, "0");
   const year = dateObj.getFullYear();
-  return `${day}-${month}-${year}`;
+  return `${day}/${month}/${year}`;
 }
 // Helper untuk mendapatkan nama bulan yang benar (menambahkan 1)
 function getMonthNameCorrected(dateStr: string) {
@@ -292,7 +296,7 @@ function formatDateSimple(dateStr: string) {
   if (!dateStr) return "";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
-  return `${d.getDate().toString().padStart(2, "0")}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getFullYear()}`;
+  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 // Helper untuk popover keterangan (hover, abu-abu, di luar tabel)
@@ -715,10 +719,11 @@ export default function RekapFullPage() {
                 targetTanggalPO: formatDateSimple(pr.estimasipo),
                 delay: "",
                 status:
-                  pr.status &&
-                    !["Menunggu", "Gantung", "Diproses"].includes(pr.status)
-                    ? pr.status
-                    : "",
+                  pr.status === "PARTIAL PO"
+                    ? "WAITING PO"
+                    : pr.status && !["Menunggu", "Gantung", "Diproses"].includes(pr.status)
+                      ? pr.status
+                      : "",
                 noPO: "",
                 tanggalPO: "",
                 periodePO: "",
@@ -1309,8 +1314,27 @@ export default function RekapFullPage() {
       return filteredData.filter((row) => selectedIds.includes(row.id));
     }
     if (exportMode === "range" && exportStartDate && exportEndDate) {
-      // FilteredData is already filtered by date range, so just return it
-      return filteredData;
+      return filteredData.filter((row) => {
+        if (!row.tanggalPR) return false;
+        // Parse tanggalPR string to Date object
+        let d: Date | null = null;
+        if (/^\d{2}-\d{2}-\d{4}$/.test(row.tanggalPR)) {
+          const [day, month, year] = row.tanggalPR.split("-");
+          d = new Date(`${year}-${month}-${day}`);
+        } else if (/^\d{4}-\d{2}-\d{2}$/.test(row.tanggalPR)) {
+          d = new Date(row.tanggalPR);
+        }
+
+        if (!d) return false;
+
+        // Compare with exportStartDate/EndDate (which are Date objects)
+        const start = new Date(exportStartDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(exportEndDate);
+        end.setHours(23, 59, 59, 999);
+
+        return d >= start && d <= end;
+      });
     }
     return filteredData;
   };
@@ -1327,8 +1351,11 @@ export default function RekapFullPage() {
     const worksheet = workbook.addWorksheet("Rekap Full");
 
     // 3. Header
-    // Kita ambil label dari columns definition
-    const headers = columns.map((col) => col.label);
+    // Kita ambil label dari columns definition, TAPI exclude yang key-nya mengandung 'skema'
+    const exportColumns = columns.filter(
+      (col) => !["skemaPR", "skemaPO", "skemaBTB", "divisi"].includes(col.key)
+    );
+    const headers = exportColumns.map((col) => col.label);
     const headerRow = worksheet.addRow(headers);
 
     // Style header
@@ -1416,7 +1443,7 @@ export default function RekapFullPage() {
             btbGroup.items.forEach((rowDetail) => {
               const row = worksheet.getRow(currentRowIdx);
 
-              columns.forEach((col, colIdx) => {
+              exportColumns.forEach((col, colIdx) => {
                 // Excel columns 1-indexed
                 const excelColIdx = colIdx + 1;
                 let val = rowDetail[col.key];
@@ -1461,12 +1488,16 @@ export default function RekapFullPage() {
                     cell.value = val;
                   }
                 }
-                // 3. Dates -> They are already strings "DD-MM-YYYY" in rekapData.
-                // Just use them as string or parse to Date if calculation needed.
-                // User said "misal 15-10-2025". Frontend string is fine.
-                // Prevent Excel from auto-converting to US date if possible, but DD-MM is distinct > 12.
-                // Best to keep as string or explicitly set as Text if ambiguous?
-                // Actually Excel usually handles DD-MM-YYYY fine if system region matches, or if we send it as string.
+                // 3. Dates -> Replace hyphen with slash if regex matches DD-MM-YYYY
+                else if (
+                  ["tanggalPR", "targetTanggalPO", "tanggalPO", "tanggalEstimasiDiterima", "tanggalBTB"].includes(col.key)
+                ) {
+                  if (val && typeof val === 'string' && /^\d{2}-\d{2}-\d{4}$/.test(val)) {
+                    cell.value = val.replace(/-/g, '/');
+                  } else {
+                    cell.value = val;
+                  }
+                }
                 else {
                   // Clean up labels
                   if (col.key === "skemaPR") val = rowDetail.skemaPRLabel ?? rowDetail.skemaPR ?? "";
@@ -1496,9 +1527,9 @@ export default function RekapFullPage() {
             if (btbGroup.rowSpan > 1) {
               const btbEndRow = btbStartRow + btbGroup.rowSpan - 1;
               // List key untuk BTB level
-              const btbKeys = ["periodeBTB", "noBTB", "tanggalBTB", "quantityBTB", "satuanBTB", "biayaBTB", "sisaStokBTB", "diterimaOleh", "plan", "skemaBTB", "dikeluarkanOleh"];
+              const btbKeys = ["periodeBTB", "noBTB", "tanggalBTB", "quantityBTB", "satuanBTB", "biayaBTB", "sisaStokBTB", "diterimaOleh", "plan", /* "skemaBTB", */ "dikeluarkanOleh"];
               btbKeys.forEach(k => {
-                const idx = columns.findIndex(c => c.key === k);
+                const idx = exportColumns.findIndex(c => c.key === k);
                 if (idx >= 0) {
                   try {
                     worksheet.mergeCells(btbStartRow, idx + 1, btbEndRow, idx + 1);
@@ -1512,9 +1543,9 @@ export default function RekapFullPage() {
           // Columns: periodePO, noPO, tanggalPO, supplier, quantityAwalPO, satuanPO, hargaSatuanPO, diskonPersen, diskonRp, ppnPersen, ppnRp, totalHarga, statusPengiriman, tanggalEstimasiDiterima, diorderOleh, diinputOleh, targetPencapaianPO, delay, quantityPO, skemaPO
           if (poGroup.rowSpan > 1) {
             const poEndRow = poStartRow + poGroup.rowSpan - 1;
-            const poKeys = ["periodePO", "noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO", "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman", "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "terminPembayaran", "targetPencapaianPO", "delay", "quantityPO", "skemaPO"];
+            const poKeys = ["periodePO", "noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO", "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman", "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "terminPembayaran", "targetPencapaianPO", "delay", "quantityPO", /* "skemaPO" */];
             poKeys.forEach(k => {
-              const idx = columns.findIndex(c => c.key === k);
+              const idx = exportColumns.findIndex(c => c.key === k);
               if (idx >= 0) {
                 try {
                   worksheet.mergeCells(poStartRow, idx + 1, poEndRow, idx + 1);
@@ -1531,7 +1562,7 @@ export default function RekapFullPage() {
           const prItemEndRow = prItemStartRow + prItemGroup.rowSpan - 1;
           const prItemKeys = ["daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", "quantityPR"]; // quantityPR seems to represent Sisa Qty field in some contexts or current qty
           prItemKeys.forEach(k => {
-            const idx = columns.findIndex(c => c.key === k);
+            const idx = exportColumns.findIndex(c => c.key === k);
             if (idx >= 0) {
               try {
                 worksheet.mergeCells(prItemStartRow, idx + 1, prItemEndRow, idx + 1);
@@ -1545,9 +1576,9 @@ export default function RekapFullPage() {
       // Columns: periodePR, noPR, tanggalPR, hariPR, divisi, dibuatOleh, targetTanggalPO, status, skemaPR
       if (prGroup.rowSpan > 1) {
         const prEndRow = prStartRow + prGroup.rowSpan - 1;
-        const prKeys = ["periodePR", "noPR", "tanggalPR", "hariPR", "divisi", "dibuatOleh", "targetTanggalPO", "status", "skemaPR"];
+        const prKeys = ["periodePR", "noPR", "tanggalPR", "hariPR", "divisi", "dibuatOleh", "targetTanggalPO", "status", /* "skemaPR" */];
         prKeys.forEach(k => {
-          const idx = columns.findIndex(c => c.key === k);
+          const idx = exportColumns.findIndex(c => c.key === k);
           if (idx >= 0) {
             try {
               worksheet.mergeCells(prStartRow, idx + 1, prEndRow, idx + 1);
@@ -1575,7 +1606,7 @@ export default function RekapFullPage() {
       noPO: 18,
       noBTB: 18
     };
-    columns.forEach((col, idx) => {
+    exportColumns.forEach((col, idx) => {
       if (widthMap[col.key]) {
         worksheet.getColumn(idx + 1).width = widthMap[col.key];
       }
@@ -1959,66 +1990,100 @@ export default function RekapFullPage() {
           </div>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
             <div className="flex items-center gap-2">
-              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
-                Mode Export
-              </Label>
-              <Select
-                value={exportMode}
-                onValueChange={(val) =>
-                  setExportMode(val as "all" | "selected" | "range")
-                }
-              >
-                <SelectTrigger id="exportMode" className="w-[140px] h-9">
-                  <SelectValue placeholder="Export Mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua</SelectItem>
-                  <SelectItem value="selected">Terpilih</SelectItem>
-                  <SelectItem value="range">Rentang Tanggal Rekap</SelectItem>
-                </SelectContent>
-              </Select>
-              {exportMode === "range" && (
-                <div className="flex items-center gap-2 ml-2">
-                  <Label className="text-xs font-medium">Tanggal PR</Label>
-                  <DatePicker
-                    selected={exportStartDate}
-                    onChange={(date) => setExportStartDate(date)}
-                    selectsStart
-                    startDate={exportStartDate}
-                    endDate={exportEndDate}
-                    dateFormat="yyyy-MM-dd"
-                    placeholderText="Mulai"
-                    className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
-                    maxDate={exportEndDate || undefined}
-                    isClearable
-                  />
-                  <span className="mx-1">-</span>
-                  <DatePicker
-                    selected={exportEndDate}
-                    onChange={(date) => setExportEndDate(date)}
-                    selectsEnd
-                    startDate={exportStartDate}
-                    endDate={exportEndDate}
-                    dateFormat="yyyy-MM-dd"
-                    placeholderText="Akhir"
-                    className="w-[110px] px-2 py-1 border rounded-md bg-white text-xs"
-                    minDate={exportStartDate || undefined}
-                    isClearable
-                  />
-                </div>
-              )}
-              <Button
-                onClick={handleExport}
-                className="bg-primary hover:bg-primary/90 h-9 ml-2"
-                disabled={
-                  (exportMode === "selected" && selectedIds.length === 0) ||
-                  (exportMode === "range" &&
-                    (!exportStartDate || !exportEndDate))
-                }
-              >
-                <ChevronDown className="h-4 w-4 mr-2" />
-                Export Excel
-              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-10 px-4 gap-2 border-dashed border-gray-400 hover:bg-gray-50 hover:border-gray-500">
+                    <Download className="h-4 w-4" />
+                    <span className="font-medium">Export Excel</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4 z-[9999] bg-white" align="end">
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                        Export Rekap Full
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Pilih format dan filter data yang ingin diunduh.
+                      </p>
+                    </div>
+
+                    <Tabs defaultValue={exportMode} onValueChange={(v) => setExportMode(v as any)} className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="all" className="text-xs">Semua</TabsTrigger>
+                        <TabsTrigger value="selected" className="text-xs">Pilihan</TabsTrigger>
+                        <TabsTrigger value="range" className="text-xs">Tanggal</TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="all" className="mt-4 space-y-2">
+                        <div className="p-3 bg-gray-50 rounded-md border text-center">
+                          <span className="text-xs text-muted-foreground block mb-1">Total Data</span>
+                          <span className="text-xl font-bold text-primary">{filteredData.length}</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground text-center">
+                          Mengunduh semua data yang tampil saat ini.
+                        </p>
+                      </TabsContent>
+
+                      <TabsContent value="selected" className="mt-4 space-y-2">
+                        <div className="p-3 bg-gray-50 rounded-md border text-center">
+                          <span className="text-xs text-muted-foreground block mb-1">Data Terpilih</span>
+                          <span className={`text-xl font-bold ${selectedIds.length > 0 ? 'text-primary' : 'text-gray-400'}`}>
+                            {selectedIds.length}
+                          </span>
+                        </div>
+                        {selectedIds.length === 0 && (
+                          <p className="text-[10px] text-red-500 text-center">
+                            Pilih checkbox pada tabel terlebih dahulu.
+                          </p>
+                        )}
+                      </TabsContent>
+
+                      <TabsContent value="range" className="mt-4 space-y-3">
+                        <div className="grid gap-2">
+                          <div className="grid gap-1">
+                            <Label className="text-xs">Tanggal PR Mulai</Label>
+                            <div className="relative">
+                              <Input
+                                type="date"
+                                value={exportStartDate ? exportStartDate.toISOString().split('T')[0] : ''}
+                                onChange={(e) => setExportStartDate(e.target.value ? new Date(e.target.value) : null)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid gap-1">
+                            <Label className="text-xs">Tanggal PR Akhir</Label>
+                            <div className="relative">
+                              <Input
+                                type="date"
+                                value={exportEndDate ? exportEndDate.toISOString().split('T')[0] : ''}
+                                onChange={(e) => setExportEndDate(e.target.value ? new Date(e.target.value) : null)}
+                                className="h-8 text-xs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
+                    <Button
+                      onClick={() => {
+                        handleExport();
+                      }}
+                      className="w-full h-9 bg-green-600 hover:bg-green-700 text-white gap-2"
+                      disabled={
+                        (exportMode === "selected" && selectedIds.length === 0) ||
+                        (exportMode === "range" && (!exportStartDate || !exportEndDate))
+                      }
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download .xlsx
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
 
               {/* Superpower Button */}
               <Button
@@ -2173,11 +2238,7 @@ export default function RekapFullPage() {
                                     className="hover:bg-gray-50 even:bg-gray-50 transition-colors"
                                   >
                                     {/* Periode PR */}
-                                    {isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
-                                        {(item.periodePR || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null}
+
                                     {/* No. PR */}
                                     {isFirstPR ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
@@ -2371,11 +2432,7 @@ export default function RekapFullPage() {
                                       </TableCell>
                                     ) : null}
                                     {/* Periode PO */}
-                                    {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
-                                        {(item.periodePO || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null}
+
                                     {/* No. PO */}
                                     {isFirstPO ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
@@ -2444,6 +2501,12 @@ export default function RekapFullPage() {
                                         {formatTanggalDisplay(item.tanggalEstimasiDiterima).toUpperCase()}
                                       </TableCell>
                                     ) : null}
+                                    {/* Diinput Oleh */}
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
+                                      {typeof item.diinputOleh === "string"
+                                        ? item.diinputOleh.toUpperCase()
+                                        : item.diinputOleh ?? ""}
+                                    </TableCell>
                                     {/* Diorder Oleh */}
                                     {isFirstPO ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
@@ -2452,12 +2515,6 @@ export default function RekapFullPage() {
                                           : item.diorderOleh ?? ""}
                                       </TableCell>
                                     ) : null}
-                                    {/* Diinput Oleh */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
-                                      {typeof item.diinputOleh === "string"
-                                        ? item.diinputOleh.toUpperCase()
-                                        : item.diinputOleh ?? ""}
-                                    </TableCell>
                                     {/* Termin Pembayaran */}
                                     {isFirstPO ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
@@ -2636,11 +2693,7 @@ export default function RekapFullPage() {
                                       </TableCell>
                                     ) : null}
                                     {/* Periode BTB */}
-                                    {isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={btbGroup.rowSpan}>
-                                        {(item.periodeBTB || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null}
+
                                     {/* No. BTB */}
                                     {isFirstBTB ? (
                                       <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={btbGroup.rowSpan}>

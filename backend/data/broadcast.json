@@ -1,5 +1,5 @@
 {
   "isActive": true,
-  "endTime": "2026-01-09T03:58:00.000Z",
-  "message": "Aplikasi telah diperbarui pada Input PO pada kedua mall baik Pentacity maupun Ewalk. Sekarang pihak Store atau Purchasing dapat menambahkan harga satuan dengan 2 angka dibelakang koma sebagai contoh \"Rp. 50.000,75\""
+  "endTime": "2026-01-15T10:01:00.000Z",
+  "message": "Aplikasi telah update untuk:\n| Perbaikan penamaan kolom dan pemindahan nama \"DIORDER OLEH\" dan \"DIBUAT OLEH\" | \"NAMA PENERIMA\" pada export excell di halaman monitoiring BKB telah ada | Export Excell kini memiliki tampilan yang baru | Kini input PR, PO, BTB dan BKB sudah otomtatis akan terisi nomornya sesuai dengan urutan namun perlu diperahtikan kepada pihak PURCHASING & STORE untuk selalu cek dua kali sebelum input."
 }

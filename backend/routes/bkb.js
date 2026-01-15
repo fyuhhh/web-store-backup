@@ -3,6 +3,73 @@ import db from "../config/database.js";
 
 const router = express.Router();
 
+// GET Next BKB Number
+router.get("/next-number", async (req, res) => {
+  try {
+    const { id_skema, tanggal_bkb } = req.query;
+
+    if (!id_skema || !tanggal_bkb) {
+      return res.status(400).json({ message: "id_skema and tanggal_bkb required" });
+    }
+
+    // Determine Schema Code
+    let skemaCode = "PENTACITY"; // Default fallback (Pentacity)
+    // Mapping based on DB check: 2 -> E-WALK, 1 -> PENTACITY
+    if (String(id_skema) === "2" || String(id_skema).toLowerCase() === "ewalk") {
+      skemaCode = "E-WALK";
+    } else {
+      skemaCode = "PENTACITY";
+    }
+
+    // Parse Date
+    const d = new Date(tanggal_bkb);
+    if (isNaN(d.getTime())) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+
+    const yearFull = d.getFullYear();
+    const yearShort = String(yearFull).substring(2); // 26
+    const monthIndex = d.getMonth(); // 0-11
+
+    // Roman Month Map
+    const romanMonths = [
+      "I", "II", "III", "IV", "V", "VI",
+      "VII", "VIII", "IX", "X", "XI", "XII"
+    ];
+    const monthRoman = romanMonths[monthIndex];
+
+    // Pattern: BKB/[CODE]/[YY]/[ROMAN]/%
+    // e.g., BKB/E-WALK/26/I/%
+    const pattern = `BKB/${skemaCode}/${yearShort}/${monthRoman}/%`;
+
+    // Query matching BKBs
+    const [rows] = await db.query(
+      "SELECT no_bkb FROM bkb WHERE no_bkb LIKE ? ORDER BY LENGTH(no_bkb) DESC, no_bkb DESC LIMIT 1",
+      [pattern]
+    );
+
+    let nextSeq = 1;
+    if (rows.length > 0) {
+      const lastNoBKB = rows[0].no_bkb;
+      // Extract last part
+      const parts = lastNoBKB.split("/");
+      const lastSeqStr = parts[parts.length - 1];
+      const lastSeq = parseInt(lastSeqStr, 10);
+      if (!isNaN(lastSeq)) {
+        nextSeq = lastSeq + 1;
+      }
+    }
+
+    const padLength = 3; // Standardize to 3 digits
+    const nextSeqStr = String(nextSeq).padStart(padLength, "0");
+    const nextNoBKB = `BKB/${skemaCode}/${yearShort}/${monthRoman}/${nextSeqStr}`;
+
+    res.json({ nextNoBKB });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET semua BKB
 router.get("/", async (req, res) => {
   try {
@@ -40,6 +107,14 @@ router.post("/", async (req, res) => {
       refrensiNoPr, // allow manual override, but will auto-lookup if not provided
       divisi, // <-- tambahkan field divisi
     } = req.body;
+
+    // --- Check Duplicate No BKB ---
+    if (no_bkb) {
+      const [[existingBKB]] = await db.query("SELECT id_bkb FROM bkb WHERE no_bkb = ?", [no_bkb]);
+      if (existingBKB) {
+        return res.status(400).json({ message: "Nomor BKB telah digunakan" });
+      }
+    }
 
     // --- AUTO-LOOKUP refrensiNoPr jika tidak dikirim ---
     let finalRefrensiNoPr = refrensiNoPr;
@@ -112,6 +187,16 @@ router.post("/full", async (req, res) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
+
+    // --- Check Duplicate No BKB ---
+    if (no_bkb) {
+      const [[existingBKB]] = await conn.query("SELECT id_bkb FROM bkb WHERE no_bkb = ?", [no_bkb]);
+      if (existingBKB) {
+        await conn.rollback();
+        conn.release();
+        return res.status(400).json({ message: "Nomor BKB telah digunakan" });
+      }
+    }
 
     // --- AUTO-LOOKUP refrensiNoPr jika tidak dikirim ---
     let finalRefrensiNoPr = refrensiNoPr;
@@ -198,6 +283,14 @@ router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const payload = req.body;
   try {
+    // --- Check Duplicate No BKB (exclude current ID) ---
+    if (payload.no_bkb) {
+      const [[existingBKB]] = await db.query("SELECT id_bkb FROM bkb WHERE no_bkb = ? AND id_bkb != ?", [payload.no_bkb, id]);
+      if (existingBKB) {
+        return res.status(400).json({ message: "Nomor BKB telah digunakan" });
+      }
+    }
+
     const fields = Object.keys(payload);
     if (fields.length === 0)
       return res.status(400).json({ message: "Tidak ada data untuk update" });

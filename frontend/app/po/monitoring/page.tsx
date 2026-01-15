@@ -67,7 +67,10 @@ import {
   Search,
   Download,
   ChevronDown,
+  Calendar as CalendarIcon,
+  FileSpreadsheet,
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -82,7 +85,7 @@ function formatTanggal(tgl: string) {
     dateObj = dayjs(`${y}-${m}-${d}`);
   }
   if (dateObj.isValid()) {
-    return dateObj.format("DD-MM-YYYY");
+    return dateObj.format("DD/MM/YYYY");
   }
   return tgl ?? "";
 }
@@ -1078,16 +1081,21 @@ export default function MonitoringPOPage() {
   // Data untuk export sesuai mode
   const getExportPOData = () => {
     if (exportMode === "selected") {
-      return filteredPOData.filter((po) => selectedPOs.includes(po.id));
+      return sortedPOData.filter((po) => selectedPOs.includes(po.id));
     }
     if (exportMode === "range" && exportStartDate && exportEndDate) {
-      // Use normalized ISO date for comparisons if available
-      return filteredPOData.filter((po) => {
-        const d = po.tanggalPO || "";
-        return d >= exportStartDate && d <= exportEndDate;
+      // Use dayjs for precise date comparison
+      return sortedPOData.filter((po) => {
+        if (!po.tanggalPO) return false;
+        // Parse UTC to local if needed, but simplistic comparison might suffer timezone
+        // Use dayjs to be consistent
+        const tgl = dayjs(po.tanggalPO);
+        const start = dayjs(exportStartDate);
+        const end = dayjs(exportEndDate).endOf('day');
+        return tgl.isValid() && (tgl.isAfter(start) || tgl.isSame(start)) && (tgl.isBefore(end) || tgl.isSame(end));
       });
     }
-    return filteredPOData;
+    return sortedPOData;
   };
 
   const handleExport = async () => {
@@ -1096,21 +1104,28 @@ export default function MonitoringPOPage() {
     const worksheet = workbook.addWorksheet("Monitoring PO");
 
     // Header sesuai urutan tabel monitoring PO
+    // Header sesuai UI persis - Standardized & Uppercase
     const headers = [
-      "No. PO",
-      "Tanggal PO",
-      "Estimasi Diterima",
-      "Supplier",
-      "Nama Barang",
-      "Quantity PO",
-      "Satuan",
-      "Harga Satuan",
-      "Total Pembayaran",
-      "Status Permintaan",
-      "Status Pengiriman",
-      "Status",
-      "Diorder Oleh",
-      "Skema",
+      "NO. PO",
+      "TANGGAL PO",
+      "SUPPLIER",
+      "DAFTAR BARANG",
+      "QUANTITY PO",
+      "SATUAN",
+      "KETERANGAN",
+      "HARGA SATUAN",
+      "DISKON (%)",
+      "DISKON (RP)",
+      "PPN (%)",
+      "PPN (RP)",
+      "TOTAL",
+      "GRAND TOTAL",
+      "ORDERED BY",
+      "ESTIMASI DITERIMA",
+      "STATUS PENGIRIMAN",
+      "STATUS",
+      "TERMIN PEMBAYARAN",
+      "DIBUAT OLEH",
     ];
 
     // Add header row with bold font
@@ -1132,16 +1147,18 @@ export default function MonitoringPOPage() {
     });
 
     // Helper format tanggal persis seperti frontend
+    // Helper format tanggal persis seperti frontend
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(tgl)) return tgl;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl.replace(/-/g, '/');
       if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
         const [y, m, d] = tgl.split("-");
-        return `${d}-${m}-${y}`;
+        return `${d}/${m}/${y}`;
       }
       const d = dayjs(tgl);
       if (d.isValid()) {
-        return d.format("DD-MM-YYYY");
+        return d.format("DD/MM/YYYY");
       }
       return tgl;
     }
@@ -1161,38 +1178,50 @@ export default function MonitoringPOPage() {
       if (flatItems.length > 0) {
         flatItems.forEach((item: any, index: number) => {
           worksheet.addRow([
-            index === 0 ? po.noPO : "",
-            index === 0 ? formatTanggalExcel(po.tanggalPO) : "",
-            index === 0 ? formatTanggalExcel(po.estimasiTanggalDiterima) : "",
-            index === 0 ? po.supplier : "",
-            item.namaBarang,
+            po.noPO ? po.noPO.toUpperCase() : "",
+            formatTanggalExcel(po.tanggalPO),
+            po.supplier ? po.supplier.toUpperCase() : "",
+            item.namaBarang ? item.namaBarang.toUpperCase() : "",
             Number(item.jumlahPO || item.jumlahAsli || 0),
-            item.satuan,
+            item.satuan ? item.satuan.toUpperCase() : "",
+            item.keterangan ? item.keterangan.toUpperCase() : "",
             Number(item.hargaSatuan || 0),
-            index === 0 ? Number(po.totalPembayaran || 0) : "",
-            index === 0 ? po.statusPermintaan : "",
-            index === 0 ? po.statusPengiriman : "",
-            index === 0 ? po.status : "",
-            index === 0 ? po.orderedBy : "",
-            index === 0 ? (skemaMap[String(po.skema)] || po.skema) : "",
+            item.diskonPersen ? String(item.diskonPersen) : "0",
+            Number(item.diskonNominal || 0),
+            item.ppnItem ? String(item.ppnItem) : "0",
+            Number(item.ppnAmount || 0),
+            Number(item.totalPerItem || 0),
+            Number(po.totalPembayaran || 0),
+            po.orderedBy ? po.orderedBy.toUpperCase() : "",
+            formatTanggalExcel(po.estimasiTanggalTerima),
+            po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "",
+            po.status ? po.status.toUpperCase() : "",
+            po.termin ? po.termin.toUpperCase() : "",
+            po.orderedBy ? po.orderedBy.toUpperCase() : "", // DIBUAT OLEH
           ]);
         });
       } else {
         worksheet.addRow([
-          po.noPO,
+          po.noPO ? po.noPO.toUpperCase() : "",
           formatTanggalExcel(po.tanggalPO),
-          formatTanggalExcel(po.estimasiTanggalDiterima),
-          po.supplier,
+          po.supplier ? po.supplier.toUpperCase() : "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
           "",
           "",
           "",
           "",
           Number(po.totalPembayaran || 0),
-          po.statusPermintaan,
-          po.statusPengiriman,
-          po.status,
-          po.orderedBy,
-          skemaMap[String(po.skema)] || po.skema,
+          po.orderedBy ? po.orderedBy.toUpperCase() : "",
+          formatTanggalExcel(po.estimasiTanggalTerima),
+          po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "",
+          po.status ? po.status.toUpperCase() : "",
+          po.termin ? po.termin.toUpperCase() : "",
+          po.orderedBy ? po.orderedBy.toUpperCase() : "",
         ]);
       }
     });
@@ -1334,59 +1363,102 @@ export default function MonitoringPOPage() {
               Lihat dan kelola Purchase Order yang sudah dibuat
             </p>
           </div>
-          <div className="flex items-center gap-3 bg-white px-3 py-1 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
-                Mode Export
-              </Label>
-              <Select
-                value={exportMode}
-                onValueChange={(val) =>
-                  setExportMode(val as "all" | "selected" | "range")
-                }
-              >
-                <SelectTrigger id="exportMode" className="w-[140px] h-9">
-                  <SelectValue placeholder="Export Mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua</SelectItem>
-                  <SelectItem value="selected">Terpilih</SelectItem>
-                  <SelectItem value="range">Rentang Tanggal</SelectItem>
-                </SelectContent>
-              </Select>
-              {exportMode === "range" && (
-                <div className="flex items-center gap-2 ml-2">
-                  <Label className="text-xs font-medium">Tanggal PO</Label>
-                  <Input
-                    type="date"
-                    value={exportStartDate}
-                    onChange={(e) => setExportStartDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Mulai"
-                  />
-                  <span className="mx-1">-</span>
-                  <Input
-                    type="date"
-                    value={exportEndDate}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Akhir"
-                  />
+          {/* Export section: Enhanced Next Level UI */}
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 px-4 gap-2 border-dashed border-gray-400 hover:bg-gray-50 hover:border-gray-500">
+                  <Download className="h-4 w-4" />
+                  <span className="font-medium">Export Excel</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4 z-[9999] bg-white" align="end">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                      Export Data PO
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Pilih format dan filter data yang ingin diunduh.
+                    </p>
+                  </div>
+
+                  <Tabs defaultValue={exportMode} onValueChange={(v) => setExportMode(v as any)} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="all" className="text-xs">Semua</TabsTrigger>
+                      <TabsTrigger value="selected" className="text-xs">Pilihan</TabsTrigger>
+                      <TabsTrigger value="range" className="text-xs">Tanggal</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="all" className="mt-4 space-y-2">
+                      <div className="p-3 bg-gray-50 rounded-md border text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Total Data</span>
+                        <span className="text-xl font-bold text-primary">{sortedPOData.length}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground text-center">
+                        Mengunduh semua data yang tampil saat ini.
+                      </p>
+                    </TabsContent>
+
+                    <TabsContent value="selected" className="mt-4 space-y-2">
+                      <div className="p-3 bg-gray-50 rounded-md border text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Data Terpilih</span>
+                        <span className={`text-xl font-bold ${selectedPOs.length > 0 ? 'text-primary' : 'text-gray-400'}`}>
+                          {selectedPOs.length}
+                        </span>
+                      </div>
+                      {selectedPOs.length === 0 && (
+                        <p className="text-[10px] text-red-500 text-center">
+                          Pilih checkbox pada tabel terlebih dahulu.
+                        </p>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="range" className="mt-4 space-y-3">
+                      <div className="grid gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Tanggal Mulai</Label>
+                          <div className="relative">
+                            <Input
+                              type="date"
+                              value={exportStartDate}
+                              onChange={(e) => setExportStartDate(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Tanggal Akhir</Label>
+                          <div className="relative">
+                            <Input
+                              type="date"
+                              value={exportEndDate}
+                              onChange={(e) => setExportEndDate(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  <Button
+                    onClick={() => {
+                      handleExport();
+                    }}
+                    className="w-full h-9 bg-green-600 hover:bg-green-700 text-white gap-2"
+                    disabled={
+                      (exportMode === "selected" && selectedPOs.length === 0) ||
+                      (exportMode === "range" && (!exportStartDate || !exportEndDate))
+                    }
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download .xlsx
+                  </Button>
                 </div>
-              )}
-              <Button
-                onClick={handleExport}
-                className="bg-primary hover:bg-primary/90 h-9 ml-2"
-                disabled={
-                  (exportMode === "selected" && selectedPOs.length === 0) ||
-                  (exportMode === "range" &&
-                    (!exportStartDate || !exportEndDate))
-                }
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export Excel
-              </Button>
-            </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 

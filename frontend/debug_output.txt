@@ -1,0 +1,16 @@
+Starting debug...
+--- TARGET PR ---
+ID: 396, No: PR/E-WALK/25/XII/028, Status: PARTIAL PO, CreatedAt: 2026-01-05
+
+--- PR ITEMS ANALYSIS ---
+[MATCH] Item: HYDRAULIC CRIMPING TOOL KRISBOW KW0102705 - TOOL SET SET 16 - 400 MM
+  ID: 657, Qty: 1.00, OriginalQty: 1.00
+  -> No Linked PO Items found.
+Item: CLAMP KABEL 10 MM + PAKU BETON
+  ID: 658, Qty: 0.00, OriginalQty: 100.00
+  -> Linked PO Item ID: 634, PO ID: 334
+     Qty PO: 0, StatusTerima: SCHEDULE
+Item: CLAMP KABEL 12 MM + PAKU BETON
+  ID: 659, Qty: 0.00, OriginalQty: 100.00
+  -> Linked PO Item ID: 635, PO ID: 334
+     Qty PO: 0, StatusTerima: SCHEDULE

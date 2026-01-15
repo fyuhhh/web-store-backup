@@ -3,7 +3,8 @@
 import React from "react";
 import type { ReactNode } from "react";
 import * as ExcelJS from "exceljs";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Calendar as CalendarIcon, FileSpreadsheet, Download } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // Tambahkan import Trash2
 import { Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -62,7 +63,7 @@ function formatTanggal(tgl: string | null | undefined) {
   const [date] = tgl.split("T");
   const [y, m, d] = date.split("-");
   if (!y || !m || !d) return tgl;
-  return `${d}-${m}-${y}`;
+  return `${d}/${m}/${y}`;
 }
 
 // Helper untuk format integer tanpa .00
@@ -603,7 +604,11 @@ export default function BTBMonitoringPage() {
     }
     if (exportMode === "range" && exportStartDate && exportEndDate) {
       return filteredBTBData.filter((btb) => {
-        return btb.tanggal >= exportStartDate && btb.tanggal <= exportEndDate;
+        // Gunakan dayjs untuk perbandingan tanggal yang robust
+        const tgl = dayjs(btb.tanggal);
+        const start = dayjs(exportStartDate);
+        const end = dayjs(exportEndDate).endOf('day');
+        return tgl.isValid() && (tgl.isAfter(start) || tgl.isSame(start)) && (tgl.isBefore(end) || tgl.isSame(end));
       });
     }
     // default: all
@@ -613,22 +618,23 @@ export default function BTBMonitoringPage() {
   // Export Excel function
 
   const handleExport = async () => {
-    const exportBTBData = getExportData();
+    // Gunakan sortBTBList agar urutan export (Ascending) sama dengan logika sorting
+    const exportBTBData = sortBTBList(getExportData());
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring BTB");
 
     // Header sesuai urutan tabel (Exclude Skema)
     const headers = [
-      "No. BTB",
-      "Tanggal BTB",
-      "Nama Supplier",
-      "Nama Barang",
-      "Quantity Awal BTB",
-      "Satuan",
-      "Keterangan",
-      "Biaya",
-      "Diterima Oleh",
-      "Status",
+      "NO. BTB",
+      "TANGGAL BTB",
+      "NAMA SUPPLIER",
+      "NAMA BARANG",
+      "KUANTITAS",
+      "SATUAN",
+      "KETERANGAN",
+      "BIAYA",
+      "DITERIMA OLEH",
+      "STATUS",
     ];
 
     const headerRow = worksheet.addRow(headers);
@@ -648,23 +654,19 @@ export default function BTBMonitoringPage() {
       };
     });
 
-    // Helper format tanggal persis UI string (DD-MM-YYYY)
+    // Helper format tanggal persis UI string (DD/MM/YYYY) - Standard (No +1 Day)
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
-      // Prioritize explicit substrings to avoid timezone shifts
-      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
-
-      let datePart = tgl;
-      if (tgl.includes("T")) datePart = tgl.split("T")[0];
-
-      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-        const [y, m, d] = datePart.split("-");
-        return `${d}-${m}-${y}`;
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(tgl)) return tgl;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl.replace(/-/g, '/');
+      if (/^\d{4}-\d{2}-\d{2}$/.test(tgl)) {
+        const [y, m, d] = tgl.split("-");
+        return `${d}/${m}/${y}`;
       }
-
-      // Fallback dayjs format
       const d = dayjs(tgl);
-      if (d.isValid()) return d.format("DD-MM-YYYY");
+      if (d.isValid()) {
+        return d.format("DD/MM/YYYY");
+      }
       return tgl;
     }
 
@@ -678,43 +680,68 @@ export default function BTBMonitoringPage() {
       grouped[key].push(row);
     });
 
+    // Generate rows and merge cells for grouping
     Object.values(grouped).forEach((rows: any) => {
       const rowsArray = rows as any[];
       const first = rowsArray[0];
       const status = rowsArray.every((item) => Number(item.sisa) === 0) ? "Closed" : "Open";
 
+      const startRow = worksheet.rowCount + 1;
+
       rowsArray.forEach((item, idx) => {
-        worksheet.addRow([
-          idx === 0 ? first.noBTB : "",
+        const row = worksheet.addRow([
+          idx === 0 ? (first.noBTB ? first.noBTB.toUpperCase() : "") : "",
           idx === 0 ? formatTanggalExcel(first.tanggal) : "",
-          idx === 0 ? (first.nama_supplier ?? first.supplier ?? "") : "",
-          item.nama_barang ?? "",
+          idx === 0 ? (first.nama_supplier ? first.nama_supplier.toUpperCase() : (first.supplier ? first.supplier.toUpperCase() : "")) : "",
+          item.nama_barang ? item.nama_barang.toUpperCase() : "",
           Number(item.jumlah) || 0, // Column 5: Qty
-          item.satuan ?? "",
-          item.keterangan ?? "",
+          item.satuan ? item.satuan.toUpperCase() : "",
+          item.keterangan ? item.keterangan.toUpperCase() : "",
           idx === 0 ? (Number(first.biaya) || 0) : "", // Column 8: Biaya
-          idx === 0 ? (userMap[String(first.diterimaOleh)] ?? first.diterimaOleh ?? "") : "",
-          idx === 0 ? status : "",
+          idx === 0 ? (userMap[String(first.diterimaOleh)] ? userMap[String(first.diterimaOleh)].toUpperCase() : (first.diterimaOleh ? first.diterimaOleh.toUpperCase() : "")) : "",
+          idx === 0 ? status.toUpperCase() : "",
         ]);
 
         // Format Number Columns
         // Col 5: Qty
-        worksheet.getCell(worksheet.lastRow!.number, 5).numFmt = '#,##0';
+        row.getCell(5).numFmt = '#,##0';
 
-        // Col 8: Biaya (Currency)
-        if (idx === 0) {
-          worksheet.getCell(worksheet.lastRow!.number, 8).numFmt = '_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)';
-        }
+        // Col 8: Biaya (Currency) - Set format for all rows in group (though only first has value, beneficial for merge)
+        row.getCell(8).numFmt = '_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)';
       });
+
+      const endRow = worksheet.rowCount;
+
+      // Merge cells if there are multiple items
+      if (endRow > startRow) {
+        // List of columns to merge: 1 (No BTB), 2 (Date), 3 (Supplier), 8 (Biaya), 9 (Diterima), 10 (Status)
+        const columnsToMerge = [1, 2, 3, 8, 9, 10];
+        columnsToMerge.forEach(col => {
+          worksheet.mergeCells(startRow, col, endRow, col);
+          // Apply vertical alignment to merged cells
+          worksheet.getCell(startRow, col).alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+      } else {
+        // Single row - just ensure alignment
+        [1, 2, 3, 8, 9, 10].forEach(col => {
+          worksheet.getCell(startRow, col).alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+      }
     });
 
     // Auto-fit columns
-    worksheet.columns.forEach((column) => {
+    worksheet.columns.forEach((column, index) => {
       let maxLength = 10;
       column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
         const cellValue = cell.value ? String(cell.value) : "";
         maxLength = Math.max(maxLength, cellValue.length + 2);
       });
+      // Khusus kolom BIAYA (index 7 karena 0-based di forEach, tapi column.number 1-based)
+      // Headers: NO. BTB, TANGGAL, NAMA SUPPLIER, NAMA BARANG, KUANTITAS, SATUAN, KETERANGAN, BIAYA, ...
+      // Index:   0        1        2              3            4          5       6           7
+      if (index === 7) {
+        maxLength += 15; // Tambah buffer untuk format currency (Rp, titik, dll)
+      }
       column.width = Math.min(maxLength, 50);
     });
 
@@ -878,59 +905,102 @@ export default function BTBMonitoringPage() {
             </p>
           </div>
           {/* Export section: align like Monitoring PR/PO */}
-          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
-                Mode Export
-              </Label>
-              <Select
-                value={exportMode}
-                onValueChange={(val) =>
-                  setExportMode(val as "all" | "selected" | "range")
-                }
-              >
-                <SelectTrigger id="exportMode" className="w-[140px] h-9">
-                  <SelectValue placeholder="Export Mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua</SelectItem>
-                  <SelectItem value="selected">Terpilih</SelectItem>
-                  <SelectItem value="range">Rentang Tanggal</SelectItem>
-                </SelectContent>
-              </Select>
-              {exportMode === "range" && (
-                <div className="flex items-center gap-2 ml-2">
-                  <Label className="text-xs font-medium">Tanggal</Label>
-                  <Input
-                    type="date"
-                    value={exportStartDate}
-                    onChange={(e) => setExportStartDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Mulai"
-                  />
-                  <span className="mx-1">-</span>
-                  <Input
-                    type="date"
-                    value={exportEndDate}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Akhir"
-                  />
+          {/* Export section: Enhanced Next Level UI */}
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 px-4 gap-2 border-dashed border-gray-400 hover:bg-gray-50 hover:border-gray-500">
+                  <Download className="h-4 w-4" />
+                  <span className="font-medium">Export Excel</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4 z-[9999] bg-white" align="end">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                      Export Data BTB
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Pilih format dan filter data yang ingin diunduh.
+                    </p>
+                  </div>
+
+                  <Tabs defaultValue={exportMode} onValueChange={(v) => setExportMode(v as any)} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="all" className="text-xs">Semua</TabsTrigger>
+                      <TabsTrigger value="selected" className="text-xs">Pilihan</TabsTrigger>
+                      <TabsTrigger value="range" className="text-xs">Tanggal</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="all" className="mt-4 space-y-2">
+                      <div className="p-3 bg-gray-50 rounded-md border text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Total Data</span>
+                        <span className="text-xl font-bold text-primary">{filteredBTBData.length}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground text-center">
+                        Mengunduh semua data yang tampil saat ini.
+                      </p>
+                    </TabsContent>
+
+                    <TabsContent value="selected" className="mt-4 space-y-2">
+                      <div className="p-3 bg-gray-50 rounded-md border text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Data Terpilih</span>
+                        <span className={`text-xl font-bold ${selectedBTBIds.length > 0 ? 'text-primary' : 'text-gray-400'}`}>
+                          {selectedBTBIds.length}
+                        </span>
+                      </div>
+                      {selectedBTBIds.length === 0 && (
+                        <p className="text-[10px] text-red-500 text-center">
+                          Pilih checkbox pada tabel terlebih dahulu.
+                        </p>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="range" className="mt-4 space-y-3">
+                      <div className="grid gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Tanggal Mulai</Label>
+                          <div className="relative">
+                            <Input
+                              type="date"
+                              value={exportStartDate}
+                              onChange={(e) => setExportStartDate(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Tanggal Akhir</Label>
+                          <div className="relative">
+                            <Input
+                              type="date"
+                              value={exportEndDate}
+                              onChange={(e) => setExportEndDate(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  <Button
+                    onClick={() => {
+                      handleExport();
+                    }}
+                    className="w-full h-9 bg-green-600 hover:bg-green-700 text-white gap-2"
+                    disabled={
+                      (exportMode === "selected" && selectedBTBIds.length === 0) ||
+                      (exportMode === "range" && (!exportStartDate || !exportEndDate))
+                    }
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download .xlsx
+                  </Button>
                 </div>
-              )}
-              <Button
-                onClick={handleExport}
-                className="bg-primary hover:bg-primary/90 h-9 ml-2"
-                disabled={
-                  (exportMode === "selected" && selectedBTBIds.length === 0) ||
-                  (exportMode === "range" &&
-                    (!exportStartDate || !exportEndDate))
-                }
-              >
-                <ChevronDown className="h-4 w-4 mr-2" />
-                Export Excel
-              </Button>
-            </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         {/* FITUR PENCARIAN GLOBAL & FILTER TANGGAL RENTANG */}

@@ -131,6 +131,74 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// GET Next PO Number
+router.get("/next-number", async (req, res, next) => {
+  try {
+    const { id_skema, tanggalPO } = req.query;
+
+    if (!id_skema || !tanggalPO) {
+      return res.status(400).json({ message: "id_skema and tanggalPO required" });
+    }
+
+    // Determine Prefix based on Schema
+    // 1 -> Pentacity -> PO-PSV/WBL/[YY]/[ROMAN]/...
+    // 2 -> E-WALK -> PO/E-WALK/WBL/[YY]/[ROMAN]/...
+    let prefixBase = "";
+    if (String(id_skema) === "1" || String(id_skema).toLowerCase() === "pentacity") {
+      prefixBase = "PO-PSV/WBL";
+    } else if (String(id_skema) === "2" || String(id_skema).toLowerCase() === "ewalk") {
+      prefixBase = "PO/E-WALK/WBL";
+    } else {
+      // Fallback or handle unknown schema
+      prefixBase = "PO/UNKNOWN";
+    }
+
+    // Parse Date
+    const d = new Date(tanggalPO);
+    if (isNaN(d.getTime())) {
+      return res.status(400).json({ message: "Invalid date" });
+    }
+
+    const yearFull = d.getFullYear();
+    const yearShort = String(yearFull).substring(2); // 26
+    const monthIndex = d.getMonth(); // 0-11
+
+    const romanMonths = [
+      "I", "II", "III", "IV", "V", "VI",
+      "VII", "VIII", "IX", "X", "XI", "XII"
+    ];
+    const monthRoman = romanMonths[monthIndex];
+
+    // Pattern: [PREFIX]/[YY]/[ROMAN]/%
+    const pattern = `${prefixBase}/${yearShort}/${monthRoman}/%`;
+
+    // Query match
+    const [rows] = await db.query(
+      "SELECT noPO FROM po WHERE noPO LIKE ? ORDER BY LENGTH(noPO) DESC, noPO DESC LIMIT 1",
+      [pattern]
+    );
+
+    let nextSeq = 1;
+    if (rows.length > 0) {
+      const lastNoPO = rows[0].noPO;
+      const parts = lastNoPO.split("/");
+      const lastSeqStr = parts[parts.length - 1];
+      const lastSeq = parseInt(lastSeqStr, 10);
+      if (!isNaN(lastSeq)) {
+        nextSeq = lastSeq + 1;
+      }
+    }
+
+    // 5-digit sequence for both based on samples
+    const nextSeqStr = String(nextSeq).padStart(5, "0");
+    const nextNoPO = `${prefixBase}/${yearShort}/${monthRoman}/${nextSeqStr}`;
+
+    res.json({ nextNoPO });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET PO by id
 router.get("/:id", async (req, res, next) => {
   try {
@@ -206,6 +274,14 @@ router.post("/", async (req, res, next) => {
     const ppnVal = typeof ppn === "string" ? parseFloat(ppn.replace(",", ".")) : Number(ppn) || 0;
     const ppnAmountVal = cleanCurrency(ppnAmount);
     const totalPembayaranVal = cleanCurrency(totalPembayaran);
+
+    // --- Check Duplicate No PO ---
+    if (noPO) {
+      const [[existingPO]] = await db.query("SELECT id_PO FROM po WHERE noPO = ?", [noPO]);
+      if (existingPO) {
+        return res.status(400).json({ message: "Nomor PO telah digunakan" });
+      }
+    }
 
     // Normalisasi tanggalPO dan estimasiTanggalTerima ke format YYYY-MM-DD
     if (req.body.tanggalPO && typeof req.body.tanggalPO === "string") {
@@ -287,6 +363,14 @@ router.put("/:id", async (req, res, next) => {
     if (payload.ppn) payload.ppn = typeof payload.ppn === "string" ? parseFloat(payload.ppn.replace(",", ".")) : Number(payload.ppn) || 0;
     if (payload.ppnAmount) payload.ppnAmount = cleanCurrency(payload.ppnAmount);
     if (payload.totalPembayaran) payload.totalPembayaran = cleanCurrency(payload.totalPembayaran);
+
+    // --- Check Duplicate No PO (exclude current ID) ---
+    if (payload.noPO) {
+      const [[existingPO]] = await db.query("SELECT id_PO FROM po WHERE noPO = ? AND id_PO != ?", [payload.noPO, id]);
+      if (existingPO) {
+        return res.status(400).json({ message: "Nomor PO telah digunakan" });
+      }
+    }
 
     // Normalisasi tanggalPO dan estimasiTanggalTerima ke format YYYY-MM-DD
     if (req.body.tanggalPO && typeof req.body.tanggalPO === "string") {

@@ -42,8 +42,11 @@ import * as ExcelJS from "exceljs";
 import { Checkbox } from "@/components/ui/checkbox";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
-import { Trash2 } from "lucide-react";
+
+import { Trash2, Download, Calendar as CalendarIcon, FileSpreadsheet } from "lucide-react";
 import { createPortal } from "react-dom";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 dayjs.extend(utc);
 import { useSearchParams } from "next/navigation";
 
@@ -53,7 +56,7 @@ function formatTanggal(tgl: string | null | undefined) {
   const [date] = tgl.split("T");
   const [y, m, d] = date.split("-");
   if (!y || !m || !d) return tgl;
-  return `${d}-${m}-${y}`;
+  return `${d}/${m}/${y}`;
 }
 
 // Tambah helper: tanggal +1 hari
@@ -67,7 +70,7 @@ function formatTanggalTambahSehari(tgl: string) {
   } else {
     dateObj = dayjs(tgl).add(1, "day");
   }
-  return dateObj.format("DD-MM-YYYY");
+  return dateObj.format("DD/MM/YYYY");
 }
 
 function formatTanggalPas(tgl: string) {
@@ -407,14 +410,23 @@ export default function BKBMonitoringPage() {
   // Export data sesuai filter dan mode
   function getExportBKBData() {
     if (exportMode === "all") return filteredBKBData;
-    if (exportMode === "selected") return filteredBKBData.filter((row) => selectedBKBIds.includes(row.id));
+    if (exportMode === "selected") {
+      const selectedIdBkbs = filteredBKBData
+        .filter((row) => selectedBKBIds.includes(row.id))
+        .map((row) => row.id_bkb);
+      return filteredBKBData.filter((row) => selectedIdBkbs.includes(row.id_bkb));
+    }
     if (exportMode === "range") {
       const start = exportStartDate ? new Date(exportStartDate) : null;
       const end = exportEndDate ? new Date(exportEndDate) : null;
       return filteredBKBData.filter((row) => {
         if (!row.tanggalBKB) return false;
-        const tgl = new Date(row.tanggalBKB);
-        return (!start || tgl >= start) && (!end || tgl <= end);
+        // Gunakan dayjs untuk filtering agar konsisten - parse sebagai UTC to Local jika perlu
+        const tgl = dayjs.utc(row.tanggalBKB).local(); // atau plain dayjs(row.tanggalBKB) tergantung input
+        const d = tgl.toDate();
+        // Fallback plain Date comparison
+        const tglDate = new Date(row.tanggalBKB);
+        return (!start || tglDate >= start) && (!end || tglDate <= end);
       });
     }
     return filteredBKBData;
@@ -426,15 +438,16 @@ export default function BKBMonitoringPage() {
 
     // Header sesuai tampilan frontend (grouped) - Exclude Skema
     const headers = [
-      "No. BKB",
-      "Tanggal BKB",
-      "Nama Barang",
-      "Quantity BKB",
-      "Satuan",
-      "Keterangan",
-      "Dikeluarkan Oleh",
-      "Divisi",
-      "Refrensi Nomor PR",
+      "NO. BKB",
+      "TANGGAL BKB",
+      "NAMA BARANG",
+      "QUANTITY BKB",
+      "SATUAN",
+      "KETERANGAN",
+      "DIKELUARKAN OLEH",
+      "NAMA PENERIMA",
+      "DIVISI",
+      "REFRENSI NOMOR PR",
     ];
     const headerRow = worksheet.addRow(headers);
     headerRow.eachCell((cell) => {
@@ -455,19 +468,8 @@ export default function BKBMonitoringPage() {
 
     function formatTanggalExcel(tgl: string | null | undefined) {
       if (!tgl) return "";
-      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
-
-      let datePart = tgl;
-      if (tgl.includes("T")) datePart = tgl.split("T")[0];
-
-      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-        const [y, m, d] = datePart.split("-");
-        return `${d}-${m}-${y}`;
-      }
-
-      const d = dayjs(tgl);
-      if (d.isValid()) return d.format("DD-MM-YYYY");
-      return tgl;
+      // Gunakan logic sama dengan formatTanggalPas di monitoring
+      return dayjs.utc(tgl).local().format("DD/MM/YYYY");
     }
 
     // Gabungkan baris berdasarkan id_bkb/noBKB
@@ -480,8 +482,17 @@ export default function BKBMonitoringPage() {
       grouped[key].push(row);
     });
 
-    Object.values(grouped).forEach((rows: any) => {
-      const rowsArray = rows as any[];
+    const groupedValues = Object.values(grouped) as any[][];
+    groupedValues.sort((a, b) => {
+      const aFirst = a[0];
+      const bFirst = b[0];
+      const noA = parseNoBKB(aFirst?.noBKB);
+      const noB = parseNoBKB(bFirst?.noBKB);
+      if (noA.year !== noB.year) return noA.year - noB.year;
+      return noA.urut - noB.urut;
+    });
+
+    groupedValues.forEach((rowsArray) => {
       const first = rowsArray[0];
       rowsArray.forEach((item, idx) => {
         const ket = item.keterangan ?? "";
@@ -495,6 +506,7 @@ export default function BKBMonitoringPage() {
           item.satuan ?? "",
           ketShort,
           idx === 0 ? (userMap[String(first.dikeluarkanOleh)] ?? first.dikeluarkanOleh ?? "") : "",
+          idx === 0 ? (userMap[String(first.diterima_oleh)] ?? first.diterima_oleh ?? "") : "",
           idx === 0 ? (first.divisi || "-") : "",
           idx === 0 ? (first.noPR || "-") : "",
         ]);
@@ -740,59 +752,103 @@ export default function BKBMonitoringPage() {
               Pantau pengeluaran barang dari BTB
             </p>
           </div>
-          {/* Export section: align like Monitoring PR/PO */}
-          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="exportMode" className="text-xs font-medium mr-2">
-                Mode Export
-              </Label>
-              <Select
-                value={exportMode}
-                onValueChange={(val) =>
-                  setExportMode(val as "all" | "selected" | "range")
-                }
-              >
-                <SelectTrigger id="exportMode" className="w-[140px] h-9">
-                  <SelectValue placeholder="Export Mode" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua</SelectItem>
-                  <SelectItem value="selected">Terpilih</SelectItem>
-                  <SelectItem value="range">Rentang Tanggal</SelectItem>
-                </SelectContent>
-              </Select>
-              {exportMode === "range" && (
-                <div className="flex items-center gap-2 ml-2">
-                  <Label className="text-xs font-medium">Tanggal</Label>
-                  <Input
-                    type="date"
-                    value={exportStartDate}
-                    onChange={(e) => setExportStartDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Mulai"
-                  />
-                  <span className="mx-1">-</span>
-                  <Input
-                    type="date"
-                    value={exportEndDate}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                    className="w-[130px] h-9"
-                    placeholder="Akhir"
-                  />
+          {/* Export section: Enhanced Next Level UI */}
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-10 px-4 gap-2 border-dashed border-gray-400 hover:bg-gray-50 hover:border-gray-500">
+                  <Download className="h-4 w-4" />
+                  <span className="font-medium">Export Excel</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4 z-[9999] bg-white" align="end">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                      Export Data BKB
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Pilih format dan filter data yang ingin diunduh.
+                    </p>
+                  </div>
+
+                  <Tabs defaultValue={exportMode} onValueChange={(v) => setExportMode(v as any)} className="w-full">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="all" className="text-xs">Semua</TabsTrigger>
+                      <TabsTrigger value="selected" className="text-xs">Pilihan</TabsTrigger>
+                      <TabsTrigger value="range" className="text-xs">Tanggal</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="all" className="mt-4 space-y-2">
+                      <div className="p-3 bg-gray-50 rounded-md border text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Total Data</span>
+                        <span className="text-xl font-bold text-primary">{filteredBKBData.length}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground text-center">
+                        Mengunduh semua data yang tampil saat ini.
+                      </p>
+                    </TabsContent>
+
+                    <TabsContent value="selected" className="mt-4 space-y-2">
+                      <div className="p-3 bg-gray-50 rounded-md border text-center">
+                        <span className="text-xs text-muted-foreground block mb-1">Data Terpilih</span>
+                        <span className={`text-xl font-bold ${selectedBKBIds.length > 0 ? 'text-primary' : 'text-gray-400'}`}>
+                          {selectedBKBIds.length}
+                        </span>
+                      </div>
+                      {selectedBKBIds.length === 0 && (
+                        <p className="text-[10px] text-red-500 text-center">
+                          Pilih checkbox pada tabel terlebih dahulu.
+                        </p>
+                      )}
+                    </TabsContent>
+
+                    <TabsContent value="range" className="mt-4 space-y-3">
+                      <div className="grid gap-2">
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Tanggal Mulai</Label>
+                          <div className="relative">
+                            <Input
+                              type="date"
+                              value={exportStartDate}
+                              onChange={(e) => setExportStartDate(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid gap-1">
+                          <Label className="text-xs">Tanggal Akhir</Label>
+                          <div className="relative">
+                            <Input
+                              type="date"
+                              value={exportEndDate}
+                              onChange={(e) => setExportEndDate(e.target.value)}
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+
+                  <Button
+                    onClick={() => {
+                      handleExport();
+                      // Optional: close popover logic if needed, but standard behavior lets it stay or click outside
+                    }}
+                    className="w-full h-9 bg-green-600 hover:bg-green-700 text-white gap-2"
+                    disabled={
+                      (exportMode === "selected" && selectedBKBIds.length === 0) ||
+                      (exportMode === "range" && (!exportStartDate || !exportEndDate))
+                    }
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download .xlsx
+                  </Button>
                 </div>
-              )}
-              <Button
-                onClick={handleExport}
-                className="bg-primary hover:bg-primary/90 h-9 ml-2"
-                disabled={
-                  (exportMode === "selected" && selectedBKBIds.length === 0) ||
-                  (exportMode === "range" &&
-                    (!exportStartDate || !exportEndDate))
-                }
-              >
-                Export Excel
-              </Button>
-            </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
         <Card className="bg-card border-border">
@@ -1164,6 +1220,6 @@ export default function BKBMonitoringPage() {
           onCancel={() => setRestoreItemModalOpen(false)}
         />
       </div>
-    </MainLayout>
+    </MainLayout >
   );
 }

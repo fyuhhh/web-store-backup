@@ -218,7 +218,7 @@ export default function BTBInputPage() {
   // Form state
   const [formData, setFormData] = useState<any>({
     noBTB: "",
-    tanggal: null, // <-- pastikan default null, tidak auto terisi
+    tanggal: new Date(),
     periode: "",
     supplier: "",
     kodeSupplier: "",
@@ -289,6 +289,62 @@ export default function BTBInputPage() {
         );
       });
   }, []);
+
+  // Auto-fill BTB Number on PO Selection/Date change
+  useEffect(() => {
+    // Logic: Trigger when PO is selected (which implies schema) OR Date is changed
+    // AND No BTB is empty or standard
+    const id_skema = selectedPOsForBTB[0]?.skema || userSkemaId || formData.skema;
+    const tanggal = formData.tanggal;
+    const noBTB = formData.noBTB;
+
+    console.log("[Auto-fill BTB] Triggered", {
+      id_skema,
+      tanggal,
+      noBTB,
+      selectedPOsForBTB_Skema: selectedPOsForBTB[0]?.skema,
+      userSkemaId,
+      formData_skema: formData.skema
+    });
+
+    if (!id_skema || !tanggal) {
+      console.log("[Auto-fill BTB] Skipping: Missing id_skema or tanggal");
+      return;
+    }
+
+    // Guard: Only auto-fill if field is empty OR looks like a standard format "BTB/..."
+    const isEmpryOrStandard = !noBTB || noBTB.startsWith("BTB/");
+    if (!isEmpryOrStandard) {
+      console.log("[Auto-fill BTB] Skipping: Field not empty/standard");
+      return;
+    }
+
+    const fetchNextNumber = async () => {
+      try {
+        const dateParam = formatDateForBackend(tanggal);
+        if (!dateParam) return;
+
+        const url = `http://192.168.10.10:5000/api/btb/next-number?id_skema=${id_skema}&tanggal_btb=${dateParam}`;
+        console.log("[Auto-fill BTB] Fetching:", url);
+
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          console.log("[Auto-fill BTB] Received:", data);
+          if (data.nextNoBTB) {
+            setFormData((prev: any) => ({ ...prev, noBTB: data.nextNoBTB }));
+          }
+        } else {
+          console.error("[Auto-fill BTB] Fetch failed:", res.status);
+        }
+      } catch (err) {
+        console.error("Failed to fetch next BTB number", err);
+      }
+    };
+
+    fetchNextNumber();
+  }, [selectedPOsForBTB, formData.tanggal, userSkemaId, formData.skema]);
+
 
   // Reset to page 1 when filters change (logic removed)
 
@@ -576,6 +632,20 @@ export default function BTBInputPage() {
       setTimeout(() => setNotif(null), 3000);
       return;
     }
+
+    if (!formData.supplier) {
+      setNotif({ type: "error", message: "Data Supplier tidak valid (ID Supplier kosong)." });
+      setTimeout(() => setNotif(null), 3000);
+      return;
+    }
+
+    const id_skema = selectedPOsForBTB[0]?.skema ?? null;
+    if (!id_skema) {
+      setNotif({ type: "error", message: "Data Skema tidak valid (ID Skema kosong pada PO)." });
+      setTimeout(() => setNotif(null), 3000);
+      return;
+    }
+
     if (!formData.noBTB || !formData.tanggal) {
       setNotif({ type: "error", message: "No BTB dan Tanggal wajib diisi." });
       setTimeout(() => setNotif(null), 2500);
@@ -663,6 +733,7 @@ export default function BTBInputPage() {
 
 
       // POST header BTB dengan biaya sesuai qty diterima
+      // POST header BTB dengan biaya sesuai qty diterima
       const btbHeaderRes = await fetch("http://192.168.10.10:5000/api/btb", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -681,8 +752,13 @@ export default function BTBInputPage() {
           // status dan created_at otomatis di backend
         }),
       });
-      if (!btbHeaderRes.ok) throw new Error("Gagal menyimpan header BTB");
+
       const btbHeaderData = await btbHeaderRes.json();
+
+      if (!btbHeaderRes.ok) {
+        throw new Error(btbHeaderData.message || btbHeaderData.error || "Gagal menyimpan header BTB");
+      }
+
       const id_btb = btbHeaderData.id;
 
       for (const item of items) {
@@ -733,8 +809,14 @@ export default function BTBInputPage() {
         window.location.reload(); // <-- auto refresh ke halaman input BTB
       }, 1800);
       resetForm();
-    } catch (err) {
-      setNotif({ type: "error", message: "Gagal menyimpan BTB ke backend." });
+    } catch (err: any) {
+      if (err.message?.includes("digunakan")) {
+        console.warn("Validation error:", err.message);
+        setNotif({ type: "error", message: err.message });
+      } else {
+        console.error(err);
+        setNotif({ type: "error", message: "Gagal menyimpan BTB ke backend." });
+      }
       setTimeout(() => setNotif(null), 3000);
     }
   };
@@ -889,21 +971,27 @@ export default function BTBInputPage() {
       kodeSupplier = idParts.length > 1 ? `SUP-${idParts[1]}` : "";
     }
 
+    // Determine schema to use (Priority: PO > User ID > User Name > Default)
+    const skemaToUse = firstPO.skema || userData.id_skema || userData.skema || "1";
+
+    // Prepare initial form data
+    const initialDate = new Date();
+
     setFormData({
-      noBTB: "",
-      tanggal: null, // <-- pastikan tanggal kosong/null, tidak auto-isi
+      noBTB: "", // Will be updated by useEffect
+      tanggal: initialDate,
       periode: "",
       supplier: firstPO.id_supplier ?? "",
       supplierLabel: firstPO.supplier ?? "",
-      noPO: firstPO.noPO ?? "", // <-- tambahkan ini
+      noPO: firstPO.noPO ?? "",
       barang: "",
       jumlah: "",
       satuan: "",
       biaya: firstPO.totalPembayaran?.toString() ?? "",
       diterimaOleh: "",
-      poId: firstPO.id, // tetap simpan id untuk backend
+      poId: firstPO.id,
       tanggalDiterima: "",
-      skema: userData.skema || "pentacity",
+      skema: skemaToUse,
     });
 
     // LOG: Daftar PO yang diterima oleh frontend (beserta id_supplier dan id_satuan tiap item)
