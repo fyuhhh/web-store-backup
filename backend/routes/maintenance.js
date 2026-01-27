@@ -60,12 +60,12 @@ router.get("/", (req, res) => {
 
 // POST status (update)
 router.post("/", (req, res) => {
-    const { isActive, endTime, description } = req.body;
+    const { isActive, endTime, description, startTime } = req.body;
 
-    // Validate input logic if needed, for now accept payload
     const newData = {
         isActive: Boolean(isActive),
         endTime: endTime || "",
+        startTime: startTime || "", // Add startTime field
         description: description || ""
     };
 

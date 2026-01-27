@@ -73,11 +73,14 @@ const CardContent = ({ className, ...props }: any) => (
     <div className={cn("p-6 pt-0", className)} {...props} />
 );
 
+import { motion, AnimatePresence } from "framer-motion";
+
 export default function LoginPage() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false); // New state for animation
 
     // Default mode: "internal" (Purchasing & Store)
     const [loginMode, setLoginMode] = useState<"internal" | "divisi">("internal");
@@ -113,7 +116,7 @@ export default function LoginPage() {
                 return;
             }
 
-            const userRole = data.user.id_peran;
+            const userRole = Number(data.user.id_peran);
 
             // STRICT ROLE VALIDATION
             if (loginMode === "divisi") {
@@ -138,11 +141,14 @@ export default function LoginPage() {
                 const maintData = await maintRes.json();
                 if (maintData.isActive) {
                     const whitelist = ["141", "90", "89", "85"];
-                    // Robust ID check
                     const currentId = String(data.user.id ?? data.user.id_user ?? "");
-                    if (!whitelist.includes(currentId)) {
+                    const now = new Date().getTime();
+                    const startTime = maintData.startTime ? new Date(maintData.startTime).getTime() : 0;
+                    const inGracePeriod = startTime > 0 && now < startTime;
+
+                    if (!whitelist.includes(currentId) && !inGracePeriod) {
                         router.push("/maintenance");
-                        return; // Stop further redirects
+                        return;
                     }
                 }
             } catch (e) {
@@ -150,31 +156,32 @@ export default function LoginPage() {
             }
             // --- MAINTENANCE CHECK END ---
 
+            // --- ANIMATION & REDIRECT ---
+            // Trigger success animation for ALL modes
+            setIsSuccess(true);
+
+            // Delay redirect to allow animation to play
             setTimeout(() => {
-                if (data.user.id_peran === 5) {
-                    router.push("/kelola-akun");
-                } else if (data.user.id_peran === 1) {
-                    router.push("/dashboard");
-                } else if (
-                    (data.user.role ?? data.user.peran ?? "").toLowerCase() === "superadmin" ||
-                    data.user.nama_pengguna?.toLowerCase() === "superadmin"
-                ) {
-                    router.push("/kelola-akun");
-                } else if (data.user.id_peran === 2) {
-                    router.push("/divisi/dashboard");
-                } else if (
-                    (data.user.role ?? data.user.peran ?? "").toLowerCase() === "admin"
-                ) {
-                    router.push("/dashboard");
-                } else if (
-                    (data.user.role ?? data.user.peran ?? "").toLowerCase() === "divisi" ||
-                    data.user.id_peran === 3
-                ) {
-                    router.push("/dashboard");
+                if (loginMode === "divisi") {
+                    window.location.href = "/divisi/dashboard";
                 } else {
-                    router.push("/dashboard");
+                    const roleId = Number(data.user.id_peran);
+                    const roleName = (data.user.role ?? data.user.peran ?? "").toLowerCase();
+                    const userName = (data.user.nama_pengguna || "").toLowerCase();
+
+                    if (roleId === 5 || roleName === "superadmin" || userName === "superadmin") {
+                        window.location.href = "/kelola-akun";
+                    } else if (roleId === 2) {
+                        window.location.href = "/divisi/dashboard";
+                    } else if (roleId === 1 || roleName === "admin") {
+                        window.location.href = "/dashboard";
+                    } else if (roleId === 3 || roleName === "divisi") {
+                        window.location.href = "/divisi/dashboard";
+                    } else {
+                        window.location.href = "/dashboard";
+                    }
                 }
-            }, 800);
+            }, 1500);
 
         } catch (err) {
             console.error(err);
@@ -190,6 +197,62 @@ export default function LoginPage() {
             "min-h-screen flex items-center justify-center p-4 font-sans transition-all duration-700 ease-in-out relative overflow-hidden",
             isDivisi ? "bg-gradient-to-br from-indigo-950 via-slate-900 to-blue-950" : "bg-slate-50"
         )}>
+            {/* --- LUXURIOUS TRANSITION OVERLAY --- */}
+            <AnimatePresence>
+                {isSuccess && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                        className={cn(
+                            "fixed inset-0 z-50 flex items-center justify-center",
+                            isDivisi ? "bg-indigo-950" : "bg-white"
+                        )}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3, duration: 0.8 }}
+                            className="text-center"
+                        >
+                            <div className="mb-6 relative">
+                                <div className={cn(
+                                    "absolute inset-0 blur-3xl opacity-20 rounded-full animate-pulse",
+                                    isDivisi ? "bg-indigo-500" : "bg-slate-200"
+                                )} />
+                                {isDivisi ? (
+                                    <Building2 className="w-24 h-24 text-indigo-300 relative z-10 mx-auto" strokeWidth={1} />
+                                ) : (
+                                    <Store className="w-24 h-24 text-slate-800 relative z-10 mx-auto" strokeWidth={1} />
+                                )}
+                            </div>
+                            <h2 className={cn(
+                                "text-3xl font-light tracking-[0.2em] uppercase",
+                                isDivisi ? "text-white" : "text-black"
+                            )}>
+                                Selamat Datang
+                            </h2>
+                            <p className={cn(
+                                "mt-2 text-sm font-medium tracking-widest",
+                                isDivisi ? "text-indigo-300/60" : "text-slate-500"
+                            )}>
+                                MEMUAT DASHBOARD {isDivisi ? "DIVISI" : "PURCHASING & STORE"}
+                            </p>
+                            {/* Loading Line */}
+                            <motion.div
+                                className={cn(
+                                    "h-0.5 mt-8 mx-auto rounded-full",
+                                    isDivisi ? "bg-indigo-500/50" : "bg-slate-800"
+                                )}
+                                initial={{ width: 0 }}
+                                animate={{ width: "100px" }}
+                                transition={{ duration: 1.2, ease: "easeInOut", delay: 0.2 }}
+                            />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Background Ambience Animations */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">

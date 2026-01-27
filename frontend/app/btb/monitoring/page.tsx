@@ -149,6 +149,7 @@ export default function BTBMonitoringPage() {
 
   const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSpecialUser, setIsSpecialUser] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
 
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
@@ -436,7 +437,8 @@ export default function BTBMonitoringPage() {
             biaya: btb?.biaya ?? "",
             diterimaOleh: btb?.id_user ?? "",
             skema: btb?.id_skema ?? "",
-            keterangan: item.keterangan ?? "", // <-- tambahkan keterangan dari btb_item
+            keterangan: item.keterangan ?? "",
+            kodeBarang: item.kodeBarang ?? "",
           };
         });
         setBtbRows(rows);
@@ -468,6 +470,9 @@ export default function BTBMonitoringPage() {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.skema || "");
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
+    if ([98, 141].includes(Number(userData.id_user || userData.id))) {
+      setIsSpecialUser(true);
+    }
   }, []);
 
   // Compute unique values for filters dari btbRows
@@ -698,7 +703,7 @@ export default function BTBMonitoringPage() {
           item.satuan ? item.satuan.toUpperCase() : "",
           item.keterangan ? item.keterangan.toUpperCase() : "",
           idx === 0 ? (Number(first.biaya) || 0) : "", // Column 8: Biaya
-          idx === 0 ? (userMap[String(first.diterimaOleh)] ? userMap[String(first.diterimaOleh)].toUpperCase() : (first.diterimaOleh ? first.diterimaOleh.toUpperCase() : "")) : "",
+          idx === 0 ? (userMap[String(first.diterimaOleh)] ? userMap[String(first.diterimaOleh)].replace(/_/g, " ").toUpperCase() : (first.diterimaOleh ? first.diterimaOleh.replace(/_/g, " ").toUpperCase() : "")) : "",
           idx === 0 ? status.toUpperCase() : "",
         ]);
 
@@ -1266,6 +1271,21 @@ export default function BTBMonitoringPage() {
                         </PopoverContent>
                       </Popover>
                     </TableHead>
+                    {/* Kode Barang (User 98, 141) */}
+                    {isSpecialUser && (
+                      <TableHead
+                        className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        KODE BARANG
+                      </TableHead>
+                    )}
                     {/* Nama Barang */}
                     <TableHead
                       className="px-3 py-1 border-b border-r border-gray-300 uppercase sticky top-0 z-10 bg-gray-100 text-center"
@@ -1572,6 +1592,12 @@ export default function BTBMonitoringPage() {
                               <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap uppercase">
                                 {items[0].nama_supplier || "-"}
                               </TableCell>
+                              {/* Kode Barang (User 98, 141) */}
+                              {isSpecialUser && (
+                                <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase font-normal">
+                                  {sortedItems[0].kodeBarang || "-"}
+                                </TableCell>
+                              )}
                               {/* Nama Barang - item pertama */}
                               <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].nama_barang && sortedItems[0].nama_barang !== ""
@@ -1613,7 +1639,7 @@ export default function BTBMonitoringPage() {
                               </TableCell>
                               {/* Diterima Oleh - rowSpan */}
                               <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle whitespace-nowrap uppercase">
-                                {userMap[String(items[0].diterimaOleh)] ?? items[0].diterimaOleh}
+                                {String(userMap[String(items[0].diterimaOleh)] ?? items[0].diterimaOleh).replace(/_/g, " ")}
                               </TableCell>
                               {/* Skema - rowSpan */}
                               {/* <TableCell rowSpan={items.length} className="border border-gray-300 px-4 py-3 text-center align-middle whitespace-nowrap uppercase">
@@ -1639,6 +1665,11 @@ export default function BTBMonitoringPage() {
                             {sortedItems.slice(1).map((item, idx2) => (
                               <TableRow key={`${noBTB}-item-${idx2 + 1}`} className={`hover:bg-blue-50/50 transition-colors border border-gray-300 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
                                 {/* Kolom yang di-rowSpan tidak ditampilkan lagi */}
+                                {isSpecialUser && (
+                                  <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">
+                                    {item.kodeBarang || "-"}
+                                  </TableCell>
+                                )}
                                 {/* Nama Barang - item berikutnya */}
                                 <TableCell className="px-3 py-1 border-r border-gray-300 text-left whitespace-nowrap uppercase">
                                   {item.nama_barang && item.nama_barang !== ""

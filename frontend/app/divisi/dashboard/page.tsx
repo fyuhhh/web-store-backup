@@ -34,19 +34,45 @@ export default function DivisiDashboardPage() {
     useEffect(() => {
         const load = async () => {
             try {
-                // User & Divisi Context
-                const storedUser = localStorage.getItem("user");
+                const storedUser = localStorage.getItem("userData") || localStorage.getItem("user");
                 let myDivisiId = "";
+                let mySkemaId = ""; // New: Schema ID
+                let debugSource = "None";
+
                 if (storedUser) {
                     try {
                         const u = JSON.parse(storedUser);
                         myDivisiId = String(u.id_divisi || "");
+                        mySkemaId = String(u.id_skema || ""); // Get from LS
                         setUserName(u.nama_pengguna || u.username || "User");
-                        setUserDivisiId(myDivisiId);
+                        debugSource = "LocalStorage";
+
+                        // FETCH CHECKS - Authoritative
+                        const userId = u.id || u.id_user;
+                        if (userId) {
+                            try {
+                                const uRes = await fetch(`http://192.168.10.10:5000/api/user/${userId}`);
+                                const uData = await uRes.json();
+                                if (uData) {
+                                    if (uData.id_divisi) {
+                                        myDivisiId = String(uData.id_divisi);
+                                        setUserDivisiId(myDivisiId);
+                                    }
+                                    if (uData.id_skema) {
+                                        mySkemaId = String(uData.id_skema); // Get from API
+                                    }
+                                    debugSource = "Backend API";
+                                }
+                            } catch (err) {
+                                console.error("Failed to fetch fresh user:", err);
+                            }
+                        }
                     } catch (e) {
                         console.error("Error parsing user data", e);
                     }
                 }
+
+                console.log("Dashboard Divisi Filter - Source:", debugSource, "DivisiID:", myDivisiId, "SkemaID:", mySkemaId);
 
                 // DATA FETCHING
                 const [
@@ -70,9 +96,16 @@ export default function DivisiDashboardPage() {
                     if (div) setUserDivisiName(div.divisi);
                 }
 
-                // Filter PRs by Division
+                // Filter PRs by Division AND Schema (if present) - STRICT
                 const myPrs = Array.isArray(prRes)
-                    ? (myDivisiId ? prRes.filter((p: any) => String(p.id_divisi) === myDivisiId) : prRes)
+                    ? (myDivisiId
+                        ? prRes.filter((p: any) => {
+                            const divisionMatch = String(p.id_divisi) === myDivisiId;
+                            // Jika user punya skema, HARUS match skema. Jika tidak, abaikan filter skema.
+                            const schemaMatch = mySkemaId ? String(p.id_skema) === mySkemaId : true;
+                            return divisionMatch && schemaMatch;
+                        })
+                        : [])
                     : [];
 
                 // Helper Map: Fulfilled Quantity by PR Item (via BKB)

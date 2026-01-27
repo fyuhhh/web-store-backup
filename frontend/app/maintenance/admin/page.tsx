@@ -49,6 +49,32 @@ export default function MaintenanceAdminPage() {
     const handleSave = async () => {
         try {
             setLoading(true);
+
+            // Calculate Start Time (Lockout Time) = Now + 5 minutes
+            let startTimeToSend = "";
+            if (isActive) {
+                // If activating, set start time to 5 mins from now
+                // UNLESS it's already active and we just want to update EndTime/Description without resetting countdown?
+                // For simplicity based on request: "ketika aku aktifkan... hitung mundur 5 menit"
+                // So every save with Active=true resets countdown? Or only if it wasn't active?
+                // To be safe and avoid resetting countdown on minor edits, check if we need to set it.
+                // But simplified: User wants 5 min warning.
+
+                // Fetch current first to see if already active? 
+                // We have initial state in `isActive` (from component mount). 
+                // Ideally, if it was false and now true -> Set startTime.
+                // If it was true and remains true -> Keep existing startTime?
+                // Let's rely on fetching `data` in useEffect. But here we only have local state.
+
+                // Let's assume we always reset countdown if we click save and it is active.
+                // Or better: pass startTime only if it's a new activation.
+                // Actually, the user says "ketika aku aktifkan", implies the action.
+                // Let's set it to 5 mins from now.
+                const d = new Date();
+                d.setMinutes(d.getMinutes() + 5);
+                startTimeToSend = d.toISOString();
+            }
+
             const res = await fetch("http://192.168.10.10:5000/api/maintenance", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -56,6 +82,7 @@ export default function MaintenanceAdminPage() {
                     isActive,
                     endTime,
                     description,
+                    startTime: isActive ? startTimeToSend : "",
                 }),
             });
             if (res.ok) {

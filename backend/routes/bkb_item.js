@@ -45,13 +45,27 @@ router.post("/restore-to-btb/:id", async (req, res) => {
 router.get("/", async (req, res) => {
   const { id_bkb } = req.query;
   try {
-    let sql = "SELECT * FROM bkb_item";
+    let sql = `
+      SELECT 
+        bkb_item.*,
+        COALESCE(pr_item.kodeBarang, pr_match.kodeBarang) AS kodeBarang
+      FROM bkb_item
+      LEFT JOIN btb_item ON bkb_item.id_btb_item = btb_item.id_btb_item
+      LEFT JOIN po_item ON btb_item.id_POItem = po_item.id_POItem
+      LEFT JOIN pr_item ON po_item.id_PRItem = pr_item.id_PRItem
+      LEFT JOIN (
+        SELECT namaBarang, MAX(kodeBarang) as kodeBarang
+        FROM pr_item
+        WHERE kodeBarang IS NOT NULL AND kodeBarang != ''
+        GROUP BY namaBarang
+      ) AS pr_match ON bkb_item.nama_barang = pr_match.namaBarang
+    `;
     let params = [];
     if (id_bkb) {
-      sql += " WHERE id_bkb = ?";
+      sql += " WHERE bkb_item.id_bkb = ?";
       params.push(id_bkb);
     }
-    sql += " ORDER BY id_bkb_item ASC";
+    sql += " ORDER BY bkb_item.id_bkb_item ASC";
     const [rows] = await db.query(sql, params);
     res.json(rows);
   } catch (err) {

@@ -16,9 +16,11 @@ router.post("/", async (req, res) => {
       id_divisi === null || id_divisi === undefined || id_divisi === ""
         ? null
         : id_divisi;
+
+    // NOTE: Simpan juga plain_password sesuai request user
     const [result] = await db.query(
-      "INSERT INTO user (nama_pengguna, password, id_peran, id_divisi, id_skema) VALUES (?, ?, ?, ?, ?)",
-      [nama_pengguna, hash, id_peran, divisiValue, id_skema]
+      "INSERT INTO user (nama_pengguna, password, plain_password, id_peran, id_divisi, id_skema) VALUES (?, ?, ?, ?, ?, ?)",
+      [nama_pengguna, hash, password, id_peran, divisiValue, id_skema]
     );
 
     res.status(201).json({
@@ -74,11 +76,14 @@ router.put("/:id", async (req, res) => {
     updateFields.push("id_skema=?");
     updateValues.push(id_skema);
 
-    // Jika password dikirim, hash dulu
+    // Jika password dikirim, hash dulu dan simpan plain_password
     if (password) {
       const hash = await bcrypt.hash(password, 10);
       updateFields.push("password=?");
       updateValues.push(hash);
+
+      updateFields.push("plain_password=?");
+      updateValues.push(password);
     }
 
     updateValues.push(id);

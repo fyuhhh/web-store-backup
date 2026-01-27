@@ -142,6 +142,7 @@ export default function BKBMonitoringPage() {
 
   const [bkbRows, setBkbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSpecialUser, setIsSpecialUser] = useState(false);
   const [loading, setLoading] = useState(false);
   const [userMap, setUserMap] = useState<Record<string, string>>({});
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
@@ -306,6 +307,7 @@ export default function BKBMonitoringPage() {
             divisi: bkb?.divisi ?? "", // <-- ambil langsung dari bkb.divisi
             skema: bkb?.id_skema ?? "",
             noPR: bkb?.refrensiNoPr ?? "-",
+            kodeBarang: item.kodeBarang ?? "",
           };
         });
         setBkbRows(rows);
@@ -325,6 +327,9 @@ export default function BKBMonitoringPage() {
       try {
         const user = JSON.parse(userRaw);
         setUserSkemaId(String(user.id_skema ?? user.skema ?? ""));
+        if ([98, 141].includes(Number(user.id_user || user.id))) {
+          setIsSpecialUser(true);
+        }
       } catch { }
     }
   }, []);
@@ -440,6 +445,7 @@ export default function BKBMonitoringPage() {
     const headers = [
       "NO. BKB",
       "TANGGAL BKB",
+      ...(isSpecialUser ? ["KODE BARANG"] : []),
       "NAMA BARANG",
       "QUANTITY BKB",
       "SATUAN",
@@ -501,12 +507,13 @@ export default function BKBMonitoringPage() {
         worksheet.addRow([
           idx === 0 ? first.noBKB : "",
           idx === 0 ? formatTanggalExcel(first.tanggalBKB) : "",
+          ...(isSpecialUser ? [item.kodeBarang || "-"] : []),
           item.namaBarang,
           Number(item.quantity) || 0,
           item.satuan ?? "",
           ketShort,
-          idx === 0 ? (userMap[String(first.dikeluarkanOleh)] ?? first.dikeluarkanOleh ?? "") : "",
-          idx === 0 ? (userMap[String(first.diterima_oleh)] ?? first.diterima_oleh ?? "") : "",
+          idx === 0 ? (userMap[String(first.dikeluarkanOleh)] ?? first.dikeluarkanOleh ?? "").toString().replace(/_/g, " ").toUpperCase() : "",
+          idx === 0 ? (userMap[String(first.diterima_oleh)] ?? first.diterima_oleh ?? "").toString().replace(/_/g, " ").toUpperCase() : "",
           idx === 0 ? (first.divisi || "-") : "",
           idx === 0 ? (first.noPR || "-") : "",
         ]);
@@ -967,7 +974,9 @@ export default function BKBMonitoringPage() {
                       )}
                     </TableHead>
                     {/* Make all header cells sticky */}
-                    {["NO. BKB", "TANGGAL BKB", "NAMA BARANG", "KUANTITAS BKB",
+                    {["NO. BKB", "TANGGAL BKB",
+                      ...(isSpecialUser ? ["KODE BARANG"] : []),
+                      "NAMA BARANG", "KUANTITAS BKB",
                       "SATUAN",
                       "KETERANGAN",
                       "DIKELUARKAN OLEH",
@@ -1044,6 +1053,14 @@ export default function BKBMonitoringPage() {
                               <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                 {formatTanggalPas(items[0].tanggalBKB)}
                               </TableCell>
+
+                              {/* KODE BARANG (Special User) - First Row */}
+                              {isSpecialUser && (
+                                <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                  {sortedItems[0]?.kodeBarang || "-"}
+                                </TableCell>
+                              )}
+
                               {/* Nama Barang - item pertama */}
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
                                 {sortedItems[0].namaBarang}
@@ -1087,11 +1104,11 @@ export default function BKBMonitoringPage() {
                               </TableCell>
                               {/* Dikeluarkan Oleh - rowSpan */}
                               <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                                {userMap[String(items[0].dikeluarkanOleh)] ?? items[0].dikeluarkanOleh}
+                                {String(userMap[String(items[0].dikeluarkanOleh)] ?? items[0].dikeluarkanOleh).replace(/_/g, " ")}
                               </TableCell>
                               {/* Diterima Oleh - rowSpan */}
                               <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                                {(userMap[String(items[0].diterima_oleh)] ?? items[0].diterima_oleh) || "-"}
+                                {(String(userMap[String(items[0].diterima_oleh)] ?? items[0].diterima_oleh) || "-").replace(/_/g, " ")}
                               </TableCell>
                               {/* Divisi - rowSpan */}
                               <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
@@ -1119,6 +1136,13 @@ export default function BKBMonitoringPage() {
                             {/* Baris item berikutnya */}
                             {sortedItems.slice(1).map((item, idx2) => (
                               <TableRow key={`${id_bkb}-item-${idx2 + 1}`} className={`hover:bg-blue-50/50 transition-colors ${idx % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
+                                {/* Kolom Kustom Kode Barang */}
+                                {isSpecialUser && (
+                                  <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                    {item.kodeBarang || "-"}
+                                  </TableCell>
+                                )}
+
                                 {/* Nama Barang - item berikutnya */}
                                 <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
                                   {item.namaBarang}

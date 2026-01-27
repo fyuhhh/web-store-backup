@@ -437,6 +437,10 @@ export default function MonitoringPOPage() {
         const prDateMap = Object.fromEntries(
           prList.map((p: any) => [String(p.id_PR), p.tanggalPR])
         );
+        // --- TAMBAHAN: Map Divisi PR untuk export ---
+        const prDivisiMap = Object.fromEntries(
+          prList.map((p: any) => [String(p.id_PR), p.divisi || ""])
+        );
 
         // Group items by PR (noPR)
         const itemsForPO = (poItemList || []).filter(
@@ -461,6 +465,8 @@ export default function MonitoringPOPage() {
               prItem.satuanLabel || prItem.satuan || prItem.id_satuan || pi.id_satuan || "",
             hargaSatuan: Number(pi.hargaSatuan) || 0,
             keterangan: pi.keterangan || prItem.keterangan || "",
+            // --- Map Divisi here ---
+            divisi: prDivisiMap[prId] || "",
             // --- Ambil field diskon/ppn dari kolom baru backend ---
             diskonPersen: pi.diskonPersen ?? 0, // Diskon (%) dari po_item
             diskonNominal: pi.diskonRupiah ?? 0, // Diskon (Rp) dari po_item
@@ -1104,7 +1110,8 @@ export default function MonitoringPOPage() {
     const worksheet = workbook.addWorksheet("Monitoring PO");
 
     // Header sesuai urutan tabel monitoring PO
-    // Header sesuai UI persis - Standardized & Uppercase
+    // Header sesuai urutan tabel monitoring PO
+    // Header sesuai urutan tabel monitoring PO
     const headers = [
       "NO. PO",
       "TANGGAL PO",
@@ -1120,7 +1127,7 @@ export default function MonitoringPOPage() {
       "PPN (RP)",
       "TOTAL",
       "GRAND TOTAL",
-      "ORDERED BY",
+      "DIORDER OLEH",
       "ESTIMASI DITERIMA",
       "STATUS PENGIRIMAN",
       "STATUS",
@@ -1147,7 +1154,6 @@ export default function MonitoringPOPage() {
     });
 
     // Helper format tanggal persis seperti frontend
-    // Helper format tanggal persis seperti frontend
     function formatTanggalExcel(tgl: string) {
       if (!tgl) return "";
       if (/^\d{2}\/\d{2}\/\d{4}$/.test(tgl)) return tgl;
@@ -1163,6 +1169,8 @@ export default function MonitoringPOPage() {
       return tgl;
     }
 
+    let currentRowIdx = 2; // Start after header
+
     // Add data rows
     exportData.forEach((po) => {
       // Flatten poItems
@@ -1175,84 +1183,133 @@ export default function MonitoringPOPage() {
         });
       }
 
+      const poStartRow = currentRowIdx;
+
+      // Helper to return value or empty string if 0/null
+      const valOrEmpty = (val: any) => (val && Number(val) !== 0) ? Number(val) : "";
+
       if (flatItems.length > 0) {
-        flatItems.forEach((item: any, index: number) => {
-          worksheet.addRow([
-            po.noPO ? po.noPO.toUpperCase() : "",
-            formatTanggalExcel(po.tanggalPO),
-            po.supplier ? po.supplier.toUpperCase() : "",
-            item.namaBarang ? item.namaBarang.toUpperCase() : "",
-            Number(item.jumlahPO || item.jumlahAsli || 0),
-            item.satuan ? item.satuan.toUpperCase() : "",
-            item.keterangan ? item.keterangan.toUpperCase() : "",
-            Number(item.hargaSatuan || 0),
-            item.diskonPersen ? String(item.diskonPersen) : "0",
-            Number(item.diskonNominal || 0),
-            item.ppnItem ? String(item.ppnItem) : "0",
-            Number(item.ppnAmount || 0),
-            Number(item.totalPerItem || 0),
-            Number(po.totalPembayaran || 0),
-            po.orderedBy ? po.orderedBy.toUpperCase() : "",
-            formatTanggalExcel(po.estimasiTanggalTerima),
-            po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "",
-            po.status ? po.status.toUpperCase() : "",
-            po.termin ? po.termin.toUpperCase() : "",
-            po.orderedBy ? po.orderedBy.toUpperCase() : "", // DIBUAT OLEH
-          ]);
+        flatItems.forEach((item: any) => {
+          const row = worksheet.getRow(currentRowIdx);
+
+          // Data Array mapping
+          const rowData = [
+            po.noPO ? po.noPO.toUpperCase() : "",           // 1
+            formatTanggalExcel(po.tanggalPO),               // 2
+            po.supplier ? po.supplier.toUpperCase() : "",   // 3
+            item.namaBarang ? item.namaBarang.toUpperCase() : "", // 4
+            valOrEmpty(item.jumlahPO || item.jumlahAsli),   // 5
+            item.satuan ? item.satuan.toUpperCase() : "",   // 6
+            item.keterangan ? item.keterangan.toUpperCase() : "", // 7
+            valOrEmpty(item.hargaSatuan),                   // 8
+            item.diskonPersen ? String(item.diskonPersen) : "", // 9 (String)
+            valOrEmpty(item.diskonNominal),                 // 10
+            item.ppnItem ? String(item.ppnItem) : "",       // 11
+            valOrEmpty(item.ppnAmount),                     // 12
+            valOrEmpty(item.totalPerItem),                  // 13
+            valOrEmpty(po.totalPembayaran),                 // 14
+            item.namaPembeli ? item.namaPembeli.replace(/_/g, " ").toUpperCase() : "", // 15
+            formatTanggalExcel(po.estimasiTanggalTerima),   // 16
+            po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "", // 17
+            po.status ? po.status.toUpperCase() : "",       // 18
+            po.termin ? po.termin.toUpperCase() : "",       // 19
+            po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "", // 20
+          ];
+
+          // Set Values
+          rowData.forEach((val, idx) => {
+            const cell = row.getCell(idx + 1);
+            cell.value = val;
+
+            // Special handling for Diskon % (Col 9) to ignore text error
+            if (idx + 1 === 9) {
+              // @ts-ignore
+              cell.ignoredErrors = { numberStoredAsText: true };
+            }
+          });
+
+          currentRowIdx++;
         });
       } else {
-        worksheet.addRow([
+        // No items, single row
+        const row = worksheet.getRow(currentRowIdx);
+        const rowData = [
           po.noPO ? po.noPO.toUpperCase() : "",
           formatTanggalExcel(po.tanggalPO),
           po.supplier ? po.supplier.toUpperCase() : "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          Number(po.totalPembayaran || 0),
-          po.orderedBy ? po.orderedBy.toUpperCase() : "",
+          "", "", "", "", "", "", "", "", "", "",
+          valOrEmpty(po.totalPembayaran),
+          "", // 15 (Nama Pembeli not available in single row usually)
           formatTanggalExcel(po.estimasiTanggalTerima),
           po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "",
           po.status ? po.status.toUpperCase() : "",
           po.termin ? po.termin.toUpperCase() : "",
-          po.orderedBy ? po.orderedBy.toUpperCase() : "",
-        ]);
+          po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "",
+        ];
+        rowData.forEach((val, idx) => {
+          row.getCell(idx + 1).value = val;
+        });
+        currentRowIdx++;
+      }
+
+      // Merge Cells check
+      const poEndRow = currentRowIdx - 1;
+      if (poEndRow > poStartRow) {
+        // Columns to merge: 1, 2, 3, 14, 15, 16, 17, 18, 19, 20
+        const mergeCols = [1, 2, 3, 14, 15, 16, 17, 18, 19, 20];
+        mergeCols.forEach(col => {
+          try {
+            worksheet.mergeCells(poStartRow, col, poEndRow, col);
+          } catch (e) { }
+        });
       }
     });
 
     // Set number/currency formats
-    // Column 6: Quantity PO (#,##0)
+    // Column 5: Quantity PO (#,##0)
     // Column 8: Harga Satuan (Currency)
-    // Column 9: Total Pembayaran (Currency)
-    const currencyFmt = '_("Rp"* #,##0_);_("Rp"* (#,##0);_("Rp"* "-"_);_(@_)';
-    worksheet.getColumn(6).numFmt = '#,##0';
-    worksheet.getColumn(8).numFmt = currencyFmt;
-    worksheet.getColumn(9).numFmt = currencyFmt;
+    // Column 10: Diskon Rp
+    // Column 12: PPN Rp
+    // Column 13: Total Item
+    // Column 14: Grand Total (Currency)
+    const currencyFmt = '_("Rp."* #,##0_);_("Rp."* (#,##0);_("Rp."* "-"_);_(@_)';
+
+    // Apply formats to columns
+    worksheet.getColumn(5).numFmt = '#,##0'; // Qty
+    worksheet.getColumn(8).numFmt = currencyFmt; // Harga Satuan
+    worksheet.getColumn(10).numFmt = currencyFmt; // Diskon Rp
+    worksheet.getColumn(12).numFmt = currencyFmt; // PPN Rp
+    worksheet.getColumn(13).numFmt = currencyFmt; // Total
+    worksheet.getColumn(14).numFmt = currencyFmt; // Grand Total
 
     // Auto-fit columns based on max length of cell values
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
       column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
         const cellValue = cell.value ? String(cell.value) : "";
-        maxLength = Math.max(maxLength, cellValue.length + 2);
+        // Add padding to prevent #######
+        const extraPadding = (cellValue.length > 0 && /^\d+$/.test(cellValue)) ? 8 : 4;
+        maxLength = Math.max(maxLength, cellValue.length + extraPadding);
       });
-      column.width = Math.min(maxLength, 50);
+      column.width = Math.min(maxLength, 60);
     });
 
-    // Set row heights for better readability
+    // Set row styling
     worksheet.eachRow((row, rowNumber) => {
       row.height = rowNumber === 1 ? 25 : 20;
       row.alignment = { vertical: "top", horizontal: "left", wrapText: true };
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin" },
+          right: { style: "thin" },
+          bottom: { style: "thin" },
+          left: { style: "thin" },
+        };
+      });
       // Center align specific columns if needed
       if (rowNumber > 1) {
         row.getCell(2).alignment = { vertical: 'top', horizontal: 'center' }; // Tanggal
-        // row.getCell(6).alignment = { vertical: 'top', horizontal: 'right' }; // Qty (default for number)
+        row.getCell(14).alignment = { vertical: 'top', horizontal: 'right' }; // Grand Total
       }
     });
 
@@ -2720,7 +2777,7 @@ export default function MonitoringPOPage() {
                                   rowSpan={allItems.length}
                                   className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase"
                                 >
-                                  {po.orderedBy ?? ""}
+                                  {po.orderedBy?.replace(/_/g, " ") ?? ""}
                                 </TableCell>
                               </>
                             ) : null}

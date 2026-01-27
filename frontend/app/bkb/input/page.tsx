@@ -1713,7 +1713,7 @@ export default function BKBInputPage() {
                                 {/* Diterima Oleh (rowSpan) hanya di baris pertama */}
                                 {itemIdx === 0 && (
                                   <TableCell rowSpan={items.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                                    {userMap[String(item.diterimaOleh)] ?? item.diterimaOleh}
+                                    {String(userMap[String(item.diterimaOleh)] ?? item.diterimaOleh).replace(/_/g, " ")}
                                   </TableCell>
                                 )}
                                 {/* Skema (rowSpan) hanya di baris pertama */}

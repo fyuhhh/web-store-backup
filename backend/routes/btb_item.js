@@ -11,9 +11,18 @@ router.get("/", async (req, res) => {
     let sql = `
       SELECT 
         btb_item.*, 
-        satuan.satuan AS satuanLabel
+        satuan.satuan AS satuanLabel,
+        COALESCE(pr_item.kodeBarang, pr_match.kodeBarang) AS kodeBarang
       FROM btb_item
       LEFT JOIN satuan ON btb_item.id_satuan = satuan.id_satuan
+      LEFT JOIN po_item ON btb_item.id_POItem = po_item.id_POItem
+      LEFT JOIN pr_item ON po_item.id_PRItem = pr_item.id_PRItem
+      LEFT JOIN (
+        SELECT namaBarang, MAX(kodeBarang) as kodeBarang
+        FROM pr_item
+        WHERE kodeBarang IS NOT NULL AND kodeBarang != ''
+        GROUP BY namaBarang
+      ) AS pr_match ON btb_item.nama_barang = pr_match.namaBarang
     `;
     let params = [];
     if (id_btb) {

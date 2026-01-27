@@ -14,14 +14,39 @@ export default function MaintenancePage() {
         // Initial fetch
         const fetchStatus = async () => {
             try {
-                const res = await fetch("http://192.168.10.10:5000/api/maintenance");
+                // Add no-store to ensure fresh data
+                const res = await fetch("http://192.168.10.10:5000/api/maintenance", { cache: "no-store" });
                 const data = await res.json();
+
                 if (data.isActive) {
+                    // Check if we are still in grace period (startTime)
+                    const now = new Date().getTime();
+                    const startTime = data.startTime ? new Date(data.startTime).getTime() : 0;
+
+                    if (startTime > 0 && now < startTime) {
+                        // Still in countdown/grace period, user shouldn't be here!
+                        // Redirect back to dashboard (check role for correct path)
+                        const userRaw = localStorage.getItem("userData");
+                        let targetPath = "/dashboard";
+                        if (userRaw) {
+                            try {
+                                const u = JSON.parse(userRaw);
+                                if (Number(u.id_peran) === 2) {
+                                    targetPath = "/divisi/dashboard";
+                                }
+                            } catch { }
+                        }
+                        window.location.href = targetPath;
+                        return;
+                    }
+
                     setEndTime(data.endTime);
                     setDescription(data.description);
                 } else {
-                    // If not active, redirect back to dashboard
-                    window.location.href = "/dashboard";
+                    // If not active, maintenance is done.
+                    // Redirect to login page and ensure logout.
+                    localStorage.removeItem("userData");
+                    window.location.href = "/login";
                 }
             } catch (err) {
                 console.error(err);
@@ -61,6 +86,11 @@ export default function MaintenancePage() {
         })
     }
 
+    const handleBackToLogin = () => {
+        localStorage.removeItem("userData");
+        window.location.href = "/login";
+    };
+
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-900 p-4">
             <div className="max-w-md w-full text-center space-y-8">
@@ -94,6 +124,15 @@ export default function MaintenancePage() {
                 <p className="text-xs text-gray-400 mt-8">
                     Silakan coba akses beberapa saat lagi. Halaman ini akan otomatis dimuat ulang jika maintenance selesai.
                 </p>
+
+                <div className="pt-4">
+                    <button
+                        onClick={handleBackToLogin}
+                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800"
+                    >
+                        Kembali ke Halaman Login
+                    </button>
+                </div>
             </div>
         </div>
     );

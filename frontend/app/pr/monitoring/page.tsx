@@ -193,6 +193,7 @@ export default function MonitoringPRPage() {
   const [userSkema, setUserSkema] = useState<string>("");
   // Tambahkan state untuk id_skema user
   const [userSkemaId, setUserSkemaId] = useState<string | null>(null);
+  const [isSpecialUser, setIsSpecialUser] = useState(false);
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
@@ -213,7 +214,13 @@ export default function MonitoringPRPage() {
     setUserSkema(userData.skema || "");
     // Ambil id_skema dari localStorage (userData)
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? ""));
-  }, []);
+
+    // Check custom user
+    const userId = userData.id_user || userData.id || null;
+    if (userId && [98, 141].includes(Number(userId))) {
+      setIsSpecialUser(true);
+    }
+  }, [],);
 
   useEffect(() => {
     // loadPRData dipanggil setelah data referensi didapat
@@ -276,6 +283,9 @@ export default function MonitoringPRPage() {
         .map((item: any) => ({
           id_PRItem: item.id_PRItem,
           namaBarang: item.namaBarang || item.namabarang,
+          kodeBarang: item.kodeBarang,
+          spesifikasi: item.spesifikasi,
+          noMR: item.noMR,
           jumlah: item.jumlah,
           quantityAwalPR: item.quantityAwalPR,
           satuan: satuanMap[String(item.id_satuan)] || item.id_satuan,
@@ -834,30 +844,29 @@ export default function MonitoringPRPage() {
       return tgl;
     }
 
-    // Helper untuk bersihkan skema (Not used in columns currently, but kept if needed)
-    // const getSkemaLabel = ...
+    let currentRow = 2; // Start after header
 
     // Prepare and add data rows
     exportPRData.forEach((pr) => {
       // Logic items persis TableBody: const validItems = pr.items || [];
       const validItems = pr.items || [];
+      const startRow = currentRow;
 
       if (validItems.length > 0) {
-        validItems.forEach((item: any, index: number) => {
+        validItems.forEach((item: any) => {
           worksheet.addRow([
-            index === 0 ? (pr.noPR ? pr.noPR.toUpperCase() : "") : "",
-            index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
+            pr.noPR ? pr.noPR.toUpperCase() : "",
+            formatTanggalExcel(pr.tanggalPR),
             item.namaBarang ? item.namaBarang.toUpperCase() : "",
             Number(item.quantityAwalPR || item.jumlah || 0), // Use Number() for correct Excel format
             item.satuan ? item.satuan.toUpperCase() : "",
             item.keterangan ? item.keterangan.toUpperCase() : "",
             pr.urgensi ? pr.urgensi.toUpperCase() : "",
-            index === 0 ? (pr.divisi ? pr.divisi.toUpperCase() : "") : "",
+            pr.divisi ? pr.divisi.toUpperCase() : "",
             pr.status ? pr.status.toUpperCase() : "",
-            index === 0
-              ? (pr.dibuatOleh ? pr.dibuatOleh.toUpperCase() : "")
-              : "",
+            pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "",
           ]);
+          currentRow++;
         });
         // Set number format for 'Kuantitas' (column 4)
         worksheet.getColumn(4).numFmt = '#,##0';
@@ -873,8 +882,23 @@ export default function MonitoringPRPage() {
           pr.urgensi ? pr.urgensi.toUpperCase() : "",
           pr.divisi ? pr.divisi.toUpperCase() : "",
           pr.status ? pr.status.toUpperCase() : "",
-          pr.dibuatOleh ? pr.dibuatOleh.toUpperCase() : "",
+          pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "",
         ]);
+        currentRow++;
+      }
+
+      // Merge cells for PR-level fields if there are multiple items
+      const endRow = currentRow - 1;
+      if (endRow > startRow) {
+        // Columns to merge: 1 (NO. PR), 2 (TANGGAL), 7 (URGENSI), 8 (DIVISI), 9 (STATUS), 10 (DIBUAT OLEH)
+        const mergeCols = [1, 2, 7, 8, 9, 10];
+        mergeCols.forEach((col) => {
+          try {
+            worksheet.mergeCells(startRow, col, endRow, col);
+          } catch (e) {
+            console.error("Error merging cells:", e);
+          }
+        });
       }
     });
 
@@ -1431,6 +1455,23 @@ export default function MonitoringPRPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
+                      {isSpecialUser && (
+                        <TableHead
+                          className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
+                          style={{
+                            position: "sticky",
+                            top: 0,
+                            zIndex: 10,
+                            background: "#f3f4f6",
+                            boxShadow: "inset 0 -2px 0 #d1d5db",
+                            borderRight: "1px solid #d1d5db",
+                          }}
+                        >
+                          <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                            KODE BARANG
+                          </Button>
+                        </TableHead>
+                      )}
                       <TableHead
                         className="min-w-[180px] border border-gray-300 px-3 py-1 text-center"
                         style={{
@@ -1468,6 +1509,25 @@ export default function MonitoringPRPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
+                      {isSpecialUser && (
+                        <>
+                          <TableHead
+                            className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
+                            style={{
+                              position: "sticky",
+                              top: 0,
+                              zIndex: 10,
+                              background: "#f3f4f6",
+                              boxShadow: "inset 0 -2px 0 #d1d5db",
+                              borderRight: "1px solid #d1d5db",
+                            }}
+                          >
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              NO MR
+                            </Button>
+                          </TableHead>
+                        </>
+                      )}
                       <TableHead
                         className="min-w-[90px] border border-gray-300 px-3 py-1 text-center"
                         style={{
@@ -2040,7 +2100,19 @@ export default function MonitoringPRPage() {
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                               {formatTanggal(pr.tanggalPR)}
                             </TableCell>
+                            {isSpecialUser && (
+                              <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                {validItems[0]?.kodeBarang}
+                              </TableCell>
+                            )}
                             <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{validItems[0]?.namaBarang}</TableCell>
+                            {isSpecialUser && (
+                              <>
+                                <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                  {validItems[0]?.noMR}
+                                </TableCell>
+                              </>
+                            )}
                             <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap">
                               {parseFloat(validItems[0]?.quantityAwalPR) % 1 === 0
                                 ? parseInt(validItems[0]?.quantityAwalPR)
@@ -2066,7 +2138,7 @@ export default function MonitoringPRPage() {
                               {getStatusBadge(validItems[0]?.status)}
                             </TableCell>
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                              {pr.dibuatOleh}
+                              {pr.dibuatOleh?.replace(/_/g, " ")}
                             </TableCell>
                             {/* <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                               {skemaOptions.find(
@@ -2092,7 +2164,19 @@ export default function MonitoringPRPage() {
                           </TableRow>
                           {validItems.slice(1).map((item: any, index: number) => (
                             <TableRow key={`${pr.id}-item-${index + 1}`} className="hover:bg-gray-50 transition-colors">
+                              {isSpecialUser && (
+                                <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                  {item.kodeBarang}
+                                </TableCell>
+                              )}
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{item.namaBarang}</TableCell>
+                              {isSpecialUser && (
+                                <>
+                                  <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
+                                    {item.noMR}
+                                  </TableCell>
+                                </>
+                              )}
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap">
                                 {parseFloat(item.quantityAwalPR) % 1 === 0
                                   ? parseInt(item.quantityAwalPR)

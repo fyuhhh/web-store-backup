@@ -2223,7 +2223,7 @@ export default function BTBInputPage() {
                                   className="text-center border-r border-gray-300 align-middle min-w-[100px] uppercase"
                                 >
                                   {/* Diorder oleh dari po.orderedBy */}
-                                  {po.orderedBy}
+                                  {typeof po.orderedBy === "string" ? po.orderedBy.replace(/_/g, " ") : po.orderedBy}
                                 </TableCell>
                               )}
                               {/* {itemIndex === 0 && (

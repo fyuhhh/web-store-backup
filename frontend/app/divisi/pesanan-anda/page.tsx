@@ -29,24 +29,48 @@ export default function PesananAndaPage() {
     const router = useRouter();
     const [items, setItems] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [userDivisiId, setUserDivisiId] = useState<number | null>(null);
+    const [userDivisiId, setUserDivisiId] = useState<string | number | null>(null);
+    const [userSkemaId, setUserSkemaId] = useState<string | null>(null); // New state for Schema
     const [searchTerm, setSearchTerm] = useState("");
 
     useEffect(() => {
-        // 1. Get User Division from localStorage
-        const userRaw = localStorage.getItem("userData");
-        if (userRaw) {
-            try {
-                const user = JSON.parse(userRaw);
-                if (user.id_divisi) {
-                    setUserDivisiId(Number(user.id_divisi));
-                }
-            } catch (e) {
-                console.error("Failed to parse user data", e);
-            }
-        }
+        const initUser = async () => {
+            // 1. Get User Division & Schema from localStorage
+            const userRaw = localStorage.getItem("userData") || localStorage.getItem("user");
+            let userId = "";
+            let initialDivisiId = "";
+            let initialSkemaId = "";
 
-        // 2. Fetch Data
+            if (userRaw) {
+                try {
+                    const user = JSON.parse(userRaw);
+                    userId = user.id || user.id_user;
+                    if (user.id_divisi) initialDivisiId = String(user.id_divisi);
+                    if (user.id_skema) initialSkemaId = String(user.id_skema);
+                } catch (e) {
+                    console.error("Failed to parse user data", e);
+                }
+            }
+
+            // Set initial state from localStorage
+            if (initialDivisiId) setUserDivisiId(initialDivisiId);
+            if (initialSkemaId) setUserSkemaId(initialSkemaId);
+
+            // 2. Fetch Fresh Data (Authoritative)
+            if (userId) {
+                try {
+                    const uRes = await fetch(`http://192.168.10.10:5000/api/user/${userId}`);
+                    const uData = await uRes.json();
+                    if (uData) {
+                        if (uData.id_divisi) setUserDivisiId(String(uData.id_divisi));
+                        if (uData.id_skema) setUserSkemaId(String(uData.id_skema));
+                    }
+                } catch (err) {
+                    console.error("Failed to refresh user data:", err);
+                }
+            }
+        };
+
         const fetchData = async () => {
             try {
                 const [prRes, prItemRes, divisiRes, satuanRes] = await Promise.all([
@@ -69,10 +93,41 @@ export default function PesananAndaPage() {
 
                 if (Array.isArray(prRes) && Array.isArray(prItemRes)) {
                     // Sort PRs by date descending first
+                    // Helper to parse PR number
+                    const parsePRNumber = (prNo: string) => {
+                        if (!prNo) return { year: 0, month: 0, seq: 0 };
+
+                        const romanMap: { [key: string]: number } = {
+                            'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6,
+                            'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10, 'XI': 11, 'XII': 12
+                        };
+
+                        // Try to find year (2 digits) and month (roman)
+                        // Regex: \/(\d{2})\/([IVX]+)(?:\/|$)/
+                        const matchMid = prNo.match(/\/(\d{2})\/([IVX]+)(?:\/|$)/);
+                        let year = 0;
+                        let month = 0;
+
+                        if (matchMid) {
+                            year = parseInt(matchMid[1], 10);
+                            month = romanMap[matchMid[2]] || 0;
+                        }
+
+                        // Sequence: Last numeric part
+                        const matchSeq = prNo.match(/(\d+)(?!.*\d)/);
+                        let seq = matchSeq ? parseInt(matchSeq[1], 10) : 0;
+
+                        return { year, month, seq };
+                    };
+
+                    // Sort PRs by PR Number ASCENDING (Smallest to Largest)
                     prRes.sort((a: any, b: any) => {
-                        const dateA = new Date(a.tanggalPR).getTime();
-                        const dateB = new Date(b.tanggalPR).getTime();
-                        return dateB - dateA;
+                        const pA = parsePRNumber(a.noPR);
+                        const pB = parsePRNumber(b.noPR);
+
+                        if (pA.year !== pB.year) return pA.year - pB.year; // Ascending Year
+                        if (pA.month !== pB.month) return pA.month - pB.month; // Ascending Month
+                        return pA.seq - pB.seq; // Ascending Sequence
                     });
 
                     prRes.forEach((pr: any) => {
@@ -88,6 +143,7 @@ export default function PesananAndaPage() {
                                     noPR: pr.noPR,
                                     tanggalPR: pr.tanggalPR,
                                     id_divisi: pr.id_divisi,
+                                    id_skema: pr.id_skema, // Added id_skema
                                     divisiLabel: divisiMap[pr.id_divisi] || "-",
 
                                     // Item Details
@@ -110,13 +166,20 @@ export default function PesananAndaPage() {
             }
         };
 
+        // Execute logic
+        initUser();
         fetchData();
     }, []);
 
-    // Filter items based on userDivisiId and searchTerm
+    // Filter items based on userDivisiId, userSkemaId, and searchTerm
     const filteredItems = items.filter(item => {
-        const matchesDivisi = userDivisiId ? item.id_divisi === userDivisiId : false;
-        if (!matchesDivisi) return false;
+        // 1. Filter by Division
+        const matchesDivisi = userDivisiId ? String(item.id_divisi) === String(userDivisiId) : false;
+
+        // 2. Filter by Schema (if user has one)
+        const matchesSkema = userSkemaId ? String(item.id_skema) === String(userSkemaId) : true;
+
+        if (!matchesDivisi || !matchesSkema) return false;
 
         const searchLower = searchTerm.toLowerCase();
         return (
@@ -128,7 +191,7 @@ export default function PesananAndaPage() {
 
     return (
         <MainLayout>
-            <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full pb-10">
+            <div className="flex flex-col gap-6 w-full max-w-[98%] mx-auto pb-10 px-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Pesanan Anda</h1>

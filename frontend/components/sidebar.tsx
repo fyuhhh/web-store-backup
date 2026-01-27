@@ -301,7 +301,11 @@ export function Sidebar() {
       }, {
         title: "Broadcast",
         href: "/maintenance/broadcast",
-        icon: Users, // Using Users icon as a placeholder for broadcast
+        icon: Users,
+      }, {
+        title: "Monitoring Akun",
+        href: `/monitoring/akun/${userId}`,
+        icon: UserCircle,
       }];
     }
 

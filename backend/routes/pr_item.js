@@ -55,8 +55,10 @@ router.post("/", async (req, res) => {
   try {
     const {
       id_PR,
+      kodeBarang, // New
       namabarang,
       namaBarang, // accept both versions
+      spesifikasi, // New
       jumlah,
       originaljumlah,
       originalJumlah, // accept both versions
@@ -64,6 +66,7 @@ router.post("/", async (req, res) => {
       quantityAwalPR, // accept both versions
       id_satuan,
       keterangan,
+      noMR // New
     } = req.body;
 
     // Normalize field names and convert to decimal
@@ -91,29 +94,34 @@ router.post("/", async (req, res) => {
     // Query with normalized field names and DECIMAL handling
     const [result] = await db.query(
       `INSERT INTO pr_item 
-      (id_PR, namaBarang, jumlah, originalJumlah, quantityAwalPR, id_satuan, keterangan)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (id_PR, kodeBarang, namaBarang, spesifikasi, jumlah, originalJumlah, quantityAwalPR, id_satuan, keterangan, noMR)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id_PR,
+        kodeBarang || null,
         finalNamaBarang,
+        spesifikasi || null,
         finalJumlah,
         finalOriginalJumlah,
         finalQuantityAwalPR,
         id_satuan,
         keterangan || "",
+        noMR || null
       ]
     );
 
     // Add debug logging
     console.log("Inserted PR Item values:", {
       id_PR,
+      kodeBarang,
       namaBarang: finalNamaBarang,
+      spesifikasi,
       jumlah: finalJumlah,
       originalJumlah: finalOriginalJumlah,
       quantityAwalPR: finalQuantityAwalPR,
       id_satuan,
       keterangan,
-      keterangan,
+      noMR,
     });
 
     // Update PR Status
@@ -134,8 +142,10 @@ router.put("/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const {
+      kodeBarang,
       namaBarang,
       namabarang,
+      spesifikasi,
       jumlah,
       originaljumlah,
       originalJumlah,
@@ -143,6 +153,7 @@ router.put("/:id", async (req, res) => {
       quantityAwalPR,
       id_satuan,
       keterangan,
+      noMR
     } = req.body;
 
     // Build dynamic update query
@@ -157,9 +168,17 @@ router.put("/:id", async (req, res) => {
     const fieldsToUpdate = [];
     const values = [];
 
+    if (kodeBarang !== undefined) {
+      fieldsToUpdate.push("kodeBarang = ?");
+      values.push(kodeBarang);
+    }
     if (finalNamaBarang !== undefined) {
       fieldsToUpdate.push("namaBarang = ?");
       values.push(finalNamaBarang);
+    }
+    if (spesifikasi !== undefined) {
+      fieldsToUpdate.push("spesifikasi = ?");
+      values.push(spesifikasi);
     }
     if (jumlah !== undefined) {
       fieldsToUpdate.push("jumlah = ?");
@@ -180,6 +199,10 @@ router.put("/:id", async (req, res) => {
     if (keterangan !== undefined) {
       fieldsToUpdate.push("keterangan = ?");
       values.push(keterangan);
+    }
+    if (noMR !== undefined) {
+      fieldsToUpdate.push("noMR = ?");
+      values.push(noMR);
     }
 
     if (fieldsToUpdate.length === 0) {

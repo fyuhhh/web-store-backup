@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, CheckCircle2, Clock, Package, ShoppingCart, FileText, Truck, Users, Boxes, Store } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Package, ShoppingCart, FileText, Truck, Users, Boxes, Store, Wallet } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -310,7 +310,7 @@ export default function DetailPesananPage() {
 
     return (
         <MainLayout>
-            <div className="flex flex-col gap-6 max-w-5xl mx-auto pb-10">
+            <div className="flex flex-col gap-6 w-full max-w-[98%] mx-auto pb-10 px-4">
                 {/* Header Navigation */}
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
@@ -423,20 +423,24 @@ export default function DetailPesananPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Card 2: Nama Supplier */}
-                    <Card className="bg-gradient-to-br from-white to-orange-50/50 border-l-4 border-l-orange-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
+                    {/* Card 2: Total Biaya */}
+                    <Card className="bg-gradient-to-br from-white to-green-50/50 border-l-4 border-l-green-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
                         <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
                             <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-slate-500">Supplier</p>
-                                <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
-                                    <Store className="w-5 h-5" />
+                                <p className="text-sm font-medium text-slate-500">Total Biaya</p>
+                                <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                                    <Wallet className="w-5 h-5" />
                                 </div>
                             </div>
                             <div className="overflow-hidden">
-                                <h3 className="text-lg font-bold text-slate-900 truncate" title={poTable[0]?.supplierName || "-"}>
-                                    {poTable[0]?.supplierName || "-"}
+                                <h3 className="text-lg font-bold text-slate-900 truncate">
+                                    {(() => {
+                                        // Sum totalPerItem from all items in poTable (which are already filtered for this PR)
+                                        const totalBiaya = poTable.reduce((sum, item) => sum + (Number(item.totalPerItem) || 0), 0);
+                                        return totalBiaya > 0 ? `Rp ${totalBiaya.toLocaleString('id-ID')}` : "-";
+                                    })()}
                                 </h3>
-                                <p className="text-xs text-slate-500 mt-1">Vendor Terpilih</p>
+                                <p className="text-xs text-slate-500 mt-1">Total Biaya Realisasi</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -460,11 +464,11 @@ export default function DetailPesananPage() {
                     </Card>
 
                     {/* Card 4: Sisa Stok (dari BKB) */}
-                    <Card className="bg-gradient-to-br from-white to-green-50/50 border-l-4 border-l-green-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
+                    <Card className="bg-gradient-to-br from-white to-orange-50/50 border-l-4 border-l-orange-500 shadow-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-md cursor-default">
                         <CardContent className="p-4 flex flex-col justify-between h-full gap-2">
                             <div className="flex items-center justify-between">
                                 <p className="text-sm font-medium text-slate-500">Sisa Stok</p>
-                                <div className="p-2 bg-green-100 rounded-lg text-green-600">
+                                <div className="p-2 bg-orange-100 rounded-lg text-orange-600">
                                     <Package className="w-5 h-5" />
                                 </div>
                             </div>

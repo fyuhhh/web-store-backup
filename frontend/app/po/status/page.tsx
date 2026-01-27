@@ -713,18 +713,18 @@ export default function StatusPOPage() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Status PO");
 
-    // Header sesuai UI persis
+    // Header sesuai UI persis (Updated to Uppercase)
     const headers = [
-      "No. PR",
-      "Tanggal PR",
-      "Nama Barang",
-      "Kuantitas",
-      "Satuan",
-      "Keterangan",
-      "Urgensi",
-      "Divisi",
-      "Status",
-      "Dibuat Oleh",
+      "NO. PR",
+      "TANGGAL PR",
+      "NAMA BARANG",
+      "KUANTITAS",
+      "SATUAN",
+      "KETERANGAN",
+      "URGENSI",
+      "DIVISI",
+      "STATUS",
+      "DIBUAT OLEH",
     ];
 
     const headerRow = worksheet.addRow(headers);
@@ -773,10 +773,10 @@ export default function StatusPOPage() {
             Number(item.jumlah),
             item.satuan,
             item.keterangan || "",
-            index === 0 ? pr.urgensi : "",
-            index === 0 ? pr.divisi : "",
-            index === 0 ? pr.status : "",
-            index === 0 ? pr.dibuatOleh : "",
+            index === 0 ? (pr.urgensi ? pr.urgensi.toUpperCase() : "") : "",
+            index === 0 ? (pr.divisi ? pr.divisi.toUpperCase() : "") : "",
+            index === 0 ? (pr.status ? pr.status.toUpperCase() : "") : "",
+            index === 0 ? (pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "") : "",
           ]);
         });
         worksheet.getColumn(4).numFmt = '#,##0';
@@ -788,10 +788,10 @@ export default function StatusPOPage() {
           "",
           "",
           "",
-          pr.urgensi,
-          pr.divisi,
-          pr.status,
-          pr.dibuatOleh,
+          pr.urgensi ? pr.urgensi.toUpperCase() : "",
+          pr.divisi ? pr.divisi.toUpperCase() : "",
+          pr.status ? pr.status.toUpperCase() : "",
+          pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "",
         ]);
       }
     });
@@ -1756,7 +1756,7 @@ export default function StatusPOPage() {
                               {/* Dibuat Oleh hanya di baris pertama */}
                               {idx === 0 ? (
                                 <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
-                                  {pr.dibuatOleh}
+                                  {pr.dibuatOleh?.replace(/_/g, " ")}
                                 </TableCell>
                               ) : null}
                               {/* Skema hanya di baris pertama */}
