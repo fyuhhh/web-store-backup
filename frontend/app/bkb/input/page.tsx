@@ -45,6 +45,7 @@ import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 
 import ReactDOM from "react-dom"; // tambahkan import ini jika belum ada
+import { API_BASE_URL } from "@/lib/config";
 dayjs.extend(utc);
 
 export default function BKBInputPage() {
@@ -189,12 +190,12 @@ export default function BKBInputPage() {
       try {
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, divisiRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/divisi"),
+            fetch(API_BASE_URL + "/api/btb"),
+            fetch(API_BASE_URL + "/api/btb-item"),
+            fetch(API_BASE_URL + "/api/user"),
+            fetch(API_BASE_URL + "/api/skema"),
+            fetch(API_BASE_URL + "/api/satuan"),
+            fetch(API_BASE_URL + "/api/divisi"),
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();
@@ -286,16 +287,16 @@ export default function BKBInputPage() {
     fetchBTBData();
 
     // Ambil data PR, PO, PO Item, PR Item dari backend
-    fetch("http://192.168.10.10:5000/api/pr")
+    fetch(API_BASE_URL + "/api/pr")
       .then((res) => res.json())
       .then((data) => setPrList(data));
-    fetch("http://192.168.10.10:5000/api/po")
+    fetch(API_BASE_URL + "/api/po")
       .then((res) => res.json())
       .then((data) => setPoList(data));
-    fetch("http://192.168.10.10:5000/api/po-item")
+    fetch(API_BASE_URL + "/api/po-item")
       .then((res) => res.json())
       .then((data) => setPoItemList(data));
-    fetch("http://192.168.10.10:5000/api/pr-item")
+    fetch(API_BASE_URL + "/api/pr-item")
       .then((res) => res.json())
       .then((data) => setPrItemList(data));
   }, []);
@@ -320,7 +321,7 @@ export default function BKBInputPage() {
         const dateParam = formatDateForBackend(tanggal);
         if (!dateParam) return;
 
-        const res = await fetch(`http://192.168.10.10:5000/api/bkb/next-number?id_skema=${skema}&tanggal_bkb=${dateParam}`);
+        const res = await fetch(`${API_BASE_URL}/api/bkb/next-number?id_skema=${skema}&tanggal_bkb=${dateParam}`);
         if (res.ok) {
           const data = await res.json();
           if (data.nextNoBKB) {
@@ -557,7 +558,7 @@ export default function BKBInputPage() {
       try {
         const dateParam = formatDateForBackend(initialDate); // Re-use helper
         if (dateParam && skemaToUse) {
-          const res = await fetch(`http://192.168.10.10:5000/api/bkb/next-number?id_skema=${skemaToUse}&tanggal_bkb=${dateParam}`);
+          const res = await fetch(`${API_BASE_URL}/api/bkb/next-number?id_skema=${skemaToUse}&tanggal_bkb=${dateParam}`);
           if (res.ok) {
             const data = await res.json();
             if (data.nextNoBKB) {
@@ -596,14 +597,14 @@ export default function BKBInputPage() {
   const handleAddDivisi = async () => {
     if (!newDivisi.trim()) return;
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/divisi", {
+      const res = await fetch(API_BASE_URL + "/api/divisi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: newDivisi }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch(API_BASE_URL + "/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -621,11 +622,11 @@ export default function BKBInputPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch(API_BASE_URL + "/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -638,13 +639,13 @@ export default function BKBInputPage() {
   const handleEditDivisi = async (id: string) => {
     if (!editDivisiValue.trim()) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: editDivisiValue }),
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch(API_BASE_URL + "/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -744,13 +745,13 @@ export default function BKBInputPage() {
     };
 
     // --- Tambahkan console log sebelum fetch ---
-    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", "http://192.168.10.10:5000/api/bkb/full");
+    console.log("BKB SUBMIT: Akan dikirim ke endpoint:", API_BASE_URL + "/api/bkb/full");
     console.log("BKB SUBMIT: id_btb yang dikirim:", id_btb);
     console.log("BKB SUBMIT: payload:", payload);
 
     try {
       // Kirim ke endpoint /api/bkb/full agar backend insert bkb + bkb_item sekaligus
-      const res = await fetch("http://192.168.10.10:5000/api/bkb/full", {
+      const res = await fetch(API_BASE_URL + "/api/bkb/full", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

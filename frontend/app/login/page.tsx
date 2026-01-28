@@ -74,6 +74,7 @@ const CardContent = ({ className, ...props }: any) => (
 );
 
 import { motion, AnimatePresence } from "framer-motion";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function LoginPage() {
     const [username, setUsername] = useState("");
@@ -103,7 +104,7 @@ export default function LoginPage() {
         setIsLoading(true);
 
         try {
-            const res = await fetch("http://192.168.10.10:5000/api/user/login", {
+            const res = await fetch(API_BASE_URL + "/api/user/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ nama_pengguna: username, password }),
@@ -137,7 +138,7 @@ export default function LoginPage() {
 
             // --- MAINTENANCE CHECK START ---
             try {
-                const maintRes = await fetch("http://192.168.10.10:5000/api/maintenance");
+                const maintRes = await fetch(API_BASE_URL + "/api/maintenance");
                 const maintData = await maintRes.json();
                 if (maintData.isActive) {
                     const whitelist = ["141", "90", "89", "85"];

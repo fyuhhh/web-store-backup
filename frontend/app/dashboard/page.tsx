@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -37,6 +38,7 @@ import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import "dayjs/locale/id";
+import { API_BASE_URL } from "@/lib/config";
 
 dayjs.extend(isBetween);
 dayjs.locale("id");
@@ -91,7 +93,7 @@ export default function DashboardPage() {
           // Fetch fresh user data to ensure we have the latest id_skema
           const userId = localUser.id || localUser.id_user;
           if (userId) {
-            fetch(`http://192.168.10.10:5000/api/user/${userId}`)
+            fetch(`${API_BASE_URL}/api/user/${userId}`)
               .then((r) => r.json())
               .then((freshUser) => {
                 // Validate if it's a real user object
@@ -180,10 +182,12 @@ export default function DashboardPage() {
   );
   // -----------------------------
 
+
+  // State for loading
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     // BLOCK FETCH UNTIL USER IS LOADED & HAS ID
-    // We strictly need a user object that looks like a user (has id).
-    // If user contains "message" (error from backend), it's not a user.
     const userId = user?.id || user?.id_user;
 
     if (!user || !userId) {
@@ -194,40 +198,22 @@ export default function DashboardPage() {
     // Helper to filter by Schema
     const filterBySchema = (data: any[]) => {
       if (!Array.isArray(data)) return [];
-
       const userSchema = user?.id_skema ?? user?.skema;
 
-      // DEBUG LOG
-      console.log("[Dashboard Filter] Filtering Data:", {
-        userFull: user,
-        userSchema,
-        userId,
-        username: user?.nama_pengguna,
-        dataLength: data.length
-      });
-
-      // If user exists but schema is not found, we generally want to return empty (or handle superadmin).
-      // For now, if no schema is found on a logged-in user, let's assume they are Superadmin/Central allow ALL?
-      // OR if we want to be strict: 
-      // if (!userSchema) return []; 
-
-      if (!user) return data; // Not logged in yet? usually handled by middleware/redirect.
+      if (!user) return data;
 
       if (userSchema === undefined || userSchema === null) {
-        // Check if user role is specifically one that SHOULD have schema (e.g. Pentagon/Ewalk role)
-        // If so, maybe we are still loading?
         console.warn("[Dashboard Filter] No schema found. Displaying ALL data.");
         return data;
       }
 
-      // Filter strictly by id_skema
       const filtered = data.filter((item) => String(item.id_skema) === String(userSchema));
-      console.log(`[Dashboard Filter] Result: ${data.length} -> ${filtered.length} items`);
       return filtered;
     };
 
-    // Fetch total PR item
-    fetch("http://192.168.10.10:5000/api/pr")
+    setIsLoading(true);
+
+    const p1 = fetch(API_BASE_URL + "/api/pr")
       .then((r) => r.json())
       .then((data) => {
         const filtered = filterBySchema(data);
@@ -247,14 +233,12 @@ export default function DashboardPage() {
         setPrStatusCount({ waitingPart, partialPO, waitingPO });
 
         // Calculate Trend & Dist based on same filtered data ( + Date Range)
-        // 1. Filter by Date Range
         const dateFiltered = filtered.filter((pr) => {
           if (!pr.tanggalPR) return false;
           const prDate = dayjs(pr.tanggalPR);
           return prDate.isBetween(startDate, endDate, "day", "[]");
         });
 
-        // 2. Distribusi Status (Filtered by Date & Schema)
         let distWaitingPart = 0,
           distPartialPO = 0,
           distWaitingPO = 0;
@@ -267,7 +251,7 @@ export default function DashboardPage() {
         });
         setPrStatusDist({ waitingPart: distWaitingPart, partialPO: distPartialPO, waitingPO: distWaitingPO });
 
-        // 3. Trend Bulanan (Filtered by Date & Schema)
+        // Trend Bulanan
         const grouped: { [key: string]: any } = {};
         dateFiltered.forEach((pr) => {
           const date = dayjs(pr.tanggalPR);
@@ -294,20 +278,22 @@ export default function DashboardPage() {
         setTrendData({ current: result });
       });
 
-    // Fetch total PO item
-    fetch("http://192.168.10.10:5000/api/po")
+    const p2 = fetch(API_BASE_URL + "/api/po")
       .then((r) => r.json())
       .then((data) => setTotalPOItem(filterBySchema(data).length));
 
-    // Fetch total BTB item
-    fetch("http://192.168.10.10:5000/api/btb")
+    const p3 = fetch(API_BASE_URL + "/api/btb")
       .then((r) => r.json())
       .then((data) => setTotalBTBItem(filterBySchema(data).length));
 
-    // Fetch total BKB item
-    fetch("http://192.168.10.10:5000/api/bkb")
+    const p4 = fetch(API_BASE_URL + "/api/bkb")
       .then((r) => r.json())
       .then((data) => setTotalBKBItem(filterBySchema(data).length));
+
+    Promise.all([p1, p2, p3, p4]).finally(() => {
+      // Add a small delay for smoother transition visually
+      setTimeout(() => setIsLoading(false), 500);
+    });
 
   }, [startDate, endDate, user]);
 
@@ -541,28 +527,32 @@ export default function DashboardPage() {
                     <FileText className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
-                    <div
-                      className="text-2xl font-bold text-foreground"
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        transition: "color 0.3s",
-                        minHeight: "2.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                      }}
-                    >
-                      <span
-                        key={displayPR}
-                        className="pr-1 animate-countup"
+                    {isLoading ? (
+                      <Skeleton className="h-9 w-24 my-1" />
+                    ) : (
+                      <div
+                        className="text-2xl font-bold text-foreground"
                         style={{
-                          display: "inline-block",
-                          minWidth: "2ch",
+                          fontVariantNumeric: "tabular-nums",
+                          transition: "color 0.3s",
+                          minHeight: "2.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
                         }}
                       >
-                        {displayPR}
-                      </span>
-                    </div>
+                        <span
+                          key={displayPR}
+                          className="pr-1 animate-countup"
+                          style={{
+                            display: "inline-block",
+                            minWidth: "2ch",
+                          }}
+                        >
+                          {displayPR}
+                        </span>
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground"></p>
                   </CardContent>
                 </Card>
@@ -625,28 +615,32 @@ export default function DashboardPage() {
                     <PackageOpen className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
-                    <div
-                      className="text-2xl font-bold text-foreground"
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        transition: "color 0.3s",
-                        minHeight: "2.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                      }}
-                    >
-                      <span
-                        key={displayBKB}
-                        className="pr-1 animate-countup"
+                    {isLoading ? (
+                      <Skeleton className="h-9 w-24 my-1" />
+                    ) : (
+                      <div
+                        className="text-2xl font-bold text-foreground"
                         style={{
-                          display: "inline-block",
-                          minWidth: "2ch",
+                          fontVariantNumeric: "tabular-nums",
+                          transition: "color 0.3s",
+                          minHeight: "2.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
                         }}
                       >
-                        {displayBKB}
-                      </span>
-                    </div>
+                        <span
+                          key={displayBKB}
+                          className="pr-1 animate-countup"
+                          style={{
+                            display: "inline-block",
+                            minWidth: "2ch",
+                          }}
+                        >
+                          {displayBKB}
+                        </span>
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground"></p>
                   </CardContent>
                 </Card>
@@ -673,28 +667,32 @@ export default function DashboardPage() {
                     <ShoppingCart className="h-4 w-4 text-primary" />
                   </CardHeader>
                   <CardContent>
-                    <div
-                      className="text-2xl font-bold text-foreground"
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        transition: "color 0.3s",
-                        minHeight: "2.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                      }}
-                    >
-                      <span
-                        key={displayPO}
-                        className="pr-1 animate-countup"
+                    {isLoading ? (
+                      <Skeleton className="h-9 w-24 my-1" />
+                    ) : (
+                      <div
+                        className="text-2xl font-bold text-foreground"
                         style={{
-                          display: "inline-block",
-                          minWidth: "2ch",
+                          fontVariantNumeric: "tabular-nums",
+                          transition: "color 0.3s",
+                          minHeight: "2.5rem",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "flex-start",
                         }}
                       >
-                        {displayPO}
-                      </span>
-                    </div>
+                        <span
+                          key={displayPO}
+                          className="pr-1 animate-countup"
+                          style={{
+                            display: "inline-block",
+                            minWidth: "2ch",
+                          }}
+                        >
+                          {displayPO}
+                        </span>
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground"></p>
                   </CardContent>
                 </Card>
@@ -720,28 +718,32 @@ export default function DashboardPage() {
                   <FileText className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                  <div
-                    className="text-2xl font-bold text-foreground"
-                    style={{
-                      fontVariantNumeric: "tabular-nums",
-                      transition: "color 0.3s",
-                      minHeight: "2.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                    }}
-                  >
-                    <span
-                      key={displayPR}
-                      className="pr-1 animate-countup"
+                  {isLoading ? (
+                    <Skeleton className="h-9 w-24 my-1" />
+                  ) : (
+                    <div
+                      className="text-2xl font-bold text-foreground"
                       style={{
-                        display: "inline-block",
-                        minWidth: "2ch",
+                        fontVariantNumeric: "tabular-nums",
+                        transition: "color 0.3s",
+                        minHeight: "2.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
                       }}
                     >
-                      {displayPR}
-                    </span>
-                  </div>
+                      <span
+                        key={displayPR}
+                        className="pr-1 animate-countup"
+                        style={{
+                          display: "inline-block",
+                          minWidth: "2ch",
+                        }}
+                      >
+                        {displayPR}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground"></p>
                 </CardContent>
               </Card>
@@ -762,28 +764,32 @@ export default function DashboardPage() {
                   <ShoppingCart className="h-4 w-4 text-primary" />
                 </CardHeader>
                 <CardContent>
-                  <div
-                    className="text-2xl font-bold text-foreground"
-                    style={{
-                      fontVariantNumeric: "tabular-nums",
-                      transition: "color 0.3s",
-                      minHeight: "2.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                    }}
-                  >
-                    <span
-                      key={displayPO}
-                      className="pr-1 animate-countup"
+                  {isLoading ? (
+                    <Skeleton className="h-9 w-24 my-1" />
+                  ) : (
+                    <div
+                      className="text-2xl font-bold text-foreground"
                       style={{
-                        display: "inline-block",
-                        minWidth: "2ch",
+                        fontVariantNumeric: "tabular-nums",
+                        transition: "color 0.3s",
+                        minHeight: "2.5rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-start",
                       }}
                     >
-                      {displayPO}
-                    </span>
-                  </div>
+                      <span
+                        key={displayPO}
+                        className="pr-1 animate-countup"
+                        style={{
+                          display: "inline-block",
+                          minWidth: "2ch",
+                        }}
+                      >
+                        {displayPO}
+                      </span>
+                    </div>
+                  )}
                   <p className="text-xs text-muted-foreground"></p>
                 </CardContent>
               </Card>

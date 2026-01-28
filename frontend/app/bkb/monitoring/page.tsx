@@ -49,6 +49,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 dayjs.extend(utc);
 import { useSearchParams } from "next/navigation";
+import { API_BASE_URL } from "@/lib/config";
 
 // Helper format tanggal DD-MM-YYYY
 function formatTanggal(tgl: string | null | undefined) {
@@ -211,7 +212,7 @@ export default function BKBMonitoringPage() {
 
   // Fetch satuan list from backend and build mapping
   useEffect(() => {
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch(API_BASE_URL + "/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         const map: Record<string, string> = {};
@@ -230,14 +231,14 @@ export default function BKBMonitoringPage() {
         // Ambil semua BKB, BKB Item, User, Skema, Satuan, BTB, Divisi, PR
         const [bkbRes, bkbItemRes, userRes, skemaRes, , btbRes, divisiRes, prRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/bkb"),
-            fetch("http://192.168.10.10:5000/api/bkb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/divisi"),
-            fetch("http://192.168.10.10:5000/api/pr"),
+            fetch(API_BASE_URL + "/api/bkb"),
+            fetch(API_BASE_URL + "/api/bkb-item"),
+            fetch(API_BASE_URL + "/api/user"),
+            fetch(API_BASE_URL + "/api/skema"),
+            fetch(API_BASE_URL + "/api/satuan"),
+            fetch(API_BASE_URL + "/api/btb"),
+            fetch(API_BASE_URL + "/api/divisi"),
+            fetch(API_BASE_URL + "/api/pr"),
           ]);
         const bkbList = await bkbRes.json();
         const bkbItemList = await bkbItemRes.json();
@@ -649,7 +650,7 @@ export default function BKBMonitoringPage() {
     try {
       // Untuk setiap item yang dipilih, panggil endpoint restore ke BTB
       for (const bkbItemId of selectedItemIdsToRestore) {
-        await fetch(`http://192.168.10.10:5000/api/bkb-item/restore-to-btb/${bkbItemId}`, {
+        await fetch(`${API_BASE_URL}/api/bkb-item/restore-to-btb/${bkbItemId}`, {
           method: "POST",
         });
       }

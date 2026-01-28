@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Trash2, Plus } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { API_BASE_URL } from "@/lib/config";
 // import "./datepicker-red-weekend.css"; // Reuse existing if available or create valid one
 
 export default function HolidaysPage() {
@@ -27,7 +28,7 @@ export default function HolidaysPage() {
     const fetchHolidays = async () => {
         setLoading(true);
         try {
-            const res = await fetch("http://192.168.10.10:5000/api/holidays");
+            const res = await fetch(API_BASE_URL + "/api/holidays");
             if (!res.ok) throw new Error("Gagal mengambil data libur");
             const data = await res.json();
             setHolidays(data);
@@ -52,7 +53,7 @@ export default function HolidaysPage() {
         const dateStr = `${yyyy}-${mm}-${dd}`;
 
         try {
-            const res = await fetch("http://192.168.10.10:5000/api/holidays", {
+            const res = await fetch(API_BASE_URL + "/api/holidays", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ tanggal: dateStr, description }),
@@ -70,7 +71,7 @@ export default function HolidaysPage() {
     const handleDelete = async (id: number) => {
         if (!confirm("Yakin ingin menghapus hari libur ini?")) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/holidays/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/holidays/${id}`, {
                 method: "DELETE",
             });
             if (!res.ok) throw new Error("Gagal menghapus libur");

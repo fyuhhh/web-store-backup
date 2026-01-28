@@ -62,6 +62,7 @@ import {
 // Pagination removed
 import { type POData, type PRData, type BTBData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/config";
 
 // Tambahkan helper parseNoPO dan sortPOList (sama seperti PO Monitoring)
 function parseNoPO(noPO: string | null | undefined) {
@@ -275,10 +276,10 @@ export default function BTBInputPage() {
     setUserSchema(userData.skema || "");
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
     // Ambil supplier dan skema dari backend
-    fetch("http://192.168.10.10:5000/api/supplier")
+    fetch(API_BASE_URL + "/api/supplier")
       .then((r) => r.json())
       .then((data) => setSupplierList(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch(API_BASE_URL + "/api/skema")
       .then((r) => r.json())
       .then((data) => {
         setSkemaList(data);
@@ -324,7 +325,7 @@ export default function BTBInputPage() {
         const dateParam = formatDateForBackend(tanggal);
         if (!dateParam) return;
 
-        const url = `http://192.168.10.10:5000/api/btb/next-number?id_skema=${id_skema}&tanggal_btb=${dateParam}`;
+        const url = `${API_BASE_URL}/api/btb/next-number?id_skema=${id_skema}&tanggal_btb=${dateParam}`;
         console.log("[Auto-fill BTB] Fetching:", url);
 
         const res = await fetch(url);
@@ -366,15 +367,15 @@ export default function BTBInputPage() {
           skemaRes,
           userRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/supplier", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/status-permintaan", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/skema", { cache: "no-store" }),
-          fetch("http://192.168.10.10:5000/api/user", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/po", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/po-item", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/pr-item", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/pr", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/supplier", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/status-permintaan", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/status-pengiriman", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/skema", { cache: "no-store" }),
+          fetch(API_BASE_URL + "/api/user", { cache: "no-store" }),
         ]);
         const [
           poList,
@@ -663,7 +664,7 @@ export default function BTBInputPage() {
       // Setelah insert header BTB dan dapat id_btb
       // Ambil data PO Item dari backend (pastikan sudah ada di database)
       const poItemsRes = await fetch(
-        "http://192.168.10.10:5000/api/po-item?po=" + id_po
+        API_BASE_URL + "/api/po-item?po=" + id_po
       );
       const poItems = await poItemsRes.json();
 
@@ -734,7 +735,7 @@ export default function BTBInputPage() {
 
       // POST header BTB dengan biaya sesuai qty diterima
       // POST header BTB dengan biaya sesuai qty diterima
-      const btbHeaderRes = await fetch("http://192.168.10.10:5000/api/btb", {
+      const btbHeaderRes = await fetch(API_BASE_URL + "/api/btb", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -772,7 +773,7 @@ export default function BTBInputPage() {
         }
 
         // POST ke btb_item (ubah endpoint)
-        const res = await fetch("http://192.168.10.10:5000/api/btb-item", {
+        const res = await fetch(API_BASE_URL + "/api/btb-item", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

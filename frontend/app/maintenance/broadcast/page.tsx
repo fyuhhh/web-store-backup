@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { AlertCircle, CheckCircle, Volume2, StopCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function BroadcastPage() {
     const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export default function BroadcastPage() {
 
     // Fetch current status
     useEffect(() => {
-        fetch("http://192.168.10.10:5000/api/broadcast")
+        fetch(API_BASE_URL + "/api/broadcast")
             .then(res => res.json())
             .then(d => {
                 // Convert ISO string to datetime-local format (YYYY-MM-DDTHH:mm)
@@ -59,7 +60,7 @@ export default function BroadcastPage() {
                 isActive: active
             };
 
-            const res = await fetch("http://192.168.10.10:5000/api/broadcast", {
+            const res = await fetch(API_BASE_URL + "/api/broadcast", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)

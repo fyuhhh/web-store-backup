@@ -5,6 +5,7 @@ import { AlertCircle, X } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { usePathname } from "next/navigation";
+import { API_BASE_URL } from "@/lib/config";
 
 export function BroadcastListener() {
     const [notification, setNotification] = useState<{
@@ -26,7 +27,7 @@ export function BroadcastListener() {
         // Fungsi fetch status
         const checkBroadcast = async () => {
             try {
-                const res = await fetch("http://192.168.10.10:5000/api/broadcast");
+                const res = await fetch(API_BASE_URL + "/api/broadcast");
                 if (!res.ok) return;
                 const data = await res.json();
 

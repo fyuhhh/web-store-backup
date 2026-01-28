@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Timer } from "lucide-react";
 import { formatDuration, intervalToDuration, type Duration } from "date-fns";
 import { id } from "date-fns/locale";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function MaintenancePage() {
     const [endTime, setEndTime] = useState<string | null>(null);
@@ -15,7 +16,7 @@ export default function MaintenancePage() {
         const fetchStatus = async () => {
             try {
                 // Add no-store to ensure fresh data
-                const res = await fetch("http://192.168.10.10:5000/api/maintenance", { cache: "no-store" });
+                const res = await fetch(API_BASE_URL + "/api/maintenance", { cache: "no-store" });
                 const data = await res.json();
 
                 if (data.isActive) {

@@ -50,6 +50,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
+import { API_BASE_URL } from "@/lib/config";
 
 // Helper untuk format rupiah
 function formatRupiah(val: any) {
@@ -325,21 +326,21 @@ export default function BTBMonitoringPage() {
       const poIdsToCheck = new Set<string>();
       for (const itemId of selectedItemIdsToRestore) {
         // Ambil data item BTB
-        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`);
+        const btbItemRes = await fetch(`${API_BASE_URL}/api/btb-item/${itemId}`);
         if (!btbItemRes.ok) continue;
         const btbItem = await btbItemRes.json();
         // Hapus item BTB (Backend akan handle restore jumlahPO)
-        await fetch(`http://192.168.10.10:5000/api/btb-item/${itemId}`, { method: "DELETE" });
+        await fetch(`${API_BASE_URL}/api/btb-item/${itemId}`, { method: "DELETE" });
 
       }
       // Hapus BTB parent jika semua item sudah dihapus
       for (const { btbId } of selectedBTBItemsForRestore) {
-        const btbItemRes = await fetch(`http://192.168.10.10:5000/api/btb-item?id_btb=${btbId}`);
+        const btbItemRes = await fetch(`${API_BASE_URL}/api/btb-item?id_btb=${btbId}`);
         if (btbItemRes.ok) {
           const items = await btbItemRes.json();
           if (!items || items.length === 0) {
             // Hapus BTB parent pakai id_btb
-            await fetch(`http://192.168.10.10:5000/api/btb/${btbId}`, { method: "DELETE" });
+            await fetch(`${API_BASE_URL}/api/btb/${btbId}`, { method: "DELETE" });
           }
         }
       }
@@ -381,12 +382,12 @@ export default function BTBMonitoringPage() {
         // Ambil semua BTB, BTB Item, User, Skema, Satuan, dan BKB
         const [btbRes, btbItemRes, userRes, skemaRes, satuanRes, bkbRes] =
           await Promise.all([
-            fetch("http://192.168.10.10:5000/api/btb"),
-            fetch("http://192.168.10.10:5000/api/btb-item"),
-            fetch("http://192.168.10.10:5000/api/user"),
-            fetch("http://192.168.10.10:5000/api/skema"),
-            fetch("http://192.168.10.10:5000/api/satuan"),
-            fetch("http://192.168.10.10:5000/api/bkb"), // <-- ambil semua BKB
+            fetch(API_BASE_URL + "/api/btb"),
+            fetch(API_BASE_URL + "/api/btb-item"),
+            fetch(API_BASE_URL + "/api/user"),
+            fetch(API_BASE_URL + "/api/skema"),
+            fetch(API_BASE_URL + "/api/satuan"),
+            fetch(API_BASE_URL + "/api/bkb"), // <-- ambil semua BKB
           ]);
         const btbList = await btbRes.json();
         const btbItemList = await btbItemRes.json();

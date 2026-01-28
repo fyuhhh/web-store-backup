@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/config";
 import {
     Table,
     TableBody,
@@ -101,21 +102,21 @@ export default function DetailPesananPage() {
                     prRes, prItemRes, poRes, poItemRes, btbRes, btbItemRes, bkbRes, bkbItemRes,
                     supplierRes, divisiRes, userRes, satuanRes, skemaRes, statusPengirimanRes, statusPermintaanRes
                 ] = await Promise.all([
-                    fetch("http://192.168.10.10:5000/api/pr").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/pr-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/po").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/po-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/btb").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/btb-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/bkb").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/bkb-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/supplier").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/divisi").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/user").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/satuan").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/skema").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/status-pengiriman").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/status-permintaan").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/pr").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/pr-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/po").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/po-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/btb").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/btb-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/bkb").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/bkb-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/supplier").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/divisi").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/user").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/satuan").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/skema").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/status-pengiriman").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/status-permintaan").then(r => r.json()),
                 ]);
 
                 if (!Array.isArray(prRes)) throw new Error("Invalid PR data");

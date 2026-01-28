@@ -37,6 +37,7 @@ import {
     AlertCircle
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function MonitoringAkunPage() {
     const params = useParams();
@@ -73,15 +74,15 @@ export default function MonitoringAkunPage() {
                     bkbRes,
                     supplierRes
                 ] = await Promise.all([
-                    fetch(`http://192.168.10.10:5000/api/user`).then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/peran").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/divisi").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/skema").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/pr").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/po").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/btb").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/bkb").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/supplier").then(r => r.json()),
+                    fetch(`${API_BASE_URL}/api/user`).then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/peran").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/divisi").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/skema").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/pr").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/po").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/btb").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/bkb").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/supplier").then(r => r.json()),
                 ]);
 
                 // Find Target User

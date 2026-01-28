@@ -76,6 +76,7 @@ import Link from "next/link";
 
 import { type POData, type PRData } from "@/lib/dummy-data";
 import { truncateText } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/config";
 function formatTanggal(tgl: string) {
   if (!tgl) return "";
   // Tampilkan tanggal asli tanpa modifikasi
@@ -284,16 +285,16 @@ export default function MonitoringPOPage() {
         userRes, // <-- tambahkan fetch user
         btbRes, // <-- fetch BTB
       ] = await Promise.all([
-        fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/supplier", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/status-permintaan", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/status-pengiriman", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/skema", { cache: "no-store" }),
-        fetch("http://192.168.10.10:5000/api/user", { cache: "no-store" }), // <-- fetch user
-        fetch("http://192.168.10.10:5000/api/btb", { cache: "no-store" }), // <-- fetch BTB
+        fetch(API_BASE_URL + "/api/po", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/po-item", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/pr-item", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/pr", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/supplier", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/status-permintaan", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/status-pengiriman", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/skema", { cache: "no-store" }),
+        fetch(API_BASE_URL + "/api/user", { cache: "no-store" }), // <-- fetch user
+        fetch(API_BASE_URL + "/api/btb", { cache: "no-store" }), // <-- fetch BTB
       ]);
 
       const [
@@ -678,7 +679,7 @@ export default function MonitoringPOPage() {
         if (mode === "restore") {
           // Ambil data PO item sebelum dihapus
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `${API_BASE_URL}/api/po-item/${itemId}`
           );
           if (!poItemRes.ok) continue;
           const poItem = await poItemRes.json();
@@ -690,7 +691,7 @@ export default function MonitoringPOPage() {
           } else if (poItem.id_PRItem) {
             // Fetch PR Item untuk dapatkan id_PR
             const prItemRes = await fetch(
-              `http://192.168.10.10:5000/api/pr-item/${poItem.id_PRItem}`
+              `${API_BASE_URL}/api/pr-item/${poItem.id_PRItem}`
             );
             if (prItemRes.ok) {
               const prItem = await prItemRes.json();
@@ -711,19 +712,19 @@ export default function MonitoringPOPage() {
         if (!itemId) continue;
         if (mode === "permanent") {
           // Hapus item PO secara permanen
-          await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          await fetch(`${API_BASE_URL}/api/po-item/${itemId}`, {
             method: "DELETE",
           });
         } else if (mode === "restore") {
           // --- RESTORE: Kembalikan item ke PR ---
           // Ambil data PO item
           const poItemRes = await fetch(
-            `http://192.168.10.10:5000/api/po-item/${itemId}`
+            `${API_BASE_URL}/api/po-item/${itemId}`
           );
           const poItem = await poItemRes.json();
 
           // Hapus item PO (cek error BTB)
-          const delRes = await fetch(`http://192.168.10.10:5000/api/po-item/${itemId}`, {
+          const delRes = await fetch(`${API_BASE_URL}/api/po-item/${itemId}`, {
             method: "DELETE",
           });
           if (!delRes.ok) {
@@ -751,7 +752,7 @@ export default function MonitoringPOPage() {
           const prItemId = poItem.id_PRItem;
           // Cek apakah PRItem masih ada
           const prItemRes = await fetch(
-            `http://192.168.10.10:5000/api/pr-item/${prItemId}`
+            `${API_BASE_URL}/api/pr-item/${prItemId}`
           );
           let prItem = null;
           if (prItemRes.ok) {
@@ -762,7 +763,7 @@ export default function MonitoringPOPage() {
             // Do NOT manually update here, otherwise it will add up twice.
           } else {
             // PRItem sudah tidak ada, buat ulang
-            await fetch(`http://192.168.10.10:5000/api/pr-item`, {
+            await fetch(`${API_BASE_URL}/api/pr-item`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -783,7 +784,7 @@ export default function MonitoringPOPage() {
       for (const poId of poIdsToCheck) {
         // Fetch semua item PO dari backend
         const poItemRes = await fetch(
-          `http://192.168.10.10:5000/api/po-item`
+          `${API_BASE_URL}/api/po-item`
         );
         if (poItemRes.ok) {
           const poItems = await poItemRes.json();
@@ -795,7 +796,7 @@ export default function MonitoringPOPage() {
           );
           if (itemsMasihAda.length === 0) {
             // Hapus PO dari backend
-            await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
+            await fetch(`${API_BASE_URL}/api/po/${poId}`, {
               method: "DELETE",
             });
           }
@@ -1364,7 +1365,7 @@ export default function MonitoringPOPage() {
     setConfirmDeleteOpen(false);
     try {
       for (const id of deleteIds) {
-        const res = await fetch(`http://192.168.10.10:5000/api/po/${id}`, {
+        const res = await fetch(`${API_BASE_URL}/api/po/${id}`, {
           method: "DELETE",
         });
         if (!res.ok) {

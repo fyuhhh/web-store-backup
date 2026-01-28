@@ -10,10 +10,12 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function DivisiDashboardPage() {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
+    const [isMounted, setIsMounted] = useState(false); // Animation trigger state
     const [stats, setStats] = useState({ total: 0, selesai: 0, proses: 0 });
     const [recentParams, setRecentParams] = useState<any[]>([]);
     const [currentTime, setCurrentTime] = useState(new Date());
@@ -21,6 +23,88 @@ export default function DivisiDashboardPage() {
     const [userDivisiId, setUserDivisiId] = useState<string | null>(null);
     const [userDivisiName, setUserDivisiName] = useState<string>("");
     const [searchTerm, setSearchTerm] = useState("");
+
+    // --- ANIMATION STATES ---
+    const [displayTotal, setDisplayTotal] = useState(0);
+    const [displayProses, setDisplayProses] = useState(0);
+    const [displaySelesai, setDisplaySelesai] = useState(0);
+
+    // Helper easing
+    function easeOutExpo(x: number) {
+        return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+    }
+
+    // Animate Total
+    useEffect(() => {
+        let raf: number;
+        let start: number | null = null;
+        let from = 0;
+        let to = stats.total;
+        let duration = 1000; // 1s duration
+
+        function animate(ts: number) {
+            if (!start) start = ts;
+            const progress = Math.min((ts - start) / duration, 1);
+            const value = Math.floor(from + (to - from) * easeOutExpo(progress));
+            setDisplayTotal(value);
+            if (progress < 1) {
+                raf = requestAnimationFrame(animate);
+            } else {
+                setDisplayTotal(to);
+            }
+        }
+        setDisplayTotal(0);
+        raf = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(raf);
+    }, [stats.total]);
+
+    // Animate Proses
+    useEffect(() => {
+        let raf: number;
+        let start: number | null = null;
+        let from = 0;
+        let to = stats.proses;
+        let duration = 1000;
+
+        function animate(ts: number) {
+            if (!start) start = ts;
+            const progress = Math.min((ts - start) / duration, 1);
+            const value = Math.floor(from + (to - from) * easeOutExpo(progress));
+            setDisplayProses(value);
+            if (progress < 1) {
+                raf = requestAnimationFrame(animate);
+            } else {
+                setDisplayProses(to);
+            }
+        }
+        setDisplayProses(0);
+        raf = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(raf);
+    }, [stats.proses]);
+
+    // Animate Selesai
+    useEffect(() => {
+        let raf: number;
+        let start: number | null = null;
+        let from = 0;
+        let to = stats.selesai;
+        let duration = 1000;
+
+        function animate(ts: number) {
+            if (!start) start = ts;
+            const progress = Math.min((ts - start) / duration, 1);
+            const value = Math.floor(from + (to - from) * easeOutExpo(progress));
+            setDisplaySelesai(value);
+            if (progress < 1) {
+                raf = requestAnimationFrame(animate);
+            } else {
+                setDisplaySelesai(to);
+            }
+        }
+        setDisplaySelesai(0);
+        raf = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(raf);
+    }, [stats.selesai]);
 
     // Clock Effect
     useEffect(() => {
@@ -32,6 +116,7 @@ export default function DivisiDashboardPage() {
 
     // Data Fetching Effect
     useEffect(() => {
+        setIsMounted(true); // Trigger animation on mount
         const load = async () => {
             try {
                 const storedUser = localStorage.getItem("userData") || localStorage.getItem("user");
@@ -51,7 +136,7 @@ export default function DivisiDashboardPage() {
                         const userId = u.id || u.id_user;
                         if (userId) {
                             try {
-                                const uRes = await fetch(`http://192.168.10.10:5000/api/user/${userId}`);
+                                const uRes = await fetch(`${API_BASE_URL}/api/user/${userId}`);
                                 const uData = await uRes.json();
                                 if (uData) {
                                     if (uData.id_divisi) {
@@ -82,12 +167,12 @@ export default function DivisiDashboardPage() {
                     bkbItemRes,
                     divisiRes
                 ] = await Promise.all([
-                    fetch("http://192.168.10.10:5000/api/pr").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/pr-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/po-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/btb-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/bkb-item").then(r => r.json()),
-                    fetch("http://192.168.10.10:5000/api/divisi").then(r => r.json())
+                    fetch(API_BASE_URL + "/api/pr").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/pr-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/po-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/btb-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/bkb-item").then(r => r.json()),
+                    fetch(API_BASE_URL + "/api/divisi").then(r => r.json())
                 ]);
 
                 // Get Division Name
@@ -193,7 +278,7 @@ export default function DivisiDashboardPage() {
 
     return (
         <MainLayout>
-            <div className="flex flex-col gap-4 max-w-7xl mx-auto pb-6 px-4 sm:px-6 h-full">
+            <div className={`flex flex-col gap-4 max-w-7xl mx-auto pb-6 px-4 sm:px-6 h-full transition-all duration-700 ease-out ${isMounted ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-4 scale-95"}`}>
 
                 {/* Hero Section with Clock */}
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-900 via-blue-900 to-slate-900 text-white shadow-xl shrink-0">
@@ -231,7 +316,9 @@ export default function DivisiDashboardPage() {
                         </CardHeader>
                         <CardContent className="px-4 pb-4">
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-bold text-slate-800">{stats.total}</span>
+                                <span className="text-3xl font-bold text-slate-800 tabular-nums">
+                                    {displayTotal}
+                                </span>
                                 <span className="text-xs text-slate-500">Permintaan</span>
                             </div>
                             <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -249,7 +336,9 @@ export default function DivisiDashboardPage() {
                         </CardHeader>
                         <CardContent className="px-4 pb-4">
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-bold text-slate-800">{stats.proses}</span>
+                                <span className="text-3xl font-bold text-slate-800 tabular-nums">
+                                    {displayProses}
+                                </span>
                                 <span className="text-xs text-slate-500">Sedang Berjalan</span>
                             </div>
                             <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -267,7 +356,9 @@ export default function DivisiDashboardPage() {
                         </CardHeader>
                         <CardContent className="px-4 pb-4">
                             <div className="flex items-baseline gap-2">
-                                <span className="text-3xl font-bold text-slate-800">{stats.selesai}</span>
+                                <span className="text-3xl font-bold text-slate-800 tabular-nums">
+                                    {displaySelesai}
+                                </span>
                                 <span className="text-xs text-slate-500">Terselesaikan</span>
                             </div>
                             <div className="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">

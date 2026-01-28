@@ -37,6 +37,7 @@ dayjs.extend(utc);
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import * as ExcelJS from "exceljs";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function StatusPOPage() {
   const [prData, setPrData] = useState<any[]>([]);
@@ -120,15 +121,15 @@ export default function StatusPOPage() {
   useEffect(() => {
     // Fetch PR, PR Item, satuan, divisi, urgensi dari backend
     const fetchPRData = async () => {
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch(API_BASE_URL + "/api/pr");
       const prList = await prRes.json();
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch(API_BASE_URL + "/api/pr-item");
       const prItemList = await prItemRes.json();
-      const satuanRes = await fetch("http://192.168.10.10:5000/api/satuan");
+      const satuanRes = await fetch(API_BASE_URL + "/api/satuan");
       const satuanList = await satuanRes.json();
-      const divisiRes = await fetch("http://192.168.10.10:5000/api/divisi");
+      const divisiRes = await fetch(API_BASE_URL + "/api/divisi");
       const divisiList = await divisiRes.json();
-      const urgensiRes = await fetch("http://192.168.10.10:5000/api/urgensi");
+      const urgensiRes = await fetch(API_BASE_URL + "/api/urgensi");
       const urgensiList = await urgensiRes.json();
       setPrData(prList);
       setPrItemData(prItemList);

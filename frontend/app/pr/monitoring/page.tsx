@@ -68,6 +68,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type PRData } from "@/lib/dummy-data";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { API_BASE_URL } from "@/lib/config";
 
 const formatTanggal = (dateString: string | undefined) => {
   if (!dateString) return "-";
@@ -197,16 +198,16 @@ export default function MonitoringPRPage() {
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch(API_BASE_URL + "/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch(API_BASE_URL + "/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch(API_BASE_URL + "/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch(API_BASE_URL + "/api/skema")
       .then((res) => res.json())
       .then((data) => setSkemaOptions(data));
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -237,14 +238,14 @@ export default function MonitoringPRPage() {
 
 
   const loadPRData = async () => {
-    const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+    const prRes = await fetch(API_BASE_URL + "/api/pr");
     const prList = await prRes.json();
-    const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+    const prItemRes = await fetch(API_BASE_URL + "/api/pr-item");
     const prItemList = await prItemRes.json();
 
     // Fetch PO Items for validation
     try {
-      const poItemRes = await fetch("http://192.168.10.10:5000/api/po-item");
+      const poItemRes = await fetch(API_BASE_URL + "/api/po-item");
       const poItemList = await poItemRes.json();
       setPoItems(Array.isArray(poItemList) ? poItemList : []);
     } catch (e) { console.error("Failed to fetch PO items", e); }
@@ -388,7 +389,7 @@ export default function MonitoringPRPage() {
         }
         console.log("Deleting PR Item id_PRItem:", idToDelete);
         const resp = await fetch(
-          `http://192.168.10.10:5000/api/pr-item/${idToDelete}`,
+          `${API_BASE_URL}/api/pr-item/${idToDelete}`,
           {
             method: "DELETE",
           }
@@ -415,7 +416,7 @@ export default function MonitoringPRPage() {
     try {
       let anyError = false;
       for (const id of deleteIds) {
-        const resp = await fetch(`http://192.168.10.10:5000/api/pr/${id}`, { method: "DELETE" });
+        const resp = await fetch(`${API_BASE_URL}/api/pr/${id}`, { method: "DELETE" });
         const respJson = await resp.json().catch(() => ({}));
         if (!resp.ok) {
           // Show backend error message if PR cannot be deleted
@@ -425,7 +426,7 @@ export default function MonitoringPRPage() {
           anyError = true;
           continue;
         }
-        await fetch(`http://192.168.10.10:5000/api/pr-item/by-pr/${id}`, {
+        await fetch(`${API_BASE_URL}/api/pr-item/by-pr/${id}`, {
           method: "DELETE",
         });
       }

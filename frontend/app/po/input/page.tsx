@@ -60,6 +60,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import { API_BASE_URL } from "@/lib/config";
 
 function InputPOContent() {
   const [prData, setPrData] = useState<PRData[]>([]);
@@ -113,7 +114,7 @@ function InputPOContent() {
         const dateParam = formatDateForBackend(tanggalPO);
         if (!dateParam) return;
 
-        const res = await fetch(`http://192.168.10.10:5000/api/po/next-number?id_skema=${id_skema}&tanggalPO=${dateParam}`);
+        const res = await fetch(`${API_BASE_URL}/api/po/next-number?id_skema=${id_skema}&tanggalPO=${dateParam}`);
         if (res.ok) {
           const data = await res.json();
           if (data.nextNoPO) {
@@ -522,13 +523,13 @@ function InputPOContent() {
   // Fetch supplier, status_pengiriman, status_permintaan, termin dari backend
   useEffect(() => {
     // ... REST IS SAME ...
-    fetch("http://192.168.10.10:5000/api/supplier")
+    fetch(API_BASE_URL + "/api/supplier")
       .then((res) => res.json())
       .then((data) => setSupplierOptions(data));
-    fetch("http://192.168.10.10:5000/api/status-pengiriman")
+    fetch(API_BASE_URL + "/api/status-pengiriman")
       .then((res) => res.json())
       .then((data) => setStatusPengirimanOptions(data));
-    fetch("http://192.168.10.10:5000/api/termin")
+    fetch(API_BASE_URL + "/api/termin")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -547,7 +548,7 @@ function InputPOContent() {
   // Handler tambah supplier
   const handleAddSupplier = async () => {
     if (!newSupplier.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/supplier", {
+    const res = await fetch(API_BASE_URL + "/api/supplier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ namaSupplier: newSupplier }),
@@ -564,7 +565,7 @@ function InputPOContent() {
   // Handler tambah status pengiriman
   const handleAddStatusPengiriman = async () => {
     if (!newStatusPengiriman.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/status-pengiriman", {
+    const res = await fetch(API_BASE_URL + "/api/status-pengiriman", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status_pengiriman: newStatusPengiriman }),
@@ -585,13 +586,13 @@ function InputPOContent() {
   const handleEditSupplier = async (id: string) => {
     if (!editSupplierValue.trim()) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/supplier/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ namaSupplier: editSupplierValue }),
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
+        fetch(API_BASE_URL + "/api/supplier")
           .then((res) => res.json())
           .then((data) => setSupplierOptions(data));
         setEditSupplierId(null);
@@ -605,11 +606,11 @@ function InputPOContent() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus supplier ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/supplier/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/supplier")
+        fetch(API_BASE_URL + "/api/supplier")
           .then((res) => res.json())
           .then((data) => setSupplierOptions(data));
       }
@@ -621,7 +622,7 @@ function InputPOContent() {
     if (!editStatusPengirimanValue.trim()) return;
     try {
       const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
+        `${API_BASE_URL}/api/status-pengiriman/${id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -631,7 +632,7 @@ function InputPOContent() {
         }
       );
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
+        fetch(API_BASE_URL + "/api/status-pengiriman")
           .then((res) => res.json())
           .then((data) => setStatusPengirimanOptions(data));
         setEditStatusPengirimanId(null);
@@ -646,13 +647,13 @@ function InputPOContent() {
     if (!window.confirm("Yakin ingin menghapus status pengiriman ini?")) return;
     try {
       const res = await fetch(
-        `http://192.168.10.10:5000/api/status-pengiriman/${id}`,
+        `${API_BASE_URL}/api/status-pengiriman/${id}`,
         {
           method: "DELETE",
         }
       );
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/status-pengiriman")
+        fetch(API_BASE_URL + "/api/status-pengiriman")
           .then((res) => res.json())
           .then((data) => setStatusPengirimanOptions(data));
       }
@@ -662,7 +663,7 @@ function InputPOContent() {
   // Handler tambah termin
   const handleAddTermin = async () => {
     if (!newTermin.trim()) return;
-    const res = await fetch("http://192.168.10.10:5000/api/termin", {
+    const res = await fetch(API_BASE_URL + "/api/termin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ termin: newTermin }),
@@ -680,13 +681,13 @@ function InputPOContent() {
   const handleEditTermin = async (id: string) => {
     if (!editTerminValue.trim()) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/termin/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/termin/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ termin: editTerminValue }),
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/termin")
+        fetch(API_BASE_URL + "/api/termin")
           .then((res) => res.json())
           .then((data) => setTerminOptions(data));
         setEditTerminId(null);
@@ -700,11 +701,11 @@ function InputPOContent() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus termin ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/termin/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/termin/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/termin")
+        fetch(API_BASE_URL + "/api/termin")
           .then((res) => res.json())
           .then((data) => {
             setTerminOptions(data);
@@ -781,7 +782,7 @@ function InputPOContent() {
 
       if (isEditing && poId) {
         // --- UPDATE EXISTING PO ---
-        const updateRes = await fetch(`http://192.168.10.10:5000/api/po/${poId}`, {
+        const updateRes = await fetch(`${API_BASE_URL}/api/po/${poId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadHeader),
@@ -824,7 +825,7 @@ function InputPOContent() {
 
             if (item.id_POItem) {
               // UPDATE PO ITEM
-              await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+              await fetch(`${API_BASE_URL}/api/po-item/${item.id_POItem}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(itemPayload),
@@ -842,7 +843,7 @@ function InputPOContent() {
 
       } else {
         // --- CREATE NEW PO ---
-        const res = await fetch("http://192.168.10.10:5000/api/po", {
+        const res = await fetch(API_BASE_URL + "/api/po", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payloadHeader),
@@ -883,7 +884,7 @@ function InputPOContent() {
               id_satuan: item.id_satuan,
             };
 
-            await fetch("http://192.168.10.10:5000/api/po-item", {
+            await fetch(API_BASE_URL + "/api/po-item", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(itemPayload),
@@ -893,7 +894,7 @@ function InputPOContent() {
             const prevQty = item.quantityAwalPR ?? item.jumlahAsli;
             const newRem = Math.max(0, prevQty - item.jumlahPO);
 
-            await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
+            await fetch(`${API_BASE_URL}/api/pr-item/${item.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ jumlah: newRem })
@@ -922,10 +923,10 @@ function InputPOContent() {
     const fetchPRData = async () => {
       // Fetch referensi satuan/divisi/urgensi jika perlu (optional)
       // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch(API_BASE_URL + "/api/pr");
       const prList = await prRes.json();
       // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch(API_BASE_URL + "/api/pr-item");
       const prItemList = await prItemRes.json();
 
       // --- FIX: jangan pakai satuanMap di sini, hanya gunakan label/id langsung ---
@@ -1000,13 +1001,13 @@ function InputPOContent() {
 
   useEffect(() => {
     // Fetch referensi dari backend
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch(API_BASE_URL + "/api/divisi")
       .then((res) => res.json())
       .then((data) => setDivisiOptions(data));
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch(API_BASE_URL + "/api/urgensi")
       .then((res) => res.json())
       .then((data) => setUrgensiOptions(data));
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch(API_BASE_URL + "/api/satuan")
       .then((res) => res.json())
       .then((data) => setSatuanOptions(data));
   }, []);
@@ -1022,10 +1023,10 @@ function InputPOContent() {
         return;
 
       // Fetch PR utama
-      const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+      const prRes = await fetch(API_BASE_URL + "/api/pr");
       const prList = await prRes.json();
       // Fetch PR item
-      const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+      const prItemRes = await fetch(API_BASE_URL + "/api/pr-item");
       const prItemList = await prItemRes.json();
 
       // Helper mapping dari id ke label
@@ -1179,7 +1180,7 @@ function InputPOContent() {
       const fetchEditData = async () => {
         try {
           // 1. Fetch Header PO
-          const poRes = await fetch(`http://192.168.10.10:5000/api/po/${editPoId}`);
+          const poRes = await fetch(`${API_BASE_URL}/api/po/${editPoId}`);
           const poData = await poRes.json();
           if (poData) {
             setPoFormData({
@@ -1204,7 +1205,7 @@ function InputPOContent() {
           }
 
           // 2. Fetch PO Items
-          const itemsRes = await fetch("http://192.168.10.10:5000/api/po-item");
+          const itemsRes = await fetch(API_BASE_URL + "/api/po-item");
           const allItems = await itemsRes.json();
           const currentPoItems = allItems.filter(
             (item: any) => String(item.id_PO) === String(editPoId)
@@ -1213,10 +1214,10 @@ function InputPOContent() {
           // 3. We typically need PR info for these items to group them.
           // Since existing structure expects grouping by PR.
           // We can fetch PR Items to link back `id_PR`.
-          const prItemRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+          const prItemRes = await fetch(API_BASE_URL + "/api/pr-item");
           const allPrItems = await prItemRes.json();
 
-          const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+          const prRes = await fetch(API_BASE_URL + "/api/pr");
           const allPrs = await prRes.json();
 
           // Group by PR

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function MaintenanceAdminPage() {
     const [isActive, setIsActive] = useState(false);
@@ -32,7 +33,7 @@ export default function MaintenanceAdminPage() {
             return;
         }
 
-        fetch("http://192.168.10.10:5000/api/maintenance")
+        fetch(API_BASE_URL + "/api/maintenance")
             .then((res) => res.json())
             .then((data) => {
                 setIsActive(data.isActive);
@@ -75,7 +76,7 @@ export default function MaintenanceAdminPage() {
                 startTimeToSend = d.toISOString();
             }
 
-            const res = await fetch("http://192.168.10.10:5000/api/maintenance", {
+            const res = await fetch(API_BASE_URL + "/api/maintenance", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

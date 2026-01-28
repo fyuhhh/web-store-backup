@@ -40,6 +40,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { API_BASE_URL } from "@/lib/config";
 
 // Tipe data (sesuaikan dengan Input Page)
 interface PRItem {
@@ -142,11 +143,11 @@ export default function EditPOPage() {
     useEffect(() => {
         const fetchReferences = async () => {
             const [supRes, statRes, satRes, divRes, urgRes] = await Promise.all([
-                fetch("http://192.168.10.10:5000/api/supplier"),
-                fetch("http://192.168.10.10:5000/api/status-pengiriman"),
-                fetch("http://192.168.10.10:5000/api/satuan"),
-                fetch("http://192.168.10.10:5000/api/divisi"),
-                fetch("http://192.168.10.10:5000/api/urgensi"),
+                fetch(API_BASE_URL + "/api/supplier"),
+                fetch(API_BASE_URL + "/api/status-pengiriman"),
+                fetch(API_BASE_URL + "/api/satuan"),
+                fetch(API_BASE_URL + "/api/divisi"),
+                fetch(API_BASE_URL + "/api/urgensi"),
             ]);
 
             const [suppliers, statuses, satuans, divisions, urgencies] = await Promise.all([
@@ -178,25 +179,25 @@ export default function EditPOPage() {
         const fetchPOAndItems = async () => {
             try {
                 // 1. Fetch PO Header
-                const poRes = await fetch(`http://192.168.10.10:5000/api/po/${id_PO}`);
+                const poRes = await fetch(`${API_BASE_URL}/api/po/${id_PO}`);
                 if (!poRes.ok) throw new Error("PO not found");
                 const poData = await poRes.json();
                 setPoData(poData);
 
                 // 2. Fetch All PO Items for this PO
-                const poItemsRes = await fetch("http://192.168.10.10:5000/api/po-item");
+                const poItemsRes = await fetch(API_BASE_URL + "/api/po-item");
                 const allPoItems = await poItemsRes.json();
                 const currentPoItems = allPoItems.filter(
                     (item: any) => String(item.id_PO) === String(id_PO)
                 );
 
                 // 3. Fetch All PRs & PR Items for reference (names, units, initial quantities)
-                const prRes = await fetch("http://192.168.10.10:5000/api/pr");
+                const prRes = await fetch(API_BASE_URL + "/api/pr");
                 const prs = await prRes.json();
 
                 // Kita butuh fetch PR items spesifik untuk update quantity "jumlahAsli"
                 // Ambil semua PR Items
-                const prItemsRes = await fetch("http://192.168.10.10:5000/api/pr-item");
+                const prItemsRes = await fetch(API_BASE_URL + "/api/pr-item");
                 const allPrItems = await prItemsRes.json();
 
                 // 4. Map Header Data
@@ -434,7 +435,7 @@ export default function EditPOPage() {
     // Suppliers
     const handleAddSupplier = async () => {
         if (!newSupplier.trim()) return;
-        const res = await fetch("http://192.168.10.10:5000/api/supplier", {
+        const res = await fetch(API_BASE_URL + "/api/supplier", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ namaSupplier: newSupplier }),
@@ -451,14 +452,14 @@ export default function EditPOPage() {
     const handleEditSupplier = async (id: string) => {
         if (!editSupplierValue.trim()) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/supplier/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ namaSupplier: editSupplierValue }),
             });
             if (res.ok) {
                 // refresh
-                const ref = await fetch("http://192.168.10.10:5000/api/supplier");
+                const ref = await fetch(API_BASE_URL + "/api/supplier");
                 setSupplierOptions(await ref.json());
                 setEditSupplierId(null);
                 setEditSupplierValue("");
@@ -469,9 +470,9 @@ export default function EditPOPage() {
     const handleDeleteSupplier = async (id: string) => {
         if (!window.confirm("Yakin ingin menghapus supplier ini?")) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/supplier/${id}`, { method: "DELETE" });
+            const res = await fetch(`${API_BASE_URL}/api/supplier/${id}`, { method: "DELETE" });
             if (res.ok) {
-                const ref = await fetch("http://192.168.10.10:5000/api/supplier");
+                const ref = await fetch(API_BASE_URL + "/api/supplier");
                 setSupplierOptions(await ref.json());
             }
         } catch { }
@@ -480,7 +481,7 @@ export default function EditPOPage() {
     // Status Pengiriman
     const handleAddStatusPengiriman = async () => {
         if (!newStatusPengiriman.trim()) return;
-        const res = await fetch("http://192.168.10.10:5000/api/status-pengiriman", {
+        const res = await fetch(API_BASE_URL + "/api/status-pengiriman", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status_pengiriman: newStatusPengiriman }),
@@ -497,13 +498,13 @@ export default function EditPOPage() {
     const handleEditStatusPengiriman = async (id: string) => {
         if (!editStatusPengirimanValue.trim()) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/status-pengiriman/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/status-pengiriman/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status_pengiriman: editStatusPengirimanValue }),
             });
             if (res.ok) {
-                const ref = await fetch("http://192.168.10.10:5000/api/status-pengiriman");
+                const ref = await fetch(API_BASE_URL + "/api/status-pengiriman");
                 setStatusPengirimanOptions(await ref.json());
                 setEditStatusPengirimanId(null);
                 setEditStatusPengirimanValue("");
@@ -514,9 +515,9 @@ export default function EditPOPage() {
     const handleDeleteStatusPengiriman = async (id: string) => {
         if (!window.confirm("Yakin ingin menghapus status ini?")) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/status-pengiriman/${id}`, { method: "DELETE" });
+            const res = await fetch(`${API_BASE_URL}/api/status-pengiriman/${id}`, { method: "DELETE" });
             if (res.ok) {
-                const ref = await fetch("http://192.168.10.10:5000/api/status-pengiriman");
+                const ref = await fetch(API_BASE_URL + "/api/status-pengiriman");
                 setStatusPengirimanOptions(await ref.json());
             }
         } catch { }
@@ -639,7 +640,7 @@ export default function EditPOPage() {
         try {
             // 1. Reset Items (Backend performs: Restore PR Qty -> Delete PO Items)
             // This ensures we start "clean" with the PRs restored to their pre-PO state
-            const resetRes = await fetch(`http://192.168.10.10:5000/api/po/reset-items/${id_PO}`, {
+            const resetRes = await fetch(`${API_BASE_URL}/api/po/reset-items/${id_PO}`, {
                 method: "POST",
             });
             if (!resetRes.ok) throw new Error("Gagal mereset data lama");
@@ -651,7 +652,7 @@ export default function EditPOPage() {
                 return match ? parseFloat(match[1]) : 0;
             }
 
-            await fetch(`http://192.168.10.10:5000/api/po/${id_PO}`, {
+            await fetch(`${API_BASE_URL}/api/po/${id_PO}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -711,7 +712,7 @@ export default function EditPOPage() {
                     const totalPerItem = afterDiskon + ppnRupiahValue;
 
                     // A. Create PO Item
-                    await fetch("http://192.168.10.10:5000/api/po-item", {
+                    await fetch(API_BASE_URL + "/api/po-item", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -733,12 +734,12 @@ export default function EditPOPage() {
 
                     // B. Update PR Item Quantity (Deduct again)
                     // Fetch current to get generic props if needed
-                    const prItemRes = await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`);
+                    const prItemRes = await fetch(`${API_BASE_URL}/api/pr-item/${item.id}`);
                     const prItemData = await prItemRes.json();
 
                     const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt); // Deduct new PO Qty from Total Avail
 
-                    await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
+                    await fetch(`${API_BASE_URL}/api/pr-item/${item.id}`, {
                         method: "PUT",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -757,14 +758,14 @@ export default function EditPOPage() {
             // Update PR Status (Sync function from Input)
             const prIds = Array.from(new Set(poItems.map((poItem) => poItem.prId)));
             for (const prId of prIds) {
-                const prItemRes = await fetch(`http://192.168.10.10:5000/api/pr-item/pr/${prId}`);
+                const prItemRes = await fetch(`${API_BASE_URL}/api/pr-item/pr/${prId}`);
                 const prItems = await prItemRes.json();
                 const allZero = prItems.every((item: any) => Number(item.jumlah) === 0);
                 const newStatus = allZero ? "Telah Selesai" : "Gantung";
 
-                const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+                const prRes = await fetch(`${API_BASE_URL}/api/pr/${prId}`);
                 const prData = await prRes.json();
-                await fetch(`http://192.168.10.10:5000/api/pr/${prId}`, {
+                await fetch(`${API_BASE_URL}/api/pr/${prId}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({

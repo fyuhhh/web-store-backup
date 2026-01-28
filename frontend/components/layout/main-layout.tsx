@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut, User, ArrowUp } from "lucide-react";
 import { RoleGuard } from "@/components/ui/role-guard";
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
+import { API_BASE_URL } from "@/lib/config";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -65,27 +66,27 @@ export function MainLayout({ children }: MainLayoutProps) {
 
     // Fetch user detail dari backend
     if (parsed?.id_user) {
-      fetch(`http://192.168.10.10:5000/api/user/${parsed.id_user}`)
+      fetch(`${API_BASE_URL}/api/user/${parsed.id_user}`)
         .then((r) => r.json())
         .then((data) => setUserDetail(data))
         .catch(() => setUserDetail(null));
     }
 
     // Fetch semua skema dan peran dan divisi dari backend
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch(API_BASE_URL + "/api/skema")
       .then((r) => r.json())
       .then((data) => setSkemaList(data));
-    fetch("http://192.168.10.10:5000/api/peran")
+    fetch(API_BASE_URL + "/api/peran")
       .then((r) => r.json())
       .then((data) => setPeranList(data));
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch(API_BASE_URL + "/api/divisi")
       .then((r) => r.json())
       .then((data) => setDivisiList(data));
 
     // --- MAINTENANCE CHECK ---
     const checkMaintenance = async () => {
       try {
-        const res = await fetch("http://192.168.10.10:5000/api/maintenance", { cache: "no-store", headers: { "Pragma": "no-cache" } });
+        const res = await fetch(API_BASE_URL + "/api/maintenance", { cache: "no-store", headers: { "Pragma": "no-cache" } });
         const data = await res.json();
 
         if (data.isActive) {

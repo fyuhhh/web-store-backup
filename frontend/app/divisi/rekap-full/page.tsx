@@ -48,6 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExcelJS from "exceljs";
 
 // Tambahkan helper untuk popover keterangan
+import { API_BASE_URL } from "@/lib/config";
 import {
   Popover as HoverPopover,
   PopoverTrigger as HoverPopoverTrigger,
@@ -429,7 +430,7 @@ export default function RekapFullPage() {
             const userId = p.id ?? p.id_user;
             if (userId) {
               try {
-                const uRes = await fetch(`http://192.168.10.10:5000/api/user/${userId}`);
+                const uRes = await fetch(`${API_BASE_URL}/api/user/${userId}`);
                 const uData = await uRes.json();
                 if (uData && uData.id_divisi) {
                   userDivisiId = uData.id_divisi;
@@ -464,21 +465,21 @@ export default function RekapFullPage() {
           satuanRes,
           divisiRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/supplier", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/user", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/skema", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/status-permintaan", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/satuan", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/divisi", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/pr", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/pr-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/po", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/po-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/btb", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/btb-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/bkb", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/bkb-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/supplier", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/user", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/skema", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/status-pengiriman", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/status-permintaan", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/satuan", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/divisi", { cache: "no-store" }).then((r) => r.json()),
         ]);
 
         // --- Build maps locally to ensure availability ---

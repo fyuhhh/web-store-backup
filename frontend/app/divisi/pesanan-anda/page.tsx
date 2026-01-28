@@ -24,6 +24,7 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import 'dayjs/locale/id';
 import { useRouter } from "next/navigation";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function PesananAndaPage() {
     const router = useRouter();
@@ -59,7 +60,7 @@ export default function PesananAndaPage() {
             // 2. Fetch Fresh Data (Authoritative)
             if (userId) {
                 try {
-                    const uRes = await fetch(`http://192.168.10.10:5000/api/user/${userId}`);
+                    const uRes = await fetch(`${API_BASE_URL}/api/user/${userId}`);
                     const uData = await uRes.json();
                     if (uData) {
                         if (uData.id_divisi) setUserDivisiId(String(uData.id_divisi));
@@ -74,10 +75,10 @@ export default function PesananAndaPage() {
         const fetchData = async () => {
             try {
                 const [prRes, prItemRes, divisiRes, satuanRes] = await Promise.all([
-                    fetch("http://192.168.10.10:5000/api/pr").then((r) => r.json()),
-                    fetch("http://192.168.10.10:5000/api/pr-item").then((r) => r.json()),
-                    fetch("http://192.168.10.10:5000/api/divisi").then((r) => r.json()),
-                    fetch("http://192.168.10.10:5000/api/satuan").then((r) => r.json()),
+                    fetch(API_BASE_URL + "/api/pr").then((r) => r.json()),
+                    fetch(API_BASE_URL + "/api/pr-item").then((r) => r.json()),
+                    fetch(API_BASE_URL + "/api/divisi").then((r) => r.json()),
+                    fetch(API_BASE_URL + "/api/satuan").then((r) => r.json()),
                 ]);
 
                 // Create Helper Maps

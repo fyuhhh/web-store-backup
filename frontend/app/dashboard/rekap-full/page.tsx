@@ -47,6 +47,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ExcelJS from "exceljs";
 
 // Tambahkan helper untuk popover keterangan
+import { API_BASE_URL } from "@/lib/config";
 import {
   Popover as HoverPopover,
   PopoverTrigger as HoverPopoverTrigger,
@@ -435,21 +436,21 @@ export default function RekapFullPage() {
           satuanRes,
           divisiRes,
         ] = await Promise.all([
-          fetch("http://192.168.10.10:5000/api/pr", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/pr-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/po-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/btb-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/bkb-item", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/supplier", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/user", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/skema", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/status-pengiriman", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/status-permintaan", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/satuan", { cache: "no-store" }).then((r) => r.json()),
-          fetch("http://192.168.10.10:5000/api/divisi", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/pr", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/pr-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/po", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/po-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/btb", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/btb-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/bkb", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/bkb-item", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/supplier", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/user", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/skema", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/status-pengiriman", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/status-permintaan", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/satuan", { cache: "no-store" }).then((r) => r.json()),
+          fetch(API_BASE_URL + "/api/divisi", { cache: "no-store" }).then((r) => r.json()),
         ]);
 
         // --- Build maps locally to ensure availability ---
@@ -1958,7 +1959,7 @@ export default function RekapFullPage() {
     }
 
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb-item/${item.id_btb_item}`, {
+      await fetch(`${API_BASE_URL}/api/btb-item/${item.id_btb_item}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ delay: customVal }),
@@ -2034,7 +2035,7 @@ export default function RekapFullPage() {
       }
 
       // Update statusTerima di po_item (backend)
-      await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+      await fetch(`${API_BASE_URL}/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusTerima: newStatus }),
@@ -2073,7 +2074,7 @@ export default function RekapFullPage() {
     }
 
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb-item/${targetId}`, {
+      await fetch(`${API_BASE_URL}/api/btb-item/${targetId}`, {
         method: "PUT", // PUT for item update
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: newTarget }),
@@ -2104,7 +2105,7 @@ export default function RekapFullPage() {
         return;
       }
 
-      await fetch(`http://192.168.10.10:5000/api/po-item/${item.id_POItem}`, {
+      await fetch(`${API_BASE_URL}/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusTerima: customVal }),
@@ -2138,7 +2139,7 @@ export default function RekapFullPage() {
     }
 
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb-item/${targetId}`, {
+      await fetch(`${API_BASE_URL}/api/btb-item/${targetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: customVal }),
@@ -2162,7 +2163,7 @@ export default function RekapFullPage() {
 
     setUpdatingTargetId(item.id_btb_item);
     try {
-      await fetch(`http://192.168.10.10:5000/api/btb-item/${item.id_btb_item}`, {
+      await fetch(`${API_BASE_URL}/api/btb-item/${item.id_btb_item}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: "woke bos" }),
@@ -2235,7 +2236,7 @@ export default function RekapFullPage() {
     setUpdatingStatusId(item.noPO);
     try {
       // Cari id_PO dari noPO (harus ada di data PO)
-      const poRes = await fetch("http://192.168.10.10:5000/api/po");
+      const poRes = await fetch(API_BASE_URL + "/api/po");
       const poList = await poRes.json();
       const po = poList.find((p: any) => String(p.noPO) === String(item.noPO));
       if (!po) {
@@ -2244,7 +2245,7 @@ export default function RekapFullPage() {
         return;
       }
       // Update statusterima di backend
-      await fetch(`http://192.168.10.10:5000/api/po/${po.id_PO}`, {
+      await fetch(`${API_BASE_URL}/api/po/${po.id_PO}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ statusterima: "woke bos" }),

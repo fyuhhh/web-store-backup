@@ -27,6 +27,7 @@ import {
 import { Plus, Trash2, X } from "lucide-react";
 import { type PRData } from "@/lib/dummy-data";
 import { useSearchParams } from "next/navigation";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function InputBaruPRPage() {
   const searchParams = useSearchParams();
@@ -84,7 +85,7 @@ export default function InputBaruPRPage() {
         setIsSpecialUser(true);
       }
 
-      fetch(`http://192.168.10.10:5000/api/user`)
+      fetch(`${API_BASE_URL}/api/user`)
         .then((res) => res.json())
         .then((users) => {
           const user = users.find((u: any) => u.id_user === userId);
@@ -109,7 +110,7 @@ export default function InputBaruPRPage() {
     }
 
     // Fetch divisi dari backend
-    fetch("http://192.168.10.10:5000/api/divisi")
+    fetch(API_BASE_URL + "/api/divisi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setDivisiOptions(data);
@@ -117,7 +118,7 @@ export default function InputBaruPRPage() {
       .catch(() => setDivisiOptions([]));
 
     // Fetch urgensi dari backend
-    fetch("http://192.168.10.10:5000/api/urgensi")
+    fetch(API_BASE_URL + "/api/urgensi")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setUrgensiOptions(data);
@@ -125,7 +126,7 @@ export default function InputBaruPRPage() {
       .catch(() => setUrgensiOptions([]));
 
     // Fetch satuan dari backend
-    fetch("http://192.168.10.10:5000/api/satuan")
+    fetch(API_BASE_URL + "/api/satuan")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSatuanOptions(data);
@@ -133,7 +134,7 @@ export default function InputBaruPRPage() {
       .catch(() => setSatuanOptions([]));
 
     // Fetch skema dari backend
-    fetch("http://192.168.10.10:5000/api/skema")
+    fetch(API_BASE_URL + "/api/skema")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) setSkemaOptions(data);
@@ -148,12 +149,12 @@ export default function InputBaruPRPage() {
     const fetchData = async () => {
       try {
         // Fetch PR Header
-        const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${editId}`);
+        const prRes = await fetch(`${API_BASE_URL}/api/pr/${editId}`);
         if (!prRes.ok) throw new Error("Gagal mengambil data PR");
         const prData = await prRes.json();
 
         // Fetch PR Items
-        const itemsRes = await fetch(`http://192.168.10.10:5000/api/pr-item/pr/${editId}`);
+        const itemsRes = await fetch(`${API_BASE_URL}/api/pr-item/pr/${editId}`);
         if (!itemsRes.ok) throw new Error("Gagal mengambil data Items");
         const itemsData = await itemsRes.json();
 
@@ -233,7 +234,7 @@ export default function InputBaruPRPage() {
         const dateParam = formatDateForBackend(tanggalPR);
         if (!dateParam) return;
 
-        const res = await fetch(`http://192.168.10.10:5000/api/pr/next-number?id_skema=${id_skema}&tanggalPR=${dateParam}`);
+        const res = await fetch(`${API_BASE_URL}/api/pr/next-number?id_skema=${id_skema}&tanggalPR=${dateParam}`);
         if (res.ok) {
           const data = await res.json();
           if (data.nextNoPR) {
@@ -380,7 +381,7 @@ export default function InputBaruPRPage() {
         // === UPDATE MODE ===
 
         // 1. Update PR Header
-        const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${editId}`, {
+        const prRes = await fetch(`${API_BASE_URL}/api/pr/${editId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -406,7 +407,7 @@ export default function InputBaruPRPage() {
         // A. Delete removed items
         for (const orgItem of originalItems) {
           if (!currentItemIds.has(String(orgItem.id_PRItem))) {
-            await fetch(`http://192.168.10.10:5000/api/pr-item/${orgItem.id_PRItem}`, { method: "DELETE" });
+            await fetch(`${API_BASE_URL}/api/pr-item/${orgItem.id_PRItem}`, { method: "DELETE" });
           }
         }
 
@@ -428,14 +429,14 @@ export default function InputBaruPRPage() {
 
           if (item.id.startsWith("new-")) {
             // CREATE
-            await fetch("http://192.168.10.10:5000/api/pr-item", {
+            await fetch(API_BASE_URL + "/api/pr-item", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
             });
           } else {
             // UPDATE
-            await fetch(`http://192.168.10.10:5000/api/pr-item/${item.id}`, {
+            await fetch(`${API_BASE_URL}/api/pr-item/${item.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
@@ -450,7 +451,7 @@ export default function InputBaruPRPage() {
 
       } else {
         // === CREATE MODE ===
-        const prRes = await fetch("http://192.168.10.10:5000/api/pr", {
+        const prRes = await fetch(API_BASE_URL + "/api/pr", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -476,7 +477,7 @@ export default function InputBaruPRPage() {
 
         for (const item of formData.items) {
           const jumlah = parseFloat(item.jumlah);
-          await fetch("http://192.168.10.10:5000/api/pr-item", {
+          await fetch(API_BASE_URL + "/api/pr-item", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -561,14 +562,14 @@ export default function InputBaruPRPage() {
   const handleAddDivisi = async () => {
     if (!newDivisi.trim()) return;
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/divisi", {
+      const res = await fetch(API_BASE_URL + "/api/divisi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ divisi: newDivisi }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch(API_BASE_URL + "/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);
@@ -583,14 +584,14 @@ export default function InputBaruPRPage() {
   const handleAddSatuan = async () => {
     if (!newSatuan.trim()) return;
     try {
-      const res = await fetch("http://192.168.10.10:5000/api/satuan", {
+      const res = await fetch(API_BASE_URL + "/api/satuan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ satuan: newSatuan }),
       });
       if (res.ok) {
         // Refresh data
-        fetch("http://192.168.10.10:5000/api/satuan")
+        fetch(API_BASE_URL + "/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -606,11 +607,11 @@ export default function InputBaruPRPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus satuan ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/satuan/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/satuan")
+        fetch(API_BASE_URL + "/api/satuan")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setSatuanOptions(data);
@@ -626,11 +627,11 @@ export default function InputBaruPRPage() {
     if (!id) return;
     if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
     try {
-      const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
         method: "DELETE",
       });
       if (res.ok) {
-        fetch("http://192.168.10.10:5000/api/divisi")
+        fetch(API_BASE_URL + "/api/divisi")
           .then((res) => res.json())
           .then((data) => {
             if (Array.isArray(data)) setDivisiOptions(data);

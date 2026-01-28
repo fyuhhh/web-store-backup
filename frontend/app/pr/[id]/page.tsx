@@ -27,6 +27,7 @@ import {
 import { Plus, Trash2 } from "lucide-react";
 import { type PRData } from "@/lib/dummy-data";
 import { useParams, useRouter } from "next/navigation";
+import { API_BASE_URL } from "@/lib/config";
 
 export default function EditPRPage() {
     const router = useRouter();
@@ -79,10 +80,10 @@ export default function EditPRPage() {
     useEffect(() => {
         // 1. Fetch referensi data
         Promise.all([
-            fetch("http://192.168.10.10:5000/api/divisi").then((res) => res.json()),
-            fetch("http://192.168.10.10:5000/api/urgensi").then((res) => res.json()),
-            fetch("http://192.168.10.10:5000/api/satuan").then((res) => res.json()),
-            fetch("http://192.168.10.10:5000/api/skema").then((res) => res.json()),
+            fetch(API_BASE_URL + "/api/divisi").then((res) => res.json()),
+            fetch(API_BASE_URL + "/api/urgensi").then((res) => res.json()),
+            fetch(API_BASE_URL + "/api/satuan").then((res) => res.json()),
+            fetch(API_BASE_URL + "/api/skema").then((res) => res.json()),
         ])
             .then(([divisiData, urgensiData, satuanData, skemaData]) => {
                 if (Array.isArray(divisiData)) setDivisiOptions(divisiData);
@@ -102,7 +103,7 @@ export default function EditPRPage() {
         try {
             setIsLoading(true);
             // Fetch PR Header
-            const prRes = await fetch(`http://192.168.10.10:5000/api/pr/${prId}`);
+            const prRes = await fetch(`${API_BASE_URL}/api/pr/${prId}`);
             if (!prRes.ok) {
                 setNotif({ type: "error", message: "Gagal mengambil data PR" });
                 return;
@@ -118,7 +119,7 @@ export default function EditPRPage() {
             // Looking at `pr.js` route file, there IS a `api/pr-item/by-pr/:id` DELETE but maybe not GET?
             // Let's check if we can filter from all items.
 
-            const itemsRes = await fetch("http://192.168.10.10:5000/api/pr-item"); // Fetch all items for now
+            const itemsRes = await fetch(API_BASE_URL + "/api/pr-item"); // Fetch all items for now
             const allItems = await itemsRes.json();
             const specificItems = allItems.filter((it: any) => String(it.id_PR) === String(prId));
 
@@ -242,7 +243,7 @@ export default function EditPRPage() {
                 }))
             };
 
-            const res = await fetch(`http://192.168.10.10:5000/api/pr/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/pr/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -310,14 +311,14 @@ export default function EditPRPage() {
     const handleAddDivisi = async () => {
         if (!newDivisi.trim()) return;
         try {
-            const res = await fetch("http://192.168.10.10:5000/api/divisi", {
+            const res = await fetch(API_BASE_URL + "/api/divisi", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ divisi: newDivisi }),
             });
             if (res.ok) {
                 // Refresh data
-                fetch("http://192.168.10.10:5000/api/divisi")
+                fetch(API_BASE_URL + "/api/divisi")
                     .then((res) => res.json())
                     .then((data) => {
                         if (Array.isArray(data)) setDivisiOptions(data);
@@ -330,14 +331,14 @@ export default function EditPRPage() {
     const handleAddSatuan = async () => {
         if (!newSatuan.trim()) return;
         try {
-            const res = await fetch("http://192.168.10.10:5000/api/satuan", {
+            const res = await fetch(API_BASE_URL + "/api/satuan", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ satuan: newSatuan }),
             });
             if (res.ok) {
                 // Refresh data
-                fetch("http://192.168.10.10:5000/api/satuan")
+                fetch(API_BASE_URL + "/api/satuan")
                     .then((res) => res.json())
                     .then((data) => {
                         if (Array.isArray(data)) setSatuanOptions(data);
@@ -353,11 +354,11 @@ export default function EditPRPage() {
         if (!id) return;
         if (!window.confirm("Yakin ingin menghapus satuan ini?")) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/satuan/${id}`, {
                 method: "DELETE",
             });
             if (res.ok) {
-                fetch("http://192.168.10.10:5000/api/satuan")
+                fetch(API_BASE_URL + "/api/satuan")
                     .then((res) => res.json())
                     .then((data) => {
                         if (Array.isArray(data)) setSatuanOptions(data);
@@ -370,13 +371,13 @@ export default function EditPRPage() {
     const handleEditSatuan = async (id: string) => {
         if (!editSatuanValue.trim()) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/satuan/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/satuan/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ satuan: editSatuanValue }),
             });
             if (res.ok) {
-                fetch("http://192.168.10.10:5000/api/satuan")
+                fetch(API_BASE_URL + "/api/satuan")
                     .then((res) => res.json())
                     .then((data) => {
                         if (Array.isArray(data)) setSatuanOptions(data);
@@ -392,11 +393,11 @@ export default function EditPRPage() {
         if (!id) return;
         if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
                 method: "DELETE",
             });
             if (res.ok) {
-                fetch("http://192.168.10.10:5000/api/divisi")
+                fetch(API_BASE_URL + "/api/divisi")
                     .then((res) => res.json())
                     .then((data) => {
                         if (Array.isArray(data)) setDivisiOptions(data);
@@ -409,13 +410,13 @@ export default function EditPRPage() {
     const handleEditDivisi = async (id: string) => {
         if (!editDivisiValue.trim()) return;
         try {
-            const res = await fetch(`http://192.168.10.10:5000/api/divisi/${id}`, {
+            const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ divisi: editDivisiValue }),
             });
             if (res.ok) {
-                fetch("http://192.168.10.10:5000/api/divisi")
+                fetch(API_BASE_URL + "/api/divisi")
                     .then((res) => res.json())
                     .then((data) => {
                         if (Array.isArray(data)) setDivisiOptions(data);
