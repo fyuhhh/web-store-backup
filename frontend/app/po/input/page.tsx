@@ -28,7 +28,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { Edit2, Trash2 } from "lucide-react";
+import { Edit2, Trash2, Plus } from "lucide-react";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -1608,6 +1608,104 @@ function InputPOContent() {
     );
   }
 
+  // --- NEW FEATURE: Missing PR Items ---
+  function getMissingItems() {
+    const missing: Array<{
+      prId: string;
+      noPR: string;
+      items: any[];
+    }> = [];
+
+    // Iterate over currently selected/processed PR groups in poItems
+    poItems.forEach((poGroup) => {
+      // ONLY process groups that actually have items (active in the PO)
+      // If a PR has 0 items in the PO, it's considered "removed" from the transaction, so don't show its missing list.
+      if (!poGroup.items || poGroup.items.length === 0) return;
+
+      // Find original PR data
+      const originalPR = prData.find(
+        (p) => String(p.id) === String(poGroup.prId)
+      );
+      if (!originalPR) return;
+
+      // Find items that are in Original PR but NOT in poGroup.items
+      // Robust ID collection: Check both id and id_PRItem
+      const existingIds = new Set(
+        poGroup.items.map((item) => String(item.id_PRItem || item.id || ""))
+      );
+
+      const itemsLeft = originalPR.items.filter((item: any) => {
+        // item from prData should have id or id_PRItem
+        const itemId = String(item.id || item.id_PRItem || "");
+        // Only show if not in existing AND not explicitly "Ditolak" (if status exists)
+        // AND remaining quantity > 0 (excludes items already fully PO'd in other POs)
+        const isNotRejected = item.status !== "Ditolak" && item.status !== "Cancel";
+        const hasRemainingQty = (Number(item.jumlah) || 0) > 0;
+        return !existingIds.has(itemId) && isNotRejected && hasRemainingQty;
+      });
+
+      if (itemsLeft.length > 0) {
+        missing.push({
+          prId: poGroup.prId,
+          noPR: poGroup.noPR,
+          items: itemsLeft,
+        });
+      }
+    });
+
+    return missing;
+  }
+
+  const handleAddItemFromPR = (prId: string, itemToAdd: any, noPR: string) => {
+    setPoItems((prev) => {
+      // Find original PR for metadata (outside map to avoid repetitive find, but inside is fine for now)
+      const originalPR = prData.find((p) => String(p.id) === String(prId));
+
+      return prev.map((group) => {
+        if (String(group.prId) !== String(prId)) return group;
+
+        // 1. Add item to group
+        const newItem = {
+          id: itemToAdd.id, // ID PR Item
+          namaBarang: itemToAdd.namaBarang,
+          jumlahPO: itemToAdd.quantityAwalPR, // Default to remaining/initial qty
+          jumlahAsli: itemToAdd.quantityAwalPR,
+          satuanLabel: itemToAdd.satuanLabel || itemToAdd.satuan || "",
+          id_satuan: itemToAdd.id_satuan,
+          hargaSatuan: "", // Reset price
+          diskonItem: "",
+          ppnItem: "",
+          keterangan: itemToAdd.keterangan || "",
+          skema: group.skema,
+          dibuatOleh: originalPR?.dibuatOleh || "", // Use originalPR
+          tanggalPR: originalPR?.tanggalPR, // Use originalPR
+        };
+
+        const newItems = [...group.items, newItem];
+
+        // 2. Sort items based on original PR order
+        if (originalPR) {
+          // Create map of ID -> Index
+          const sortMap = new Map();
+          originalPR.items.forEach((it: any, idx: number) => {
+            sortMap.set(String(it.id), idx);
+          });
+
+          newItems.sort((a, b) => {
+            const idxA = sortMap.get(String(a.id)) ?? 9999;
+            const idxB = sortMap.get(String(b.id)) ?? 9999;
+            return idxA - idxB;
+          });
+        }
+
+        return {
+          ...group,
+          items: newItems,
+        };
+      });
+    });
+  };
+
   // Helper untuk label satuan dari satuanOptions
   function getSatuanLabel(satuanValue: string) {
     const found = satuanOptions.find(
@@ -2162,7 +2260,7 @@ function InputPOContent() {
               </div>
 
               {/* Baris 2: Estimasi Tanggal Terima, Status Pengiriman, Nama Pembeli */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
                 {/* Estimasi Tanggal Terima */}
                 <div className="space-y-2">
                   <Label htmlFor="estimasiTanggalDiterima">
@@ -2399,7 +2497,7 @@ function InputPOContent() {
                   </Select>
                 </div>
                 {/* Nama Pembeli (ganti Skema) */}
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-1">
                   <Label htmlFor="namaPembeli">Nama Pembeli</Label>
                   <Input
                     id="namaPembeli"
@@ -2412,7 +2510,7 @@ function InputPOContent() {
                     }
                     placeholder="Masukkan nama pembeli"
                     required
-                    className="border-border focus:border-primary/50 bg-white"
+                    className="border-border focus:border-primary/50 bg-white w-full md:w-[280px]"
                   />
                   {/* Sembunyikan skema, tetap dikirim */}
                   <input
@@ -2420,6 +2518,51 @@ function InputPOContent() {
                     name="skema"
                     value={poFormData.skema}
                   />
+                </div>
+                {/* Item dari PR (New Column) */}
+                <div className="space-y-2 md:col-span-1">
+                  <Label>Item dari PR</Label>
+                  <div className="border rounded-md h-[132px] overflow-y-auto bg-gray-50 text-xs shadow-inner">
+                    {getMissingItems().length === 0 ? (
+                      <div className="h-full flex items-center justify-center">
+                        <p className="text-muted-foreground italic text-[10px]">
+                          Semua item sudah masuk
+                        </p>
+                      </div>
+                    ) : (
+                      getMissingItems().map((group) => (
+                        <div key={group.prId} className="border-b last:border-0">
+                          <div className="bg-gray-100 px-2 py-1 sticky top-0 z-10 border-b border-gray-200">
+                            <p className="font-bold text-[10px] text-primary">
+                              {group.noPR}
+                            </p>
+                          </div>
+                          <div className="p-1 space-y-1">
+                            {group.items.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex justify-between items-center bg-white border border-gray-200 px-2 py-1.5 rounded hover:bg-blue-50 transition-colors group"
+                              >
+                                <span className="line-clamp-2 text-[10px] font-medium text-gray-700 flex-1 mr-2 leading-tight" title={item.namaBarang}>
+                                  {item.namaBarang}
+                                </span>
+                                <Button
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 text-blue-600 bg-blue-50 group-hover:bg-blue-100 group-hover:text-blue-700 rounded-full shrink-0"
+                                  onClick={() => handleAddItemFromPR(group.prId, item, group.noPR)}
+                                  title="Tambahkan ke tabel"
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
 
