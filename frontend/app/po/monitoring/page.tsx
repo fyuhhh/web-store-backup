@@ -164,6 +164,22 @@ export default function MonitoringPOPage() {
   const searchParams = useSearchParams();
   const highlight = searchParams.get("highlight");
 
+  // --- Helper Formatters
+  const formatQuantity = (val: any) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = Number(val);
+    if (!isNaN(num)) return String(num);
+    return val;
+  };
+
+  const formatBiaya = (val: any) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = Number(val);
+    if (isNaN(num)) return val;
+    return "Rp " + num.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+  };
+  // -------------------------------------------
+
   const [poData, setPoData] = useState<POData[]>([]);
   const [prData, setPrData] = useState<PRData[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
@@ -233,6 +249,10 @@ export default function MonitoringPOPage() {
   const [skemaSearchTerm, setSkemaSearchTerm] = useState("");
   const [filterSkema, setFilterSkema] = useState<string[]>([]);
 
+  // --- STATE for Divisi Role ---
+  const [isDivisi, setIsDivisi] = useState(false);
+  // -----------------------------
+
   // Pagination states
   // Pagination removed
   // const [currentPage, setCurrentPage] = useState(1);
@@ -284,6 +304,8 @@ export default function MonitoringPOPage() {
         skemaRes,
         userRes, // <-- tambahkan fetch user
         btbRes, // <-- fetch BTB
+        btbItemRes, // <-- fetch BTB Item
+        divisiRes, // <-- fetch Divisi
       ] = await Promise.all([
         fetch(API_BASE_URL + "/api/po", { cache: "no-store" }),
         fetch(API_BASE_URL + "/api/po-item", { cache: "no-store" }),
@@ -295,6 +317,8 @@ export default function MonitoringPOPage() {
         fetch(API_BASE_URL + "/api/skema", { cache: "no-store" }),
         fetch(API_BASE_URL + "/api/user", { cache: "no-store" }), // <-- fetch user
         fetch(API_BASE_URL + "/api/btb", { cache: "no-store" }), // <-- fetch BTB
+        fetch(API_BASE_URL + "/api/btb-item", { cache: "no-store" }), // <-- fetch BTB Item
+        fetch(API_BASE_URL + "/api/divisi", { cache: "no-store" }), // <-- fetch Divisi
       ]);
 
       const [
@@ -308,6 +332,8 @@ export default function MonitoringPOPage() {
         skemaList,
         userList, // <-- userList
         btbList, // <-- btbList
+        btbItemList, // <-- btbItemList
+        divisiList, // <-- divisiList
       ] = await Promise.all([
         poRes.json(),
         poItemRes.json(),
@@ -316,10 +342,24 @@ export default function MonitoringPOPage() {
         supRes.json(),
         statusPermintaanRes.json(),
         statusPengirimanRes.json(),
+        // Role check
         skemaRes.json(),
         userRes.json(), // <-- userList
         btbRes.json(), // <-- btbList
+        btbItemRes.json(), // <-- btbItemList
+        divisiRes.json(), // <-- divisiList
       ]);
+
+      // --- Mapping User Role from LocalStorage ---
+      const userDataStr = localStorage.getItem("userData");
+      const userDataObj = userDataStr ? JSON.parse(userDataStr) : {};
+      const role = (userDataObj.role || "").toLowerCase();
+      const userId = Number(userDataObj.id || userDataObj.id_user || 0);
+
+      // Logic: Hide ONLY if role is 'divisi' AND user is NOT in allow list (98, 141)
+      const isRestricted = role === "divisi" && ![98, 141].includes(userId);
+      setIsDivisi(isRestricted);
+      // -------------------------------------------
 
       // Create Set of PO IDs that have BTB
       const processedPOIds = new Set(
@@ -357,6 +397,22 @@ export default function MonitoringPOPage() {
       setSkemaMap(skemaMapObj);
       const userMap = Object.fromEntries(
         userList.map((u: any) => [String(u.id_user), u.nama_pengguna])
+      );
+
+      // Map Divisi
+      const divisiMap = Object.fromEntries(
+        (divisiList || []).map((d: any) => [String(d.id_divisi), d.divisi])
+      );
+
+      // Create prDivisiMap & prDateMap
+      const prDivisiMap = Object.fromEntries(
+        prList.map((p: any) => {
+          const divName = divisiMap[String(p.id_divisi)] || "";
+          return [String(p.id_PR), divName];
+        })
+      );
+      const prDateMap = Object.fromEntries(
+        prList.map((p: any) => [String(p.id_PR), p.tanggalPR])
       );
 
       const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -442,6 +498,30 @@ export default function MonitoringPOPage() {
         const prDivisiMap = Object.fromEntries(
           prList.map((p: any) => [String(p.id_PR), p.divisi || ""])
         );
+        // --- TAMBAHAN: Map Tanggal BTB & No BTB dari btbList ---
+        const btbMap = Object.fromEntries(
+          (btbList || []).map((b: any) => [String(b.id_btb), b])
+        );
+
+        // --- Helper: Get BTB Items for a PO Item ---
+        // Group BTB Items by id_POItem
+        const btbItemsByPOItem: Record<string, any[]> = {};
+        (btbItemList || []).forEach((bi: any) => {
+          const pid = String(bi.id_POItem);
+          if (!btbItemsByPOItem[pid]) btbItemsByPOItem[pid] = [];
+          btbItemsByPOItem[pid].push(bi);
+        });
+
+        // Helper: Get Satuan Name
+        const satuanMap = Object.fromEntries(
+          (uniqueSatuan || []).map((s: any) => [s, s])
+        );
+        // Note: uniqueSatuan is computed later from poData, which is circular. 
+        // We can't use uniqueSatuan here easily. 
+        // But btb_item from API usually has `satuanLabel` if using the join query, 
+        // let's check backend btb_item.js... yes it joins with satuan table.
+        // So btbItem.satuanLabel is available.
+
 
         // Group items by PR (noPR)
         const itemsForPO = (poItemList || []).filter(
@@ -454,6 +534,19 @@ export default function MonitoringPOPage() {
           const prItem = prItemMap[String(pi.id_PRItem)] || {};
           const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
           const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
+
+          // --- Cari data BTB terkait item ini ---
+          const relatedBtbItems = btbItemsByPOItem[String(pi.id_POItem)] || [];
+
+          // Concatenate informasinya
+          const noBtbStr = relatedBtbItems.map(bi => btbMap[bi.id_btb]?.no_btb || "-").join(", ");
+          const tglBtbStr = relatedBtbItems.map(bi => formatTanggal(btbMap[bi.id_btb]?.tanggal_btb)).join(", ");
+          const qtyBtbStr = relatedBtbItems.map(bi => formatQuantity(bi.jumlah_diterima)).join(", ");
+          const satuanBtbStr = relatedBtbItems.map(bi => bi.satuanLabel || bi.id_satuan).join(", ");
+          const biayaAmbilStr = relatedBtbItems.map(bi => formatBiaya(bi.biaya)).join(", ");
+          const qtySisaStr = relatedBtbItems.map(bi => formatQuantity(bi.qty_sisa)).join(", ");
+          // --------------------------------------------------------------------------
+
           const item = {
             // --- mapping id_POItem asli dari backend ---
             id_POItem: pi.id_POItem, // <-- ini id yang dipakai untuk hapus
@@ -478,8 +571,22 @@ export default function MonitoringPOPage() {
               typeof pi.totalPerItem !== "undefined" && pi.totalPerItem !== null
                 ? Number(pi.totalPerItem)
                 : undefined,
+            // --- TAMBAHAN: Validasi Divisi user logic ---
+            // Nanti di render pakai user.role, tapi data disiapkan di sini
+
             // --- TAMBAHAN: mapping namaPembeli dari po_item ---
             namaPembeli: pi.namaPembeli ?? "",
+
+            // --- Fields baru untuk tabel ---
+            noPR: noPR,
+            tanggalPR: prDateMap[prId] || "",
+            divisiPR: prDivisiMap[prId] || "", // Rename to avoid confusion with existing logic if any
+            noBTB: noBtbStr,
+            tanggalBTB: tglBtbStr,
+            qtyBTB: qtyBtbStr,
+            satuanBTB: satuanBtbStr,
+            biayaAmbil: biayaAmbilStr,
+            qtyBelumBTB: qtySisaStr,
             status: pi.status,
           };
           const key = String(noPR || prId || "__noPR__");
@@ -1109,6 +1216,14 @@ export default function MonitoringPOPage() {
     const exportData = getExportPOData();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PO");
+    // Check role for export
+    const userDataStr = localStorage.getItem("userData");
+    const userDataObj = userDataStr ? JSON.parse(userDataStr) : {};
+    const role = (userDataObj.role || "").toLowerCase();
+    const userId = Number(userDataObj.id || userDataObj.id_user || 0);
+    const isRestricted = role === "divisi" && ![98, 141].includes(userId);
+    // Use isRestricted variable instead of isDivisi logic below (rename variable usage or keep isDivisi name representing restriction)
+    const isDivisi = isRestricted;
 
     // Header sesuai urutan tabel monitoring PO
     // Header sesuai urutan tabel monitoring PO
@@ -1133,6 +1248,17 @@ export default function MonitoringPOPage() {
       "STATUS PENGIRIMAN",
       "STATUS",
       "TERMIN PEMBAYARAN",
+      ...(isDivisi ? [] : [
+        "NO. PR",
+        "TANGGAL PR",
+        "DIVISI",
+        "NO. BTB",
+        "TANGGAL BTB",
+        "QUANTITY BTB",
+        "SATUAN BTB",
+        "BIAYA",
+        "QUANTITY BELUM BTB"
+      ]),
       "DIBUAT OLEH",
     ];
 
@@ -1214,6 +1340,17 @@ export default function MonitoringPOPage() {
             po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "", // 17
             po.status ? po.status.toUpperCase() : "",       // 18
             po.termin ? po.termin.toUpperCase() : "",       // 19
+            ...(isDivisi ? [] : [
+              item.noPR || "",
+              formatTanggalExcel(item.tanggalPR),
+              item.divisiPR || "",
+              item.noBTB || "",
+              item.tanggalBTB || "",
+              item.qtyBTB || "",
+              item.satuanBTB || "",
+              item.biayaAmbil || "",
+              item.qtyBelumBTB || ""
+            ]),
             po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "", // 20
           ];
 
@@ -1256,8 +1393,9 @@ export default function MonitoringPOPage() {
       // Merge Cells check
       const poEndRow = currentRowIdx - 1;
       if (poEndRow > poStartRow) {
-        // Columns to merge: 1, 2, 3, 14, 15, 16, 17, 18, 19, 20
-        const mergeCols = [1, 2, 3, 14, 15, 16, 17, 18, 19, 20];
+        // Columns to merge: 1, 2, 3, 14, 15, 16, 17, 18, 19, and the last column (DIBUAT OLEH)
+        const lastColIdx = headers.length;
+        const mergeCols = [1, 2, 3, 14, 15, 16, 17, 18, 19, lastColIdx];
         mergeCols.forEach(col => {
           try {
             worksheet.mergeCells(poStartRow, col, poEndRow, col);
@@ -2428,6 +2566,21 @@ export default function MonitoringPOPage() {
                     >
                       TERMIN PEMBAYARAN
                     </TableHead>
+                    {/* --- KOLOM BARU (Hidden for Divisi) --- */}
+                    {/* --- KOLOM BARU (Hidden for Divisi) --- */}
+                    {!isDivisi && (
+                      <>
+                        <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NO. PR</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>TANGGAL PR</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>DIVISI</TableHead>
+                        <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NO. BTB</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>TANGGAL BTB</TableHead>
+                        <TableHead className="min-w-[80px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>QUANTITY BTB</TableHead>
+                        <TableHead className="min-w-[80px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>SATUAN BTB</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>BIAYA</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>QUANTITY BELUM BTB</TableHead>
+                      </>
+                    )}
                     {/* ORDERED BY (Moved to end) */}
                     <TableHead
                       className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
@@ -2773,6 +2926,26 @@ export default function MonitoringPOPage() {
                                 >
                                   {po.termin ?? "-"}
                                 </TableCell>
+                              </>
+                            ) : null}
+
+                            {/* --- KOLOM BARU CELLS (Hidden for Divisi) - Render PER ITEM --- */}
+                            {!isDivisi && (
+                              <>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase">{item.noPR}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{formatTanggal(item.tanggalPR)}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.divisiPR}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase">{item.noBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.tanggalBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase">{item.qtyBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase">{item.satuanBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.biayaAmbil}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.qtyBelumBTB}</TableCell>
+                              </>
+                            )}
+
+                            {itemIndex === 0 ? (
+                              <>
                                 <TableCell
                                   key="orderedBy"
                                   rowSpan={allItems.length}
