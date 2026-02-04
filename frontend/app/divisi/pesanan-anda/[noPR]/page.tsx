@@ -18,6 +18,7 @@ import { useParams, useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import { cn } from "@/lib/utils";
 import { API_BASE_URL } from "@/lib/config";
+import { logActivity } from "@/utils/activity";
 import {
     Table,
     TableBody,
@@ -145,7 +146,20 @@ export default function DetailPesananPage() {
                 // Enrich PR with Divisi Name
                 foundPR.nama_divisi = divisiMap[String(foundPR.id_divisi)] || foundPR.id_divisi;
                 foundPR.dibuatOlehName = userMap[String(foundPR.dibuatOleh)] || foundPR.dibuatOleh; // Enrich Created By Name
+
                 setPrData(foundPR);
+
+                // Log Activity: View PR
+                const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
+                if (userDataLocal.id_user || userDataLocal.id) {
+                    logActivity({
+                        id_user: userDataLocal.id_user || userDataLocal.id,
+                        nama_pengguna: userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
+                        action_type: "VIEW_PR",
+                        entity_id: foundPR.noPR,
+                        details: `Melihat detail pesanan ${foundPR.noPR}`
+                    });
+                }
 
                 // 2. PR Items Table
                 const relatedPrItems = Array.isArray(prItemRes)

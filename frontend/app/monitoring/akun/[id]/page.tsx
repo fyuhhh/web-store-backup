@@ -41,14 +41,6 @@ export default function MonitoringAkunPage() {
     const userId = params.id;
 
     // --- REALTIME OR STATIC SWITCH ---
-    // User requested "user id 141 monitoring account changes function and appearance"
-    // So if viewed BY 141 (or VIEWING 141?), the request says "user with id user 141... monitoring account changes appearance... contains who is accessing... live"
-    // It seems they want the "Monitoring Akun" page FOR user 141 to BECOME this global dashboard.
-    // Or maybe they want anyone viewing User 141's profile to see this?
-    // "agar user dengan id user 141 itu monitoring akun berubah tampilan dan fungsi"
-    // Translation: "I want for my app so that [for] user with id 141, the monitoring account [page] changes appearance and function..."
-    // This implies when ID 141 visits this page (or specifically their own profile page), it shows the dashboard.
-
     const [isMonitorMode, setIsMonitorMode] = useState(false);
 
     // Auth Check for 141
@@ -135,8 +127,6 @@ export default function MonitoringAkunPage() {
         if (!userId) return;
 
         const fetchData = async () => {
-            // ... Fetch Logic from original file ...
-            // (Simplified replication for brevity, assuming standard fetch flow)
             try {
                 setLoading(true);
                 // Fetch basic user data only for now to restore view
@@ -144,7 +134,6 @@ export default function MonitoringAkunPage() {
                 if (!userRes) throw new Error("User not found");
 
                 // We need roles/divisi names, etc.
-                // Re-implementing the full fetch chain is safer to ensure it works for others
                 const [
                     peranRes,
                     divisiRes,
@@ -153,7 +142,8 @@ export default function MonitoringAkunPage() {
                     poRes,
                     btbRes,
                     bkbRes,
-                    supplierRes
+                    supplierRes,
+                    logsRes
                 ] = await Promise.all([
                     fetch(API_BASE_URL + "/api/peran").then(r => r.json()),
                     fetch(API_BASE_URL + "/api/divisi").then(r => r.json()),
@@ -163,6 +153,7 @@ export default function MonitoringAkunPage() {
                     fetch(API_BASE_URL + "/api/btb").then(r => r.json()),
                     fetch(API_BASE_URL + "/api/bkb").then(r => r.json()),
                     fetch(API_BASE_URL + "/api/supplier").then(r => r.json()),
+                    fetch(`${API_BASE_URL}/api/activity-logs?user_id=${userId}&limit=20`).then(r => r.json())
                 ]);
 
                 // Transform User
@@ -177,7 +168,7 @@ export default function MonitoringAkunPage() {
                     skemaName: skema?.skema || "-"
                 });
 
-                // Simple activity aggregation (Copied logic)
+                // Simple activity aggregation (Copied logic) - KEEP FOR STATS ONLY
                 const numericId = Number(userId);
                 let acts: any[] = [];
 
@@ -186,17 +177,28 @@ export default function MonitoringAkunPage() {
                 // PO
                 if (Array.isArray(poRes)) poRes.filter((x: any) => Number(x.orderedBy) === numericId).forEach((x: any) => acts.push({ type: 'PO', id: x.noPO, date: x.tanggalPO, desc: 'Membuat PO' }));
 
-                sets: // ... sort
                 acts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 setActivities(acts);
                 setStats({
                     pr: acts.filter(a => a.type === "PR").length,
                     po: acts.filter(a => a.type === "PO").length,
-                    btb: 0, // Simplification
+                    btb: 0,
                     bkb: 0
                 });
 
-            } catch (e) { console.error(e); } finally { setLoading(false); }
+                // Set Logs from API for the Feed
+                if (Array.isArray(logsRes)) {
+                    setLogs(logsRes);
+                } else {
+                    setLogs([]);
+                }
+
+            } catch (e) {
+                console.error(e);
+                setLogs([]);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchData();
     }, [userId, isMonitorMode]);
@@ -315,18 +317,8 @@ export default function MonitoringAkunPage() {
                                 <CardTitle>Riwayat Aktivitas (Terakhir)</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {activities.length === 0 ? <p className="text-muted-foreground text-center py-4">Tidak ada aktivitas.</p> : (
-                                    <ul className="space-y-4">
-                                        {activities.slice(0, 5).map((act, i) => (
-                                            <li key={i} className="flex justify-between items-center border-b pb-2 last:border-0">
-                                                <div>
-                                                    <p className="font-medium text-sm">{act.desc}</p>
-                                                    <p className="text-xs text-muted-foreground">{new Date(act.date).toLocaleDateString()}</p>
-                                                </div>
-                                                <Badge variant="outline">{act.type}</Badge>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                {logs.length === 0 ? <p className="text-muted-foreground text-center py-4">Tidak ada aktivitas.</p> : (
+                                    <LiveActivityFeed logs={logs} />
                                 )}
                             </CardContent>
                         </Card>

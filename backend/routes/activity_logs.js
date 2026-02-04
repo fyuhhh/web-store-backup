@@ -22,14 +22,24 @@ export async function ensureActivityLogTable() {
     }
 }
 
-// GET latest logs (e.g. limit 100)
+// GET latest logs (e.g. limit 100, optional user_id filter)
 router.get("/", async (req, res) => {
     try {
         const limit = req.query.limit ? parseInt(req.query.limit) : 50;
-        const [rows] = await db.query(
-            "SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT ?",
-            [limit]
-        );
+        const userId = req.query.user_id;
+
+        let query = "SELECT id, user_id as id_user, username as nama_pengguna, action as action_type, details, timestamp FROM activity_logs";
+        const params = [];
+
+        if (userId) {
+            query += " WHERE user_id = ?";
+            params.push(userId);
+        }
+
+        query += " ORDER BY timestamp DESC LIMIT ?";
+        params.push(limit);
+
+        const [rows] = await db.query(query, params);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });

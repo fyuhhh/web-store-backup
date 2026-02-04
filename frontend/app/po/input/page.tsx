@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Edit2, Trash2, Plus } from "lucide-react";
+import { type PRData, type PRItem, type POData } from "@/lib/dummy-data";
 
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -61,6 +62,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { API_BASE_URL } from "@/lib/config";
+import { logActivity } from "@/utils/activity";
 
 function InputPOContent() {
   const [prData, setPrData] = useState<PRData[]>([]);
@@ -904,6 +906,16 @@ function InputPOContent() {
 
         localStorage.removeItem("selectedPRsForPO");
         setNotif({ type: "success", message: "PO berhasil dibuat!" });
+
+        // Log Activity
+        await logActivity({
+          id_user: orderedById,
+          nama_pengguna: userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
+          action_type: "CREATE_PO",
+          entity_id: data.noPO || poFormData.noPO,
+          details: "Membuat PO baru"
+        });
+
         setTimeout(() => {
           window.location.href = "/po/status";
         }, 1500);

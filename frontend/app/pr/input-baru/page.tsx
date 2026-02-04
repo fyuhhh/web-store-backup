@@ -25,9 +25,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Trash2, X } from "lucide-react";
-import { type PRData } from "@/lib/dummy-data";
+import { type PRData, type PRItem, type POData } from "@/lib/dummy-data";
 import { useSearchParams } from "next/navigation";
 import { API_BASE_URL } from "@/lib/config";
+import { logActivity } from "@/utils/activity";
 
 export default function InputBaruPRPage() {
   const searchParams = useSearchParams();
@@ -504,6 +505,17 @@ export default function InputBaruPRPage() {
             }),
           });
         }
+
+
+
+        // Log Activity
+        await logActivity({
+          id_user: userDataLocal.id_user || userDataLocal.id,
+          nama_pengguna: userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
+          action_type: "CREATE_PR",
+          entity_id: formData.noPR,
+          details: "Membuat PR baru"
+        });
 
         resetForm();
         setNotif({ type: "success", message: "PR berhasil dibuat!" });
