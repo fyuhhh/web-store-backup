@@ -730,8 +730,11 @@ export default function InputBaruPRPage() {
               {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
               {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
               {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                <div className="md:col-span-4">
+              {/* Header: Single Row (3-2-2-3-2) */}
+              {/* Header: Single Row (3-2-2-2-2) - Tighter Gap */}
+              {/* Header: Weighted Grid for Consistent Spacing & Control */}
+              <div className="grid grid-cols-1 md:grid-cols-[3fr_1.2fr_1.2fr_1.2fr_1.2fr] gap-2">
+                <div className="w-full">
                   <Label htmlFor="noPR">NO. PR</Label>
                   <Input
                     id="noPR"
@@ -744,7 +747,7 @@ export default function InputBaruPRPage() {
                     className="w-full"
                   />
                 </div>
-                <div className="md:col-span-4">
+                <div className="w-full">
                   <Label htmlFor="tanggalPR">TANGGAL PR</Label>
                   <DatePicker
                     id="tanggalPR"
@@ -755,6 +758,7 @@ export default function InputBaruPRPage() {
                     dateFormat="dd-MM-yyyy"
                     placeholderText="Pilih tanggal"
                     className="w-full px-3 py-2 border rounded-md bg-white"
+                    wrapperClassName="w-full"
                     popperPlacement="bottom"
                     showMonthDropdown
                     showYearDropdown
@@ -774,7 +778,7 @@ export default function InputBaruPRPage() {
                   />
                 </div>
 
-                <div className="md:col-span-4">
+                <div className="w-full">
                   <Label htmlFor="noMR">NO. MR</Label>
                   <Input
                     id="noMR"
@@ -786,7 +790,7 @@ export default function InputBaruPRPage() {
                     className="w-full"
                   />
                 </div>
-                <div className="md:col-span-6">
+                <div className="w-full">
                   <Label htmlFor="divisi">DIVISI</Label>
                   <div className="relative">
                     <Select
@@ -939,7 +943,7 @@ export default function InputBaruPRPage() {
                     )}
                   </div>
                 </div>
-                <div className="md:col-span-6">
+                <div className="w-full">
                   <Label htmlFor="urgensi">URGENSI</Label>
                   <Select
                     value={formData.urgensi}
@@ -990,13 +994,13 @@ export default function InputBaruPRPage() {
                 {formData.items.map((item, index) => (
                   <div
                     key={item.id}
-                    className={`grid grid-cols-1 md:grid-cols-12 gap-y-2 ${isSpecialUser ? "gap-x-4 p-4 border rounded-lg" : "gap-x-1 p-2 border-b last:border-0"}`}
+                    className={`grid grid-cols-1 md:grid-cols-12 ${isSpecialUser ? "gap-x-2 gap-y-2 p-4 border rounded-lg" : "gap-0 items-end p-2 border-b last:border-0"}`}
                   >
                     {isSpecialUser ? (
                       // SPECIAL USER LAYOUT (141, 98)
                       <>
-                        {/* Row 1: Nama(5), Qt(2), Sat(2), Ket(2), Del(1) */}
-                        <div className="md:col-span-5">
+                        {/* Row 1: Nama(6), Qt(1), Sat+Ket(4), Del(1) */}
+                        <div className="md:col-span-6">
                           <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
                           <Input
                             id={`namaBarang-${item.id}`}
@@ -1006,8 +1010,8 @@ export default function InputBaruPRPage() {
                             required
                           />
                         </div>
-                        <div className="md:col-span-2">
-                          <Label htmlFor={`jumlah-${item.id}`}>QUANTITY</Label>
+                        <div className="md:col-span-1">
+                          <Label htmlFor={`jumlah-${item.id}`}>QTY</Label>
                           <Input
                             id={`jumlah-${item.id}`}
                             type="number"
@@ -1017,39 +1021,44 @@ export default function InputBaruPRPage() {
                             required
                           />
                         </div>
-                        <div className="md:col-span-2 relative">
-                          <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
-                          <Select
-                            value={item.id_satuan}
-                            onValueChange={(value) =>
-                              updateItem(item.id, "id_satuan", value)
-                            }
-                          >
-                            <SelectTrigger className="bg-white">
-                              <SelectValue placeholder="Pilih" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                              {/* ... Satuan Content ... */}
-                              <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                                <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
-                                <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
-                                {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
-                              </div>
-                              {satuanOptions.map((sat: any) => (
-                                <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+
+                        {/* Combined Satuan + Keterangan (4 cols) */}
+                        <div className="md:col-span-4 flex gap-1">
+                          <div className="w-[110px] relative">
+                            <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
+                            <Select
+                              value={item.id_satuan}
+                              onValueChange={(value) =>
+                                updateItem(item.id, "id_satuan", value)
+                              }
+                            >
+                              <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                                {/* ... Satuan Content ... */}
+                                <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                  <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
+                                  <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
+                                  {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
+                                </div>
+                                {satuanOptions.map((sat: any) => (
+                                  <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex-1">
+                            <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
+                            <Input
+                              id={`keterangan-${item.id}`}
+                              value={item.keterangan}
+                              onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
+                              placeholder="Ket..."
+                            />
+                          </div>
                         </div>
-                        <div className="md:col-span-2">
-                          <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
-                          <Input
-                            id={`keterangan-${item.id}`}
-                            value={item.keterangan}
-                            onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
-                            placeholder="Ket..."
-                          />
-                        </div>
+
                         <div className="md:col-span-1 flex items-end">
                           {formData.items.length > 1 && (
                             <Button
@@ -1065,7 +1074,7 @@ export default function InputBaruPRPage() {
                         </div>
 
                         {/* Row 2: Kode(4) below everything */}
-                        <div className="md:col-span-4">
+                        <div className="md:col-span-4 mt-2">
                           <Label htmlFor={`kodeBarang-${item.id}`}>KODE BARANG</Label>
                           <Input
                             id={`kodeBarang-${item.id}`}
@@ -1080,8 +1089,8 @@ export default function InputBaruPRPage() {
                     ) : (
                       // STANDARD USER LAYOUT
                       <>
-                        {/* Row 1: Nama(3), Qt(2), Sat(2), Ket(4), Del(1) - NO GAP */}
-                        <div className="md:col-span-3 px-1">
+                        {/* Row 1: Nama(4), Qt(1), Sat+Ket(6), Del(1) */}
+                        <div className="md:col-span-4 px-1 pb-1">
                           <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
                           <Input
                             id={`namaBarang-${item.id}`}
@@ -1091,8 +1100,8 @@ export default function InputBaruPRPage() {
                             required
                           />
                         </div>
-                        <div className="md:col-span-2 px-1">
-                          <Label htmlFor={`jumlah-${item.id}`}>QUANTITY</Label>
+                        <div className="md:col-span-1 px-1 pb-1">
+                          <Label htmlFor={`jumlah-${item.id}`}>QTY</Label>
                           <Input
                             id={`jumlah-${item.id}`}
                             type="number"
@@ -1102,40 +1111,45 @@ export default function InputBaruPRPage() {
                             required
                           />
                         </div>
-                        <div className="md:col-span-2 px-1 relative">
-                          <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
-                          <Select
-                            value={item.id_satuan}
-                            onValueChange={(value) =>
-                              updateItem(item.id, "id_satuan", value)
-                            }
-                          >
-                            <SelectTrigger className="bg-white">
-                              <SelectValue placeholder="Pilih" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                              {/* ... Satuan Content ... */}
-                              <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                                <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
-                                <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
-                                {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
-                              </div>
-                              {satuanOptions.map((sat: any) => (
-                                <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+
+                        {/* Combined Satuan + Keterangan (6 cols) */}
+                        <div className="md:col-span-6 px-1 pb-1 flex gap-1">
+                          <div className="w-[110px] relative">
+                            <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
+                            <Select
+                              value={item.id_satuan}
+                              onValueChange={(value) =>
+                                updateItem(item.id, "id_satuan", value)
+                              }
+                            >
+                              <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                                {/* ... Satuan Content ... */}
+                                <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                  <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
+                                  <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
+                                  {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
+                                </div>
+                                {satuanOptions.map((sat: any) => (
+                                  <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex-1">
+                            <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
+                            <Input
+                              id={`keterangan-${item.id}`}
+                              value={item.keterangan}
+                              onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
+                              placeholder="Keterangan..."
+                            />
+                          </div>
                         </div>
-                        <div className="md:col-span-4 px-1">
-                          <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
-                          <Input
-                            id={`keterangan-${item.id}`}
-                            value={item.keterangan}
-                            onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
-                            placeholder="Keterangan..."
-                          />
-                        </div>
-                        <div className="md:col-span-1 px-1 flex items-end">
+
+                        <div className="md:col-span-1 px-1 pb-1 flex items-end">
                           {formData.items.length > 1 && (
                             <Button
                               type="button"
