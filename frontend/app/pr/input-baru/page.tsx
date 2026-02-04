@@ -728,8 +728,10 @@ export default function InputBaruPRPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div>
+              {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
+              {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="md:col-span-4">
                   <Label htmlFor="noPR">NO. PR</Label>
                   <Input
                     id="noPR"
@@ -742,7 +744,7 @@ export default function InputBaruPRPage() {
                     className="w-full"
                   />
                 </div>
-                <div>
+                <div className="md:col-span-4">
                   <Label htmlFor="tanggalPR">TANGGAL PR</Label>
                   <DatePicker
                     id="tanggalPR"
@@ -772,23 +774,19 @@ export default function InputBaruPRPage() {
                   />
                 </div>
 
-                {/* NO. MR Field */}
-                {!isDivisiUser && (
-                  <div>
-                    <Label htmlFor="noMR">NO. MR</Label>
-                    <Input
-                      id="noMR"
-                      value={formData.noMR}
-                      onChange={(e) =>
-                        setFormData({ ...formData, noMR: e.target.value })
-                      }
-                      placeholder="NO. MR"
-                      className="w-full"
-                    />
-                  </div>
-                )}
-
-                <div>
+                <div className="md:col-span-4">
+                  <Label htmlFor="noMR">NO. MR</Label>
+                  <Input
+                    id="noMR"
+                    value={formData.noMR}
+                    onChange={(e) =>
+                      setFormData({ ...formData, noMR: e.target.value })
+                    }
+                    placeholder="NO. MR"
+                    className="w-full"
+                  />
+                </div>
+                <div className="md:col-span-6">
                   <Label htmlFor="divisi">DIVISI</Label>
                   <div className="relative">
                     <Select
@@ -941,7 +939,7 @@ export default function InputBaruPRPage() {
                     )}
                   </div>
                 </div>
-                <div>
+                <div className="md:col-span-6">
                   <Label htmlFor="urgensi">URGENSI</Label>
                   <Select
                     value={formData.urgensi}
@@ -992,128 +990,166 @@ export default function InputBaruPRPage() {
                 {formData.items.map((item, index) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border rounded-lg min-w-[900px]"
+                    className={`grid grid-cols-1 md:grid-cols-12 gap-y-2 ${isSpecialUser ? "gap-x-4 p-4 border rounded-lg" : "gap-x-1 p-2 border-b last:border-0"}`}
                   >
-                    {/* Row 1: Kode (2), Nama (4), Spesifikasi (3), No MR (3) - IF SPECIAL USER */}
-                    {/* IF STANDARD USER: Nama (12) */}
-
-                    {isSpecialUser && (
-                      <div className="md:col-span-2">
-                        <Label htmlFor={`kodeBarang-${item.id}`}>KODE BARANG</Label>
-                        <Input
-                          id={`kodeBarang-${item.id}`}
-                          value={item.kodeBarang}
-                          onChange={(e) => updateItem(item.id, "kodeBarang", e.target.value)}
-                          placeholder="Kode"
-                        />
-                      </div>
-                    )}
-
-                    <div className={isSpecialUser ? "md:col-span-7" : "md:col-span-4"}>
-                      <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
-                      <Input
-                        id={`namaBarang-${item.id}`}
-                        value={item.namaBarang}
-                        onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
-                        placeholder="Nama Barang"
-                        required
-                      />
-                    </div>
-
-                    {isSpecialUser && (
+                    {isSpecialUser ? (
+                      // SPECIAL USER LAYOUT (141, 98)
                       <>
-                        <div className="md:col-span-3">
-                          <Label htmlFor={`noMR-${item.id}`}>NO. MR</Label>
+                        {/* Row 1: Nama(5), Qt(2), Sat(2), Ket(2), Del(1) */}
+                        <div className="md:col-span-5">
+                          <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
                           <Input
-                            id={`noMR-${item.id}`}
-                            value={item.noMR}
-                            onChange={(e) => updateItem(item.id, "noMR", e.target.value)}
-                            placeholder="MR-XXX"
+                            id={`namaBarang-${item.id}`}
+                            value={item.namaBarang}
+                            onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
+                            placeholder="Nama Barang"
+                            required
                           />
                         </div>
-                      </>
-                    )}
-
-                    {/* Row 2: Qty (2), Satuan (3), Keterangan (6), Delete (1) */}
-                    <div className="md:col-span-2">
-                      <Label htmlFor={`jumlah-${item.id}`}>QUANTITY</Label>
-                      <Input
-                        id={`jumlah-${item.id}`}
-                        type="number"
-                        value={item.jumlah}
-                        onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
-                        placeholder="1"
-                        required
-                      />
-                    </div>
-                    <div className={isSpecialUser ? "md:col-span-3 relative" : "md:col-span-2 relative"}>
-                      <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
-                      {/* Note: Copied Select logic, simplifying for replacement readability */}
-                      <Select
-                        value={item.id_satuan}
-                        onValueChange={(value) =>
-                          updateItem(item.id, "id_satuan", value)
-                        }
-                      >
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Pilih satuan" />
-                        </SelectTrigger>
-                        <SelectContent
-                          className="bg-white max-h-[384px] overflow-y-auto relative"
-                        >
-                          {/* ... (Existing Satuan Logic preserved via simple re-render or assumption, but block replace is safer) ... */}
-                          {/* Using condensed version for safety in tool call */}
-                          <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                            <Input
-                              placeholder="Cari satuan..."
-                              value={satuanSearch}
-                              onChange={(e) => setSatuanSearch(e.target.value)}
-                              className="mb-2"
-                            />
+                        <div className="md:col-span-2">
+                          <Label htmlFor={`jumlah-${item.id}`}>QUANTITY</Label>
+                          <Input
+                            id={`jumlah-${item.id}`}
+                            type="number"
+                            value={item.jumlah}
+                            onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
+                            placeholder="1"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2 relative">
+                          <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
+                          <Select
+                            value={item.id_satuan}
+                            onValueChange={(value) =>
+                              updateItem(item.id, "id_satuan", value)
+                            }
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Pilih" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                              {/* ... Satuan Content ... */}
+                              <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
+                                <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
+                                {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
+                              </div>
+                              {satuanOptions.map((sat: any) => (
+                                <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
+                          <Input
+                            id={`keterangan-${item.id}`}
+                            value={item.keterangan}
+                            onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
+                            placeholder="Ket..."
+                          />
+                        </div>
+                        <div className="md:col-span-1 flex items-end">
+                          {formData.items.length > 1 && (
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="mb-2 w-full"
-                              onClick={() => setShowAddSatuan((v) => !v)}
+                              onClick={() => removeItem(item.id)}
+                              className="w-full text-red-500"
                             >
-                              + Tambahkan Satuan
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                            {showAddSatuan && (
-                              <div className="flex items-center gap-2 mb-2">
-                                <Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} className="w-[140px]" />
-                                <Button type="button" size="sm" onClick={async () => { await handleAddSatuan(); setShowAddSatuan(false); setNewSatuan(""); }}>Simpan</Button>
+                          )}
+                        </div>
+
+                        {/* Row 2: Kode(4) below everything */}
+                        <div className="md:col-span-4">
+                          <Label htmlFor={`kodeBarang-${item.id}`}>KODE BARANG</Label>
+                          <Input
+                            id={`kodeBarang-${item.id}`}
+                            value={item.kodeBarang}
+                            onChange={(e) => updateItem(item.id, "kodeBarang", e.target.value)}
+                            placeholder="Kode"
+                          />
+                        </div>
+                        {/* Spacer for remaining cols in row 2 if needed, or let it end */}
+                        <div className="md:col-span-8"></div>
+                      </>
+                    ) : (
+                      // STANDARD USER LAYOUT
+                      <>
+                        {/* Row 1: Nama(3), Qt(2), Sat(2), Ket(4), Del(1) - NO GAP */}
+                        <div className="md:col-span-3 px-1">
+                          <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
+                          <Input
+                            id={`namaBarang-${item.id}`}
+                            value={item.namaBarang}
+                            onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
+                            placeholder="Nama Barang"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2 px-1">
+                          <Label htmlFor={`jumlah-${item.id}`}>QUANTITY</Label>
+                          <Input
+                            id={`jumlah-${item.id}`}
+                            type="number"
+                            value={item.jumlah}
+                            onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
+                            placeholder="1"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-2 px-1 relative">
+                          <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
+                          <Select
+                            value={item.id_satuan}
+                            onValueChange={(value) =>
+                              updateItem(item.id, "id_satuan", value)
+                            }
+                          >
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Pilih" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                              {/* ... Satuan Content ... */}
+                              <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
+                                <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
+                                {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
                               </div>
-                            )}
-                          </div>
-                          {satuanOptions.map((sat: any) => (
-                            <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className={isSpecialUser ? "md:col-span-6" : "md:col-span-3"}>
-                      <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
-                      <Input
-                        id={`keterangan-${item.id}`}
-                        value={item.keterangan}
-                        onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
-                        placeholder="Keterangan..."
-                      />
-                    </div>
-                    <div className="md:col-span-1 flex items-end">
-                      {formData.items.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeItem(item.id)}
-                          className="w-full text-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                              {satuanOptions.map((sat: any) => (
+                                <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="md:col-span-4 px-1">
+                          <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
+                          <Input
+                            id={`keterangan-${item.id}`}
+                            value={item.keterangan}
+                            onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
+                            placeholder="Keterangan..."
+                          />
+                        </div>
+                        <div className="md:col-span-1 px-1 flex items-end">
+                          {formData.items.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeItem(item.id)}
+                              className="w-full text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

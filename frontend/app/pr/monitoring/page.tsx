@@ -892,7 +892,7 @@ export default function MonitoringPRPage() {
             item.namaBarang ? item.namaBarang.toUpperCase() : "",
             Number(item.quantityAwalPR || item.jumlah || 0), // Use Number() for correct Excel format
             item.satuan ? item.satuan.toUpperCase() : "",
-            item.keterangan ? item.keterangan.toUpperCase() : "",
+            (item.keterangan || "").toUpperCase(),
             pr.urgensi ? pr.urgensi.toUpperCase() : "",
             pr.divisi ? pr.divisi.toUpperCase() : "",
             pr.status ? pr.status.toUpperCase() : "",
