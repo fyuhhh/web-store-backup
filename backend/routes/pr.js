@@ -238,6 +238,7 @@ router.post("/", async (req, res, next) => {
       dibuatOleh,
       status,
       plan,
+      noMR,
     } = req.body;
 
     // Basic Validation
@@ -260,8 +261,8 @@ router.post("/", async (req, res, next) => {
     const calculatedEstimasipo = await calculateTargetPODate(tanggalPR);
 
     const [result] = await db.query(
-      `INSERT INTO pr(noPR, tanggalPR, id_divisi, id_urgensi, id_skema, plan, estimasipo, dibuatOleh, status)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pr(noPR, tanggalPR, id_divisi, id_urgensi, id_skema, plan, estimasipo, dibuatOleh, status, noMR)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         noPR,
         tanggalPR,
@@ -272,6 +273,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         calculatedEstimasipo || estimasipo || null, // Use calculated, fallback to user input
         dibuatOleh || null,
         status || "Draft",
+        noMR || null,
       ]
     );
 
@@ -302,6 +304,7 @@ router.put("/:id", async (req, res, next) => {
       dibuatOleh,
       status,
       plan,
+      noMR,
     } = req.body;
 
     // Validate minimal requirements
@@ -335,7 +338,8 @@ noPR = ?,
   plan = ?,
   estimasipo = ?,
   dibuatOleh = ?,
-  status = ?
+  status = ?,
+  noMR = ?
     WHERE id_PR = ? `,
       [
         noPR,
@@ -347,6 +351,7 @@ noPR = ?,
         calculatedEstimasipo || estimasipo || null,
         dibuatOleh || null,
         status || "Draft",
+        noMR || null,
         id,
       ]
     );

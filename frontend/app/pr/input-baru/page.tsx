@@ -42,6 +42,7 @@ export default function InputBaruPRPage() {
   const [formData, setFormData] = useState({
     noPR: "",
     tanggalPR: new Date() as Date | null, // Default to Today
+    noMR: "", // [NEW]
     divisi: "",
     urgensi: "",
     items: [
@@ -64,6 +65,7 @@ export default function InputBaruPRPage() {
 
   // State khusus untuk user 98 & 141
   const [isSpecialUser, setIsSpecialUser] = useState(false);
+  const [isDivisiUser, setIsDivisiUser] = useState(false); // [NEW]
 
   // Tambahkan state untuk tambah divisi/satuan
   const [showAddDivisi, setShowAddDivisi] = useState(false);
@@ -90,6 +92,10 @@ export default function InputBaruPRPage() {
         .then((users) => {
           const user = users.find((u: any) => u.id_user === userId);
           if (user) {
+            // Check Divisi User
+            if (user.skema?.toLowerCase() === "divisi" || user.peran?.toLowerCase() === "divisi" || user.role?.toLowerCase() === "divisi") {
+              setIsDivisiUser(true);
+            }
             // Pastikan id_skema selalu angka
             let skemaId = Number(user.id_skema);
             let skemaLabel = "";
@@ -162,6 +168,7 @@ export default function InputBaruPRPage() {
         setFormData({
           noPR: prData.noPR,
           tanggalPR: prData.tanggalPR ? new Date(prData.tanggalPR) : null,
+          noMR: prData.noMR || "", // [NEW]
           divisi: String(prData.id_divisi || ""),
           urgensi: String(prData.id_urgensi || ""),
           id_skema: String(prData.id_skema || ""),
@@ -321,6 +328,7 @@ export default function InputBaruPRPage() {
     setFormData({
       noPR: "",
       tanggalPR: null, // reset ke null
+      noMR: "",
       divisi: "",
       urgensi: "",
       items: [
@@ -393,6 +401,7 @@ export default function InputBaruPRPage() {
             status: "Menunggu",
             dibuatOleh: userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
             plan: planValue, // Send explicit plan
+            noMR: formData.noMR, // [NEW]
           }),
         });
 
@@ -424,7 +433,7 @@ export default function InputBaruPRPage() {
             quantityAwalPR: jumlah,
             id_satuan: Number(item.id_satuan),
             keterangan: item.keterangan || "",
-            noMR: item.noMR,
+            noMR: formData.noMR, // Use Header NO. MR
           };
 
           if (item.id.startsWith("new-")) {
@@ -464,6 +473,7 @@ export default function InputBaruPRPage() {
             id_skema: Number(formData.id_skema),
             createdAt: new Date().toISOString(),
             plan: planValue, // Send explicit plan
+            noMR: formData.noMR, // [NEW]
           }),
         });
 
@@ -490,7 +500,7 @@ export default function InputBaruPRPage() {
               quantityAwalPR: jumlah,
               id_satuan: Number(item.id_satuan),
               keterangan: item.keterangan || "",
-              noMR: item.noMR,
+              noMR: formData.noMR, // Use Header NO. MR
             }),
           });
         }
@@ -717,10 +727,10 @@ export default function InputBaruPRPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Bagian atas: No PR, Tanggal, Divisi, Urgensi dalam 1 baris */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
-                  <Label htmlFor="noPR">No. PR</Label>
+                  <Label htmlFor="noPR">NO. PR</Label>
                   <Input
                     id="noPR"
                     value={formData.noPR}
@@ -733,7 +743,7 @@ export default function InputBaruPRPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="tanggalPR">Tanggal PR Dibuat</Label>
+                  <Label htmlFor="tanggalPR">TANGGAL PR</Label>
                   <DatePicker
                     id="tanggalPR"
                     selected={formData.tanggalPR}
@@ -761,8 +771,25 @@ export default function InputBaruPRPage() {
                     }
                   />
                 </div>
+
+                {/* NO. MR Field */}
+                {!isDivisiUser && (
+                  <div>
+                    <Label htmlFor="noMR">NO. MR</Label>
+                    <Input
+                      id="noMR"
+                      value={formData.noMR}
+                      onChange={(e) =>
+                        setFormData({ ...formData, noMR: e.target.value })
+                      }
+                      placeholder="NO. MR"
+                      className="w-full"
+                    />
+                  </div>
+                )}
+
                 <div>
-                  <Label htmlFor="divisi">Divisi</Label>
+                  <Label htmlFor="divisi">DIVISI</Label>
                   <div className="relative">
                     <Select
                       value={formData.divisi}
@@ -915,7 +942,7 @@ export default function InputBaruPRPage() {
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="urgensi">Urgensi</Label>
+                  <Label htmlFor="urgensi">URGENSI</Label>
                   <Select
                     value={formData.urgensi}
                     onValueChange={(value) =>
@@ -972,7 +999,7 @@ export default function InputBaruPRPage() {
 
                     {isSpecialUser && (
                       <div className="md:col-span-2">
-                        <Label htmlFor={`kodeBarang-${item.id}`}>Kode Barang</Label>
+                        <Label htmlFor={`kodeBarang-${item.id}`}>KODE BARANG</Label>
                         <Input
                           id={`kodeBarang-${item.id}`}
                           value={item.kodeBarang}
@@ -983,7 +1010,7 @@ export default function InputBaruPRPage() {
                     )}
 
                     <div className={isSpecialUser ? "md:col-span-7" : "md:col-span-4"}>
-                      <Label htmlFor={`namaBarang-${item.id}`}>Nama Barang</Label>
+                      <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
                       <Input
                         id={`namaBarang-${item.id}`}
                         value={item.namaBarang}
@@ -996,7 +1023,7 @@ export default function InputBaruPRPage() {
                     {isSpecialUser && (
                       <>
                         <div className="md:col-span-3">
-                          <Label htmlFor={`noMR-${item.id}`}>No MR</Label>
+                          <Label htmlFor={`noMR-${item.id}`}>NO. MR</Label>
                           <Input
                             id={`noMR-${item.id}`}
                             value={item.noMR}
@@ -1009,7 +1036,7 @@ export default function InputBaruPRPage() {
 
                     {/* Row 2: Qty (2), Satuan (3), Keterangan (6), Delete (1) */}
                     <div className="md:col-span-2">
-                      <Label htmlFor={`jumlah-${item.id}`}>Quantity</Label>
+                      <Label htmlFor={`jumlah-${item.id}`}>QUANTITY</Label>
                       <Input
                         id={`jumlah-${item.id}`}
                         type="number"
@@ -1020,7 +1047,7 @@ export default function InputBaruPRPage() {
                       />
                     </div>
                     <div className={isSpecialUser ? "md:col-span-3 relative" : "md:col-span-2 relative"}>
-                      <Label htmlFor={`satuan-${item.id}`}>Satuan</Label>
+                      <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
                       {/* Note: Copied Select logic, simplifying for replacement readability */}
                       <Select
                         value={item.id_satuan}
@@ -1066,7 +1093,7 @@ export default function InputBaruPRPage() {
                       </Select>
                     </div>
                     <div className={isSpecialUser ? "md:col-span-6" : "md:col-span-3"}>
-                      <Label htmlFor={`keterangan-${item.id}`}>Keterangan</Label>
+                      <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
                       <Input
                         id={`keterangan-${item.id}`}
                         value={item.keterangan}
