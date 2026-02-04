@@ -1849,7 +1849,7 @@ function InputPOContent() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-4">
                 {/* No PO */}
                 <div className="space-y-2">
-                  <Label htmlFor="noPO">No. PO</Label>
+                  <Label htmlFor="noPO">NO. PO</Label>
                   <Input
                     id="noPO"
                     value={poFormData.noPO}
@@ -1862,7 +1862,7 @@ function InputPOContent() {
                 </div>
                 {/* Tanggal PO */}
                 <div className="space-y-2">
-                  <Label htmlFor="tanggalPO">Tanggal PO</Label>
+                  <Label htmlFor="tanggalPO">TANGGAL PO</Label>
                   <DatePicker
                     id="tanggalPO"
                     selected={poFormData.tanggalPO}
@@ -1902,7 +1902,7 @@ function InputPOContent() {
                 </div>
                 {/* Supplier */}
                 <div className="space-y-2">
-                  <Label htmlFor="supplier">Supplier</Label>
+                  <Label htmlFor="supplier">SUPPLIER</Label>
                   <Select
                     value={String(poFormData.supplier)}
                     onValueChange={(value) =>
@@ -2081,7 +2081,7 @@ function InputPOContent() {
                 </div>
                 {/* Termin Pembayaran */}
                 <div className="space-y-2">
-                  <Label htmlFor="termin">Termin Pembayaran</Label>
+                  <Label htmlFor="termin">TERMIN PEMBAYARAN</Label>
                   <Select
                     value={String(poFormData.termin)}
                     onValueChange={(value) =>
@@ -2264,7 +2264,7 @@ function InputPOContent() {
                 {/* Estimasi Tanggal Terima */}
                 <div className="space-y-2">
                   <Label htmlFor="estimasiTanggalDiterima">
-                    Estimasi Tanggal Diterima
+                    ESTIMASI TANGGAL DITERIMA
                   </Label>
                   <DatePicker
                     id="estimasiTanggalDiterima"
@@ -2307,7 +2307,7 @@ function InputPOContent() {
                 </div>
                 {/* Status Pengiriman */}
                 <div className="space-y-2">
-                  <Label htmlFor="statusPengiriman">Status Pengiriman</Label>
+                  <Label htmlFor="statusPengiriman">STATUS PENGIRIMAN</Label>
                   <Select
                     value={String(poFormData.statusPengiriman)}
                     onValueChange={(value) =>
@@ -2498,7 +2498,7 @@ function InputPOContent() {
                 </div>
                 {/* Nama Pembeli (ganti Skema) */}
                 <div className="space-y-2 md:col-span-1">
-                  <Label htmlFor="namaPembeli">Nama Pembeli</Label>
+                  <Label htmlFor="namaPembeli">NAMA PEMBELI</Label>
                   <Input
                     id="namaPembeli"
                     value={poFormData.namaPembeli}
@@ -2521,7 +2521,7 @@ function InputPOContent() {
                 </div>
                 {/* Item dari PR (New Column) */}
                 <div className="space-y-2 md:col-span-1">
-                  <Label>Item dari PR</Label>
+                  <Label>ITEM DARI PR</Label>
                   <div className="border rounded-md h-[132px] overflow-y-auto bg-gray-50 text-xs shadow-inner">
                     {getMissingItems().length === 0 ? (
                       <div className="h-full flex items-center justify-center">
@@ -2569,7 +2569,7 @@ function InputPOContent() {
               {/* Baris 3: Detail Barang dari PR */}
               <div>
                 <h3 className="text-lg font-semibold mb-3">
-                  Detail Barang dari PR
+                  DETAIL BARANG DARI PR
                 </h3>
                 <div className="border rounded-lg overflow-x-auto">
                   <Table className="text-xs">
@@ -2875,7 +2875,7 @@ function InputPOContent() {
               {/* Baris 5: Ringkasan Perhitungan */}
               <div className="mt-4">
                 <h3 className="text-lg font-semibold mb-3">
-                  Ringkasan Perhitungan
+                  RINGKASAN PERHITUNGAN
                 </h3>
                 <div className="border rounded-lg p-4 space-y-3">
                   {(() => {
@@ -2938,7 +2938,7 @@ function InputPOContent() {
           </CardContent>
         </Card>
       </div>
-    </MainLayout>
+    </MainLayout >
   );
 }
 

@@ -1339,66 +1339,106 @@ export default function MonitoringPOPage() {
 
       const poStartRow = currentRowIdx;
 
-      // Helper to return value or empty string if 0/null
       const valOrEmpty = (val: any) => (val && Number(val) !== 0) ? Number(val) : "";
 
       if (flatItems.length > 0) {
         flatItems.forEach((item: any) => {
-          const row = worksheet.getRow(currentRowIdx);
+          const itemStartRow = currentRowIdx;
 
-          // Data Array mapping
-          const rowData = [
-            po.noPO ? po.noPO.toUpperCase() : "",           // 1
-            formatTanggalExcel(po.tanggalPO),               // 2
-            po.supplier ? po.supplier.toUpperCase() : "",   // 3
-            item.namaBarang ? item.namaBarang.toUpperCase() : "", // 4
-            valOrEmpty(item.jumlahPO || item.jumlahAsli),   // 5
-            item.satuan ? item.satuan.toUpperCase() : "",   // 6
-            item.keterangan ? item.keterangan.toUpperCase() : "", // 7
-            valOrEmpty(item.hargaSatuan),                   // 8
-            item.diskonPersen ? String(item.diskonPersen) : "", // 9 (String)
-            valOrEmpty(item.diskonNominal),                 // 10
-            item.ppnItem ? String(item.ppnItem) : "",       // 11
-            valOrEmpty(item.ppnAmount),                     // 12
-            valOrEmpty(item.totalPerItem),                  // 13
-            valOrEmpty(po.totalPembayaran),                 // 14
-            item.namaPembeli ? item.namaPembeli.replace(/_/g, " ").toUpperCase() : "", // 15
-            formatTanggalExcel(po.estimasiTanggalTerima),   // 16
-            po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "", // 17
-            po.status ? po.status.toUpperCase() : "",       // 18
-            po.termin ? po.termin.toUpperCase() : "",       // 19
-            ...(isDivisi ? [] : [
-              item.noPR || "",
-              formatTanggalExcel(item.tanggalPR),
-              item.divisi || "",
-              Array.isArray(item.noBTB) ? item.noBTB.join('\n') : (item.noBTB || ""),
-              Array.isArray(item.tanggalBTB) ? item.tanggalBTB.join('\n') : (item.tanggalBTB || ""),
-              Array.isArray(item.qtyBTB) ? item.qtyBTB.join('\n') : (formatQuantity(item.qtyBTB) || ""),
-              Array.isArray(item.satuanBTB) ? item.satuanBTB.join('\n') : (item.satuanBTB || ""),
-              Array.isArray(item.biayaAmbil) ? item.biayaAmbil.map((b: any) => {
-                if (b === null || b === undefined || b === "") return "-";
-                const num = Number(b);
-                // Format: Rp. 50.000,75
-                return "Rp. " + num.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-              }).join('\n') : (item.biayaAmbil || ""),
-              Array.isArray(item.qtyBelumBTB) ? item.qtyBelumBTB.join('\n') : (formatQuantity(item.qtyBelumBTB) || "")
-            ]),
-            po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "", // 20
-          ];
+          // Helper to split arrays or wrap single value into array
+          const noBTBArr = Array.isArray(item.noBTB) ? item.noBTB : (item.noBTB ? [item.noBTB] : []);
+          const tglBTBArr = Array.isArray(item.tanggalBTB) ? item.tanggalBTB : (item.tanggalBTB ? [item.tanggalBTB] : []);
+          const qtyBTBArr = Array.isArray(item.qtyBTB) ? item.qtyBTB : (item.qtyBTB !== undefined ? [item.qtyBTB] : []);
+          const satBTBArr = Array.isArray(item.satuanBTB) ? item.satuanBTB : (item.satuanBTB ? [item.satuanBTB] : []);
+          const biayaBTBArr = Array.isArray(item.biayaAmbil) ? item.biayaAmbil : (item.biayaAmbil !== undefined ? [item.biayaAmbil] : []);
+          const qBelumArr = Array.isArray(item.qtyBelumBTB) ? item.qtyBelumBTB : (item.qtyBelumBTB !== undefined ? [item.qtyBelumBTB] : []);
 
-          // Set Values
-          rowData.forEach((val, idx) => {
-            const cell = row.getCell(idx + 1);
-            cell.value = val;
+          // Determine max rows needed for this item based on BTB entries
+          // At least 1 row even if no BTB
+          const maxRows = Math.max(noBTBArr.length, 1);
 
-            // Special handling for Diskon % (Col 9) to ignore text error
-            if (idx + 1 === 9) {
-              // @ts-ignore
-              cell.ignoredErrors = { numberStoredAsText: true };
+          for (let k = 0; k < maxRows; k++) {
+            const row = worksheet.getRow(currentRowIdx);
+
+            // Prepare BTB specific values
+            const btbNo = noBTBArr[k] || "";
+            const btbTgl = tglBTBArr[k] || "";
+            const btbQty = qtyBTBArr[k] !== undefined ? qtyBTBArr[k] : "";
+            const btbSat = satBTBArr[k] || "";
+            const btbBiayaRaw = biayaBTBArr[k];
+            let btbBiaya = "";
+            if (btbBiayaRaw !== null && btbBiayaRaw !== undefined && btbBiayaRaw !== "-" && btbBiayaRaw !== "") {
+              const num = Number(btbBiayaRaw);
+              btbBiaya = "Rp. " + num.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else if (btbBiayaRaw === "-") {
+              btbBiaya = "-";
             }
-          });
 
-          currentRowIdx++;
+            const btbQBelum = qBelumArr[k] !== undefined ? qBelumArr[k] : "";
+
+            // Data Array mapping
+            const rowData = [
+              po.noPO ? po.noPO.toUpperCase() : "",           // 1
+              formatTanggalExcel(po.tanggalPO),               // 2
+              po.supplier ? po.supplier.toUpperCase() : "",   // 3
+              item.namaBarang ? item.namaBarang.toUpperCase() : "", // 4
+              valOrEmpty(item.jumlahPO || item.jumlahAsli),   // 5
+              item.satuan ? item.satuan.toUpperCase() : "",   // 6
+              item.keterangan ? item.keterangan.toUpperCase() : "", // 7
+              valOrEmpty(item.hargaSatuan),                   // 8
+              item.diskonPersen ? String(item.diskonPersen) : "", // 9 (String)
+              valOrEmpty(item.diskonNominal),                 // 10
+              item.ppnItem ? String(item.ppnItem) : "",       // 11
+              valOrEmpty(item.ppnAmount),                     // 12
+              valOrEmpty(item.totalPerItem),                  // 13
+              valOrEmpty(po.totalPembayaran),                 // 14
+              item.namaPembeli ? item.namaPembeli.replace(/_/g, " ").toUpperCase() : "", // 15
+              formatTanggalExcel(po.estimasiTanggalTerima),   // 16
+              po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "", // 17
+              po.status ? po.status.toUpperCase() : "",       // 18
+              po.termin ? po.termin.toUpperCase() : "",       // 19
+              ...(isDivisi ? [] : [
+                item.noPR || "",
+                formatTanggalExcel(item.tanggalPR),
+                item.divisi || "",
+                btbNo,
+                btbTgl,
+                typeof btbQty === 'number' ? formatQuantity(btbQty) : btbQty,
+                btbSat,
+                btbBiaya,
+                typeof btbQBelum === 'number' ? formatQuantity(btbQBelum) : btbQBelum
+              ]),
+              po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "", // 20
+            ];
+
+            // Set Values
+            rowData.forEach((val, idx) => {
+              const cell = row.getCell(idx + 1);
+              cell.value = val;
+
+              // Special handling for Diskon % (Col 9) to ignore text error
+              if (idx + 1 === 9) {
+                // @ts-ignore
+                cell.ignoredErrors = { numberStoredAsText: true };
+              }
+            });
+
+            currentRowIdx++;
+          }
+
+          // Merge Item Cells if > 1 row
+          const itemEndRow = currentRowIdx - 1;
+          if (itemEndRow > itemStartRow) {
+            // Merge Item cols: 4-13 and 15
+            // Also merge PR cols: 20-22 (if !isDivisi) -> Indices: 20(noPR), 21(tglPR), 22(divisi)
+            const itemMergeCols = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15];
+            if (!isDivisi) {
+              itemMergeCols.push(20, 21, 22);
+            }
+            itemMergeCols.forEach(col => {
+              try { worksheet.mergeCells(itemStartRow, col, itemEndRow, col); } catch (e) { }
+            });
+          }
         });
       } else {
         // No items, single row

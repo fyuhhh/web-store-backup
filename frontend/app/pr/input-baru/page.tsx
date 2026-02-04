@@ -978,7 +978,7 @@ export default function InputBaruPRPage() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <Label className="text-base font-semibold">
-                    Daftar Barang
+                    DAFTAR BARANG
                   </Label>
                   <Button
                     type="button"
@@ -1176,7 +1176,7 @@ export default function InputBaruPRPage() {
                     htmlFor="skema"
                     className="text-sm font-medium text-muted-foreground"
                   >
-                    Skema
+                    SKEMA
                   </Label>
                   <Input
                     id="skema"

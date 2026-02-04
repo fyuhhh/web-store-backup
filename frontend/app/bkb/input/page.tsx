@@ -1073,7 +1073,7 @@ export default function BKBInputPage() {
             {/* No BKB, Tanggal BKB, Nama Penerima */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 min-w-0">
               <div className="flex flex-col min-w-0">
-                <Label className="mb-1">No BKB</Label>
+                <Label className="mb-1">NO. BKB</Label>
                 <Input
                   value={formData.noBKB}
                   onChange={(e) =>
@@ -1087,7 +1087,7 @@ export default function BKBInputPage() {
                 />
               </div>
               <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Tanggal BKB</Label>
+                <Label className="mb-1">TANGGAL BKB</Label>
                 <DatePicker
                   id="tanggalBKB"
                   selected={formData.tanggalBKB}
@@ -1127,7 +1127,7 @@ export default function BKBInputPage() {
                 />
               </div>
               <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Nama Penerima</Label>
+                <Label className="mb-1">NAMA PENERIMA</Label>
                 <Input
                   value={formData.diterima_oleh || ""}
                   onChange={e => setFormData((prev: any) => ({ ...prev, diterima_oleh: e.target.value }))}
@@ -1141,7 +1141,7 @@ export default function BKBInputPage() {
             {/* Divisi dan Keterangan di bawahnya */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 min-w-0">
               <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Divisi</Label>
+                <Label className="mb-1">DIVISI</Label>
                 <Select
                   value={String(formData.divisi)}
                   onValueChange={(val) =>
@@ -1321,7 +1321,7 @@ export default function BKBInputPage() {
                 </Select>
               </div>
               <div className="flex flex-col min-w-0">
-                <Label className="mb-1">Keterangan</Label>
+                <Label className="mb-1">KETERANGAN</Label>
                 <Input
                   value={formData.keterangan}
                   onChange={(e) =>
@@ -1396,7 +1396,7 @@ export default function BKBInputPage() {
         {/* Filter tanggal BTB */}
         {!showForm && (
           <div className="flex items-center gap-2 mb-2">
-            <Label className="text-sm font-medium">Tanggal BTB:</Label>
+            <Label className="text-sm font-medium">TANGGAL BTB:</Label>
             <DatePicker
               selected={startDate}
               onChange={(date) => setStartDate(date)}
@@ -1460,7 +1460,7 @@ export default function BKBInputPage() {
         {/* Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Daftar BTB</CardTitle>
+            <CardTitle>DAFTAR BTB</CardTitle>
             <CardDescription>
               Total: {filteredBTBData.length} BTB Item
               {filteredBTBData.length > 0 && (
