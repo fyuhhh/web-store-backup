@@ -57,13 +57,14 @@ import {
 // Kolom sesuai urutan permintaan (Periode, No. PR, dst)
 // Kembalikan urutan kolom seperti sebelumnya, delay tetap kosong dan di posisi aslinya (setelah status)
 const columns = [
-  { key: "noMR", label: "NO. MR" },
+
   { key: "noPR", label: "NO. PR" },
   { key: "tanggalPR", label: "TANGGAL PR" },
   { key: "hariPR", label: "HARI" },
   { key: "daftarBarangPR", label: "DAFTAR BARANG" },
   { key: "quantityAwalPR", label: "QUANTITY PR" },
   { key: "satuanPR", label: "SATUAN" },
+  { key: "noMR", label: "NO. MR" },
   { key: "keteranganPR", label: "KETERANGAN" },
   { key: "divisi", label: "DIVISI" },
   { key: "dibuatOleh", label: "DIBUAT OLEH" },
@@ -2584,6 +2585,12 @@ export default function RekapFullPage() {
                                         {typeof item.satuanPR === "string"
                                           ? item.satuanPR.toUpperCase()
                                           : item.satuanPR ?? ""}
+                                      </TableCell>
+                                    ) : null}
+                                    {/* No. MR */}
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase font-bold text-left" rowSpan={prItemGroup.rowSpan}>
+                                        {(item.noMR || "").toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Keterangan PR */}

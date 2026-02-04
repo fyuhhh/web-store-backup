@@ -1076,18 +1076,7 @@ export default function StatusPOPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead
-                        className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 10,
-                          background: "#f3f4f6",
-                          borderBottom: "2px solid #d1d5db",
-                        }}
-                      >
-                        <div className="h-auto p-0 font-medium uppercase py-2">NO. MR</div>
-                      </TableHead>
+
                       <TableHead
                         className="min-w-[180px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
                         style={{
@@ -1228,6 +1217,18 @@ export default function StatusPOPage() {
                             </div>
                           </PopoverContent>
                         </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        <div className="h-auto p-0 font-medium uppercase py-2">NO. MR</div>
                       </TableHead>
                       <TableHead
                         className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
@@ -1596,11 +1597,7 @@ export default function StatusPOPage() {
                                 </TableCell>
                               ) : null}
                               {/* No. MR hanya di baris pertama - Added Column */}
-                              {idx === 0 ? (
-                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                                  {pr.noMR || "-"}
-                                </TableCell>
-                              ) : null}
+
                               {/* Nama Barang */}
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
                                 <Checkbox
@@ -1639,6 +1636,10 @@ export default function StatusPOPage() {
                               </TableCell>
                               {/* Satuan */}
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
+                              {/* No. MR (Moved) */}
+                              <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase text-left">
+                                {pr.noMR || "-"}
+                              </TableCell>
                               {/* Keterangan */}
                               <TableCell className="border border-gray-300 px-3 py-1 text-left">
                                 <div

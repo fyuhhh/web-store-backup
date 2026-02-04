@@ -821,10 +821,10 @@ export default function MonitoringPRPage() {
     const headers = [
       "NO. PR",
       "TANGGAL",
-      "NO. MR", // [NEW POISIS]
       "DAFTAR BARANG",
       "KUANTITAS",
       "SATUAN",
+      "NO. MR", // [MOVED HERE]
       "KETERANGAN",
       "URGENSI",
       "DIVISI",
@@ -886,17 +886,17 @@ export default function MonitoringPRPage() {
       if (validItems.length > 0) {
         validItems.forEach((item: any) => {
           worksheet.addRow([
-            pr.noPR ? pr.noPR.toUpperCase() : "",
-            formatTanggalExcel(pr.tanggalPR),
-            (item.noMR || pr.noMR) ? (item.noMR || pr.noMR).toUpperCase() : "", // [NEW POSITION]
-            item.namaBarang ? item.namaBarang.toUpperCase() : "",
-            Number(item.quantityAwalPR || item.jumlah || 0), // Use Number() for correct Excel format
-            item.satuan ? item.satuan.toUpperCase() : "",
-            (item.keterangan || "").toUpperCase(),
-            pr.urgensi ? pr.urgensi.toUpperCase() : "",
-            pr.divisi ? pr.divisi.toUpperCase() : "",
-            pr.status ? pr.status.toUpperCase() : "",
-            pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "",
+            pr.noPR ? pr.noPR.toUpperCase() : "", // 1
+            formatTanggalExcel(pr.tanggalPR), // 2
+            item.namaBarang ? item.namaBarang.toUpperCase() : "", // 3
+            Number(item.quantityAwalPR || item.jumlah || 0), // 4
+            item.satuan ? item.satuan.toUpperCase() : "", // 5
+            (item.noMR || pr.noMR) ? (item.noMR || pr.noMR).toUpperCase() : "", // 6 [NEW POSITION]
+            (item.keterangan || "").toUpperCase(), // 7
+            pr.urgensi ? pr.urgensi.toUpperCase() : "", // 8
+            pr.divisi ? pr.divisi.toUpperCase() : "", // 9
+            pr.status ? pr.status.toUpperCase() : "", // 10
+            pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "", // 11
           ]);
           currentRow++;
         });
@@ -907,10 +907,10 @@ export default function MonitoringPRPage() {
         worksheet.addRow([
           pr.noPR ? pr.noPR.toUpperCase() : "",
           formatTanggalExcel(pr.tanggalPR),
+          "",
+          "",
+          "",
           pr.noMR ? pr.noMR.toUpperCase() : "", // [NEW POSITION]
-          "",
-          "",
-          "",
           "",
           pr.urgensi ? pr.urgensi.toUpperCase() : "",
           pr.divisi ? pr.divisi.toUpperCase() : "",
@@ -924,7 +924,8 @@ export default function MonitoringPRPage() {
       const endRow = currentRow - 1;
       if (endRow > startRow) {
         // Columns to merge: 1 (NO. PR), 2 (TANGGAL), 3 (NO. MR), 8 (URGENSI), 9 (DIVISI), 10 (STATUS), 11 (DIBUAT OLEH)
-        const mergeCols = [1, 2, 3, 8, 9, 10, 11]; // Updated indices
+        // Columns to merge: 1 (NO. PR), 2 (TANGGAL), 8 (URGENSI), 9 (DIVISI), 10 (STATUS), 11 (DIBUAT OLEH)
+        const mergeCols = [1, 2, 8, 9, 10, 11]; // Modified NO.MR not merged as it might be per item? Or keep merged if PR level? Let's check logic. If per item, don't merge. If per PR, merge. Code uses (item.noMR || pr.noMR), so it can be per item. Removing merge for col 6 (NO MR) to be safe.
         mergeCols.forEach((col) => {
           try {
             worksheet.mergeCells(startRow, col, endRow, col);
@@ -1488,64 +1489,7 @@ export default function MonitoringPRPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      <TableHead
-                        className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
-                        style={{
-                          position: "sticky",
-                          top: 0,
-                          zIndex: 10,
-                          background: "#f3f4f6",
-                          boxShadow: "inset 0 -2px 0 #d1d5db",
-                          borderRight: "1px solid #d1d5db",
-                        }}
-                      >
-                        {/* NO. MR popover */}
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
-                              NO. MR
-                              <ChevronDown className="ml-1 h-4 w-4" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
-                            <Label className="text-sm font-medium">Cari NO. MR</Label>
-                            <Input
-                              placeholder="Cari NO. MR..."
-                              value={noMRSearchTerm}
-                              onChange={(e) => setNoMRSearchTerm(e.target.value)}
-                              className="mb-2"
-                            />
-                            <div className="max-h-32 overflow-y-auto space-y-1">
-                              {uniqueNoMR
-                                .filter((noMR) =>
-                                  noMR
-                                    .toLowerCase()
-                                    .includes(noMRSearchTerm.toLowerCase())
-                                )
-                                .map((noMR) => (
-                                  <div key={noMR} className="flex items-center space-x-2">
-                                    <Checkbox
-                                      id={`noMR-${noMR}`}
-                                      checked={filterNoMR.includes(noMR)}
-                                      onCheckedChange={(checked) => {
-                                        if (checked) {
-                                          setFilterNoMR([...filterNoMR, noMR]);
-                                        } else {
-                                          setFilterNoMR(
-                                            filterNoMR.filter((f) => f !== noMR)
-                                          );
-                                        }
-                                      }}
-                                    />
-                                    <Label htmlFor={`noMR-${noMR}`} className="text-sm">
-                                      {noMR}
-                                    </Label>
-                                  </div>
-                                ))}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                      </TableHead>
+
                       {isSpecialUser && (
                         <TableHead
                           className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
@@ -1727,6 +1671,65 @@ export default function MonitoringPRPage() {
                                       className="text-sm"
                                     >
                                       {satuan}
+                                    </Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
+
+                      <TableHead
+                        className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* NO. MR popover */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              NO. MR
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                            <Label className="text-sm font-medium">Cari NO. MR</Label>
+                            <Input
+                              placeholder="Cari NO. MR..."
+                              value={noMRSearchTerm}
+                              onChange={(e) => setNoMRSearchTerm(e.target.value)}
+                              className="mb-2"
+                            />
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {uniqueNoMR
+                                .filter((noMR) =>
+                                  noMR
+                                    .toLowerCase()
+                                    .includes(noMRSearchTerm.toLowerCase())
+                                )
+                                .map((noMR) => (
+                                  <div key={noMR} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`noMR-${noMR}`}
+                                      checked={filterNoMR.includes(noMR)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setFilterNoMR([...filterNoMR, noMR]);
+                                        } else {
+                                          setFilterNoMR(
+                                            filterNoMR.filter((f) => f !== noMR)
+                                          );
+                                        }
+                                      }}
+                                    />
+                                    <Label htmlFor={`noMR-${noMR}`} className="text-sm">
+                                      {noMR}
                                     </Label>
                                   </div>
                                 ))}
@@ -2174,9 +2177,7 @@ export default function MonitoringPRPage() {
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                               {formatTanggal(pr.tanggalPR)}
                             </TableCell>
-                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
-                              {validItems[0]?.noMR || pr.noMR || "-"}
-                            </TableCell>
+
                             {isSpecialUser && (
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
                                 {validItems[0]?.kodeBarang}
@@ -2190,6 +2191,9 @@ export default function MonitoringPRPage() {
                                 : validItems[0]?.quantityAwalPR}
                             </TableCell>
                             <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{validItems[0]?.satuan}</TableCell>
+                            <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase text-left">
+                              {validItems[0]?.noMR || pr.noMR || "-"}
+                            </TableCell>
 
                             <TableCell className="border border-gray-300 px-3 py-1 text-left uppercase">
                               <div
@@ -2249,6 +2253,9 @@ export default function MonitoringPRPage() {
                                   : item.quantityAwalPR}
                               </TableCell>
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{item.satuan}</TableCell>
+                              <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase text-left">
+                                {item.noMR || pr.noMR || "-"}
+                              </TableCell>
 
                               <TableCell className="border border-gray-300 px-3 py-1 text-left uppercase">
                                 <div
