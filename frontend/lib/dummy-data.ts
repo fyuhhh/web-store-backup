@@ -8,6 +8,7 @@ export interface PRItem {
   satuan: string;
   keterangan?: string; // Item-specific description
   status?: string; // Status from backend
+  noMR?: string; // [NEW] No MR
 }
 
 export interface PRData {
@@ -31,6 +32,7 @@ export interface PRData {
   keterangan?: string;
   skema?: string;
   skemaLabel?: string;
+  noMR?: string; // [NEW] No MR at PR Header level
 }
 
 export interface POData {

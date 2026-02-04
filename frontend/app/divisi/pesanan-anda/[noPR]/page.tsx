@@ -532,6 +532,7 @@ export default function DetailPesananPage() {
                                         <TableHeader className="bg-slate-50/50">
                                             <TableRow>
                                                 <TableHead className="w-[150px] text-left font-semibold text-slate-700">No. PR</TableHead>
+                                                <TableHead className="w-[150px] text-left font-semibold text-slate-700">NO. MR</TableHead>
                                                 <TableHead className="w-[120px] text-left font-semibold text-slate-700">Tanggal PR</TableHead>
                                                 <TableHead className="min-w-[200px] text-left font-semibold text-slate-700">Daftar Barang</TableHead>
                                                 <TableHead className="w-[100px] text-left font-semibold text-slate-700">Kuantitas</TableHead>
@@ -543,7 +544,7 @@ export default function DetailPesananPage() {
                                         <TableBody>
                                             {prTable.length === 0 ? (
                                                 <TableRow>
-                                                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
+                                                    <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
                                                         <div className="flex flex-col items-center justify-center gap-2">
                                                             <FileText className="h-8 w-8 text-slate-300" />
                                                             <p>Tidak ada data PR</p>
@@ -554,6 +555,7 @@ export default function DetailPesananPage() {
                                                 prTable.map((row, i) => (
                                                     <TableRow key={i} className="hover:bg-blue-50/30 transition-colors">
                                                         <TableCell className="font-bold text-slate-900">{row.noPR}</TableCell>
+                                                        <TableCell className="font-medium text-slate-800">{row.noMR || "-"}</TableCell>
                                                         <TableCell className="text-left font-normal text-slate-600">{dayjs(row.tanggal).format("DD-MM-YYYY")}</TableCell>
                                                         <TableCell className="font-medium text-slate-800">{row.namaBarang}</TableCell>
                                                         <TableCell className="text-left font-medium text-slate-900">{Number(row.jumlah)}</TableCell>

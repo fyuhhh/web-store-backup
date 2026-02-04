@@ -164,6 +164,24 @@ export default function MonitoringPOPage() {
   const searchParams = useSearchParams();
   const highlight = searchParams.get("highlight");
 
+  // --- Helper Formatters
+  const formatQuantity = (val: any) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = Number(val);
+    if (!isNaN(num)) return String(num);
+    return val;
+  };
+
+  const formatBiaya = (val: any) => {
+    if (val === undefined || val === null || val === "") return "";
+    // Handle specific cases where data might come as string with comma decimal
+    const cleanVal = String(val).replace(/,/g, ".");
+    const num = Number(cleanVal);
+    if (isNaN(num)) return val;
+    return "Rp. " + num.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  // -------------------------------------------
+
   const [poData, setPoData] = useState<POData[]>([]);
   const [prData, setPrData] = useState<PRData[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
@@ -233,6 +251,10 @@ export default function MonitoringPOPage() {
   const [skemaSearchTerm, setSkemaSearchTerm] = useState("");
   const [filterSkema, setFilterSkema] = useState<string[]>([]);
 
+  // --- STATE for Divisi Role ---
+  const [isDivisi, setIsDivisi] = useState(false);
+  // -----------------------------
+
   // Pagination states
   // Pagination removed
   // const [currentPage, setCurrentPage] = useState(1);
@@ -284,6 +306,8 @@ export default function MonitoringPOPage() {
         skemaRes,
         userRes, // <-- tambahkan fetch user
         btbRes, // <-- fetch BTB
+        btbItemRes, // <-- fetch BTB Item
+        divisiRes, // <-- fetch Divisi
       ] = await Promise.all([
         fetch(API_BASE_URL + "/api/po", { cache: "no-store" }),
         fetch(API_BASE_URL + "/api/po-item", { cache: "no-store" }),
@@ -295,6 +319,8 @@ export default function MonitoringPOPage() {
         fetch(API_BASE_URL + "/api/skema", { cache: "no-store" }),
         fetch(API_BASE_URL + "/api/user", { cache: "no-store" }), // <-- fetch user
         fetch(API_BASE_URL + "/api/btb", { cache: "no-store" }), // <-- fetch BTB
+        fetch(API_BASE_URL + "/api/btb-item", { cache: "no-store" }), // <-- fetch BTB Item
+        fetch(API_BASE_URL + "/api/divisi", { cache: "no-store" }), // <-- fetch Divisi
       ]);
 
       const [
@@ -308,6 +334,8 @@ export default function MonitoringPOPage() {
         skemaList,
         userList, // <-- userList
         btbList, // <-- btbList
+        btbItemList, // <-- btbItemList
+        divisiList, // <-- divisiList
       ] = await Promise.all([
         poRes.json(),
         poItemRes.json(),
@@ -316,10 +344,24 @@ export default function MonitoringPOPage() {
         supRes.json(),
         statusPermintaanRes.json(),
         statusPengirimanRes.json(),
+        // Role check
         skemaRes.json(),
         userRes.json(), // <-- userList
         btbRes.json(), // <-- btbList
+        btbItemRes.json(), // <-- btbItemList
+        divisiRes.json(), // <-- divisiList
       ]);
+
+      // --- Mapping User Role from LocalStorage ---
+      const userDataStr = localStorage.getItem("userData");
+      const userDataObj = userDataStr ? JSON.parse(userDataStr) : {};
+      const role = (userDataObj.role || "").toLowerCase();
+      const userId = Number(userDataObj.id || userDataObj.id_user || 0);
+
+      // Logic: Hide ONLY if role is 'divisi' AND user is NOT in allow list (98, 141)
+      const isRestricted = role === "divisi" && ![98, 141].includes(userId);
+      setIsDivisi(isRestricted);
+      // -------------------------------------------
 
       // Create Set of PO IDs that have BTB
       const processedPOIds = new Set(
@@ -357,6 +399,22 @@ export default function MonitoringPOPage() {
       setSkemaMap(skemaMapObj);
       const userMap = Object.fromEntries(
         userList.map((u: any) => [String(u.id_user), u.nama_pengguna])
+      );
+
+      // Map Divisi
+      const divisiMap = Object.fromEntries(
+        (divisiList || []).map((d: any) => [String(d.id_divisi), d.divisi])
+      );
+
+      // Create prDivisiMap & prDateMap
+      const prDivisiMap = Object.fromEntries(
+        prList.map((p: any) => {
+          const divName = divisiMap[String(p.id_divisi)] || "";
+          return [String(p.id_PR), divName];
+        })
+      );
+      const prDateMap = Object.fromEntries(
+        prList.map((p: any) => [String(p.id_PR), p.tanggalPR])
       );
 
       const userData = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -439,9 +497,41 @@ export default function MonitoringPOPage() {
           prList.map((p: any) => [String(p.id_PR), p.tanggalPR])
         );
         // --- TAMBAHAN: Map Divisi PR untuk export ---
-        const prDivisiMap = Object.fromEntries(
-          prList.map((p: any) => [String(p.id_PR), p.divisi || ""])
+        // Helper: Divisi Map (id_divisi -> nama_divisi)
+        const divisiMap = Object.fromEntries(
+          (divisiList || []).map((d: any) => [String(d.id_divisi), d.divisi || d.nama_divisi])
         );
+
+        const prDivisiMap = Object.fromEntries(
+          prList.map((p: any) => [
+            String(p.id_PR),
+            p.divisi || (p.id_divisi ? divisiMap[String(p.id_divisi)] : "") || ""
+          ])
+        );
+        // --- TAMBAHAN: Map Tanggal BTB & No BTB dari btbList ---
+        const btbMap = Object.fromEntries(
+          (btbList || []).map((b: any) => [String(b.id_btb), b])
+        );
+
+        // --- Helper: Get BTB Items for a PO Item ---
+        // Group BTB Items by id_POItem
+        const btbItemsByPOItem: Record<string, any[]> = {};
+        (btbItemList || []).forEach((bi: any) => {
+          const pid = String(bi.id_POItem);
+          if (!btbItemsByPOItem[pid]) btbItemsByPOItem[pid] = [];
+          btbItemsByPOItem[pid].push(bi);
+        });
+
+        // Helper: Get Satuan Name
+        const satuanMap = Object.fromEntries(
+          (uniqueSatuan || []).map((s: any) => [s, s])
+        );
+        // Note: uniqueSatuan is computed later from poData, which is circular. 
+        // We can't use uniqueSatuan here easily. 
+        // But btb_item from API usually has `satuanLabel` if using the join query, 
+        // let's check backend btb_item.js... yes it joins with satuan table.
+        // So btbItem.satuanLabel is available.
+
 
         // Group items by PR (noPR)
         const itemsForPO = (poItemList || []).filter(
@@ -454,6 +544,36 @@ export default function MonitoringPOPage() {
           const prItem = prItemMap[String(pi.id_PRItem)] || {};
           const prId = String(prItem.id_PR || prItem.id_pr || pi.id_PR || "");
           const noPR = prMap[prId] || prItem.noPR || prItem.id_PR || "";
+
+          // --- Cari data BTB terkait item ini ---
+          const relatedBtbItems = btbItemsByPOItem[String(pi.id_POItem)] || [];
+
+          // Concatenate informasinya
+          // Concatenate informasinya -> ubah jadi Array
+          const noBtbList = relatedBtbItems.map(bi => btbMap[bi.id_btb]?.no_btb || "-");
+          const tglBtbList = relatedBtbItems.map(bi => formatTanggal(btbMap[bi.id_btb]?.tanggal_btb));
+          const qtyBtbList = relatedBtbItems.map(bi => formatQuantity(bi.jumlah_diterima));
+          const satuanBtbList = relatedBtbItems.map(bi => bi.satuanLabel || bi.id_satuan);
+          // Simpan biaya sebagai number (raw) agar presisi desimal terjaga
+          const biayaAmbilList = relatedBtbItems.map(bi => {
+            if (bi.biaya === undefined || bi.biaya === null || bi.biaya === "") return null;
+            if (typeof bi.biaya === "number") return bi.biaya;
+
+            // Handle string cases
+            const sVal = String(bi.biaya);
+            if (sVal.includes(",")) {
+              // Likely ID format "30.000,78" -> remove dots, replace comma
+              const cleanVal = sVal.replace(/\./g, "").replace(/,/g, ".");
+              const v = Number(cleanVal);
+              return isNaN(v) ? 0 : v;
+            }
+            // Standard string "30000.78"
+            const v = Number(sVal);
+            return isNaN(v) ? 0 : v;
+          });
+          const qtySisaList = relatedBtbItems.map(bi => formatQuantity(bi.qty_sisa));
+          // --------------------------------------------------------------------------
+
           const item = {
             // --- mapping id_POItem asli dari backend ---
             id_POItem: pi.id_POItem, // <-- ini id yang dipakai untuk hapus
@@ -466,8 +586,8 @@ export default function MonitoringPOPage() {
               prItem.satuanLabel || prItem.satuan || prItem.id_satuan || pi.id_satuan || "",
             hargaSatuan: Number(pi.hargaSatuan) || 0,
             keterangan: pi.keterangan || prItem.keterangan || "",
-            // --- Map Divisi here ---
-            divisi: prDivisiMap[prId] || "",
+            // --- Map Divisi here (Fix: Use Name from divisiMap) ---
+            divisi: prDivisiMap[prId] || "-",
             // --- Ambil field diskon/ppn dari kolom baru backend ---
             diskonPersen: pi.diskonPersen ?? 0, // Diskon (%) dari po_item
             diskonNominal: pi.diskonRupiah ?? 0, // Diskon (Rp) dari po_item
@@ -478,8 +598,22 @@ export default function MonitoringPOPage() {
               typeof pi.totalPerItem !== "undefined" && pi.totalPerItem !== null
                 ? Number(pi.totalPerItem)
                 : undefined,
+            // --- TAMBAHAN: Validasi Divisi user logic ---
+            // Nanti di render pakai user.role, tapi data disiapkan di sini
+
             // --- TAMBAHAN: mapping namaPembeli dari po_item ---
             namaPembeli: pi.namaPembeli ?? "",
+
+            // --- Fields baru untuk tabel ---
+            noPR: noPR,
+            tanggalPR: prDateMap[prId] || "",
+            divisiPR: prDivisiMap[prId] || "", // Rename to avoid confusion with existing logic if any
+            noBTB: noBtbList,
+            tanggalBTB: tglBtbList,
+            qtyBTB: qtyBtbList,
+            satuanBTB: satuanBtbList,
+            biayaAmbil: biayaAmbilList,
+            qtyBelumBTB: qtySisaList,
             status: pi.status,
           };
           const key = String(noPR || prId || "__noPR__");
@@ -1109,6 +1243,14 @@ export default function MonitoringPOPage() {
     const exportData = getExportPOData();
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Monitoring PO");
+    // Check role for export
+    const userDataStr = localStorage.getItem("userData");
+    const userDataObj = userDataStr ? JSON.parse(userDataStr) : {};
+    const role = (userDataObj.role || "").toLowerCase();
+    const userId = Number(userDataObj.id || userDataObj.id_user || 0);
+    const isRestricted = role === "divisi" && ![98, 141].includes(userId);
+    // Use isRestricted variable instead of isDivisi logic below (rename variable usage or keep isDivisi name representing restriction)
+    const isDivisi = isRestricted;
 
     // Header sesuai urutan tabel monitoring PO
     // Header sesuai urutan tabel monitoring PO
@@ -1133,6 +1275,17 @@ export default function MonitoringPOPage() {
       "STATUS PENGIRIMAN",
       "STATUS",
       "TERMIN PEMBAYARAN",
+      ...(isDivisi ? [] : [
+        "NO. PR",
+        "TANGGAL PR",
+        "DIVISI",
+        "NO. BTB",
+        "TANGGAL BTB",
+        "QUANTITY BTB",
+        "SATUAN BTB",
+        "BIAYA",
+        "QUANTITY BELUM BTB"
+      ]),
       "DIBUAT OLEH",
     ];
 
@@ -1186,50 +1339,106 @@ export default function MonitoringPOPage() {
 
       const poStartRow = currentRowIdx;
 
-      // Helper to return value or empty string if 0/null
       const valOrEmpty = (val: any) => (val && Number(val) !== 0) ? Number(val) : "";
 
       if (flatItems.length > 0) {
         flatItems.forEach((item: any) => {
-          const row = worksheet.getRow(currentRowIdx);
+          const itemStartRow = currentRowIdx;
 
-          // Data Array mapping
-          const rowData = [
-            po.noPO ? po.noPO.toUpperCase() : "",           // 1
-            formatTanggalExcel(po.tanggalPO),               // 2
-            po.supplier ? po.supplier.toUpperCase() : "",   // 3
-            item.namaBarang ? item.namaBarang.toUpperCase() : "", // 4
-            valOrEmpty(item.jumlahPO || item.jumlahAsli),   // 5
-            item.satuan ? item.satuan.toUpperCase() : "",   // 6
-            item.keterangan ? item.keterangan.toUpperCase() : "", // 7
-            valOrEmpty(item.hargaSatuan),                   // 8
-            item.diskonPersen ? String(item.diskonPersen) : "", // 9 (String)
-            valOrEmpty(item.diskonNominal),                 // 10
-            item.ppnItem ? String(item.ppnItem) : "",       // 11
-            valOrEmpty(item.ppnAmount),                     // 12
-            valOrEmpty(item.totalPerItem),                  // 13
-            valOrEmpty(po.totalPembayaran),                 // 14
-            item.namaPembeli ? item.namaPembeli.replace(/_/g, " ").toUpperCase() : "", // 15
-            formatTanggalExcel(po.estimasiTanggalTerima),   // 16
-            po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "", // 17
-            po.status ? po.status.toUpperCase() : "",       // 18
-            po.termin ? po.termin.toUpperCase() : "",       // 19
-            po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "", // 20
-          ];
+          // Helper to split arrays or wrap single value into array
+          const noBTBArr = Array.isArray(item.noBTB) ? item.noBTB : (item.noBTB ? [item.noBTB] : []);
+          const tglBTBArr = Array.isArray(item.tanggalBTB) ? item.tanggalBTB : (item.tanggalBTB ? [item.tanggalBTB] : []);
+          const qtyBTBArr = Array.isArray(item.qtyBTB) ? item.qtyBTB : (item.qtyBTB !== undefined ? [item.qtyBTB] : []);
+          const satBTBArr = Array.isArray(item.satuanBTB) ? item.satuanBTB : (item.satuanBTB ? [item.satuanBTB] : []);
+          const biayaBTBArr = Array.isArray(item.biayaAmbil) ? item.biayaAmbil : (item.biayaAmbil !== undefined ? [item.biayaAmbil] : []);
+          const qBelumArr = Array.isArray(item.qtyBelumBTB) ? item.qtyBelumBTB : (item.qtyBelumBTB !== undefined ? [item.qtyBelumBTB] : []);
 
-          // Set Values
-          rowData.forEach((val, idx) => {
-            const cell = row.getCell(idx + 1);
-            cell.value = val;
+          // Determine max rows needed for this item based on BTB entries
+          // At least 1 row even if no BTB
+          const maxRows = Math.max(noBTBArr.length, 1);
 
-            // Special handling for Diskon % (Col 9) to ignore text error
-            if (idx + 1 === 9) {
-              // @ts-ignore
-              cell.ignoredErrors = { numberStoredAsText: true };
+          for (let k = 0; k < maxRows; k++) {
+            const row = worksheet.getRow(currentRowIdx);
+
+            // Prepare BTB specific values
+            const btbNo = noBTBArr[k] || "";
+            const btbTgl = tglBTBArr[k] || "";
+            const btbQty = qtyBTBArr[k] !== undefined ? qtyBTBArr[k] : "";
+            const btbSat = satBTBArr[k] || "";
+            const btbBiayaRaw = biayaBTBArr[k];
+            let btbBiaya = "";
+            if (btbBiayaRaw !== null && btbBiayaRaw !== undefined && btbBiayaRaw !== "-" && btbBiayaRaw !== "") {
+              const num = Number(btbBiayaRaw);
+              btbBiaya = "Rp. " + num.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            } else if (btbBiayaRaw === "-") {
+              btbBiaya = "-";
             }
-          });
 
-          currentRowIdx++;
+            const btbQBelum = qBelumArr[k] !== undefined ? qBelumArr[k] : "";
+
+            // Data Array mapping
+            const rowData = [
+              po.noPO ? po.noPO.toUpperCase() : "",           // 1
+              formatTanggalExcel(po.tanggalPO),               // 2
+              po.supplier ? po.supplier.toUpperCase() : "",   // 3
+              item.namaBarang ? item.namaBarang.toUpperCase() : "", // 4
+              valOrEmpty(item.jumlahPO || item.jumlahAsli),   // 5
+              item.satuan ? item.satuan.toUpperCase() : "",   // 6
+              item.keterangan ? item.keterangan.toUpperCase() : "", // 7
+              valOrEmpty(item.hargaSatuan),                   // 8
+              item.diskonPersen ? String(item.diskonPersen) : "", // 9 (String)
+              valOrEmpty(item.diskonNominal),                 // 10
+              item.ppnItem ? String(item.ppnItem) : "",       // 11
+              valOrEmpty(item.ppnAmount),                     // 12
+              valOrEmpty(item.totalPerItem),                  // 13
+              valOrEmpty(po.totalPembayaran),                 // 14
+              item.namaPembeli ? item.namaPembeli.replace(/_/g, " ").toUpperCase() : "", // 15
+              formatTanggalExcel(po.estimasiTanggalTerima),   // 16
+              po.statusPengiriman ? po.statusPengiriman.toUpperCase() : "", // 17
+              po.status ? po.status.toUpperCase() : "",       // 18
+              po.termin ? po.termin.toUpperCase() : "",       // 19
+              ...(isDivisi ? [] : [
+                item.noPR || "",
+                formatTanggalExcel(item.tanggalPR),
+                item.divisi || "",
+                btbNo,
+                btbTgl,
+                typeof btbQty === 'number' ? formatQuantity(btbQty) : btbQty,
+                btbSat,
+                btbBiaya,
+                typeof btbQBelum === 'number' ? formatQuantity(btbQBelum) : btbQBelum
+              ]),
+              po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "", // 20
+            ];
+
+            // Set Values
+            rowData.forEach((val, idx) => {
+              const cell = row.getCell(idx + 1);
+              cell.value = val;
+
+              // Special handling for Diskon % (Col 9) to ignore text error
+              if (idx + 1 === 9) {
+                // @ts-ignore
+                cell.ignoredErrors = { numberStoredAsText: true };
+              }
+            });
+
+            currentRowIdx++;
+          }
+
+          // Merge Item Cells if > 1 row
+          const itemEndRow = currentRowIdx - 1;
+          if (itemEndRow > itemStartRow) {
+            // Merge Item cols: 4-13 and 15
+            // Also merge PR cols: 20-22 (if !isDivisi) -> Indices: 20(noPR), 21(tglPR), 22(divisi)
+            const itemMergeCols = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15];
+            if (!isDivisi) {
+              itemMergeCols.push(20, 21, 22);
+            }
+            itemMergeCols.forEach(col => {
+              try { worksheet.mergeCells(itemStartRow, col, itemEndRow, col); } catch (e) { }
+            });
+          }
         });
       } else {
         // No items, single row
@@ -1256,8 +1465,9 @@ export default function MonitoringPOPage() {
       // Merge Cells check
       const poEndRow = currentRowIdx - 1;
       if (poEndRow > poStartRow) {
-        // Columns to merge: 1, 2, 3, 14, 15, 16, 17, 18, 19, 20
-        const mergeCols = [1, 2, 3, 14, 15, 16, 17, 18, 19, 20];
+        // Columns to merge: 1, 2, 3, 14, 15, 16, 17, 18, 19, and the last column (DIBUAT OLEH)
+        const lastColIdx = headers.length;
+        const mergeCols = [1, 2, 3, 14, 15, 16, 17, 18, 19, lastColIdx];
         mergeCols.forEach(col => {
           try {
             worksheet.mergeCells(poStartRow, col, poEndRow, col);
@@ -2428,6 +2638,21 @@ export default function MonitoringPOPage() {
                     >
                       TERMIN PEMBAYARAN
                     </TableHead>
+                    {/* --- KOLOM BARU (Hidden for Divisi) --- */}
+                    {/* --- KOLOM BARU (Hidden for Divisi) --- */}
+                    {!isDivisi && (
+                      <>
+                        <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NO. PR</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>TANGGAL PR</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>DIVISI</TableHead>
+                        <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NO. BTB</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>TANGGAL BTB</TableHead>
+                        <TableHead className="min-w-[80px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>QUANTITY BTB</TableHead>
+                        <TableHead className="min-w-[80px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>SATUAN BTB</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>BIAYA</TableHead>
+                        <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>QUANTITY BELUM BTB</TableHead>
+                      </>
+                    )}
                     {/* ORDERED BY (Moved to end) */}
                     <TableHead
                       className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky-header-cell uppercase"
@@ -2773,6 +2998,64 @@ export default function MonitoringPOPage() {
                                 >
                                   {po.termin ?? "-"}
                                 </TableCell>
+                              </>
+                            ) : null}
+
+                            {/* --- KOLOM BARU CELLS (Hidden for Divisi) - Render PER ITEM --- */}
+                            {!isDivisi && (
+                              <>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase">{item.noPR}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{formatTanggal(item.tanggalPR)}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.divisiPR}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.noBTB) && item.noBTB.length > 0 ? (
+                                    item.noBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : "-"}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.tanggalBTB) && item.tanggalBTB.length > 0 ? (
+                                    item.tanggalBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.qtyBTB) && item.qtyBTB.length > 0 ? (
+                                    item.qtyBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.satuanBTB) && item.satuanBTB.length > 0 ? (
+                                    item.satuanBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[100px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.biayaAmbil) && item.biayaAmbil.length > 0 ? (
+                                    item.biayaAmbil.map((val: number | null, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">
+                                        {val !== null ? `Rp. ${val.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+                                      </div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.qtyBelumBTB) && item.qtyBelumBTB.length > 0 ? (
+                                    item.qtyBelumBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                              </>
+                            )}
+
+                            {itemIndex === 0 ? (
+                              <>
                                 <TableCell
                                   key="orderedBy"
                                   rowSpan={allItems.length}

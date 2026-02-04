@@ -1,6 +1,7 @@
 import express from "express";
 import db from "../config/database.js";
 import bcrypt from "bcryptjs";
+import { logActivity } from "../utils/activityLogger.js";
 
 const router = express.Router();
 
@@ -148,6 +149,16 @@ router.post("/login", async (req, res) => {
     }
 
     console.log(`[LOGIN DEBUG] Login successful for User ID: ${loggedInUser.id_user}`);
+
+    // Log Activity
+    logActivity(req, {
+      id_user: loggedInUser.id_user, // Manually pass because req.user isn't set yet
+      nama_pengguna: loggedInUser.nama_pengguna,
+      action_type: 'LOGIN',
+      details: { role: loggedInUser.id_peran },
+      status: 'SUCCESS'
+    });
+
     res.json({ message: "Login berhasil", user: loggedInUser });
   } catch (err) {
     console.error(`[LOGIN DEBUG] Error:`, err);

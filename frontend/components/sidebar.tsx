@@ -293,20 +293,31 @@ export function Sidebar() {
     // Tambahan menu Maintenance khusus user ID 141
     const userId = user ? String(user.id ?? user.id_user ?? "") : "";
     if (userId === "141") {
-      // Pastikan menu adalah array baru agar tidak memutasi aslinya jika referensi
-      menu = [...menu, {
-        title: "Mode Maintenance",
-        href: "/maintenance/admin",
-        icon: Settings,
-      }, {
-        title: "Broadcast",
-        href: "/maintenance/broadcast",
-        icon: Users,
-      }, {
-        title: "Monitoring Akun",
-        href: `/monitoring/akun/${userId}`,
-        icon: UserCircle,
-      }];
+      const extraItems = [
+        {
+          title: "Mode Maintenance",
+          href: "/maintenance/admin",
+          icon: Settings,
+        }, {
+          title: "Broadcast",
+          href: "/maintenance/broadcast",
+          icon: Users,
+        }, {
+          title: "Monitoring Akun",
+          href: `/monitoring/akun/${userId}`,
+          icon: UserCircle,
+        }
+      ];
+
+      // Insert after Dashboard (which is usually index 0)
+      const dashboardIndex = menu.findIndex((item) => item.title === "Dashboard");
+      if (dashboardIndex !== -1) {
+        const newMenu = [...menu];
+        newMenu.splice(dashboardIndex + 1, 0, ...extraItems);
+        menu = newMenu;
+      } else {
+        menu = [...extraItems, ...menu];
+      }
     }
 
     return menu;
@@ -330,6 +341,9 @@ export function Sidebar() {
     }
   }, [pathname, filteredMenu]);
 
+  const userId = user ? String(user.id ?? user.id_user ?? "") : "";
+  const isUser141 = userId === "141";
+
   return (
     <div
       className={cn(
@@ -337,6 +351,18 @@ export function Sidebar() {
         collapsed ? "w-20" : "w-72"
       )}
     >
+      {/* Centered Toggle Button for User 141 */}
+      {isUser141 && (
+        <Button
+          variant="outline"
+          size="icon"
+          className="absolute -right-3 top-1/2 transform -translate-y-1/2 h-6 w-6 rounded-full border-slate-200 shadow-sm z-[60] bg-white hover:bg-slate-50 p-0"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? <ChevronRight className="h-3 w-3 text-slate-500" /> : <ChevronLeft className="h-3 w-3 text-slate-500" />}
+        </Button>
+      )}
+
       {/* Header / Logo Area */}
       <div className="flex h-20 items-center px-6 border-b border-slate-50">
         <div className={cn("flex items-center gap-3 w-full", collapsed && "justify-center")}>
@@ -442,21 +468,25 @@ export function Sidebar() {
         </nav>
       </ScrollArea>
 
-      {/* Toggle Button at Bottom */}
-      <div className="p-4 border-t border-slate-50">
-        <Button
-          variant="ghost"
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl"
-        >
-          {collapsed ? <ChevronRight className="h-5 w-5" /> : (
-            <div className="flex items-center gap-2">
-              <ChevronLeft className="h-5 w-5" />
-              <span className="text-sm font-medium">Minimize</span>
-            </div>
-          )}
-        </Button>
-      </div>
+      {/* Toggle Button at Bottom - Hide for User 141 if they prefer the centered one, or keep both? 
+          User said "minimize dengan button di tengah", implying that IS the mechanism. I will hide the bottom one for 141 to avoid clutter. 
+      */}
+      {!isUser141 && (
+        <div className="p-4 border-t border-slate-50">
+          <Button
+            variant="ghost"
+            onClick={() => setCollapsed(!collapsed)}
+            className="w-full h-10 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl"
+          >
+            {collapsed ? <ChevronRight className="h-5 w-5" /> : (
+              <div className="flex items-center gap-2">
+                <ChevronLeft className="h-5 w-5" />
+                <span className="text-sm font-medium">Minimize</span>
+              </div>
+            )}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

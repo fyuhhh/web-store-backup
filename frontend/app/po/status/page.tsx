@@ -36,7 +36,8 @@ dayjs.extend(utc);
 // Tambahkan import react-datepicker
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import * as ExcelJS from "exceljs";
+import "react-datepicker/dist/react-datepicker.css";
+// import * as ExcelJS from "exceljs"; // Removed Export
 import { API_BASE_URL } from "@/lib/config";
 
 export default function StatusPOPage() {
@@ -337,6 +338,7 @@ export default function StatusPOPage() {
       skema: pr.id_skema,
       skemaLabel: pr.skemaLabel ?? "",
       noPR: pr.noPR,
+      noMR: pr.noMR, // Added NO MR mapping
       tanggalPR: pr.tanggalPR,
       status: pr.status,
     }));
@@ -709,113 +711,8 @@ export default function StatusPOPage() {
     });
   }
 
-  // Export to Excel
-  const handleExport = async () => {
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Status PO");
+  // Export function removed  // Export function removed
 
-    // Header sesuai UI persis (Updated to Uppercase)
-    const headers = [
-      "NO. PR",
-      "TANGGAL PR",
-      "NAMA BARANG",
-      "KUANTITAS",
-      "SATUAN",
-      "KETERANGAN",
-      "URGENSI",
-      "DIVISI",
-      "STATUS",
-      "DIBUAT OLEH",
-    ];
-
-    const headerRow = worksheet.addRow(headers);
-    headerRow.eachCell((cell) => {
-      cell.font = { bold: true };
-      cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFEEEEEE" },
-      };
-      cell.border = {
-        top: { style: "thin" },
-        right: { style: "thin" },
-        bottom: { style: "thin" },
-        left: { style: "thin" },
-      };
-    });
-
-    // Helper format tanggal
-    function formatTanggalExcel(tgl: string) {
-      if (!tgl) return "";
-      if (/^\d{2}-\d{2}-\d{4}$/.test(tgl)) return tgl;
-
-      let datePart = tgl;
-      if (tgl.includes("T")) datePart = tgl.split("T")[0];
-
-      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
-        const [y, m, d] = datePart.split("-");
-        return `${d}-${m}-${y}`;
-      }
-      const d = dayjs(tgl);
-      if (d.isValid()) return d.format("DD-MM-YYYY");
-      return tgl;
-    }
-
-    filteredPRs.forEach((pr) => {
-      const validItems = pr.items && pr.items.length > 0 ? pr.items.filter((i: any) => i.jumlah > 0) : [];
-
-      if (validItems.length > 0) {
-        validItems.forEach((item, index) => {
-          worksheet.addRow([
-            index === 0 ? pr.noPR : "",
-            index === 0 ? formatTanggalExcel(pr.tanggalPR) : "",
-            item.namaBarang,
-            Number(item.jumlah),
-            item.satuan,
-            item.keterangan || "",
-            index === 0 ? (pr.urgensi ? pr.urgensi.toUpperCase() : "") : "",
-            index === 0 ? (pr.divisi ? pr.divisi.toUpperCase() : "") : "",
-            index === 0 ? (pr.status ? pr.status.toUpperCase() : "") : "",
-            index === 0 ? (pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "") : "",
-          ]);
-        });
-        worksheet.getColumn(4).numFmt = '#,##0';
-      } else {
-        worksheet.addRow([
-          pr.noPR,
-          formatTanggalExcel(pr.tanggalPR),
-          "",
-          "",
-          "",
-          "",
-          pr.urgensi ? pr.urgensi.toUpperCase() : "",
-          pr.divisi ? pr.divisi.toUpperCase() : "",
-          pr.status ? pr.status.toUpperCase() : "",
-          pr.dibuatOleh ? pr.dibuatOleh.replace(/_/g, " ").toUpperCase() : "",
-        ]);
-      }
-    });
-
-    // Auto fit
-    worksheet.columns.forEach((column) => {
-      let maxLength = 10;
-      column.eachCell && column.eachCell({ includeEmpty: true }, (cell) => {
-        const cellValue = cell.value ? String(cell.value) : "";
-        maxLength = Math.max(maxLength, cellValue.length + 2);
-      });
-      column.width = Math.min(maxLength, 50);
-    });
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `status-po-${new Date().toISOString().split("T")[0]}.xlsx`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
 
   return (
     <MainLayout>
@@ -829,9 +726,7 @@ export default function StatusPOPage() {
             </p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={handleExport}>
-              Export Excel
-            </Button>
+            {/* Export button removed */}
             {selectedPRsForProcess.length > 0 ? (
               <Button
                 onClick={async () => {
@@ -1180,6 +1075,18 @@ export default function StatusPOPage() {
                             </div>
                           </PopoverContent>
                         </Popover>
+                      </TableHead>
+                      <TableHead
+                        className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          borderBottom: "2px solid #d1d5db",
+                        }}
+                      >
+                        <div className="h-auto p-0 font-medium uppercase py-2">NO. MR</div>
                       </TableHead>
                       <TableHead
                         className="min-w-[180px] border border-gray-300 px-3 py-1 text-center sticky-header-cell"
@@ -1686,6 +1593,12 @@ export default function StatusPOPage() {
                               {idx === 0 ? (
                                 <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                                   {formatTanggal(pr.tanggalPR)}
+                                </TableCell>
+                              ) : null}
+                              {/* No. MR hanya di baris pertama - Added Column */}
+                              {idx === 0 ? (
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                                  {pr.noMR || "-"}
                                 </TableCell>
                               ) : null}
                               {/* Nama Barang */}

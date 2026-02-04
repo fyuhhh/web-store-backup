@@ -2277,7 +2277,7 @@ export default function BTBInputPage() {
                   {/* Input Nomor BTB dan Tgl BTB sejajar */}
                   <div className="flex flex-row gap-4">
                     <div className="flex-1">
-                      <Label htmlFor="noBTB">Nomor BTB</Label>
+                      <Label htmlFor="noBTB">NO. BTB</Label>
                       <Input
                         id="noBTB"
                         value={formData.noBTB}
@@ -2288,7 +2288,7 @@ export default function BTBInputPage() {
                       />
                     </div>
                     <div className="flex-1">
-                      <Label htmlFor="tanggal">Tanggal BTB</Label>
+                      <Label htmlFor="tanggal">TANGGAL BTB</Label>
                       <DatePicker
                         id="tanggal"
                         selected={formData.tanggal}

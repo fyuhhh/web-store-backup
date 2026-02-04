@@ -42,6 +42,7 @@ export default function InputBaruPRPage() {
   const [formData, setFormData] = useState({
     noPR: "",
     tanggalPR: new Date() as Date | null, // Default to Today
+    noMR: "", // [NEW]
     divisi: "",
     urgensi: "",
     items: [
@@ -64,6 +65,7 @@ export default function InputBaruPRPage() {
 
   // State khusus untuk user 98 & 141
   const [isSpecialUser, setIsSpecialUser] = useState(false);
+  const [isDivisiUser, setIsDivisiUser] = useState(false); // [NEW]
 
   // Tambahkan state untuk tambah divisi/satuan
   const [showAddDivisi, setShowAddDivisi] = useState(false);
@@ -90,6 +92,10 @@ export default function InputBaruPRPage() {
         .then((users) => {
           const user = users.find((u: any) => u.id_user === userId);
           if (user) {
+            // Check Divisi User
+            if (user.skema?.toLowerCase() === "divisi" || user.peran?.toLowerCase() === "divisi" || user.role?.toLowerCase() === "divisi") {
+              setIsDivisiUser(true);
+            }
             // Pastikan id_skema selalu angka
             let skemaId = Number(user.id_skema);
             let skemaLabel = "";
@@ -162,6 +168,7 @@ export default function InputBaruPRPage() {
         setFormData({
           noPR: prData.noPR,
           tanggalPR: prData.tanggalPR ? new Date(prData.tanggalPR) : null,
+          noMR: prData.noMR || "", // [NEW]
           divisi: String(prData.id_divisi || ""),
           urgensi: String(prData.id_urgensi || ""),
           id_skema: String(prData.id_skema || ""),
@@ -321,6 +328,7 @@ export default function InputBaruPRPage() {
     setFormData({
       noPR: "",
       tanggalPR: null, // reset ke null
+      noMR: "",
       divisi: "",
       urgensi: "",
       items: [
@@ -393,6 +401,7 @@ export default function InputBaruPRPage() {
             status: "Menunggu",
             dibuatOleh: userDataLocal.username || userDataLocal.nama_pengguna || "Unknown",
             plan: planValue, // Send explicit plan
+            noMR: formData.noMR, // [NEW]
           }),
         });
 
@@ -424,7 +433,7 @@ export default function InputBaruPRPage() {
             quantityAwalPR: jumlah,
             id_satuan: Number(item.id_satuan),
             keterangan: item.keterangan || "",
-            noMR: item.noMR,
+            noMR: formData.noMR, // Use Header NO. MR
           };
 
           if (item.id.startsWith("new-")) {
@@ -464,6 +473,7 @@ export default function InputBaruPRPage() {
             id_skema: Number(formData.id_skema),
             createdAt: new Date().toISOString(),
             plan: planValue, // Send explicit plan
+            noMR: formData.noMR, // [NEW]
           }),
         });
 
@@ -490,7 +500,7 @@ export default function InputBaruPRPage() {
               quantityAwalPR: jumlah,
               id_satuan: Number(item.id_satuan),
               keterangan: item.keterangan || "",
-              noMR: item.noMR,
+              noMR: formData.noMR, // Use Header NO. MR
             }),
           });
         }
@@ -717,10 +727,15 @@ export default function InputBaruPRPage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Bagian atas: No PR, Tanggal, Divisi, Urgensi dalam 1 baris */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <Label htmlFor="noPR">No. PR</Label>
+              {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
+              {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
+              {/* Bagian atas: No PR, Tanggal, No MR, Divisi, Urgensi */}
+              {/* Header: Single Row (3-2-2-3-2) */}
+              {/* Header: Single Row (3-2-2-2-2) - Tighter Gap */}
+              {/* Header: Weighted Grid for Consistent Spacing & Control */}
+              <div className="grid grid-cols-1 md:grid-cols-[3fr_1.2fr_1.2fr_1.2fr_1.2fr] gap-2">
+                <div className="w-full">
+                  <Label htmlFor="noPR">NO. PR</Label>
                   <Input
                     id="noPR"
                     value={formData.noPR}
@@ -732,8 +747,8 @@ export default function InputBaruPRPage() {
                     className="w-full"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="tanggalPR">Tanggal PR Dibuat</Label>
+                <div className="w-full">
+                  <Label htmlFor="tanggalPR">TANGGAL PR</Label>
                   <DatePicker
                     id="tanggalPR"
                     selected={formData.tanggalPR}
@@ -743,6 +758,7 @@ export default function InputBaruPRPage() {
                     dateFormat="dd-MM-yyyy"
                     placeholderText="Pilih tanggal"
                     className="w-full px-3 py-2 border rounded-md bg-white"
+                    wrapperClassName="w-full"
                     popperPlacement="bottom"
                     showMonthDropdown
                     showYearDropdown
@@ -761,8 +777,21 @@ export default function InputBaruPRPage() {
                     }
                   />
                 </div>
-                <div>
-                  <Label htmlFor="divisi">Divisi</Label>
+
+                <div className="w-full">
+                  <Label htmlFor="noMR">NO. MR</Label>
+                  <Input
+                    id="noMR"
+                    value={formData.noMR}
+                    onChange={(e) =>
+                      setFormData({ ...formData, noMR: e.target.value })
+                    }
+                    placeholder="NO. MR"
+                    className="w-full"
+                  />
+                </div>
+                <div className="w-full">
+                  <Label htmlFor="divisi">DIVISI</Label>
                   <div className="relative">
                     <Select
                       value={formData.divisi}
@@ -914,8 +943,8 @@ export default function InputBaruPRPage() {
                     )}
                   </div>
                 </div>
-                <div>
-                  <Label htmlFor="urgensi">Urgensi</Label>
+                <div className="w-full">
+                  <Label htmlFor="urgensi">URGENSI</Label>
                   <Select
                     value={formData.urgensi}
                     onValueChange={(value) =>
@@ -949,7 +978,7 @@ export default function InputBaruPRPage() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <Label className="text-base font-semibold">
-                    Daftar Barang
+                    DAFTAR BARANG
                   </Label>
                   <Button
                     type="button"
@@ -965,128 +994,176 @@ export default function InputBaruPRPage() {
                 {formData.items.map((item, index) => (
                   <div
                     key={item.id}
-                    className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 border rounded-lg min-w-[900px]"
+                    className={`grid grid-cols-1 md:grid-cols-12 ${isSpecialUser ? "gap-x-2 gap-y-2 p-4 border rounded-lg" : "gap-0 items-end p-2 border-b last:border-0"}`}
                   >
-                    {/* Row 1: Kode (2), Nama (4), Spesifikasi (3), No MR (3) - IF SPECIAL USER */}
-                    {/* IF STANDARD USER: Nama (12) */}
-
-                    {isSpecialUser && (
-                      <div className="md:col-span-2">
-                        <Label htmlFor={`kodeBarang-${item.id}`}>Kode Barang</Label>
-                        <Input
-                          id={`kodeBarang-${item.id}`}
-                          value={item.kodeBarang}
-                          onChange={(e) => updateItem(item.id, "kodeBarang", e.target.value)}
-                          placeholder="Kode"
-                        />
-                      </div>
-                    )}
-
-                    <div className={isSpecialUser ? "md:col-span-7" : "md:col-span-4"}>
-                      <Label htmlFor={`namaBarang-${item.id}`}>Nama Barang</Label>
-                      <Input
-                        id={`namaBarang-${item.id}`}
-                        value={item.namaBarang}
-                        onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
-                        placeholder="Nama Barang"
-                        required
-                      />
-                    </div>
-
-                    {isSpecialUser && (
+                    {isSpecialUser ? (
+                      // SPECIAL USER LAYOUT (141, 98)
                       <>
-                        <div className="md:col-span-3">
-                          <Label htmlFor={`noMR-${item.id}`}>No MR</Label>
+                        {/* Row 1: Nama(6), Qt(1), Sat+Ket(4), Del(1) */}
+                        <div className="md:col-span-6">
+                          <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
                           <Input
-                            id={`noMR-${item.id}`}
-                            value={item.noMR}
-                            onChange={(e) => updateItem(item.id, "noMR", e.target.value)}
-                            placeholder="MR-XXX"
+                            id={`namaBarang-${item.id}`}
+                            value={item.namaBarang}
+                            onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
+                            placeholder="Nama Barang"
+                            required
                           />
                         </div>
-                      </>
-                    )}
+                        <div className="md:col-span-1">
+                          <Label htmlFor={`jumlah-${item.id}`}>QTY</Label>
+                          <Input
+                            id={`jumlah-${item.id}`}
+                            type="number"
+                            value={item.jumlah}
+                            onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
+                            placeholder="1"
+                            required
+                          />
+                        </div>
 
-                    {/* Row 2: Qty (2), Satuan (3), Keterangan (6), Delete (1) */}
-                    <div className="md:col-span-2">
-                      <Label htmlFor={`jumlah-${item.id}`}>Quantity</Label>
-                      <Input
-                        id={`jumlah-${item.id}`}
-                        type="number"
-                        value={item.jumlah}
-                        onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
-                        placeholder="1"
-                        required
-                      />
-                    </div>
-                    <div className={isSpecialUser ? "md:col-span-3 relative" : "md:col-span-2 relative"}>
-                      <Label htmlFor={`satuan-${item.id}`}>Satuan</Label>
-                      {/* Note: Copied Select logic, simplifying for replacement readability */}
-                      <Select
-                        value={item.id_satuan}
-                        onValueChange={(value) =>
-                          updateItem(item.id, "id_satuan", value)
-                        }
-                      >
-                        <SelectTrigger className="bg-white">
-                          <SelectValue placeholder="Pilih satuan" />
-                        </SelectTrigger>
-                        <SelectContent
-                          className="bg-white max-h-[384px] overflow-y-auto relative"
-                        >
-                          {/* ... (Existing Satuan Logic preserved via simple re-render or assumption, but block replace is safer) ... */}
-                          {/* Using condensed version for safety in tool call */}
-                          <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                        {/* Combined Satuan + Keterangan (4 cols) */}
+                        <div className="md:col-span-4 flex gap-1">
+                          <div className="w-[110px] relative">
+                            <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
+                            <Select
+                              value={item.id_satuan}
+                              onValueChange={(value) =>
+                                updateItem(item.id, "id_satuan", value)
+                              }
+                            >
+                              <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                                {/* ... Satuan Content ... */}
+                                <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                  <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
+                                  <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
+                                  {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
+                                </div>
+                                {satuanOptions.map((sat: any) => (
+                                  <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="flex-1">
+                            <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
                             <Input
-                              placeholder="Cari satuan..."
-                              value={satuanSearch}
-                              onChange={(e) => setSatuanSearch(e.target.value)}
-                              className="mb-2"
+                              id={`keterangan-${item.id}`}
+                              value={item.keterangan}
+                              onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
+                              placeholder="Ket..."
                             />
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-1 flex items-end">
+                          {formData.items.length > 1 && (
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
-                              className="mb-2 w-full"
-                              onClick={() => setShowAddSatuan((v) => !v)}
+                              onClick={() => removeItem(item.id)}
+                              className="w-full text-red-500"
                             >
-                              + Tambahkan Satuan
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                            {showAddSatuan && (
-                              <div className="flex items-center gap-2 mb-2">
-                                <Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} className="w-[140px]" />
-                                <Button type="button" size="sm" onClick={async () => { await handleAddSatuan(); setShowAddSatuan(false); setNewSatuan(""); }}>Simpan</Button>
-                              </div>
-                            )}
+                          )}
+                        </div>
+
+                        {/* Row 2: Kode(4) below everything */}
+                        <div className="md:col-span-4 mt-2">
+                          <Label htmlFor={`kodeBarang-${item.id}`}>KODE BARANG</Label>
+                          <Input
+                            id={`kodeBarang-${item.id}`}
+                            value={item.kodeBarang}
+                            onChange={(e) => updateItem(item.id, "kodeBarang", e.target.value)}
+                            placeholder="Kode"
+                          />
+                        </div>
+                        {/* Spacer for remaining cols in row 2 if needed, or let it end */}
+                        <div className="md:col-span-8"></div>
+                      </>
+                    ) : (
+                      // STANDARD USER LAYOUT
+                      <>
+                        {/* Row 1: Nama(4), Qt(1), Sat+Ket(6), Del(1) */}
+                        <div className="md:col-span-4 px-1 pb-1">
+                          <Label htmlFor={`namaBarang-${item.id}`}>NAMA BARANG</Label>
+                          <Input
+                            id={`namaBarang-${item.id}`}
+                            value={item.namaBarang}
+                            onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
+                            placeholder="Nama Barang"
+                            required
+                          />
+                        </div>
+                        <div className="md:col-span-1 px-1 pb-1">
+                          <Label htmlFor={`jumlah-${item.id}`}>QTY</Label>
+                          <Input
+                            id={`jumlah-${item.id}`}
+                            type="number"
+                            value={item.jumlah}
+                            onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
+                            placeholder="1"
+                            required
+                          />
+                        </div>
+
+                        {/* Combined Satuan + Keterangan (6 cols) */}
+                        <div className="md:col-span-6 px-1 pb-1 flex gap-1">
+                          <div className="w-[110px] relative">
+                            <Label htmlFor={`satuan-${item.id}`}>SATUAN</Label>
+                            <Select
+                              value={item.id_satuan}
+                              onValueChange={(value) =>
+                                updateItem(item.id, "id_satuan", value)
+                              }
+                            >
+                              <SelectTrigger className="bg-white">
+                                <SelectValue placeholder="" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                                {/* ... Satuan Content ... */}
+                                <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                  <Input placeholder="Cari..." value={satuanSearch} onChange={(e) => setSatuanSearch(e.target.value)} className="mb-2" />
+                                  <Button type="button" variant="outline" size="sm" className="mb-2 w-full" onClick={() => setShowAddSatuan((v) => !v)}>+ Tambah</Button>
+                                  {showAddSatuan && <div className="flex gap-2 mb-2"><Input value={newSatuan} onChange={(e) => setNewSatuan(e.target.value)} /><Button size="sm" onClick={() => { handleAddSatuan(); setShowAddSatuan(false); setNewSatuan("") }}>Ok</Button></div>}
+                                </div>
+                                {satuanOptions.map((sat: any) => (
+                                  <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
-                          {satuanOptions.map((sat: any) => (
-                            <SelectItem key={sat.id_satuan} value={String(sat.id_satuan)}>{sat.satuan}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className={isSpecialUser ? "md:col-span-6" : "md:col-span-3"}>
-                      <Label htmlFor={`keterangan-${item.id}`}>Keterangan</Label>
-                      <Input
-                        id={`keterangan-${item.id}`}
-                        value={item.keterangan}
-                        onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
-                        placeholder="Keterangan..."
-                      />
-                    </div>
-                    <div className="md:col-span-1 flex items-end">
-                      {formData.items.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeItem(item.id)}
-                          className="w-full text-red-500"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                          <div className="flex-1">
+                            <Label htmlFor={`keterangan-${item.id}`}>KETERANGAN</Label>
+                            <Input
+                              id={`keterangan-${item.id}`}
+                              value={item.keterangan}
+                              onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
+                              placeholder="Keterangan..."
+                            />
+                          </div>
+                        </div>
+
+                        <div className="md:col-span-1 px-1 pb-1 flex items-end">
+                          {formData.items.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => removeItem(item.id)}
+                              className="w-full text-red-500"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1099,7 +1176,7 @@ export default function InputBaruPRPage() {
                     htmlFor="skema"
                     className="text-sm font-medium text-muted-foreground"
                   >
-                    Skema
+                    SKEMA
                   </Label>
                   <Input
                     id="skema"

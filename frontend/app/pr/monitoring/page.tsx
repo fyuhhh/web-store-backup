@@ -145,6 +145,17 @@ export default function MonitoringPRPage() {
         .filter((n): n is string => n !== undefined && n.trim() !== "")
     )
   ).sort();
+  // Compute unique NoMR values
+  const uniqueNoMR = Array.from(
+    new Set(
+      prData
+        .map((pr) => pr.noMR)
+        .filter((n): n is string => n !== undefined && n !== null && n.trim() !== "")
+    )
+  ).sort();
+  const [filterNoMR, setFilterNoMR] = useState<string[]>([]);
+  const [noMRSearchTerm, setNoMRSearchTerm] = useState("");
+
   const [filterDibuatOleh, setFilterDibuatOleh] = useState<string[]>([]);
   const [dibuatOlehSearchTerm, setDibuatOlehSearchTerm] = useState("");
   const [filterSkema, setFilterSkema] = useState<string[]>([]);
@@ -286,7 +297,7 @@ export default function MonitoringPRPage() {
           namaBarang: item.namaBarang || item.namabarang,
           kodeBarang: item.kodeBarang,
           spesifikasi: item.spesifikasi,
-          noMR: item.noMR,
+          noMR: item.noMR || pr.noMR, // Prefer item level, fallback to PR level (though currently saved at header, but good to be safe)
           jumlah: item.jumlah,
           quantityAwalPR: item.quantityAwalPR,
           satuan: satuanMap[String(item.id_satuan)] || item.id_satuan,
@@ -300,6 +311,7 @@ export default function MonitoringPRPage() {
         noPR: pr.noPR,
         tanggalPR: pr.tanggalPR,
         items,
+        noMR: pr.noMR, // Add noMR to PR object
         urgensi: urgensiMap[String(pr.id_urgensi)] || pr.id_urgensi,
         divisi: divisiMap[String(pr.id_divisi)] || pr.id_divisi,
         status: pr.status,
@@ -574,6 +586,22 @@ export default function MonitoringPRPage() {
         filterSkema.length === 0 ||
         (pr.skema !== undefined && filterSkema.includes(pr.skema));
 
+      const matchesNoMR =
+        filterNoMR.length === 0 ||
+        (pr.items &&
+          pr.items.some(
+            (item) =>
+              item.noMR &&
+              filterNoMR.some((filter) =>
+                (item.noMR || "").toLowerCase().includes(filter.toLowerCase())
+              )
+          )) ||
+        (pr.noMR &&
+          filterNoMR.some((filter) =>
+            (pr.noMR || "").toLowerCase().includes(filter.toLowerCase())
+          ));
+
+
       // --- FILTER BY TANGGAL RENTANG (pakai DatePicker) ---
       let matchesDateRange = true;
       if (filterStartDate && filterEndDate) {
@@ -608,6 +636,7 @@ export default function MonitoringPRPage() {
         matchesDivisi &&
         matchesStatus &&
         matchesNoPR &&
+        matchesNoMR && // <-- Add this
         matchesTanggalPR &&
         matchesDibuatOleh &&
         matchesSkema &&
@@ -792,6 +821,7 @@ export default function MonitoringPRPage() {
     const headers = [
       "NO. PR",
       "TANGGAL",
+      "NO. MR", // [NEW POISIS]
       "DAFTAR BARANG",
       "KUANTITAS",
       "SATUAN",
@@ -858,10 +888,11 @@ export default function MonitoringPRPage() {
           worksheet.addRow([
             pr.noPR ? pr.noPR.toUpperCase() : "",
             formatTanggalExcel(pr.tanggalPR),
+            (item.noMR || pr.noMR) ? (item.noMR || pr.noMR).toUpperCase() : "", // [NEW POSITION]
             item.namaBarang ? item.namaBarang.toUpperCase() : "",
             Number(item.quantityAwalPR || item.jumlah || 0), // Use Number() for correct Excel format
             item.satuan ? item.satuan.toUpperCase() : "",
-            item.keterangan ? item.keterangan.toUpperCase() : "",
+            (item.keterangan || "").toUpperCase(),
             pr.urgensi ? pr.urgensi.toUpperCase() : "",
             pr.divisi ? pr.divisi.toUpperCase() : "",
             pr.status ? pr.status.toUpperCase() : "",
@@ -876,6 +907,7 @@ export default function MonitoringPRPage() {
         worksheet.addRow([
           pr.noPR ? pr.noPR.toUpperCase() : "",
           formatTanggalExcel(pr.tanggalPR),
+          pr.noMR ? pr.noMR.toUpperCase() : "", // [NEW POSITION]
           "",
           "",
           "",
@@ -891,8 +923,8 @@ export default function MonitoringPRPage() {
       // Merge cells for PR-level fields if there are multiple items
       const endRow = currentRow - 1;
       if (endRow > startRow) {
-        // Columns to merge: 1 (NO. PR), 2 (TANGGAL), 7 (URGENSI), 8 (DIVISI), 9 (STATUS), 10 (DIBUAT OLEH)
-        const mergeCols = [1, 2, 7, 8, 9, 10];
+        // Columns to merge: 1 (NO. PR), 2 (TANGGAL), 3 (NO. MR), 8 (URGENSI), 9 (DIVISI), 10 (STATUS), 11 (DIBUAT OLEH)
+        const mergeCols = [1, 2, 3, 8, 9, 10, 11]; // Updated indices
         mergeCols.forEach((col) => {
           try {
             worksheet.mergeCells(startRow, col, endRow, col);
@@ -1456,6 +1488,64 @@ export default function MonitoringPRPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
+                      <TableHead
+                        className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
+                        style={{
+                          position: "sticky",
+                          top: 0,
+                          zIndex: 10,
+                          background: "#f3f4f6",
+                          boxShadow: "inset 0 -2px 0 #d1d5db",
+                          borderRight: "1px solid #d1d5db",
+                        }}
+                      >
+                        {/* NO. MR popover */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
+                              NO. MR
+                              <ChevronDown className="ml-1 h-4 w-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 bg-white border border-gray-200 shadow-lg">
+                            <Label className="text-sm font-medium">Cari NO. MR</Label>
+                            <Input
+                              placeholder="Cari NO. MR..."
+                              value={noMRSearchTerm}
+                              onChange={(e) => setNoMRSearchTerm(e.target.value)}
+                              className="mb-2"
+                            />
+                            <div className="max-h-32 overflow-y-auto space-y-1">
+                              {uniqueNoMR
+                                .filter((noMR) =>
+                                  noMR
+                                    .toLowerCase()
+                                    .includes(noMRSearchTerm.toLowerCase())
+                                )
+                                .map((noMR) => (
+                                  <div key={noMR} className="flex items-center space-x-2">
+                                    <Checkbox
+                                      id={`noMR-${noMR}`}
+                                      checked={filterNoMR.includes(noMR)}
+                                      onCheckedChange={(checked) => {
+                                        if (checked) {
+                                          setFilterNoMR([...filterNoMR, noMR]);
+                                        } else {
+                                          setFilterNoMR(
+                                            filterNoMR.filter((f) => f !== noMR)
+                                          );
+                                        }
+                                      }}
+                                    />
+                                    <Label htmlFor={`noMR-${noMR}`} className="text-sm">
+                                      {noMR}
+                                    </Label>
+                                  </div>
+                                ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </TableHead>
                       {isSpecialUser && (
                         <TableHead
                           className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
@@ -1510,25 +1600,7 @@ export default function MonitoringPRPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
-                      {isSpecialUser && (
-                        <>
-                          <TableHead
-                            className="min-w-[120px] border border-gray-300 px-3 py-1 text-center"
-                            style={{
-                              position: "sticky",
-                              top: 0,
-                              zIndex: 10,
-                              background: "#f3f4f6",
-                              boxShadow: "inset 0 -2px 0 #d1d5db",
-                              borderRight: "1px solid #d1d5db",
-                            }}
-                          >
-                            <Button variant="ghost" className="h-auto p-0 font-medium uppercase">
-                              NO MR
-                            </Button>
-                          </TableHead>
-                        </>
-                      )}
+
                       <TableHead
                         className="min-w-[90px] border border-gray-300 px-3 py-1 text-center"
                         style={{
@@ -1776,6 +1848,7 @@ export default function MonitoringPRPage() {
                           </PopoverContent>
                         </Popover>
                       </TableHead>
+
                       <TableHead
                         className="min-w-[100px] border border-gray-300 px-3 py-1 text-center"
                         style={{
@@ -2101,19 +2174,16 @@ export default function MonitoringPRPage() {
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap">
                               {formatTanggal(pr.tanggalPR)}
                             </TableCell>
+                            <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
+                              {validItems[0]?.noMR || pr.noMR || "-"}
+                            </TableCell>
                             {isSpecialUser && (
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
                                 {validItems[0]?.kodeBarang}
                               </TableCell>
                             )}
                             <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{validItems[0]?.namaBarang}</TableCell>
-                            {isSpecialUser && (
-                              <>
-                                <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
-                                  {validItems[0]?.noMR}
-                                </TableCell>
-                              </>
-                            )}
+
                             <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap">
                               {parseFloat(validItems[0]?.quantityAwalPR) % 1 === 0
                                 ? parseInt(validItems[0]?.quantityAwalPR)
@@ -2132,6 +2202,7 @@ export default function MonitoringPRPage() {
                             <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                               {getUrgensiBadge(pr.urgensi)}
                             </TableCell>
+
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">
                               {pr.divisi}
                             </TableCell>
@@ -2171,13 +2242,7 @@ export default function MonitoringPRPage() {
                                 </TableCell>
                               )}
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">{item.namaBarang}</TableCell>
-                              {isSpecialUser && (
-                                <>
-                                  <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap uppercase">
-                                    {item.noMR}
-                                  </TableCell>
-                                </>
-                              )}
+
                               <TableCell className="border border-gray-300 px-3 py-1 text-left whitespace-nowrap">
                                 {parseFloat(item.quantityAwalPR) % 1 === 0
                                   ? parseInt(item.quantityAwalPR)
@@ -2197,6 +2262,7 @@ export default function MonitoringPRPage() {
                               < TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase" >
                                 {getUrgensiBadge(pr.urgensi)}
                               </TableCell>
+                              {/* NO. MR (Merged - skipped) */}
                               {/* Divisi (Merged - skipped) */}
                               {/* Status (Un-merged) */}
                               <TableCell className="border border-gray-300 px-3 py-1 text-center align-middle whitespace-nowrap uppercase">

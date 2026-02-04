@@ -1,0 +1,13 @@
+Entered POST /api/pr
+Error: Error: Cannot add or update a child row: a foreign key constraint fails (`web_store_db`.`pr`, CONSTRAINT `fk_pr_divisi` FOREIGN KEY (`id_divisi`) REFERENCES `divisi` (`id_divisi`) ON DELETE SET NULL ON UPDATE CASCADE)
+Error: Cannot add or update a child row: a foreign key constraint fails (`web_store_db`.`pr`, CONSTRAINT `fk_pr_divisi` FOREIGN KEY (`id_divisi`) REFERENCES `divisi` (`id_divisi`) ON DELETE SET NULL ON UPDATE CASCADE)
+    at PromisePool.query (C:\web-store\web-store-backup\backend\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at file:///C:/web-store/web-store-backup/backend/routes/pr.js:265:31
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+Entered POST /api/pr
+Error: Error: Cannot add or update a child row: a foreign key constraint fails (`web_store_db`.`pr`, CONSTRAINT `fk_pr_divisi` FOREIGN KEY (`id_divisi`) REFERENCES `divisi` (`id_divisi`) ON DELETE SET NULL ON UPDATE CASCADE)
+Error: Cannot add or update a child row: a foreign key constraint fails (`web_store_db`.`pr`, CONSTRAINT `fk_pr_divisi` FOREIGN KEY (`id_divisi`) REFERENCES `divisi` (`id_divisi`) ON DELETE SET NULL ON UPDATE CASCADE)
+    at PromisePool.query (C:\web-store\web-store-backup\backend\node_modules\mysql2\lib\promise\pool.js:36:22)
+    at file:///C:/web-store/web-store-backup/backend/routes/pr.js:265:31
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+Entered POST /api/pr

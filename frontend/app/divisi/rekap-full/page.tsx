@@ -58,6 +58,7 @@ import {
 // Kolom sesuai urutan permintaan (Periode, No. PR, dst)
 // Kembalikan urutan kolom seperti sebelumnya, delay tetap kosong dan di posisi aslinya (setelah status)
 const columns = [
+  { key: "noMR", label: "NO. MR" },
   { key: "noPR", label: "NO. PR" },
   { key: "tanggalPR", label: "TANGGAL PR" },
   { key: "hariPR", label: "HARI" },
@@ -539,6 +540,7 @@ export default function RekapFullPage() {
                 periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
                 tahunPR: getYear(pr.tanggalPR),
                 bulanPR: getMonthName(pr.tanggalPR),
+                noMR: item.noMR || "",
                 noPR: pr.noPR,
                 tanggalPR: pr.tanggalPR
                   ? (() => {
@@ -618,6 +620,7 @@ export default function RekapFullPage() {
                     periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
                     tahunPR: getYear(pr.tanggalPR),
                     bulanPR: getMonthName(pr.tanggalPR),
+                    noMR: item.noMR || "",
                     noPR: pr.noPR,
                     tanggalPR: pr.tanggalPR
                       ? (() => {
@@ -740,6 +743,7 @@ export default function RekapFullPage() {
                       periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
                       tahunPR: getYear(pr.tanggalPR),
                       bulanPR: getMonthName(pr.tanggalPR),
+                      noMR: item.noMR || "",
                       noPR: pr.noPR,
                       tanggalPR: pr.tanggalPR
                         ? (() => {
@@ -1804,6 +1808,16 @@ export default function RekapFullPage() {
                                 >
                                   {/* Periode PR */}
 
+                                  {/* No. MR */}
+                                  {
+                                    isFirstPR ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                        <span className="font-bold text-black">
+                                          {(item.noMR || "").toUpperCase()}
+                                        </span>
+                                      </TableCell>
+                                    ) : null
+                                  }
                                   {/* No. PR */}
                                   {
                                     isFirstPR ? (
