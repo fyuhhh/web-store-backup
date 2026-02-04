@@ -174,7 +174,9 @@ export default function MonitoringPOPage() {
 
   const formatBiaya = (val: any) => {
     if (val === undefined || val === null || val === "") return "";
-    const num = Number(val);
+    // Handle specific cases where data might come as string with comma decimal
+    const cleanVal = String(val).replace(/,/g, ".");
+    const num = Number(cleanVal);
     if (isNaN(num)) return val;
     return "Rp. " + num.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
@@ -495,8 +497,16 @@ export default function MonitoringPOPage() {
           prList.map((p: any) => [String(p.id_PR), p.tanggalPR])
         );
         // --- TAMBAHAN: Map Divisi PR untuk export ---
+        // Helper: Divisi Map (id_divisi -> nama_divisi)
+        const divisiMap = Object.fromEntries(
+          (divisiList || []).map((d: any) => [String(d.id_divisi), d.divisi || d.nama_divisi])
+        );
+
         const prDivisiMap = Object.fromEntries(
-          prList.map((p: any) => [String(p.id_PR), p.divisi || ""])
+          prList.map((p: any) => [
+            String(p.id_PR),
+            p.divisi || (p.id_divisi ? divisiMap[String(p.id_divisi)] : "") || ""
+          ])
         );
         // --- TAMBAHAN: Map Tanggal BTB & No BTB dari btbList ---
         const btbMap = Object.fromEntries(
@@ -539,12 +549,29 @@ export default function MonitoringPOPage() {
           const relatedBtbItems = btbItemsByPOItem[String(pi.id_POItem)] || [];
 
           // Concatenate informasinya
-          const noBtbStr = relatedBtbItems.map(bi => btbMap[bi.id_btb]?.no_btb || "-").join("\n");
-          const tglBtbStr = relatedBtbItems.map(bi => formatTanggal(btbMap[bi.id_btb]?.tanggal_btb)).join("\n");
-          const qtyBtbStr = relatedBtbItems.map(bi => formatQuantity(bi.jumlah_diterima)).join("\n");
-          const satuanBtbStr = relatedBtbItems.map(bi => bi.satuanLabel || bi.id_satuan).join("\n");
-          const biayaAmbilStr = relatedBtbItems.map(bi => formatBiaya(bi.biaya)).join("\n");
-          const qtySisaStr = relatedBtbItems.map(bi => formatQuantity(bi.qty_sisa)).join("\n");
+          // Concatenate informasinya -> ubah jadi Array
+          const noBtbList = relatedBtbItems.map(bi => btbMap[bi.id_btb]?.no_btb || "-");
+          const tglBtbList = relatedBtbItems.map(bi => formatTanggal(btbMap[bi.id_btb]?.tanggal_btb));
+          const qtyBtbList = relatedBtbItems.map(bi => formatQuantity(bi.jumlah_diterima));
+          const satuanBtbList = relatedBtbItems.map(bi => bi.satuanLabel || bi.id_satuan);
+          // Simpan biaya sebagai number (raw) agar presisi desimal terjaga
+          const biayaAmbilList = relatedBtbItems.map(bi => {
+            if (bi.biaya === undefined || bi.biaya === null || bi.biaya === "") return null;
+            if (typeof bi.biaya === "number") return bi.biaya;
+
+            // Handle string cases
+            const sVal = String(bi.biaya);
+            if (sVal.includes(",")) {
+              // Likely ID format "30.000,78" -> remove dots, replace comma
+              const cleanVal = sVal.replace(/\./g, "").replace(/,/g, ".");
+              const v = Number(cleanVal);
+              return isNaN(v) ? 0 : v;
+            }
+            // Standard string "30000.78"
+            const v = Number(sVal);
+            return isNaN(v) ? 0 : v;
+          });
+          const qtySisaList = relatedBtbItems.map(bi => formatQuantity(bi.qty_sisa));
           // --------------------------------------------------------------------------
 
           const item = {
@@ -559,8 +586,8 @@ export default function MonitoringPOPage() {
               prItem.satuanLabel || prItem.satuan || prItem.id_satuan || pi.id_satuan || "",
             hargaSatuan: Number(pi.hargaSatuan) || 0,
             keterangan: pi.keterangan || prItem.keterangan || "",
-            // --- Map Divisi here ---
-            divisi: prDivisiMap[prId] || "",
+            // --- Map Divisi here (Fix: Use Name from divisiMap) ---
+            divisi: prDivisiMap[prId] || "-",
             // --- Ambil field diskon/ppn dari kolom baru backend ---
             diskonPersen: pi.diskonPersen ?? 0, // Diskon (%) dari po_item
             diskonNominal: pi.diskonRupiah ?? 0, // Diskon (Rp) dari po_item
@@ -581,12 +608,12 @@ export default function MonitoringPOPage() {
             noPR: noPR,
             tanggalPR: prDateMap[prId] || "",
             divisiPR: prDivisiMap[prId] || "", // Rename to avoid confusion with existing logic if any
-            noBTB: noBtbStr,
-            tanggalBTB: tglBtbStr,
-            qtyBTB: qtyBtbStr,
-            satuanBTB: satuanBtbStr,
-            biayaAmbil: biayaAmbilStr,
-            qtyBelumBTB: qtySisaStr,
+            noBTB: noBtbList,
+            tanggalBTB: tglBtbList,
+            qtyBTB: qtyBtbList,
+            satuanBTB: satuanBtbList,
+            biayaAmbil: biayaAmbilList,
+            qtyBelumBTB: qtySisaList,
             status: pi.status,
           };
           const key = String(noPR || prId || "__noPR__");
@@ -1343,13 +1370,18 @@ export default function MonitoringPOPage() {
             ...(isDivisi ? [] : [
               item.noPR || "",
               formatTanggalExcel(item.tanggalPR),
-              item.divisiPR || "",
-              item.noBTB || "",
-              item.tanggalBTB || "",
-              item.qtyBTB || "",
-              item.satuanBTB || "",
-              item.biayaAmbil || "",
-              item.qtyBelumBTB || ""
+              item.divisi || "",
+              Array.isArray(item.noBTB) ? item.noBTB.join('\n') : (item.noBTB || ""),
+              Array.isArray(item.tanggalBTB) ? item.tanggalBTB.join('\n') : (item.tanggalBTB || ""),
+              Array.isArray(item.qtyBTB) ? item.qtyBTB.join('\n') : (formatQuantity(item.qtyBTB) || ""),
+              Array.isArray(item.satuanBTB) ? item.satuanBTB.join('\n') : (item.satuanBTB || ""),
+              Array.isArray(item.biayaAmbil) ? item.biayaAmbil.map((b: any) => {
+                if (b === null || b === undefined || b === "") return "-";
+                const num = Number(b);
+                // Format: Rp. 50.000,75
+                return "Rp. " + num.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              }).join('\n') : (item.biayaAmbil || ""),
+              Array.isArray(item.qtyBelumBTB) ? item.qtyBelumBTB.join('\n') : (formatQuantity(item.qtyBelumBTB) || "")
             ]),
             po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "", // 20
           ];
@@ -2935,12 +2967,50 @@ export default function MonitoringPOPage() {
                                 <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase">{item.noPR}</TableCell>
                                 <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{formatTanggal(item.tanggalPR)}</TableCell>
                                 <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.divisiPR}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase whitespace-pre-line">{item.noBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-pre-line">{item.tanggalBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-pre-line">{item.qtyBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-pre-line">{item.satuanBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[100px] uppercase whitespace-pre-line">{item.biayaAmbil}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-pre-line">{item.qtyBelumBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.noBTB) && item.noBTB.length > 0 ? (
+                                    item.noBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : "-"}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.tanggalBTB) && item.tanggalBTB.length > 0 ? (
+                                    item.tanggalBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.qtyBTB) && item.qtyBTB.length > 0 ? (
+                                    item.qtyBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.satuanBTB) && item.satuanBTB.length > 0 ? (
+                                    item.satuanBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[100px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.biayaAmbil) && item.biayaAmbil.length > 0 ? (
+                                    item.biayaAmbil.map((val: number | null, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">
+                                        {val !== null ? `Rp. ${val.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+                                      </div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-nowrap">
+                                  {Array.isArray(item.qtyBelumBTB) && item.qtyBelumBTB.length > 0 ? (
+                                    item.qtyBelumBTB.map((val: string, idx: number) => (
+                                      <div key={idx} className="py-1 border-b last:border-0 border-gray-100">{val}</div>
+                                    ))
+                                  ) : ""}
+                                </TableCell>
                               </>
                             )}
 

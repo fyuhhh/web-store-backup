@@ -57,6 +57,7 @@ import {
 // Kolom sesuai urutan permintaan (Periode, No. PR, dst)
 // Kembalikan urutan kolom seperti sebelumnya, delay tetap kosong dan di posisi aslinya (setelah status)
 const columns = [
+  { key: "noMR", label: "NO. MR" },
   { key: "noPR", label: "NO. PR" },
   { key: "tanggalPR", label: "TANGGAL PR" },
   { key: "hariPR", label: "HARI" },
@@ -524,7 +525,7 @@ export default function RekapFullPage() {
                 // New Fields
                 kodeBarangPR: item.kodeBarang || "",
                 spesifikasi: item.spesifikasi || "",
-                noMR: item.noMR || "",
+                noMR: pr.noMR || pr.no_mr || item.noMR || "",
 
                 daftarBarangPR: item.namaBarang,
                 quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
@@ -620,7 +621,7 @@ export default function RekapFullPage() {
                     // New Fields
                     kodeBarangPR: item.kodeBarang || "",
                     spesifikasi: item.spesifikasi || "",
-                    noMR: item.noMR || "",
+                    noMR: pr.noMR || pr.no_mr || item.noMR || "",
 
                     daftarBarangPR: item.namaBarang,
                     quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
@@ -764,7 +765,7 @@ export default function RekapFullPage() {
                         // New Fields
                         kodeBarangPR: item.kodeBarang || "",
                         spesifikasi: item.spesifikasi || "",
-                        noMR: item.noMR || "",
+                        noMR: pr.noMR || pr.no_mr || item.noMR || "",
 
                         daftarBarangPR: item.namaBarang,
                         quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",

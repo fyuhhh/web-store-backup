@@ -142,6 +142,7 @@ export default function PesananAndaPage() {
                                 processedItems.push({
                                     id_PR: pr.id_PR,
                                     noPR: pr.noPR,
+                                    noMR: pr.noMR || pr.no_mr || "-", // Map No. MR
                                     tanggalPR: pr.tanggalPR,
                                     id_divisi: pr.id_divisi,
                                     id_skema: pr.id_skema, // Added id_skema
@@ -245,6 +246,7 @@ export default function PesananAndaPage() {
                                     <TableHeader className="bg-slate-50 sticky top-0 z-10">
                                         <TableRow>
                                             <TableHead className="font-semibold text-slate-700 w-[200px] pl-6">No. PR</TableHead>
+                                            <TableHead className="font-semibold text-slate-700 w-[150px]">No. MR</TableHead>
                                             <TableHead className="font-semibold text-slate-700 w-[150px]">Tanggal</TableHead>
                                             <TableHead className="font-semibold text-slate-700 min-w-[250px]">Daftar Barang</TableHead>
                                             <TableHead className="font-semibold text-slate-700 w-[100px] text-center">Kuantitas</TableHead>
@@ -264,6 +266,9 @@ export default function PesananAndaPage() {
                                                         {item.noPR}
                                                         <ChevronRight className="w-4 h-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-blue-500" />
                                                     </div>
+                                                </TableCell>
+                                                <TableCell className="align-top py-4">
+                                                    <span className="font-medium text-slate-700">{item.noMR}</span>
                                                 </TableCell>
                                                 <TableCell className="text-slate-500 align-top py-4">
                                                     <div className="flex items-center gap-2">
