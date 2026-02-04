@@ -30,24 +30,12 @@ export function MainLayout({ children }: MainLayoutProps) {
   const [hidden, setHidden] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const mainRef = React.useRef<HTMLElement>(null);
-  const { scrollY } = useScroll({ container: mainRef });
-
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    const previous = scrollY.getPrevious() || 0;
-    // Hide header if scrolling DOWN and position > 100px
-    if (latest > previous && latest > 100) {
-      setHidden(true);
-    } else {
-      setHidden(false);
-    }
-
-    // Show BackToTop if scrolled > 300px
-    if (latest > 300) {
-      setShowBackToTop(true);
-    } else {
-      setShowBackToTop(false);
-    }
-  });
+  
+  // Mounted check to prevent hydration mismatch with useScroll
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+     setIsMounted(true);
+  }, []);
 
   const router = useRouter();
 
@@ -216,12 +204,20 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
             </motion.header>
 
-            {/* Main Content with Top Padding compensation for absolute header */}
             <main
               ref={mainRef}
               className="flex-1 overflow-auto bg-background p-6 pt-[88px] relative scroll-smooth"
             >
               {children}
+
+              {/* Scroll Logic Component - Only render when mounted and ref is ready */}
+              {isMounted && (
+                 <ScrollLogic 
+                    containerRef={mainRef} 
+                    setHidden={setHidden} 
+                    setShowBackToTop={setShowBackToTop} 
+                 />
+              )}
 
               {/* Back to Top Button */}
               <AnimatePresence>
@@ -243,4 +239,35 @@ export function MainLayout({ children }: MainLayoutProps) {
       </div>
     </RoleGuard>
   );
+}
+
+// --- SUB-COMPONENT FOR SCROLL LOGIC ---
+interface ScrollLogicProps {
+  containerRef: React.RefObject<HTMLElement | null>;
+  setHidden: (hidden: boolean) => void;
+  setShowBackToTop: (show: boolean) => void;
+}
+
+function ScrollLogic({ containerRef, setHidden, setShowBackToTop }: ScrollLogicProps) {
+  const { scrollY } = useScroll({ container: containerRef });
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() || 0;
+    
+    // Hide header if scrolling DOWN and position > 100px
+    if (latest > previous && latest > 100) {
+      setHidden(true);
+    } else {
+      setHidden(false);
+    }
+
+    // Show BackToTop if scrolled > 300px
+    if (latest > 300) {
+      setShowBackToTop(true);
+    } else {
+      setShowBackToTop(false);
+    }
+  });
+
+  return null;
 }
