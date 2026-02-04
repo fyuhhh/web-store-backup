@@ -176,7 +176,7 @@ export default function MonitoringPOPage() {
     if (val === undefined || val === null || val === "") return "";
     const num = Number(val);
     if (isNaN(num)) return val;
-    return "Rp " + num.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+    return "Rp. " + num.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
   // -------------------------------------------
 
@@ -539,12 +539,12 @@ export default function MonitoringPOPage() {
           const relatedBtbItems = btbItemsByPOItem[String(pi.id_POItem)] || [];
 
           // Concatenate informasinya
-          const noBtbStr = relatedBtbItems.map(bi => btbMap[bi.id_btb]?.no_btb || "-").join(", ");
-          const tglBtbStr = relatedBtbItems.map(bi => formatTanggal(btbMap[bi.id_btb]?.tanggal_btb)).join(", ");
-          const qtyBtbStr = relatedBtbItems.map(bi => formatQuantity(bi.jumlah_diterima)).join(", ");
-          const satuanBtbStr = relatedBtbItems.map(bi => bi.satuanLabel || bi.id_satuan).join(", ");
-          const biayaAmbilStr = relatedBtbItems.map(bi => formatBiaya(bi.biaya)).join(", ");
-          const qtySisaStr = relatedBtbItems.map(bi => formatQuantity(bi.qty_sisa)).join(", ");
+          const noBtbStr = relatedBtbItems.map(bi => btbMap[bi.id_btb]?.no_btb || "-").join("\n");
+          const tglBtbStr = relatedBtbItems.map(bi => formatTanggal(btbMap[bi.id_btb]?.tanggal_btb)).join("\n");
+          const qtyBtbStr = relatedBtbItems.map(bi => formatQuantity(bi.jumlah_diterima)).join("\n");
+          const satuanBtbStr = relatedBtbItems.map(bi => bi.satuanLabel || bi.id_satuan).join("\n");
+          const biayaAmbilStr = relatedBtbItems.map(bi => formatBiaya(bi.biaya)).join("\n");
+          const qtySisaStr = relatedBtbItems.map(bi => formatQuantity(bi.qty_sisa)).join("\n");
           // --------------------------------------------------------------------------
 
           const item = {
@@ -2935,12 +2935,12 @@ export default function MonitoringPOPage() {
                                 <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase">{item.noPR}</TableCell>
                                 <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{formatTanggal(item.tanggalPR)}</TableCell>
                                 <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.divisiPR}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase">{item.noBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.tanggalBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase">{item.qtyBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase">{item.satuanBTB}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.biayaAmbil}</TableCell>
-                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase">{item.qtyBelumBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[120px] uppercase whitespace-pre-line">{item.noBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-pre-line">{item.tanggalBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-pre-line">{item.qtyBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[80px] uppercase whitespace-pre-line">{item.satuanBTB}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-left min-w-[100px] uppercase whitespace-pre-line">{item.biayaAmbil}</TableCell>
+                                <TableCell className="px-3 py-1 border-r border-gray-300 align-middle text-center min-w-[100px] uppercase whitespace-pre-line">{item.qtyBelumBTB}</TableCell>
                               </>
                             )}
 
