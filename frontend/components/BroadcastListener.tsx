@@ -77,24 +77,43 @@ export function BroadcastListener() {
     if (!visible || !notification) return null;
 
     return (
-        <div className="fixed top-4 left-4 z-[9999] w-full max-w-2xl animate-in slide-in-from-top-5 fade-in duration-300">
-            <Alert variant="default" className="bg-white border-l-8 border-l-blue-600 shadow-2xl relative pr-12 py-6">
-                <AlertCircle className="h-8 w-8 text-blue-600 mt-1" />
-                <div className="ml-2">
-                    <AlertTitle className="text-blue-800 font-bold text-xl mb-2">Pemberitahuan</AlertTitle>
-                    <AlertDescription className="text-slate-700 text-lg leading-relaxed text-justify">
-                        {notification.message}
-                    </AlertDescription>
+        <div className="fixed top-0 left-0 w-full z-[9999] flex justify-center pt-6 px-4 animate-in slide-in-from-top-full duration-500 fade-in">
+            <div className="relative w-full max-w-3xl bg-white/95 backdrop-blur-md border border-blue-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.12)] rounded-2xl overflow-hidden ring-1 ring-black/5 dark:bg-slate-900/95 dark:border-slate-800">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-500 to-cyan-500" />
+
+                <div className="flex p-5 gap-5">
+                    <div className="flex-shrink-0">
+                        <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100 shadow-sm animate-pulse dark:bg-blue-900/20 dark:border-blue-800">
+                            <AlertCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                        </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0 pt-0.5">
+                        <h3 className="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2 dark:text-slate-100">
+                            Pemberitahuan Sistem
+                            <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 ring-1 ring-inset ring-blue-600/20 dark:bg-blue-900/30 dark:text-blue-300">
+                                Penting
+                            </span>
+                        </h3>
+                        <p className="text-slate-600 text-[15px] leading-relaxed dark:text-slate-300">
+                            {notification.message}
+                        </p>
+                    </div>
+
+                    <div className="flex-shrink-0">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+                            onClick={() => setVisible(false)}
+                        >
+                            <X className="h-5 w-5" />
+                        </Button>
+                    </div>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-4 right-4 h-8 w-8 text-slate-400 hover:text-slate-600"
-                    onClick={() => setVisible(false)}
-                >
-                    <X className="h-6 w-6" />
-                </Button>
-            </Alert>
+
+                {/* Progress bar for auto-dismiss could be cool, but sticking to simple active border for now */}
+            </div>
         </div>
     );
 }

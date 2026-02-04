@@ -14,6 +14,7 @@ export const metadata: Metadata = {
 };
 import { Toaster } from "@/components/ui/sonner";
 import { BroadcastListener } from "@/components/BroadcastListener";
+import { SocketManager } from "@/components/SocketManager";
 
 export default function RootLayout({
   children,
@@ -35,6 +36,7 @@ export default function RootLayout({
           </Suspense>
           <Toaster />
           <BroadcastListener />
+          <SocketManager />
         </ThemeProvider>
       </body>
     </html>

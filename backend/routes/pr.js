@@ -2,6 +2,7 @@ import express from "express";
 import db from "../config/database.js";
 
 import { updatePRStatus } from '../utils/statusHelper.js';
+import { logActivity } from '../utils/activityLogger.js';
 
 
 const router = express.Router();
@@ -219,6 +220,17 @@ router.get("/:id", async (req, res, next) => {
     row.tanggalPR = formatDate(row.tanggalPR);
     row.estimasipo = formatDateDDMMYYYY(row.estimasipo); // Format DD-MM-YYYY
     row.createdAt = row.createdAt ? formatDate(row.createdAt) : null;
+
+    // Log Activity (View PR) - Only if it's a real user request (req.user logic might need enhancement or client passes headers)
+    // For now we assume req might have user info if middleware was better, but let's try to capture ip
+    // actually, logActivity handles missing user gracefully
+    logActivity(req, {
+      action_type: 'VIEW_PR',
+      entity_id: row.noPR,
+      details: { id_PR: row.id_PR },
+      status: 'INFO'
+    });
+
     res.json(row);
   } catch (err) {
     next(err);
@@ -283,7 +295,17 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       newRow.tanggalPR = formatDate(newRow.tanggalPR);
       newRow.estimasipo = formatDateDDMMYYYY(newRow.estimasipo);
       newRow.createdAt = formatDate(newRow.createdAt);
+      newRow.createdAt = formatDate(newRow.createdAt);
     }
+
+    // Log Activity
+    logActivity(req, {
+      action_type: 'CREATE_PR',
+      entity_id: noPR,
+      details: { id_PR: insertId, amount: newRow?.total || 0, dibuatOleh },
+      status: 'SUCCESS'
+    });
+
     res.status(201).json(newRow);
   } catch (err) {
     next(err);
@@ -361,7 +383,17 @@ noPR = ?,
       updatedRow.tanggalPR = formatDate(updatedRow.tanggalPR);
       updatedRow.estimasipo = formatDateDDMMYYYY(updatedRow.estimasipo); // Format DD-MM-YYYY
       updatedRow.createdAt = formatDate(updatedRow.createdAt);
+      updatedRow.createdAt = formatDate(updatedRow.createdAt);
     }
+
+    // Log Activity
+    logActivity(req, {
+      action_type: 'UPDATE_PR',
+      entity_id: noPR,
+      details: { id_PR: id, changes: req.body },
+      status: 'SUCCESS'
+    });
+
     res.json(updatedRow);
   } catch (err) {
     next(err);
@@ -387,6 +419,15 @@ router.delete("/:id", async (req, res, next) => {
 
     await db.query("DELETE FROM pr_item WHERE id_PR = ?", [id]);
     await db.query("DELETE FROM pr WHERE id_PR = ?", [id]);
+
+    // Log Activity
+    logActivity(req, {
+      action_type: 'DELETE_PR',
+      entity_id: id,
+      details: {},
+      status: 'SUCCESS'
+    });
+
     res.json({ message: "PR deleted" });
   } catch (err) {
     next(err);

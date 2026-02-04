@@ -230,6 +230,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   }, [router]);
 
   const handleLogout = () => {
+    import("@/lib/socket").then(({ socket }) => {
+      socket.disconnect();
+    });
     localStorage.removeItem("userData");
     router.push("/login");
   };
@@ -274,4 +277,35 @@ export function MainLayout({ children }: MainLayoutProps) {
       </MainLayoutContent>
     </RoleGuard>
   );
+}
+
+// --- SUB-COMPONENT FOR SCROLL LOGIC ---
+interface ScrollLogicProps {
+  containerRef: React.RefObject<HTMLElement | null>;
+  setHidden: (hidden: boolean) => void;
+  setShowBackToTop: (show: boolean) => void;
+}
+
+function ScrollLogic({ containerRef, setHidden, setShowBackToTop }: ScrollLogicProps) {
+  const { scrollY } = useScroll({ container: containerRef });
+
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const previous = scrollY.getPrevious() || 0;
+
+    // Hide header if scrolling DOWN and position > 100px
+    if (latest > previous && latest > 100) {
+      setHidden(true);
+    } else {
+      setHidden(false);
+    }
+
+    // Show BackToTop if scrolled > 300px
+    if (latest > 300) {
+      setShowBackToTop(true);
+    } else {
+      setShowBackToTop(false);
+    }
+  });
+
+  return null;
 }

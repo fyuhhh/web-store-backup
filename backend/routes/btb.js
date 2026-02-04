@@ -1,6 +1,7 @@
 import express from "express";
 import db from "../config/database.js";
 import { updatePOStatus } from '../utils/statusHelper.js';
+import { logActivity } from '../utils/activityLogger.js';
 
 const router = express.Router();
 
@@ -192,6 +193,15 @@ router.get("/:id", async (req, res) => {
       [id]
     );
     if (!row) return res.status(404).json({ message: "BTB tidak ditemukan" });
+
+    // Log Activity
+    logActivity(req, {
+      action_type: 'VIEW_BTB',
+      entity_id: row.no_btb,
+      details: { id_btb: row.id_btb },
+      status: 'INFO'
+    });
+
     res.json(row);
   } catch (err) {
     res.status(500).json({ error: err.message });

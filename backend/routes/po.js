@@ -1,10 +1,12 @@
 import express from "express";
 import db from "../config/database.js";
 
+
 const router = express.Router();
 
 
 import { updatePRStatus, updatePOStatus } from '../utils/statusHelper.js';
+import { logActivity } from '../utils/activityLogger.js';
 
 console.log("Loaded routes: /api/po");
 
@@ -336,6 +338,14 @@ router.post("/", async (req, res, next) => {
       newRow.estimasiTanggalTerima = formatDate(newRow.estimasiTanggalTerima);
       newRow.createdAt = newRow.createdAt ? formatDate(newRow.createdAt) : null;
       // newRow.statusterima sudah terisi dari DB
+
+      // Log Activity
+      logActivity(req, {
+        action_type: 'CREATE_PO',
+        entity_id: 'PO',
+        details: `Membuat PO baru ${newRow.noPO}`,
+        status: 'SUCCESS'
+      });
     }
     res.status(201).json(newRow || { id_PO: insertId });
   } catch (err) {
@@ -420,6 +430,13 @@ router.put("/:id", async (req, res, next) => {
         ? formatDate(updated.createdAt)
         : null;
       // updated.statusterima sudah terisi dari DB
+
+      logActivity(req, {
+        action_type: 'UPDATE_PO',
+        entity_id: 'PO',
+        details: `Update PO ${updated.noPO}`,
+        status: 'SUCCESS'
+      });
     }
     res.json(updated || { message: "PO berhasil diperbarui" });
   } catch (err) {
@@ -479,6 +496,14 @@ router.delete("/:id", async (req, res, next) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "PO tidak ditemukan" });
     }
+
+    // Log Delete Action
+    logActivity(req, {
+      action_type: 'DELETE_PO',
+      entity_id: 'PO',
+      details: `Menghapus PO ID ${id}`,
+      status: 'WARNING'
+    });
 
     res.json({ message: "PO berhasil dihapus" });
   } catch (err) {

@@ -2,6 +2,7 @@ import express from "express";
 import db from "../config/database.js";
 
 const router = express.Router();
+import { logActivity } from '../utils/activityLogger.js';
 
 // GET Next BKB Number
 router.get("/next-number", async (req, res) => {
@@ -160,6 +161,14 @@ router.post("/", async (req, res) => {
         divisi || null, // <-- simpan ke kolom divisi
       ]
     );
+
+    logActivity(req, {
+      action_type: 'CREATE',
+      entity_id: 'BKB',
+      details: `Membuat BKB baru ${no_bkb}`,
+      status: 'SUCCESS'
+    });
+
     res
       .status(201)
       .json({ message: "BKB berhasil dibuat", id: result.insertId });
@@ -269,6 +278,14 @@ router.post("/full", async (req, res) => {
     }
 
     await conn.commit();
+
+    logActivity(req, {
+      action_type: 'CREATE',
+      entity_id: 'BKB',
+      details: `Membuat BKB (Full) ${no_bkb}`,
+      status: 'SUCCESS'
+    });
+
     res.status(201).json({ message: "BKB & item berhasil disimpan", id_bkb });
   } catch (err) {
     await conn.rollback();
@@ -302,6 +319,14 @@ router.put("/:id", async (req, res) => {
       ` WHERE id_bkb = ?`;
 
     await db.query(sql, [...fields.map((f) => payload[f]), id]);
+
+    logActivity(req, {
+      action_type: 'UPDATE',
+      entity_id: 'BKB',
+      details: `Update BKB ID ${id}`,
+      status: 'SUCCESS'
+    });
+
     res.json({ message: "BKB berhasil diupdate" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -315,6 +340,14 @@ router.delete("/:id", async (req, res) => {
     const [result] = await db.query("DELETE FROM bkb WHERE id_bkb = ?", [id]);
     if (result.affectedRows === 0)
       return res.status(404).json({ message: "BKB tidak ditemukan" });
+
+    logActivity(req, {
+      action_type: 'DELETE',
+      entity_id: 'BKB',
+      details: `Menghapus BKB ID ${id}`,
+      status: 'WARNING'
+    });
+
     res.json({ message: "BKB berhasil dihapus" });
   } catch (err) {
     res.status(500).json({ error: err.message });

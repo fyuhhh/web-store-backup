@@ -1,6 +1,10 @@
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import { initLogger } from "./utils/activityLogger.js";
+
 import userRoutes, { ensureSuperadmin } from "./routes/user.js";
 import divisiRoutes from "./routes/divisi.js";
 import peranRoutes from "./routes/peran.js";
@@ -22,6 +26,7 @@ import holidayRoutes, { ensureHolidaysTable } from "./routes/holiday.js";
 import terminRoutes from "./routes/termin_pembayaran.js";
 import maintenanceRoutes from "./routes/maintenance.js";
 import broadcastRoutes from "./routes/broadcast.js";
+import monitoringRoutes from "./routes/monitoring.js";
 
 const app = express();
 app.use(cors());
@@ -56,6 +61,7 @@ app.use("/api/holidays", holidayRoutes);
 app.use("/api/termin", terminRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/broadcast", broadcastRoutes);
+app.use("/api/monitoring", monitoringRoutes);
 
 // === ADDED: debug endpoint to list registered routes ===
 app.get("/api/debug/routes", (req, res) => {
@@ -106,8 +112,65 @@ Promise.all([ensureSuperadmin(), ensureHolidaysTable()]).catch((err) => {
   console.error("Gagal inisialisasi system (superadmin/tables):", err);
 });
 
+// Wrap express app with HTTP server
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Initialize Logger
+initLogger(io);
+
+// Socket Connection Handler
+// Socket Connection Handler
+const onlineUsers = new Map(); // socketId -> { id_user, nama_pengguna, role, ... }
+
+io.on("connection", (socket) => {
+  // console.log(`Client connected: ${socket.id}`);
+
+  socket.on("identify", (userData) => {
+    if (userData && userData.id_user) {
+      onlineUsers.set(socket.id, {
+        ...userData,
+        socketId: socket.id,
+        loginTime: new Date(),
+      });
+      console.log(`User identified: ${userData.nama_pengguna} (${socket.id})`);
+
+      // Broadcast updated online users list to 'monitoring' room
+      io.to("monitoring").emit("online_users_update", Array.from(onlineUsers.values()));
+    }
+  });
+
+  socket.on("join_monitoring", () => {
+    socket.join("monitoring");
+    // console.log(`Socket ${socket.id} joined monitoring`);
+
+    // Immediately send current online users to the new monitor
+    socket.emit("online_users_update", Array.from(onlineUsers.values()));
+  });
+
+  socket.on("disconnect", () => {
+    // console.log(`Client disconnected: ${socket.id}`);
+    if (onlineUsers.has(socket.id)) {
+      onlineUsers.delete(socket.id);
+      // Broadcast updated list
+      io.to("monitoring").emit("online_users_update", Array.from(onlineUsers.values()));
+    }
+  });
+});
+
+app.set("io", io);
+
 // jalankan server
-app.listen(5000, () => {
+httpServer.listen(5000, () => {
   console.log("Server berjalan di http://192.168.10.10:5000");
   console.log("Debug routes: http://192.168.10.10:5000/api/debug/routes");
+  console.log("Socket.io initialized");
 });
+

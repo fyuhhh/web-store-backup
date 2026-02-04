@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Timer } from "lucide-react";
+import { Timer, Clock, ArrowLeft, RefreshCw, AlertTriangle } from "lucide-react";
 import { formatDuration, intervalToDuration, type Duration } from "date-fns";
 import { id } from "date-fns/locale";
 import { API_BASE_URL } from "@/lib/config";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export default function MaintenancePage() {
     const [endTime, setEndTime] = useState<string | null>(null);
@@ -12,40 +15,31 @@ export default function MaintenancePage() {
     const [timeLeft, setTimeLeft] = useState<Duration | null>(null);
 
     useEffect(() => {
-        // Initial fetch
         const fetchStatus = async () => {
             try {
-                // Add no-store to ensure fresh data
                 const res = await fetch(API_BASE_URL + "/api/maintenance", { cache: "no-store" });
                 const data = await res.json();
 
                 if (data.isActive) {
-                    // Check if we are still in grace period (startTime)
+                    // Check grace period
                     const now = new Date().getTime();
                     const startTime = data.startTime ? new Date(data.startTime).getTime() : 0;
 
                     if (startTime > 0 && now < startTime) {
-                        // Still in countdown/grace period, user shouldn't be here!
-                        // Redirect back to dashboard (check role for correct path)
                         const userRaw = localStorage.getItem("userData");
                         let targetPath = "/dashboard";
                         if (userRaw) {
                             try {
                                 const u = JSON.parse(userRaw);
-                                if (Number(u.id_peran) === 2) {
-                                    targetPath = "/divisi/dashboard";
-                                }
+                                if (Number(u.id_peran) === 2) targetPath = "/divisi/dashboard";
                             } catch { }
                         }
                         window.location.href = targetPath;
                         return;
                     }
-
                     setEndTime(data.endTime);
                     setDescription(data.description);
                 } else {
-                    // If not active, maintenance is done.
-                    // Redirect to login page and ensure logout.
                     localStorage.removeItem("userData");
                     window.location.href = "/login";
                 }
@@ -54,38 +48,23 @@ export default function MaintenancePage() {
             }
         };
         fetchStatus();
-
-        // Polling every 10 seconds to check if maintenance is over
         const pollInterval = setInterval(fetchStatus, 10000);
         return () => clearInterval(pollInterval);
     }, []);
 
     useEffect(() => {
         if (!endTime) return;
-
-        const timer = setInterval(() => {
+        const updateTimer = () => {
             const end = new Date(endTime);
             const now = new Date();
-            if (now >= end) {
-                setTimeLeft(null);
-                // Optionally refresh to see if status changed or just wait for poll
-            } else {
-                const duration = intervalToDuration({ start: now, end: end });
-                setTimeLeft(duration);
-            }
-        }, 1000);
-
+            if (now >= end) setTimeLeft(null);
+            else setTimeLeft(intervalToDuration({ start: now, end: end }));
+        };
+        updateTimer();
+        const timer = setInterval(updateTimer, 1000);
         return () => clearInterval(timer);
     }, [endTime]);
 
-    // Format time remaining
-    const formatTime = (duration: Duration) => {
-        return formatDuration(duration, {
-            format: ['days', 'hours', 'minutes', 'seconds'],
-            locale: id,
-            delimiter: ', '
-        })
-    }
 
     const handleBackToLogin = () => {
         localStorage.removeItem("userData");
@@ -93,47 +72,85 @@ export default function MaintenancePage() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-900 p-4">
-            <div className="max-w-md w-full text-center space-y-8">
-                <div className="flex justify-center">
-                    <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center animate-pulse">
-                        <Timer className="w-12 h-12 text-blue-600" />
-                    </div>
-                </div>
+        <div className="min-h-screen relative flex items-center justify-center overflow-hidden bg-slate-50">
+            {/* Background Decor */}
+            <div className="absolute inset-0 z-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)]" />
+            <div className="absolute top-0 right-0 -tranlsate-y-1/2 translate-x-1/2 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-cyan-100/50 rounded-full blur-3xl pointer-events-none" />
 
-                <h1 className="text-3xl font-bold tracking-tight">Sedang Maintenance</h1>
+            <div className="relative z-10 w-full max-w-lg px-4">
+                <Card className="border-0 shadow-2xl bg-white/80 backdrop-blur-xl ring-1 ring-slate-200/50">
+                    <CardContent className="p-8 sm:p-10 text-center">
 
-                {timeLeft ? (
-                    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <p className="text-sm text-gray-500 mb-2 uppercase tracking-wide font-semibold">Estimasi Selesai Dalam</p>
-                        <p className="text-2xl font-mono font-medium text-blue-600 break-words">
-                            {formatTime(timeLeft)}
+                        <div className="mx-auto w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center mb-6 shadow-inner ring-4 ring-white">
+                            <Timer className="w-10 h-10 text-amber-600 animate-pulse" />
+                        </div>
+
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-3">
+                            Sistem Dalam Perbaikan
+                        </h1>
+
+                        <p className="text-slate-500 text-lg mb-8 leading-relaxed">
+                            Kami sedang melakukan pemeliharaan sistem untuk meningkatkan performa layanan.
                         </p>
-                    </div>
-                ) : endTime ? (
-                    <p className="text-lg text-green-600 font-medium">Maintenance hampir selesai...</p>
-                ) : (
-                    <p className="text-gray-500">Kami sedang melakukan perbaikan sistem.</p>
-                )}
 
-                {description && (
-                    <div className="bg-yellow-50 text-yellow-800 p-4 rounded-md text-sm border border-yellow-200">
-                        {description}
-                    </div>
-                )}
+                        {/* Status Box */}
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-100 mb-8 mx-auto w-full">
+                            {timeLeft ? (
+                                <div className="space-y-2">
+                                    <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest text-[11px]">
+                                        Estimasi Selesai
+                                    </p>
+                                    <div className="flex items-baseline justify-center gap-1 font-mono text-slate-900">
+                                        <span className="text-3xl font-bold tabular-nums tracking-tighter sm:text-4xl text-blue-600">
+                                            {formatDuration(timeLeft, { format: ['hours'], locale: id, zero: true }).replace(' jam', '') || '00'}
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-400 mr-2">j</span>
+                                        <span className="text-3xl font-bold tabular-nums tracking-tighter sm:text-4xl text-blue-600">
+                                            {formatDuration(timeLeft, { format: ['minutes'], locale: id, zero: true }).replace(' menit', '') || '00'}
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-400 mr-2">m</span>
+                                        <span className="text-3xl font-bold tabular-nums tracking-tighter sm:text-4xl text-blue-600">
+                                            {formatDuration(timeLeft, { format: ['seconds'], locale: id, zero: true }).replace(' detik', '') || '00'}
+                                        </span>
+                                        <span className="text-sm font-medium text-slate-400">d</span>
+                                    </div>
+                                </div>
+                            ) : endTime ? (
+                                <div className="flex items-center justify-center gap-2 text-green-600 font-medium animate-bounce">
+                                    <RefreshCw className="w-5 h-5" />
+                                    Hampir Selesai...
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center gap-2 text-amber-600">
+                                    <AlertTriangle className="w-5 h-5" />
+                                    <span className="font-medium">Jadwal belum ditentukan</span>
+                                </div>
+                            )}
 
-                <p className="text-xs text-gray-400 mt-8">
-                    Silakan coba akses beberapa saat lagi. Halaman ini akan otomatis dimuat ulang jika maintenance selesai.
-                </p>
+                            {/* Description */}
+                            <div className="mt-4 pt-4 border-t border-slate-200">
+                                <p className="text-sm text-slate-600 font-medium italic">
+                                    "{description || 'Perbaikan rutin sistem'}"
+                                </p>
+                            </div>
+                        </div>
 
-                <div className="pt-4">
-                    <button
-                        onClick={handleBackToLogin}
-                        className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 bg-slate-900 text-white hover:bg-slate-800"
-                    >
-                        Kembali ke Halaman Login
-                    </button>
-                </div>
+                        <div className="flex flex-col gap-3">
+                            <Button
+                                onClick={handleBackToLogin}
+                                className="w-full h-11 bg-slate-900 text-white hover:bg-slate-800 shadow-lg shadow-slate-900/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Kembali ke Halaman Login
+                            </Button>
+                            <p className="text-xs text-slate-400 mt-2">
+                                Halaman akan memuat ulang otomatis saat selesai.
+                            </p>
+                        </div>
+
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
