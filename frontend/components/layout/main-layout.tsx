@@ -8,6 +8,8 @@ import { LogOut, User, ArrowUp } from "lucide-react";
 import { RoleGuard } from "@/components/ui/role-guard";
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
 import { API_BASE_URL } from "@/lib/config";
+import { logActivity } from "@/utils/activity";
+import { RouteActivityLogger } from "@/components/monitoring/RouteActivityLogger";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -229,7 +231,20 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   }, [router]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const stored = localStorage.getItem("userData");
+      if (stored) {
+        const u = JSON.parse(stored);
+        await logActivity({
+          id_user: u.id_user || u.id,
+          nama_pengguna: u.username || u.nama_pengguna || "Unknown",
+          action_type: "LOGOUT",
+          details: "User keluar dari sistem"
+        });
+      }
+    } catch (e) { console.error("Logout log failed", e); }
+
     import("@/lib/socket").then(({ socket }) => {
       socket.disconnect();
     });
@@ -273,6 +288,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         userData={userData}
         handleLogout={handleLogout}
       >
+        <RouteActivityLogger />
         {children}
       </MainLayoutContent>
     </RoleGuard>

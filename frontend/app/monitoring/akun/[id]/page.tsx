@@ -153,7 +153,7 @@ export default function MonitoringAkunPage() {
                     fetch(API_BASE_URL + "/api/btb").then(r => r.json()),
                     fetch(API_BASE_URL + "/api/bkb").then(r => r.json()),
                     fetch(API_BASE_URL + "/api/supplier").then(r => r.json()),
-                    fetch(`${API_BASE_URL}/api/activity-logs?user_id=${userId}&limit=20`).then(r => r.json())
+                    fetch(`${API_BASE_URL}/api/activity-logs?user_id=${userId}&limit=100`).then(r => r.json())
                 ]);
 
                 // Transform User

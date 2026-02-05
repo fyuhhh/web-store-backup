@@ -50,11 +50,27 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
     try {
         const { user_id, username, action, details } = req.body;
-        await db.query(
+        const [result] = await db.query(
             "INSERT INTO activity_logs (user_id, username, action, details) VALUES (?, ?, ?, ?)",
             [user_id, username, action, details]
         );
-        res.json({ message: "Log saved" });
+
+        const newLogId = result.insertId;
+        const newLog = {
+            id: newLogId,
+            id_user: user_id,
+            nama_pengguna: username,
+            action_type: action,
+            details: details,
+            timestamp: new Date().toISOString()
+        };
+
+        const io = req.app.get("io");
+        if (io) {
+            io.to("monitoring").emit("activity_log", newLog);
+        }
+
+        res.json({ message: "Log saved", id: newLogId });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, LogIn, LogOut, FileText, Eye, CheckCircle, AlertTriangle, Box, Truck } from "lucide-react";
+import { Activity, LogIn, LogOut, FileText, Eye, CheckCircle, AlertTriangle, Box, Truck, Compass } from "lucide-react";
 
 export interface ActivityLog {
     id: number;
@@ -38,6 +38,9 @@ export function LiveActivityFeed({ logs }: LiveActivityFeedProps) {
             case "CREATE_BKB": return <Truck className="h-4 w-4 text-indigo-500" />; // New for BKB
             case "UPDATE_BKB": return <Truck className="h-4 w-4 text-indigo-500" />;
             case "DELETE_BKB": return <AlertTriangle className="h-4 w-4 text-red-500" />;
+            case "UPDATE_BKB": return <Truck className="h-4 w-4 text-indigo-500" />;
+            case "DELETE_BKB": return <AlertTriangle className="h-4 w-4 text-red-500" />;
+            case "NAVIGATE": return <Compass className="h-4 w-4 text-teal-500" />; // New for Route
             default: return <Activity className="h-4 w-4 text-gray-500" />;
         }
     };
@@ -49,7 +52,9 @@ export function LiveActivityFeed({ logs }: LiveActivityFeedProps) {
         if (action.includes("PO")) return "bg-purple-100 text-purple-800 border-purple-200"; // New for PO
         if (action.includes("BTB")) return "bg-orange-100 text-orange-800 border-orange-200";
         if (action.includes("BKB")) return "bg-indigo-100 text-indigo-800 border-indigo-200"; // New for BKB
+        if (action.includes("BKB")) return "bg-indigo-100 text-indigo-800 border-indigo-200"; // New for BKB
         if (action.includes("DELETE")) return "bg-red-100 text-red-800 border-red-200";
+        if (action.includes("NAVIGATE")) return "bg-teal-100 text-teal-800 border-teal-200";
         return "bg-gray-100 text-gray-800";
     }
 
@@ -106,7 +111,10 @@ export function LiveActivityFeed({ logs }: LiveActivityFeedProps) {
                                                 {log.action_type === 'VIEW_BTB' && 'sedang melihat detail BTB'}
                                                 {log.action_type === 'CREATE_PR' && 'membuat PR baru'}
                                                 {log.action_type === 'CREATE_BTB' && 'membuat BTB baru'}
-                                                {!['LOGIN', 'LOGOUT', 'VIEW_PR', 'VIEW_BTB', 'CREATE_PR', 'CREATE_BTB'].includes(log.action_type) && `melakukan ${log.action_type}`}
+                                                {log.action_type === 'CREATE_PR' && 'membuat PR baru'}
+                                                {log.action_type === 'CREATE_BTB' && 'membuat BTB baru'}
+                                                {log.action_type === 'NAVIGATE' && 'mengunjungi halaman'}
+                                                {!['LOGIN', 'LOGOUT', 'VIEW_PR', 'VIEW_BTB', 'CREATE_PR', 'CREATE_BTB', 'NAVIGATE'].includes(log.action_type) && `melakukan ${log.action_type}`}
                                             </span>
                                             {log.entity_id && (
                                                 <span className="font-mono ml-1 bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded text-xs border border-blue-100">
