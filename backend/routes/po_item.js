@@ -10,7 +10,9 @@ const router = express.Router();
 router.get("/", async (req, res, next) => {
   try {
     const [rows] = await db.query(
-      "SELECT * FROM po_item ORDER BY id_POItem ASC" // <-- Ubah DESC ke ASC
+      `SELECT po_item.*, 
+        (SELECT COUNT(*) FROM btb_item WHERE btb_item.id_POItem = po_item.id_POItem) > 0 AS hasBTB
+       FROM po_item ORDER BY id_POItem ASC`
     );
     // --- FIX: pastikan hargaSatuan, jumlahPO, jumlahAsli integer ---
     const fixedRows = rows.map((row) => ({
@@ -252,6 +254,17 @@ router.put("/:id", async (req, res, next) => {
       }
       return Number(val) || 0;
     };
+
+    // --- Check if item is processed to BTB ---
+    const [btbItems] = await db.query(
+      "SELECT id_btb_item FROM btb_item WHERE id_POItem = ?",
+      [id]
+    );
+    if (btbItems.length > 0) {
+      return res.status(400).json({
+        message: "Tidak dapat mengedit item PO yang sudah diproses ke BTB.",
+      });
+    }
 
     if (payload.hargaSatuan) payload.hargaSatuan = cleanCurrency(payload.hargaSatuan);
     if (payload.jumlahPO) payload.jumlahPO = cleanCurrency(payload.jumlahPO);

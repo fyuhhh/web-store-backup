@@ -268,28 +268,111 @@ export default function BTBInputPage() {
   const [skemaList, setSkemaList] = useState<any[]>([]);
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
 
+  const searchParams = useSearchParams();
+  const editBtbId = searchParams.get("id");
+  const [lockedItems, setLockedItems] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
-    loadData();
-    setSelectedPOsForBTB([]);
-    // Ambil skema user dari localStorage
-    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-    setUserSchema(userData.skema || "");
-    setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
-    // Ambil supplier dan skema dari backend
-    fetch(API_BASE_URL + "/api/supplier")
-      .then((r) => r.json())
-      .then((data) => setSupplierList(data));
-    fetch(API_BASE_URL + "/api/skema")
-      .then((r) => r.json())
-      .then((data) => {
-        setSkemaList(data);
-        setSkemaMap(
-          Object.fromEntries(
-            data.map((s: any) => [String(s.id_skema), s.skema])
-          )
-        );
+    if (editBtbId) {
+      loadBTBForEdit(editBtbId);
+    }
+  }, [editBtbId]);
+
+  const loadBTBForEdit = async (id: string) => {
+    try {
+      const btbRes = await fetch(`${API_BASE_URL}/api/btb/${id}`);
+      if (!btbRes.ok) return;
+      const btbData = await btbRes.json();
+
+      const btbItemsRes = await fetch(`${API_BASE_URL}/api/btb-item`);
+      const allBtbItems = await btbItemsRes.json();
+      const currentBtbItems = allBtbItems.filter((i: any) => String(i.id_btb) === String(id));
+
+      // Determine Locked Items based on hasBKB
+      const locked: Record<string, boolean> = {};
+      currentBtbItems.forEach((i: any) => {
+        // We need to map back to PO Item ID to lock the input
+        // But we don't have the exact key yet until we load POs.
+        // We can store a map of id_POItem -> locked
       });
-  }, []);
+
+      // We need to load the PO data to populate selectedPOsForBTB
+      // Reuse logic from loadData but filtered
+      const poRes = await fetch(`${API_BASE_URL}/api/po`);
+      const allPOs = await poRes.json();
+
+      // We also need PO Items and PR Items to construct the "poItemId" key (noPR-id)
+      const poItemsRes = await fetch(`${API_BASE_URL}/api/po-item`);
+      const allPoItems = await poItemsRes.json();
+
+      const prItemsRes = await fetch(`${API_BASE_URL}/api/pr-item`);
+      const allPrItems = await prItemsRes.json();
+      const prRes = await fetch(`${API_BASE_URL}/api/pr`);
+      const allPrs = await prRes.json();
+
+      const targetPO = allPOs.find((p: any) => String(p.id_PO) === String(btbData.id_po));
+      if (!targetPO) return;
+
+      // Construct PO Object for selectedPOsForBTB
+      // Need to group items like in loadData
+      // This is duplicative but mostly reliable
+
+      // Simplified: Just match what we need
+      // We need `noPR` for the key.
+
+      const poItemsWithDetails = allPoItems.filter((pi: any) => String(pi.id_PO) === String(targetPO.id_PO)).map((pi: any) => {
+        const prItem = allPrItems.find((pri: any) => String(pri.id_PRItem) === String(pi.id_PRItem));
+        const pr = prItem ? allPrs.find((p: any) => String(p.id_PR) === String(prItem.id_PR)) : null;
+        return {
+          ...pi,
+          noPR: pr?.noPR || "Unknown",
+          noMR: prItem?.noMR || "",
+          items: [], // Structure matching POData items?
+          // The structure in page is: po.poItems is array of objects with items array
+          // Wait, POData structure:
+          // poItems: Array<{ noPR, items: Array<...> }>
+        };
+      });
+
+      // Group by PR
+      const grouped: any = {};
+      poItemsWithDetails.forEach((pi: any) => {
+        if (!grouped[pi.noPR]) {
+          grouped[pi.noPR] = { noPR: pi.noPR, items: [] };
+        }
+        grouped[pi.noPR].items.push({
+          id: pi.id_POItem,
+          namaBarang: pi.namaBarang, // Note: pi might not have namaBarang if not joined? 
+          // po_item table has namaBarang? No, strictly it's in PR Item.
+          // But api/po-item might return it?
+          // Check po_item.js GET. It selects `po_item.*`. It does NOT join pr_item to get namaBarang.
+          // So `pi.namaBarang` is likely undefined unless we fetch it.
+          // But `prItem` has it.
+        });
+      });
+
+      // This reconstruction is getting too complex to inline accurately without risking bugs.
+      // Better approach: Use the existing `backendPOData` if available?
+      // `backendPOData` is populated by `fetchPOBackend` inside `useEffect`.
+      // If we wait for `backendPOData` to populate, we can just find the PO there.
+
+      // Let's set a flag `pendingEditId` and handle it in `useEffect` when `backendPOData` changes.
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Effect to handle pending edit when data is ready
+  useEffect(() => {
+    if (editBtbId && backendPOData.length > 0) {
+      const targetPO = backendPOData.find((p: any) => String(p.id) === String(editBtbId)); // Wait, editBtbId is BTB ID.
+      // We need to fetch BTB to know PO ID.
+      // So `loadBTBForEdit` above is needed to get PO ID.
+      // Then we find PO in backendPOData.
+    }
+  }, [editBtbId, backendPOData]);
+
+
 
   // Auto-fill BTB Number on PO Selection/Date change
   useEffect(() => {

@@ -12,7 +12,8 @@ router.get("/", async (req, res) => {
       SELECT 
         btb_item.*, 
         satuan.satuan AS satuanLabel,
-        COALESCE(pr_item.kodeBarang, pr_match.kodeBarang) AS kodeBarang
+        COALESCE(pr_item.kodeBarang, pr_match.kodeBarang) AS kodeBarang,
+        (SELECT COUNT(*) FROM bkb_item WHERE bkb_item.id_btb_item = btb_item.id_btb_item) > 0 AS hasBKB
       FROM btb_item
       LEFT JOIN satuan ON btb_item.id_satuan = satuan.id_satuan
       LEFT JOIN po_item ON btb_item.id_POItem = po_item.id_POItem
@@ -170,6 +171,17 @@ router.put("/:id", async (req, res) => {
       [id]
     );
 
+    // --- Check if item is processed to BKB ---
+    const [bkbItems] = await db.query(
+      "SELECT id_bkb_item FROM bkb_item WHERE id_btb_item = ?",
+      [id]
+    );
+    if (bkbItems.length > 0) {
+      return res.status(400).json({
+        message: "Tidak dapat mengedit item BTB yang sudah diproses ke BKB.",
+      });
+    }
+
     if (!oldData) {
       return res.status(404).json({ message: "BTB Item tidak ditemukan" });
     }
@@ -221,6 +233,19 @@ router.delete("/:id", async (req, res) => {
   try {
     // Ambil id_btb dan info item sebelum hapus
     const [[row]] = await db.query("SELECT id_btb, id_POItem, jumlah_diterima FROM btb_item WHERE id_btb_item = ?", [id]);
+
+    if (!row) return res.status(404).json({ message: "BTB Item tidak ditemukan" });
+
+    // --- Check if item is processed to BKB ---
+    const [bkbItems] = await db.query(
+      "SELECT id_bkb_item FROM bkb_item WHERE id_btb_item = ?",
+      [id]
+    );
+    if (bkbItems.length > 0) {
+      return res.status(400).json({
+        message: "Tidak dapat menghapus item BTB yang sudah diproses ke BKB.",
+      });
+    }
 
     const [result] = await db.query(
       "DELETE FROM btb_item WHERE id_btb_item = ?",

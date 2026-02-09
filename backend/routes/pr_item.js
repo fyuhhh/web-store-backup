@@ -141,6 +141,19 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   try {
+    // Check if item is already processed
+    const [[existingItem]] = await db.query("SELECT * FROM pr_item WHERE id_PRItem = ?", [id]);
+
+    if (!existingItem) {
+      return res.status(404).json({ message: "PR Item tidak ditemukan" });
+    }
+
+    if (parseFloat(existingItem.jumlah) < parseFloat(existingItem.originalJumlah)) {
+      return res.status(400).json({
+        message: "Tidak dapat mengedit item PR yang sudah diproses ke PO (sebagian/penuh).",
+      });
+    }
+
     const {
       kodeBarang,
       namaBarang,

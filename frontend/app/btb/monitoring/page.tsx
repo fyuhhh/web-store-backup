@@ -6,12 +6,13 @@ import * as ExcelJS from "exceljs";
 import { ChevronDown, Calendar as CalendarIcon, FileSpreadsheet, Download } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // Tambahkan import Trash2
-import { Trash2 } from "lucide-react";
+import { Trash2, Pencil } from "lucide-react";
 import { createPortal } from "react-dom";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 import { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
@@ -1652,14 +1653,25 @@ export default function BTBMonitoringPage() {
                               </TableCell>
                               {/* Aksi - rowSpan */}
                               <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDelete(items[0].id_btb)}
-                                  title="Hapus BTB"
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
+                                <div className="flex justify-center gap-1">
+                                  <Link href={`/btb/input?id=${items[0].id_btb}`}>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      title="Edit BTB"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  </Link>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDelete(items[0].id_btb)}
+                                    title="Hapus BTB"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                             {/* Baris item berikutnya */}

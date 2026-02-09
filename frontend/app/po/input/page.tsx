@@ -825,6 +825,8 @@ function InputPOContent() {
               id_satuan: item.id_satuan,
             };
 
+            if ((item as any).hasBTB) continue; // SKIP Locked items
+
             if (item.id_POItem) {
               // UPDATE PO ITEM
               await fetch(`${API_BASE_URL}/api/po-item/${item.id_POItem}`, {
@@ -1303,6 +1305,7 @@ function InputPOContent() {
               skema: originalPrItem.id_skema,
               dibuatOleh: originalPr?.dibuatOleh,
               tanggalPR: originalPr?.tanggalPR,
+              hasBTB: Boolean(pItem.hasBTB), // Map hasBTB from backend
             });
           }
 
@@ -2652,11 +2655,15 @@ function InputPOContent() {
 
                           // Tambahkan totalPerItem (setelah diskon + ppn)
                           const totalPerItem = subtotalItem + ppnAmount;
+                          const isLocked = (item as any).hasBTB;
 
                           return (
-                            <TableRow key={item.id}>
+                            <TableRow key={item.id} className={isLocked ? "bg-gray-100/50" : ""}>
                               <TableCell className="uppercase p-1 text-xs">{item.noPR}</TableCell>
-                              <TableCell className="uppercase p-1 text-xs">{item.namaBarang}</TableCell>
+                              <TableCell className="uppercase p-1 text-xs">
+                                {item.namaBarang}
+                                {isLocked && <span className="ml-1 text-[10px] text-red-500 font-bold">(Locked)</span>}
+                              </TableCell>
                               <TableCell className="p-1">
                                 <Input
                                   type="number"
@@ -2678,6 +2685,7 @@ function InputPOContent() {
                                   data-row-index={idx}
                                   data-col-key="qty"
                                   onKeyDown={(e) => handleKeyDown(e, idx, "qty")}
+                                  disabled={isLocked}
                                 />
                                 <span className="text-xs text-muted-foreground ml-2">
                                   /{" "}
@@ -2710,6 +2718,7 @@ function InputPOContent() {
                                   data-row-index={idx}
                                   data-col-key="harga"
                                   onKeyDown={(e) => handleKeyDown(e, idx, "harga")}
+                                  disabled={isLocked}
                                 />
                               </TableCell>
                               <TableCell className="p-1">
@@ -2741,6 +2750,7 @@ function InputPOContent() {
                                   onKeyDown={(e) =>
                                     handleKeyDown(e, idx, "diskonPersen")
                                   }
+                                  disabled={isLocked}
                                 />
                               </TableCell>
                               <TableCell className="p-1">
@@ -2776,6 +2786,7 @@ function InputPOContent() {
                                   onKeyDown={(e) =>
                                     handleKeyDown(e, idx, "diskonNominal")
                                   }
+                                  disabled={isLocked}
                                 />
                               </TableCell>
                               <TableCell className="p-1 text-xs">
@@ -2807,6 +2818,7 @@ function InputPOContent() {
                                   data-row-index={idx}
                                   data-col-key="ppn"
                                   onKeyDown={(e) => handleKeyDown(e, idx, "ppn")}
+                                  disabled={isLocked}
                                 />
                               </TableCell>
                               <TableCell className="p-1 text-xs">

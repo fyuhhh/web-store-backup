@@ -183,7 +183,8 @@ export default function InputBaruPRPage() {
             jumlah: String(parseFloat(item.jumlah)), // Format: 15.00 -> 15
             id_satuan: String(item.id_satuan),
             keterangan: item.keterangan || "",
-            originalId: String(item.id_PRItem) // Track original ID
+            originalId: String(item.id_PRItem), // Track original ID
+            locked: parseFloat(item.jumlah) < parseFloat(item.originalJumlah) // Locked if processed
           })),
         });
 
@@ -423,6 +424,9 @@ export default function InputBaruPRPage() {
 
         // B. Update or Create items
         for (const item of formData.items) {
+          // SKIP locked items (don't update them as backend will reject)
+          if ((item as any).locked) continue;
+
           const jumlah = parseFloat(item.jumlah);
           const payload = {
             id_PR: editId,
@@ -1006,8 +1010,13 @@ export default function InputBaruPRPage() {
                 {formData.items.map((item, index) => (
                   <div
                     key={item.id}
-                    className={`grid grid-cols-1 md:grid-cols-12 ${isSpecialUser ? "gap-x-2 gap-y-2 p-4 border rounded-lg" : "gap-0 items-end p-2 border-b last:border-0"}`}
+                    className={`grid grid-cols-1 md:grid-cols-12 ${isSpecialUser ? "gap-x-2 gap-y-2 p-4 border rounded-lg" : "gap-0 items-end p-2 border-b last:border-0"} ${(item as any).locked ? "bg-gray-100 opacity-75" : ""}`}
                   >
+                    {(item as any).locked && (
+                      <div className="md:col-span-12 text-xs text-red-500 font-semibold mb-1">
+                        * Item ini sudah diproses ke PO dan tidak dapat diedit/dihapus.
+                      </div>
+                    )}
                     {isSpecialUser ? (
                       // SPECIAL USER LAYOUT (141, 98)
                       <>
@@ -1020,6 +1029,7 @@ export default function InputBaruPRPage() {
                             onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
                             placeholder="Nama Barang"
                             required
+                            disabled={(item as any).locked}
                           />
                         </div>
                         <div className="md:col-span-1">
@@ -1031,6 +1041,7 @@ export default function InputBaruPRPage() {
                             onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
                             placeholder="1"
                             required
+                            disabled={(item as any).locked}
                           />
                         </div>
 
@@ -1044,7 +1055,7 @@ export default function InputBaruPRPage() {
                                 updateItem(item.id, "id_satuan", value)
                               }
                             >
-                              <SelectTrigger className="bg-white">
+                              <SelectTrigger className="bg-white" disabled={(item as any).locked}>
                                 <SelectValue placeholder="" />
                               </SelectTrigger>
                               <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
@@ -1067,6 +1078,7 @@ export default function InputBaruPRPage() {
                               value={item.keterangan}
                               onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
                               placeholder="Ket..."
+                              disabled={(item as any).locked}
                             />
                           </div>
                         </div>
@@ -1079,6 +1091,7 @@ export default function InputBaruPRPage() {
                               size="sm"
                               onClick={() => removeItem(item.id)}
                               className="w-full text-red-500"
+                              disabled={(item as any).locked}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1093,6 +1106,7 @@ export default function InputBaruPRPage() {
                             value={item.kodeBarang}
                             onChange={(e) => updateItem(item.id, "kodeBarang", e.target.value)}
                             placeholder="Kode"
+                            disabled={(item as any).locked}
                           />
                         </div>
                         {/* Spacer for remaining cols in row 2 if needed, or let it end */}
@@ -1110,6 +1124,7 @@ export default function InputBaruPRPage() {
                             onChange={(e) => updateItem(item.id, "namaBarang", e.target.value)}
                             placeholder="Nama Barang"
                             required
+                            disabled={(item as any).locked}
                           />
                         </div>
                         <div className="md:col-span-1 px-1 pb-1">
@@ -1121,6 +1136,7 @@ export default function InputBaruPRPage() {
                             onChange={(e) => updateItem(item.id, "jumlah", e.target.value)}
                             placeholder="1"
                             required
+                            disabled={(item as any).locked}
                           />
                         </div>
 
@@ -1134,7 +1150,7 @@ export default function InputBaruPRPage() {
                                 updateItem(item.id, "id_satuan", value)
                               }
                             >
-                              <SelectTrigger className="bg-white">
+                              <SelectTrigger className="bg-white" disabled={(item as any).locked}>
                                 <SelectValue placeholder="" />
                               </SelectTrigger>
                               <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
@@ -1157,6 +1173,7 @@ export default function InputBaruPRPage() {
                               value={item.keterangan}
                               onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
                               placeholder="Keterangan..."
+                              disabled={(item as any).locked}
                             />
                           </div>
                         </div>
