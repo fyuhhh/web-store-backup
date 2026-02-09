@@ -2836,28 +2836,15 @@ export default function MonitoringPOPage() {
                                       <TooltipTrigger asChild>
                                         <span
                                           onClick={() => {
-                                            if ((po as any).isProcessed) {
-                                              setToastMsg("Tidak dapat edit, hapus BTB terlebih dahulu");
-                                              setToastError(true);
-                                              setToastOpen(true);
-                                            } else {
-                                              window.location.href = `/po/input?id=${po.id}`;
-                                            }
+                                            window.location.href = `/po/input?id=${po.id}`;
                                           }}
-                                          className={`cursor-pointer transition-colors duration-200 ${(po as any).isProcessed
-                                            ? "hover:text-red-500 text-gray-700"
-                                            : "hover:text-blue-600"
-                                            }`}
+                                          className="cursor-pointer transition-colors duration-200 hover:text-blue-600 text-gray-700"
                                         >
                                           {po.noPO}
                                         </span>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>
-                                          {(po as any).isProcessed
-                                            ? "Tidak dapat edit, hapus BTB terlebih dahulu"
-                                            : "Klik untuk edit"}
-                                        </p>
+                                        <p>Klik untuk edit</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>

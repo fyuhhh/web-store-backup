@@ -297,8 +297,9 @@ export default function BTBMonitoringPage() {
   const handleDelete = (ids: string[] | string) => {
     const idList = Array.isArray(ids) ? ids : [ids];
     // Ambil semua id_btb yang dipilih
+    // REFACTOR: Strictly filter by id_btb. idList must contain BTB IDs.
     const btbIds = btbRows
-      .filter((row) => idList.includes(row.id) || idList.includes(row.id_btb))
+      .filter((row) => idList.includes(row.id_btb))
       .map((row) => row.id_btb);
 
     // Jika ada id_btb yang sudah diproses di BKB, tampilkan notif gagal dan batalkan aksi
@@ -310,9 +311,11 @@ export default function BTBMonitoringPage() {
     }
 
     // Ambil semua item BTB yang memiliki id_btb yang sama
+    // FIX: Filter btbRows to only include items belonging to the selected btbIds
+    // FIX 2: idList now strictly contains BTB IDs due to refactor.
     const btbItems = Array.from(new Set(btbIds)).map((btbId) => ({
       btbId,
-      items: btbRows.filter((row) => row.id_btb === btbId),
+      items: btbRows.filter((row) => String(row.id_btb) === String(btbId)),
     }));
 
     setSelectedBTBItemsForRestore(btbItems);
@@ -358,11 +361,12 @@ export default function BTBMonitoringPage() {
 
   // Checkbox select all (per halaman)
   const handleSelectAll = (checked: boolean) => {
-    const pageIds = filteredBTBData.map((row) => row.id);
+    // REFACTOR: Use id_btb instead of id
+    const pageBtbIds = Array.from(new Set(filteredBTBData.map((row) => row.id_btb)));
     if (checked) {
-      setSelectedBTBIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+      setSelectedBTBIds((prev) => Array.from(new Set([...prev, ...pageBtbIds])));
     } else {
-      setSelectedBTBIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+      setSelectedBTBIds((prev) => prev.filter((id) => !pageBtbIds.includes(id)));
     }
   };
 
@@ -607,7 +611,8 @@ export default function BTBMonitoringPage() {
   // Filter data untuk export
   const getExportData = () => {
     if (exportMode === "selected") {
-      return filteredBTBData.filter((btb) => selectedBTBIds.includes(btb.id));
+      // REFACTOR: Filter by id_btb
+      return filteredBTBData.filter((btb) => selectedBTBIds.includes(btb.id_btb));
     }
     if (exportMode === "range" && exportStartDate && exportEndDate) {
       return filteredBTBData.filter((btb) => {
@@ -1108,8 +1113,9 @@ export default function BTBMonitoringPage() {
                         <Checkbox
                           checked={(() => {
                             if (filteredBTBData.length === 0) return false;
-                            const allIds = filteredBTBData.map(row => row.id);
-                            return allIds.every(id => selectedBTBIds.includes(id));
+                            // REFACTOR: Use id_btb
+                            const allBtbIds = Array.from(new Set(filteredBTBData.map(row => row.id_btb)));
+                            return allBtbIds.every(id => selectedBTBIds.includes(id));
                           })()}
                           onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
                         />
@@ -1561,7 +1567,7 @@ export default function BTBMonitoringPage() {
                         if (!items || items.length === 0) return null;
                         // Urutkan items ASC by id_btb_item (atau id_btbItem/id)
                         const sortedItems = [...items].sort((a, b) => {
-                          const getId = (x) => x.id_btb_item ?? x.id_btbItem ?? x.id;
+                          const getId = (x: any) => x.id_btb_item ?? x.id_btbItem ?? x.id;
                           return getId(a) - getId(b);
                         });
                         return (
@@ -1575,9 +1581,9 @@ export default function BTBMonitoringPage() {
                               <TableCell rowSpan={items.length} className="px-3 py-1 border-r border-gray-300 text-center align-middle">
                                 {exportMode === "selected" && (
                                   <Checkbox
-                                    checked={selectedBTBIds.includes(items[0].id)}
+                                    checked={selectedBTBIds.includes(items[0].id_btb)}
                                     onCheckedChange={(checked) =>
-                                      handleSelectBTB(items[0].id, checked as boolean)
+                                      handleSelectBTB(items[0].id_btb, checked as boolean)
                                     }
                                   />
                                 )}

@@ -10,6 +10,8 @@ import "@/app/pr/input-baru/datepicker-red-weekend.css";
 import * as ExcelJS from "exceljs";
 import dayjs from "dayjs";
 
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
   Card,
@@ -262,115 +264,18 @@ export default function BTBInputPage() {
     message: string;
   } | null>(null);
 
+
+
   const [userSchema, setUserSchema] = useState<string>("");
   const [userSkemaId, setUserSkemaId] = useState<string>(""); // Tambah state id_skema user
   const [supplierList, setSupplierList] = useState<any[]>([]);
   const [skemaList, setSkemaList] = useState<any[]>([]);
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
 
-  const searchParams = useSearchParams();
-  const editBtbId = searchParams.get("id");
-  const [lockedItems, setLockedItems] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    if (editBtbId) {
-      loadBTBForEdit(editBtbId);
-    }
-  }, [editBtbId]);
 
-  const loadBTBForEdit = async (id: string) => {
-    try {
-      const btbRes = await fetch(`${API_BASE_URL}/api/btb/${id}`);
-      if (!btbRes.ok) return;
-      const btbData = await btbRes.json();
 
-      const btbItemsRes = await fetch(`${API_BASE_URL}/api/btb-item`);
-      const allBtbItems = await btbItemsRes.json();
-      const currentBtbItems = allBtbItems.filter((i: any) => String(i.id_btb) === String(id));
 
-      // Determine Locked Items based on hasBKB
-      const locked: Record<string, boolean> = {};
-      currentBtbItems.forEach((i: any) => {
-        // We need to map back to PO Item ID to lock the input
-        // But we don't have the exact key yet until we load POs.
-        // We can store a map of id_POItem -> locked
-      });
-
-      // We need to load the PO data to populate selectedPOsForBTB
-      // Reuse logic from loadData but filtered
-      const poRes = await fetch(`${API_BASE_URL}/api/po`);
-      const allPOs = await poRes.json();
-
-      // We also need PO Items and PR Items to construct the "poItemId" key (noPR-id)
-      const poItemsRes = await fetch(`${API_BASE_URL}/api/po-item`);
-      const allPoItems = await poItemsRes.json();
-
-      const prItemsRes = await fetch(`${API_BASE_URL}/api/pr-item`);
-      const allPrItems = await prItemsRes.json();
-      const prRes = await fetch(`${API_BASE_URL}/api/pr`);
-      const allPrs = await prRes.json();
-
-      const targetPO = allPOs.find((p: any) => String(p.id_PO) === String(btbData.id_po));
-      if (!targetPO) return;
-
-      // Construct PO Object for selectedPOsForBTB
-      // Need to group items like in loadData
-      // This is duplicative but mostly reliable
-
-      // Simplified: Just match what we need
-      // We need `noPR` for the key.
-
-      const poItemsWithDetails = allPoItems.filter((pi: any) => String(pi.id_PO) === String(targetPO.id_PO)).map((pi: any) => {
-        const prItem = allPrItems.find((pri: any) => String(pri.id_PRItem) === String(pi.id_PRItem));
-        const pr = prItem ? allPrs.find((p: any) => String(p.id_PR) === String(prItem.id_PR)) : null;
-        return {
-          ...pi,
-          noPR: pr?.noPR || "Unknown",
-          noMR: prItem?.noMR || "",
-          items: [], // Structure matching POData items?
-          // The structure in page is: po.poItems is array of objects with items array
-          // Wait, POData structure:
-          // poItems: Array<{ noPR, items: Array<...> }>
-        };
-      });
-
-      // Group by PR
-      const grouped: any = {};
-      poItemsWithDetails.forEach((pi: any) => {
-        if (!grouped[pi.noPR]) {
-          grouped[pi.noPR] = { noPR: pi.noPR, items: [] };
-        }
-        grouped[pi.noPR].items.push({
-          id: pi.id_POItem,
-          namaBarang: pi.namaBarang, // Note: pi might not have namaBarang if not joined? 
-          // po_item table has namaBarang? No, strictly it's in PR Item.
-          // But api/po-item might return it?
-          // Check po_item.js GET. It selects `po_item.*`. It does NOT join pr_item to get namaBarang.
-          // So `pi.namaBarang` is likely undefined unless we fetch it.
-          // But `prItem` has it.
-        });
-      });
-
-      // This reconstruction is getting too complex to inline accurately without risking bugs.
-      // Better approach: Use the existing `backendPOData` if available?
-      // `backendPOData` is populated by `fetchPOBackend` inside `useEffect`.
-      // If we wait for `backendPOData` to populate, we can just find the PO there.
-
-      // Let's set a flag `pendingEditId` and handle it in `useEffect` when `backendPOData` changes.
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  // Effect to handle pending edit when data is ready
-  useEffect(() => {
-    if (editBtbId && backendPOData.length > 0) {
-      const targetPO = backendPOData.find((p: any) => String(p.id) === String(editBtbId)); // Wait, editBtbId is BTB ID.
-      // We need to fetch BTB to know PO ID.
-      // So `loadBTBForEdit` above is needed to get PO ID.
-      // Then we find PO in backendPOData.
-    }
-  }, [editBtbId, backendPOData]);
 
 
 
@@ -434,6 +339,84 @@ export default function BTBInputPage() {
 
   // Tambahkan state untuk data PO dari backend
   const [backendPOData, setBackendPOData] = useState<any[]>([]);
+
+  // === Edit Mode Logic ===
+  const searchParams = useSearchParams();
+  const editBtbId = searchParams.get("id");
+  const [btbDataForEdit, setBtbDataForEdit] = useState<any>(null);
+  const [lockedItems, setLockedItems] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (editBtbId) {
+      fetch(`${API_BASE_URL}/api/btb/${editBtbId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) setBtbDataForEdit(data);
+        });
+    }
+  }, [editBtbId]);
+
+  useEffect(() => {
+    if (btbDataForEdit && backendPOData.length > 0) {
+      const targetPO = backendPOData.find((p: any) => String(p.id) === String(btbDataForEdit.id_po));
+      if (targetPO) {
+        setSelectedPOsForBTB([targetPO]);
+        setShowForm(true);
+
+        setFormData((prev: any) => ({
+          ...prev,
+          noBTB: btbDataForEdit.no_btb,
+          tanggal: new Date(btbDataForEdit.tanggal_btb),
+          periode: btbDataForEdit.periode || "",
+          supplier: targetPO.id_supplier,
+          supplierLabel: targetPO.supplier,
+          noPO: targetPO.noPO,
+          skema: btbDataForEdit.id_skema,
+          poId: targetPO.id,
+          biaya: btbDataForEdit.biaya
+        }));
+
+        fetch(`${API_BASE_URL}/api/btb-item`)
+          .then(r => r.json())
+          .then(allBtbItems => {
+            const currentBtbItems = allBtbItems.filter((i: any) => String(i.id_btb) === String(btbDataForEdit.id_btb));
+
+            const qtyObj: Record<string, number> = {};
+            const lockObj: Record<string, boolean> = {};
+
+            currentBtbItems.forEach((bItem: any) => {
+              let foundNoPR = "";
+              targetPO.poItems.forEach((group: any) => {
+                const found = group.items.find((pi: any) => String(pi.id) === String(bItem.id_POItem));
+                if (found) foundNoPR = group.noPR;
+              });
+
+              if (foundNoPR) {
+                const key = `${foundNoPR}-${bItem.id_POItem}`;
+                qtyObj[key] = Number(bItem.jumlah_diterima);
+                if (bItem.hasBKB) {
+                  lockObj[key] = true;
+                }
+              }
+            });
+
+            setBtbInputQty(qtyObj);
+            setLockedItems(lockObj);
+
+            const newSelectedPOItems = [{
+              poId: targetPO.id,
+              noPO: targetPO.noPO,
+              supplier: targetPO.supplier,
+              items: getPOItemsWithSisa(targetPO).filter((item) =>
+                qtyObj[item.poItemId] !== undefined
+              )
+            }];
+
+            setSelectedPOItems(newSelectedPOItems);
+          });
+      }
+    }
+  }, [btbDataForEdit, backendPOData]);
 
   // Ambil data PO dari backend dan mapping seperti monitoring PO
   useEffect(() => {
@@ -733,6 +716,38 @@ export default function BTBInputPage() {
     if (!formData.noBTB || !formData.tanggal) {
       setNotif({ type: "error", message: "No BTB dan Tanggal wajib diisi." });
       setTimeout(() => setNotif(null), 2500);
+      return;
+    }
+
+    if (editBtbId) {
+      // === UPDATE MODE ===
+      try {
+        const dateParam = formatDateForBackend(formData.tanggal);
+        const updatePayload = {
+          no_btb: formData.noBTB,
+          tanggal_btb: dateParam,
+          periode: formData.periode,
+          id_supplier: formData.supplier, // update supplier? might be tricky if items depend on it.
+          id_skema: formData.skema,
+          diterima_oleh: formData.diterimaOleh,
+          tanggal_diterima: formData.tanggalDiterima ? formatDateForBackend(new Date(formData.tanggalDiterima)) : null
+        };
+
+        const res = await fetch(`${API_BASE_URL}/api/btb/${editBtbId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatePayload)
+        });
+
+        if (!res.ok) throw new Error("Gagal mengupdate BTB");
+
+        alert("Header BTB berhasil diupdate. Perubahan item tidak didukung dalam versi ini (Item terkunci untuk menjaga integritas data parsial).");
+        // Reload or redirect?
+        window.location.href = "/btb/monitoring";
+
+      } catch (err: any) {
+        setNotif({ type: "error", message: err.message || "Gagal update BTB" });
+      }
       return;
     }
 
@@ -2440,39 +2455,44 @@ export default function BTBInputPage() {
                               {item.qtySisa}
                             </td>
                             <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[180px]">
-                              <Input
-                                type="number"
-                                min={0}
-                                max={item.qtySisa}
-                                inputMode="numeric"
-                                value={
-                                  btbInputQty[item.poItemId] !== undefined
-                                    ? btbInputQty[item.poItemId]
-                                    : ""
-                                }
-                                onChange={(e) => {
-                                  let val = e.target.value.replace(/^0+(\d)/, "$1");
-                                  let parsedVal =
-                                    val === ""
-                                      ? ""
-                                      : Math.max(
-                                        0,
-                                        Math.min(Number(val), item.qtySisa)
-                                      );
-                                  setBtbInputQty((prev) => ({
-                                    ...prev,
-                                    [item.poItemId]: parsedVal,
-                                  }));
-                                }}
-                                className="w-20 h-9 text-center mx-auto border border-[#e5e7eb] rounded bg-white appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                style={{
-                                  MozAppearance: "textfield",
-                                }}
-                                onWheel={(e) => {
-                                  e.target.blur();
-                                  e.preventDefault();
-                                }}
-                              />
+                              <div className="relative">
+                                {lockedItems[item.poItemId] && <span className="absolute -top-5 left-0 right-0 text-[10px] text-red-500 font-bold bg-white/80 mx-auto w-fit px-1 rounded">(Locked)</span>}
+                                <Input
+                                  type="number"
+                                  disabled={lockedItems[item.poItemId]}
+                                  min={0}
+                                  max={item.qtySisa}
+                                  inputMode="numeric"
+                                  value={
+                                    btbInputQty[item.poItemId] !== undefined
+                                      ? btbInputQty[item.poItemId]
+                                      : ""
+                                  }
+                                  onChange={(e) => {
+                                    let val = e.target.value.replace(/^0+(\d)/, "$1");
+                                    let parsedVal =
+                                      val === ""
+                                        ? ""
+                                        : Math.max(
+                                          0,
+                                          Math.min(Number(val), item.qtySisa)
+                                        );
+                                    setBtbInputQty((prev) => ({
+                                      ...prev,
+                                      [item.poItemId]: parsedVal,
+                                    }));
+                                  }}
+                                  className={`w-20 h-9 text-center mx-auto border rounded appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${lockedItems[item.poItemId] ? "bg-gray-200 border-gray-300 text-gray-500 cursor-not-allowed" : "bg-white border-[#e5e7eb]"}`}
+                                  style={{
+                                    MozAppearance: "textfield",
+                                  }}
+                                  onWheel={(e) => {
+                                    // @ts-ignore
+                                    e.target.blur();
+                                    e.preventDefault();
+                                  }}
+                                />
+                              </div>
                             </td>
                             <td className="px-10 py-4 border-r border-gray-300 text-center min-w-[140px] uppercase">
                               {item.satuan}
