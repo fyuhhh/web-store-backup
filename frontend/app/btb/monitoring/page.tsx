@@ -434,7 +434,7 @@ export default function BTBMonitoringPage() {
             tanggal: btb?.tanggal_btb ?? "",
             periode: btb?.periode ?? "",
             id_supplier: btb?.id_supplier ?? "",
-            nama_supplier: btb?.nama_supplier ?? "",
+            nama_supplier: btb?.namaSupplier || btb?.nama_supplier || "",
             supplier: btb?.id_supplier ?? "",
             nama_barang: item.nama_barang ?? "",
             jumlah: item.jumlah_diterima ?? "",

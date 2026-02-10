@@ -272,6 +272,22 @@ export default function BTBInputPage() {
   const [skemaList, setSkemaList] = useState<any[]>([]);
   const [skemaMap, setSkemaMap] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    const userDataStr = localStorage.getItem("userData");
+    if (userDataStr) {
+      try {
+        const userData = JSON.parse(userDataStr);
+        const sId = userData.id_skema ?? userData.skema;
+        if (sId) {
+          setUserSkemaId(String(sId));
+          setUserSchema(String(sId));
+        }
+      } catch (e) {
+        console.error("Error parsing userData", e);
+      }
+    }
+  }, []);
+
 
 
 
