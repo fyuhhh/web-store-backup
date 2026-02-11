@@ -305,8 +305,8 @@ router.post("/", async (req, res, next) => {
 
     const [result] = await db.query(
       `INSERT INTO po
-      (noPO, tanggalPO, id_supplier, diskon, originalDiskon, ppn, ppnAmount, totalPembayaran, orderedBy, estimasiTanggalTerima, id_statusPengiriman, id_statusPermintaan, status, createdAt, id_skema, id_termin)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (noPO, tanggalPO, id_supplier, diskon, originalDiskon, ppn, ppnAmount, totalPembayaran, orderedBy, estimasiTanggalTerima, id_statusPengiriman, id_statusPermintaan, status, createdAt, id_skema, id_termin, is_ppn_included)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         noPO || "",
         tanggalPO || null,
@@ -323,7 +323,8 @@ router.post("/", async (req, res, next) => {
         status || "WAITING PART",
         createdAt || new Date(),
         id_skema || null,
-        id_termin || null
+        id_termin || null,
+        req.body.is_ppn_included ? 1 : 0
       ]
     );
     const insertId = result.insertId;

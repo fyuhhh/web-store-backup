@@ -52,6 +52,8 @@ export default function InputBaruPRPage() {
     id_skema: "", // id skema (FK)
     skemaLabel: "", // label skema untuk display
   });
+  // Flag to track if user manually edited No PR
+  const [isManualNoPR, setIsManualNoPR] = useState(false);
 
   // Tambahkan state untuk data dropdown dari backend
   const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
@@ -232,6 +234,9 @@ export default function InputBaruPRPage() {
 
     const { id_skema, tanggalPR, noPR } = formData;
     if (!id_skema || !tanggalPR) return;
+
+    // Guard: Do not overwrite if user manually input/edited the number
+    if (isManualNoPR) return;
 
     // Guard: Only auto-fill if field is empty OR looks like a standard format "PR/..."
     // This allows users to type custom formats ("CUSTOM-123") without being overwritten by date changes.
@@ -755,9 +760,10 @@ export default function InputBaruPRPage() {
                   <Input
                     id="noPR"
                     value={formData.noPR}
-                    onChange={(e) =>
-                      setFormData({ ...formData, noPR: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFormData({ ...formData, noPR: e.target.value });
+                      setIsManualNoPR(true); // User manually changed it
+                    }}
                     placeholder="PR/E-WALK/25/XII/001"
                     required
                     className="w-full"

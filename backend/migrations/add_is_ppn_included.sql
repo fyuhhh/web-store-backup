@@ -1,0 +1,2 @@
+ALTER TABLE po
+ADD COLUMN is_ppn_included TINYINT(1) DEFAULT 0;

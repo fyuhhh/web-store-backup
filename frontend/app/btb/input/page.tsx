@@ -235,6 +235,9 @@ export default function BTBInputPage() {
     skema: "",
   });
 
+  // Flag to track if user manually edited No BTB
+  const [isManualNoBTB, setIsManualNoBTB] = useState(false);
+
   // Add: for BTB form, store array of items from selected PO(s)
   const [selectedPOItems, setSelectedPOItems] = useState<
     Array<{ poId: string; noPO: string; supplier: string; items: any[] }>
@@ -316,6 +319,9 @@ export default function BTBInputPage() {
       console.log("[Auto-fill BTB] Skipping: Missing id_skema or tanggal");
       return;
     }
+
+    // Guard: Do not overwrite if user manually input/edited the number
+    if (isManualNoBTB) return;
 
     // Guard: Only auto-fill if field is empty OR looks like a standard format "BTB/..."
     const isEmpryOrStandard = !noBTB || noBTB.startsWith("BTB/");
@@ -2395,9 +2401,10 @@ export default function BTBInputPage() {
                       <Input
                         id="noBTB"
                         value={formData.noBTB}
-                        onChange={(e) =>
-                          setFormData({ ...formData, noBTB: e.target.value })
-                        }
+                        onChange={(e) => {
+                          setFormData({ ...formData, noBTB: e.target.value });
+                          setIsManualNoBTB(true); // User manually changed it
+                        }}
                         placeholder="Auto-generated"
                       />
                     </div>

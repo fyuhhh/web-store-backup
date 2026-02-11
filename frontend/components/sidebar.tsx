@@ -21,6 +21,7 @@ import {
   ChevronRight,
   UserCircle,
   Settings,
+  ClipboardList,
 } from "lucide-react";
 
 const menuItems = [
@@ -143,8 +144,17 @@ export function Sidebar() {
 
   // Filter menu sesuai id_peran
   const filteredMenu = useMemo(() => {
-    const id_peran = user?.id_peran;
+    const id_peran = Number(user?.id_peran);
     let menu = menuItems;
+
+    const mrMenu = {
+      title: "MR (Closing Cashier)",
+      icon: ClipboardList,
+      submenu: [
+        { title: "Input MR", href: "/mr/input" },
+        { title: "Monitoring MR", href: "/mr/monitoring" },
+      ],
+    };
 
     if (user && (Number(user.id) === 112 || Number(user.id) === 113)) {
       // Spesifik untuk user IRVAN (113) dan JOHN (112)
@@ -155,6 +165,7 @@ export function Sidebar() {
           href: "/dashboard",
           icon: LayoutDashboard,
         },
+        mrMenu,
         {
           title: "PO (Purchase Order)",
           icon: ShoppingCart,
@@ -168,6 +179,60 @@ export function Sidebar() {
           icon: BarChart3,
         },
       ];
+    } else if (id_peran === 1) {
+      // ADMIN (Role 1) - Previously fell back to default menuItems
+      menu = [
+        {
+          title: "Dashboard",
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        mrMenu,
+        {
+          title: "PR (Purchase Request)",
+          icon: FileText,
+          submenu: [
+            { title: "Input PR", href: "/pr/input-baru" },
+            { title: "Monitoring PR", href: "/pr/monitoring" },
+          ],
+        },
+        {
+          title: "PO (Purchase Order)",
+          icon: ShoppingCart,
+          submenu: [
+            { title: "Input PO", href: "/po/status" },
+            { title: "Monitoring PO", href: "/po/monitoring" },
+          ],
+        },
+        {
+          title: "BTB",
+          icon: Package,
+          submenu: [
+            { title: "Input BTB", href: "/btb/input" },
+            { title: "Monitoring BTB", href: "/btb/monitoring" },
+          ],
+        },
+        {
+          title: "BKB",
+          icon: PackageOpen,
+          submenu: [
+            { title: "Input BKB", href: "/bkb/input" },
+            { title: "Monitoring BKB", href: "/bkb/monitoring" },
+          ],
+        },
+        {
+          title: "Rekap Keseluruhan",
+          href: "/dashboard/rekap-full",
+          icon: BarChart3,
+        },
+        {
+          title: "Pengaturan",
+          icon: Settings,
+          submenu: [
+            { title: "Hari Libur", href: "/holidays" },
+          ],
+        },
+      ];
     } else if (id_peran === 2) {
       // Menu khusus Divisi (id_peran = 2)
       menu = [
@@ -176,6 +241,7 @@ export function Sidebar() {
           href: "/divisi/dashboard",
           icon: LayoutDashboard,
         },
+        mrMenu,
         {
           title: "Pesanan Anda",
           href: "/divisi/pesanan-anda",
@@ -195,6 +261,7 @@ export function Sidebar() {
           href: "/dashboard",
           icon: LayoutDashboard,
         },
+        mrMenu,
         {
           title: "PO (Purchase Order)",
           icon: ShoppingCart,
@@ -217,6 +284,7 @@ export function Sidebar() {
           href: "/dashboard",
           icon: LayoutDashboard,
         },
+        mrMenu,
         {
           title: "PR (Purchase Request)",
           icon: FileText,
@@ -259,6 +327,7 @@ export function Sidebar() {
           href: "/dashboard",
           icon: LayoutDashboard,
         },
+        mrMenu,
         {
           title: "PR (Purchase Request)",
           icon: FileText,

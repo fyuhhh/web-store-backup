@@ -89,7 +89,10 @@ function InputPOContent() {
     skema: "",
     namaPembeli: "", // <-- Tambahkan state namaPembeli
     termin: "", // <-- Tambahkan state termin
+    is_ppn_included: false, // NEW: Persist PPN Checkbox
   });
+  // Flag to track if user manually edited No PO
+  const [isManualNoPO, setIsManualNoPO] = useState(false);
 
   // Helper date formatter needed inside component or accessible
   function formatDateForBackend(date: Date | null) {
@@ -116,6 +119,9 @@ function InputPOContent() {
     const { skema: id_skema, tanggalPO, noPO } = poFormData;
     // Note: poFormData.skema is used here, ensure it is populated from user/selection
     if (!id_skema || !tanggalPO) return;
+
+    // Guard: Do not overwrite if user manually input/edited the number
+    if (isManualNoPO) return;
 
     // Guard: Only auto-fill if field is empty OR looks like a standard format "PO..."
     const isEmpryOrStandard = !noPO || noPO.startsWith("PO");
@@ -801,6 +807,7 @@ function InputPOContent() {
       status: "Menunggu",
       id_skema: poFormData.skema,
       id_termin: poFormData.termin || null,
+      is_ppn_included: ppnIncluded, // Send checkbox state
     };
 
     try {
@@ -1245,10 +1252,10 @@ function InputPOContent() {
               namaPembeli: "", // Don't use orderedBy (account name), wait for item data
               termin: poData.id_termin ? String(poData.id_termin) : "", // <-- Set termin for edit
             });
-            // Update ppnIncluded? Backend doesn't explicitly store it as boolean commonly, usually inferred.
-            // But let's check if we can infer or if we need to assume default.
             // If calculations match, good. For now assume user can set it.
             // Actually, we can check if totalPembayaran == subtotal (ppnIncluded) or > subtotal.
+            // LOAD is_ppn_included from DB
+            setPpnIncluded(Boolean((poData as any).is_ppn_included));
           }
 
           // 2. Fetch PO Items
@@ -1992,9 +1999,10 @@ function InputPOContent() {
                   <Input
                     id="noPO"
                     value={poFormData.noPO}
-                    onChange={(e) =>
-                      setPoFormData({ ...poFormData, noPO: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setPoFormData({ ...poFormData, noPO: e.target.value });
+                      setIsManualNoPO(true); // User manually changed it
+                    }}
                     placeholder="Auto-generated"
                     className="border-border focus:border-primary/50"
                   />
