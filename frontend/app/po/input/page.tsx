@@ -28,7 +28,16 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
-import { Edit2, Trash2, Plus } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Edit2, Trash2, Plus, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { type PRData, type PRItem, type POData } from "@/lib/dummy-data";
 
 import dayjs from "dayjs";
@@ -92,6 +101,7 @@ function InputPOContent() {
   }
 
   const [userSkema, setUserSkema] = useState("");
+  const [openPR, setOpenPR] = useState(false);
 
   const searchParams = useSearchParams();
   const editPoId = searchParams.get("id");
@@ -756,6 +766,14 @@ function InputPOContent() {
     if (poItems.length === 0) {
       setNotif({ type: "error", message: "Minimal satu item harus dipilih!" });
       setTimeout(() => setNotif(null), 2500);
+      return;
+    }
+
+    // Validate quantity > 0
+    const invalidQtyItem = poItems.flatMap(g => g.items).find(item => !item.jumlahPO || Number(item.jumlahPO) <= 0);
+    if (invalidQtyItem) {
+      setNotif({ type: "error", message: `Item "${invalidQtyItem.namaBarang}" kuantitasnya tidak boleh 0/kosong!` });
+      setTimeout(() => setNotif(null), 3000);
       return;
     }
 
@@ -1688,15 +1706,19 @@ function InputPOContent() {
       });
     });
 
-    // Iterate over currently selected/processed PR groups in poItems
-    poItems.forEach((poGroup) => {
-      // Find original PR data
-      const originalPR = prData.find(
-        (p) => String(p.id) === String(poGroup.prId)
-      );
-      if (!originalPR) return;
+    // Iterate over ALL loaded PR Data
+    prData.forEach((pr) => {
+      // 1. Filter by schema if userSkema is set
+      // Use poFormData.skema if available, otherwise fallback to userSkema
+      const currentSkema = poFormData.skema || userSkema;
 
-      const itemsLeft = originalPR.items.filter((item: any) => {
+      // Robust comparison: Case-insensitive and trimmed
+      const normalizedCurrent = String(currentSkema || "").trim().toUpperCase();
+      const normalizedPrSkema = String(pr.skema || "").trim().toUpperCase();
+
+      if (normalizedCurrent && normalizedPrSkema !== normalizedCurrent) return;
+
+      const itemsLeft = pr.items.filter((item: any) => {
         const itemId = String(item.id || (item as any).id_PRItem || "");
         const isNotRejected = item.status !== "Ditolak" && item.status !== "Cancel";
 
@@ -1706,7 +1728,7 @@ function InputPOContent() {
 
         return isNotRejected && remaining > 0;
       }).map((item: any) => {
-        // Inject dynamic remaining quantity for display/logic
+        // Inject dynamic remaining quantity
         const itemId = String(item.id || (item as any).id_PRItem || "");
         const baseAvailable = Number(item.jumlah) || 0;
         const netUsed = usageMap.get(itemId) || 0;
@@ -1718,8 +1740,8 @@ function InputPOContent() {
 
       if (itemsLeft.length > 0) {
         missing.push({
-          prId: poGroup.prId,
-          noPR: poGroup.noPR,
+          prId: pr.id,
+          noPR: pr.noPR,
           items: itemsLeft,
         });
       }
@@ -1730,44 +1752,48 @@ function InputPOContent() {
 
   const handleAddItemFromPR = (prId: string, itemToAdd: any, noPR: string) => {
     setPoItems((prev) => {
-      // Find original PR for metadata (outside map to avoid repetitive find, but inside is fine for now)
+      // Find original PR for metadata
       const originalPR = prData.find((p) => String(p.id) === String(prId));
+      if (!originalPR) return prev;
 
-      return prev.map((group) => {
-        if (String(group.prId) !== String(prId)) return group;
+      // Prepare the new item
+      const newItem = {
+        ...itemToAdd, // Spread original
+        id: itemToAdd.id,
+        _uiId: `add-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        initialLoadedQty: 0,
+        namaBarang: itemToAdd.namaBarang,
+        jumlahPO: itemToAdd.quantityAwalPR,
+        jumlahAsli: itemToAdd.quantityAwalPR,
 
-        // 1. Add item to group
-        const newItem = {
-          ...itemToAdd, // Spread original
-          id: itemToAdd.id,
-          _uiId: `add-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          initialLoadedQty: 0,
-          namaBarang: itemToAdd.namaBarang,
-          jumlahPO: itemToAdd.quantityAwalPR,
-          jumlahAsli: itemToAdd.quantityAwalPR,
+        // Ensure PRItem fields explicit if spread not enough (safeguard)
+        jumlah: itemToAdd.jumlah,
+        originalJumlah: itemToAdd.originalJumlah,
+        quantityAwalPR: itemToAdd.quantityAwalPR,
+        satuan: itemToAdd.satuanLabel || itemToAdd.satuan || "",
 
-          // Ensure PRItem fields explicit if spread not enough (safeguard)
-          jumlah: itemToAdd.jumlah,
-          originalJumlah: itemToAdd.originalJumlah,
-          quantityAwalPR: itemToAdd.quantityAwalPR,
-          satuan: itemToAdd.satuanLabel || itemToAdd.satuan || "",
+        satuanLabel: itemToAdd.satuanLabel || itemToAdd.satuan || "",
+        id_satuan: itemToAdd.id_satuan,
+        hargaSatuan: "",
+        diskonItem: "",
+        ppnItem: "",
+        keterangan: itemToAdd.keterangan || "",
+        skema: originalPR.skema || "", // Use original PR skema
+        dibuatOleh: originalPR?.dibuatOleh || "",
+        tanggalPR: originalPR?.tanggalPR,
+      };
 
-          satuanLabel: itemToAdd.satuanLabel || itemToAdd.satuan || "",
-          id_satuan: itemToAdd.id_satuan,
-          hargaSatuan: "",
-          diskonItem: "",
-          ppnItem: "",
-          keterangan: itemToAdd.keterangan || "",
-          skema: group.skema,
-          dibuatOleh: originalPR?.dibuatOleh || "",
-          tanggalPR: originalPR?.tanggalPR,
-        };
+      // Check if group exists
+      const existingGroupIndex = prev.findIndex((g) => String(g.prId) === String(prId));
 
-        const newItems = [...group.items, newItem];
+      if (existingGroupIndex >= 0) {
+        // Append to existing group
+        return prev.map((group, idx) => {
+          if (idx !== existingGroupIndex) return group;
 
-        // 2. Sort items based on original PR order
-        if (originalPR) {
-          // Create map of ID -> Index
+          const newItems = [...group.items, newItem];
+
+          // Sort items based on original PR order
           const sortMap = new Map();
           originalPR.items.forEach((it: any, idx: number) => {
             sortMap.set(String(it.id), idx);
@@ -1778,13 +1804,44 @@ function InputPOContent() {
             const idxB = sortMap.get(String(b.id)) ?? 9999;
             return idxA - idxB;
           });
-        }
 
+          return {
+            ...group,
+            items: newItems,
+          };
+        });
+      } else {
+        // Create new group
+        return [
+          ...prev,
+          {
+            prId,
+            noPR,
+            skema: originalPR.skema || "",
+            items: [newItem],
+          },
+        ];
+      }
+    });
+  };
+
+  // Handler untuk menghapus item dari tabel
+  const handleRemoveItem = (prId: string, uiId: string) => {
+    setPoItems((prev) => {
+      // Create new list by filtering items
+      const newGroups = prev.map(group => {
+        if (String(group.prId) !== String(prId)) return group;
         return {
           ...group,
-          items: newItems,
+          items: group.items.filter(item => item._uiId !== uiId)
         };
-      });
+      }).filter(group => group.items.length > 0); // Remove empty groups
+
+      // If all items removed, clear skema (optional, but good for UX to reset if empty)
+      if (newGroups.length === 0 && !isEditing) {
+        setPoFormData(prev => ({ ...prev, skema: "" }));
+      }
+      return newGroups;
     });
   };
 
@@ -2601,50 +2658,62 @@ function InputPOContent() {
                     value={poFormData.skema}
                   />
                 </div>
-                {/* Item dari PR (New Column) */}
+                {/* Item dari PR (Combobox) */}
                 <div className="space-y-2 md:col-span-1">
-                  <Label>ITEM DARI PR</Label>
-                  <div className="border rounded-md h-[132px] overflow-y-auto bg-gray-50 text-xs shadow-inner">
-                    {getMissingItems().length === 0 ? (
-                      <div className="h-full flex items-center justify-center">
-                        <p className="text-muted-foreground italic text-[10px]">
-                          Semua item sudah masuk
-                        </p>
-                      </div>
-                    ) : (
-                      getMissingItems().map((group) => (
-                        <div key={group.prId} className="border-b last:border-0">
-                          <div className="bg-gray-100 px-2 py-1 sticky top-0 z-10 border-b border-gray-200">
-                            <p className="font-bold text-[10px] text-primary">
-                              {group.noPR}
-                            </p>
-                          </div>
-                          <div className="p-1 space-y-1">
-                            {group.items.map((item) => (
-                              <div
-                                key={item.id}
-                                className="flex justify-between items-center bg-white border border-gray-200 px-2 py-1.5 rounded hover:bg-blue-50 transition-colors group"
+                  <Label>PILIH NOMOR PR</Label>
+                  <Popover open={openPR} onOpenChange={setOpenPR}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={openPR}
+                        className="w-full justify-between"
+                        disabled={getMissingItems().length === 0}
+                      >
+                        {getMissingItems().length === 0
+                          ? "Semua item masuk"
+                          : "Pilih Nomor PR..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[300px] p-0 bg-white" align="start">
+                      <Command className="bg-white">
+                        <CommandInput placeholder="Cari Nomor PR..." />
+                        <CommandList>
+                          <CommandEmpty>Nomor PR tidak ditemukan.</CommandEmpty>
+                          <CommandGroup>
+                            {getMissingItems().map((group) => (
+                              <CommandItem
+                                key={group.prId}
+                                value={group.noPR}
+                                onSelect={() => {
+                                  // Add ALL items from this PR group
+                                  group.items.forEach((item) => {
+                                    handleAddItemFromPR(
+                                      group.prId,
+                                      item,
+                                      group.noPR
+                                    );
+                                  });
+                                  setOpenPR(false);
+                                }}
                               >
-                                <span className="line-clamp-2 text-[10px] font-medium text-gray-700 flex-1 mr-2 leading-tight" title={item.namaBarang}>
-                                  {item.namaBarang}
-                                </span>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-6 w-6 text-blue-600 bg-blue-50 group-hover:bg-blue-100 group-hover:text-blue-700 rounded-full shrink-0"
-                                  onClick={() => handleAddItemFromPR(group.prId, item, group.noPR)}
-                                  title="Tambahkan ke tabel"
-                                >
-                                  <Plus className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4 opacity-0" // Always hidden/generic check since we don't persist selection
+                                  )}
+                                />
+                                {group.noPR}
+                              </CommandItem>
                             ))}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    *Pilih Nomor PR untuk menambahkan semua item yang belum masuk.
+                  </p>
                 </div>
               </div>
 
@@ -2669,6 +2738,7 @@ function InputPOContent() {
                         <TableHead className="py-2 h-8">PPN (RP)</TableHead>
                         <TableHead className="py-2 h-8">TOTAL PER ITEM</TableHead>
                         <TableHead className="py-2 h-8">KETERANGAN</TableHead>
+                        <TableHead className="py-2 h-8 text-center">AKSI</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2735,9 +2805,11 @@ function InputPOContent() {
                                 <Input
                                   type="number"
                                   value={
-                                    Number(item.jumlahPO) % 1 === 0
-                                      ? parseInt(item.jumlahPO)
-                                      : item.jumlahPO
+                                    !item.jumlahPO || item.jumlahPO === 0
+                                      ? ""
+                                      : (Number(item.jumlahPO) % 1 === 0
+                                        ? parseInt(item.jumlahPO)
+                                        : item.jumlahPO)
                                   }
                                   min={0}
                                   max={item.jumlahAsli}
@@ -2901,6 +2973,18 @@ function InputPOContent() {
                                 >
                                   {item.keterangan}
                                 </div>
+                              </TableCell>
+                              <TableCell className="p-1 text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-destructive/10"
+                                  onClick={() => handleRemoveItem(item.prId, item._uiId)}
+                                  disabled={isLocked}
+                                  title="Hapus Item"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
                               </TableCell>
                             </TableRow>
                           );

@@ -1,5 +1,5 @@
 {
-  "isActive": true,
+  "isActive": false,
   "endTime": "2026-02-11T03:59:00.000Z",
   "startTime": "2026-02-11T01:16:44.359Z",
   "description": "Sedang update untuk pembuatan MR yang nantinya dapat diinput oleh pihak Purchasing dan Store, serta dapat dilihat oleh user tiap divisi. Mohon menunggu."
