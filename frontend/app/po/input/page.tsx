@@ -143,14 +143,20 @@ function InputPOContent() {
       skema: string;
       items: Array<
         PRItem & {
-          hargaSatuan: number;
+          _uiId: string; // Unique ID for UI rendering
+          initialLoadedQty: number; // To track original DB qty in Edit Mode
+          hargaSatuan: number | string; // Allow string for input
           jumlahPO: number;
           jumlahAsli: number;
-          diskonItem: string; // now string, e.g. "10%+5000+2%"
-          ppnItem: number | ""; // per item
+          diskonItem: string;
+          ppnItem: number | string;
           skema: string;
           dibuatOleh: string;
           id_satuan: string;
+          diskonPersen?: string | number;
+          diskonNominal?: string | number;
+          id_POItem?: string;
+          hasBTB?: boolean;
         }
       >;
     }>
@@ -243,20 +249,20 @@ function InputPOContent() {
               .toLowerCase()
               .includes(filterNamaBarang.toLowerCase());
           const matchesQty =
-            (filterQtyMin === "" || item.jumlahPO >= filterQtyMin) &&
-            (filterQtyMax === "" || item.jumlahPO <= filterQtyMax);
+            (filterQtyMin === "" || Number(item.jumlahPO) >= Number(filterQtyMin)) &&
+            (filterQtyMax === "" || Number(item.jumlahPO) <= Number(filterQtyMax));
           const matchesSatuan =
             filterSatuan.length === 0 || filterSatuan.includes(item.satuan);
           const matchesHargaSatuan =
             (filterHargaSatuanMin === "" ||
-              item.hargaSatuan >= filterHargaSatuanMin) &&
+              Number(item.hargaSatuan) >= Number(filterHargaSatuanMin)) &&
             (filterHargaSatuanMax === "" ||
-              item.hargaSatuan <= filterHargaSatuanMax);
+              Number(item.hargaSatuan) <= Number(filterHargaSatuanMax));
           const matchesTotal =
             (filterTotalMin === "" ||
-              item.hargaSatuan * item.jumlahPO >= filterTotalMin) &&
+              Number(item.hargaSatuan) * Number(item.jumlahPO) >= Number(filterTotalMin)) &&
             (filterTotalMax === "" ||
-              item.hargaSatuan * item.jumlahPO <= filterTotalMax);
+              Number(item.hargaSatuan) * Number(item.jumlahPO) <= Number(filterTotalMax));
           const matchesKeterangan =
             !filterKeterangan ||
             (item.keterangan || "")
@@ -278,8 +284,8 @@ function InputPOContent() {
   );
 
   // Flatten semua item PR siap proses ke PO
-  const allPRItems = filteredPOItems.flatMap((poItem) =>
-    poItem.items.map((item) => ({
+  const allPRItems = filteredPOItems.flatMap((poItem: any) =>
+    poItem.items.map((item: any) => ({
       ...item,
       noPR: poItem.noPR,
       prId: poItem.prId,
@@ -1170,15 +1176,24 @@ function InputPOContent() {
             tanggalPR: pr.tanggalPR,
             skema: pr.id_skema ?? "",
             items: (pr.items || []).map((item: any) => ({
+              ...item, // Spread original item to satisfy PRItem type
               id: item.id_PRItem ?? item.id,
+              _uiId: `new-${Math.random().toString(36).substr(2, 9)}`,
+              initialLoadedQty: 0,
               namaBarang: item.namaBarang ?? item.namabarang ?? "",
               jumlahPO: item.jumlah,
               jumlahAsli: item.jumlah,
+              // Ensure PRItem mandatory fields
+              jumlah: item.jumlah || 0,
+              originalJumlah: item.originalJumlah || item.jumlah || 0,
+              quantityAwalPR: item.quantityAwalPR || item.jumlah || 0,
+              satuan: item.satuanLabel || item.satuan || "",
+
               satuanLabel: item.satuanLabel || item.satuan || "",
               id_satuan: item.id_satuan ?? item.idSatuan ?? null,
               hargaSatuan: "",
-              diskonItem: "", // default string
-              ppnItem: "", // <-- ubah default dari 11 ke ""
+              diskonItem: "",
+              ppnItem: "",
               keterangan: item.keterangan ?? "",
               skema: pr.id_skema ?? "",
               dibuatOleh: pr.dibuatOleh ?? "",
@@ -1261,24 +1276,26 @@ function InputPOContent() {
 
             // Restore item data
             grouped[prId].items.push({
-              id: originalPrItem.id_PRItem, // ID PR Item for updates
-              id_POItem: pItem.id_POItem, // KEEP TRACK OF THIS for updates
+              ...originalPrItem, // Spread to satisfy PRItem
+              id: originalPrItem.id_PRItem,
+              _uiId: `edit-${pItem.id_POItem}`,
+              initialLoadedQty: Number(pItem.jumlahPO),
+              id_POItem: pItem.id_POItem,
               namaBarang: originalPrItem.namaBarang,
-              // jumlahPO is what we are editing.
-              // jumlahAsli is the total original qty.
-              // NOTE: When editing, we need to know the OLD `jumlahPO` to calc diff.
-              // Ideally we store it.
               jumlahPO: pItem.jumlahPO,
-              // Fix: Edit limit should be Current Order Qty (jumlahAsli) + Remaining PR Qty
               jumlahAsli: Number(pItem.jumlahAsli) + Number(originalPrItem.jumlah || 0),
-              satuanLabel: pItem.satuanLabel || "Pcs", // Fetch if needed
+              // Ensure PRItem fields
+              jumlah: originalPrItem.jumlah,
+              originalJumlah: originalPrItem.originalJumlah,
+              quantityAwalPR: originalPrItem.quantityAwalPR,
+              satuan: originalPrItem.satuan || "Pcs",
+
+              satuanLabel: pItem.satuanLabel || "Pcs",
               id_satuan: pItem.id_satuan,
 
               hargaSatuan: pItem.hargaSatuan
                 ? (() => {
-                  // Clean potential dirty data (e.g. "RP 15.001")
                   const raw = String(pItem.hargaSatuan).replace(/[^0-9,.-]/g, "");
-                  // Handle if comma is decimal separator in source (rare but possible in string)
                   const normalized = raw.replace(",", ".");
                   const val = parseFloat(normalized);
                   if (isNaN(val)) return "";
@@ -1292,12 +1309,12 @@ function InputPOContent() {
                 : pItem.diskonRupiah
                   ? String(pItem.diskonRupiah)
                   : "",
-              diskonNominal: pItem.diskonRupiah, // Populate for UI
+              diskonNominal: pItem.diskonRupiah,
               diskonPersen: pItem.diskonPersen
                 ? (String(pItem.diskonPersen).includes("+")
                   ? pItem.diskonPersen
                   : `${parseFloat(String(pItem.diskonPersen).replace("%", ""))}%`)
-                : "", // Populate for UI and normalize
+                : "",
               ppnItem: pItem.ppnPersen
                 ? `${parseFloat(String(pItem.ppnPersen))}%`
                 : "",
@@ -1305,7 +1322,7 @@ function InputPOContent() {
               skema: originalPrItem.id_skema,
               dibuatOleh: originalPr?.dibuatOleh,
               tanggalPR: originalPr?.tanggalPR,
-              hasBTB: Boolean(pItem.hasBTB), // Map hasBTB from backend
+              hasBTB: Boolean(pItem.hasBTB),
             });
           }
 
@@ -1323,7 +1340,7 @@ function InputPOContent() {
           const initialDiskonMap: any = {};
           Object.values(grouped).forEach((group: any) => {
             group.items.forEach((item: any) => {
-              const ky = group.prId + "-" + item.id;
+              const ky = group.prId + "-" + item._uiId;
               // Check derivation
               if (item.diskonPersen && item.diskonPersen !== "0" && item.diskonPersen !== "" && item.diskonPersen !== "0%") {
                 initialDiskonMap[ky] = "persen";
@@ -1357,7 +1374,7 @@ function InputPOContent() {
   // Tambahkan handler terpisah agar lebih rapi
   function handleHargaSatuanChange(
     prId: string,
-    itemId: string,
+    uiId: string,
     value: string
   ) {
     // Clean input: remove "Rp", ".", spaces. Keep digits and comma.
@@ -1396,7 +1413,7 @@ function InputPOContent() {
           ? {
             ...pItem,
             items: pItem.items.map((i) => {
-              if (i.id === itemId) {
+              if (i._uiId === uiId) {
                 // Update dependent fields (Diskon Nominal/Persen)
                 // Parse the raw value for calculation
                 const cleanForCalc = raw.replace(",", ".");
@@ -1411,7 +1428,7 @@ function InputPOContent() {
                 let newDiskonPersen = i.diskonPersen;
 
                 if (mode === "persen") {
-                  const dAmt = calculateDiskonModelPersen(subtotal, i.diskonPersen);
+                  const dAmt = calculateDiskonModelPersen(subtotal, String(i.diskonPersen || ""));
                   newDiskonNominal = dAmt ? Math.round(dAmt).toString() : "";
                 } else if (mode === "nominal") {
                   // Calculate Persen from Nominal
@@ -1440,14 +1457,14 @@ function InputPOContent() {
   }
 
   // Handler untuk perubahan Qty
-  function handleQtyChange(prId: string, itemId: string, value: string) {
+  function handleQtyChange(prId: string, uiId: string, value: string) {
     setPoItems((prevPoItems) =>
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
             ...pItem,
             items: pItem.items.map((i) => {
-              if (i.id === itemId) {
+              if (i._uiId === uiId) {
                 const maxQty = Number(i.jumlahAsli);
                 // Pastikan hanya integer bulat, tidak ribuan/desimal
                 let newQty = Math.max(0, Math.floor(Number(value)) || 0);
@@ -1469,7 +1486,7 @@ function InputPOContent() {
                 let newDiskonPersen = i.diskonPersen;
 
                 if (mode === "persen") {
-                  const dAmt = calculateDiskonModelPersen(subtotal, i.diskonPersen);
+                  const dAmt = calculateDiskonModelPersen(subtotal, String(i.diskonPersen || ""));
                   newDiskonNominal = dAmt ? Math.round(dAmt).toString() : "";
                 } else if (mode === "nominal") {
                   const dNom = parseFloat(String(i.diskonNominal).replace(",", ".")) || 0;
@@ -1494,7 +1511,7 @@ function InputPOContent() {
   // Handler perubahan diskon persen per item
   function handleDiskonPersenChange(
     prId: string,
-    itemId: string,
+    uiId: string,
     value: string
   ) {
     setPoItems((prevPoItems) =>
@@ -1503,7 +1520,7 @@ function InputPOContent() {
           ? {
             ...pItem,
             items: pItem.items.map((i) => {
-              if (i.id === itemId) {
+              if (i._uiId === uiId) {
                 // Hitung total diskon nominal dari persen
                 // Support decimal hargaSatuan
                 let harga = 0;
@@ -1548,14 +1565,14 @@ function InputPOContent() {
     );
     setLastDiskonChanged((prev) => ({
       ...prev,
-      [prId + "-" + itemId]: "persen",
+      [prId + "-" + uiId]: "persen",
     }));
   }
 
   // Handler perubahan diskon nominal per item
   function handleDiskonNominalChange(
     prId: string,
-    itemId: string,
+    uiId: string,
     value: string
   ) {
     setPoItems((prevPoItems) =>
@@ -1564,7 +1581,7 @@ function InputPOContent() {
           ? {
             ...pItem,
             items: pItem.items.map((i) => {
-              if (i.id === itemId) {
+              if (i._uiId === uiId) {
                 // Hitung diskon persen hasil konversi dari nominal
                 let harga = 0;
                 if (typeof i.hargaSatuan === "string") {
@@ -1598,19 +1615,19 @@ function InputPOContent() {
     );
     setLastDiskonChanged((prev) => ({
       ...prev,
-      [prId + "-" + itemId]: "nominal",
+      [prId + "-" + uiId]: "nominal",
     }));
   }
 
   // Handler untuk perubahan ppn per item
-  function handlePPNItemChange(prId: string, itemId: string, value: string) {
+  function handlePPNItemChange(prId: string, uiId: string, value: string) {
     setPoItems((prevPoItems) =>
       prevPoItems.map((pItem) =>
         pItem.prId === prId
           ? {
             ...pItem,
             items: pItem.items.map((i) =>
-              i.id === itemId
+              i._uiId === uiId
                 ? {
                   ...i,
                   ppnItem: value,
@@ -1631,32 +1648,72 @@ function InputPOContent() {
       items: any[];
     }> = [];
 
+    // Calculate usage per PR Item from poItems
+    const usageMap = new Map<string, number>();
+    poItems.forEach(group => {
+      group.items.forEach(item => {
+        const id = String(item.id || (item as any).id_PRItem || "");
+
+        let qtyToCount = 0;
+        if (isEditing && item.initialLoadedQty !== undefined) {
+          // In edit mode, usage is Current_Qty - Initial_Qty
+          // Assuming Initial_Qty is already accounted for in prData.jumlah (the DB value)
+          // Wait, prData.jumlah excludes the allocated amount in THIS PO (because loaded from DB).
+          // NO. prData.jumlah is what is LEFT in the PR (unallocated).
+          // If I have 5 allocated in this PO (already in DB).
+          // prData.jumlah = 2 (Unallocated).
+          // Total Potential for this Item = 5 (Allocated) + 2 (Unallocated) = 7.
+          // Current Usage in UI = sum(item.jumlahPO).
+
+          // So Remaining = (prData.jumlah + Sum(Initial_Qty)) - Sum(Current_Qty)
+          // We need to sum Initial_Qty and Current_Qty separately per ID.
+        }
+
+        const currentQty = Number(item.jumlahPO) || 0;
+        const initialQty = Number(item.initialLoadedQty) || 0;
+
+        // Track stats per ID
+        if (!usageMap.has(id)) {
+          usageMap.set(id, 0); // Stores Net Change from baseline
+        }
+        // If create mode (initial=0), we consume `currentQty`.
+        // If edit mode, we consume `currentQty - initialQty`.
+        // Why? Because `prData.jumlah` based calculation.
+        // Available = prData.jumlah.
+        // Remaining = Available - (Net_Added_By_UI).
+        // Net_Added = Current - Initial.
+
+        const netUsage = currentQty - initialQty;
+        usageMap.set(id, (usageMap.get(id) || 0) + netUsage);
+      });
+    });
+
     // Iterate over currently selected/processed PR groups in poItems
     poItems.forEach((poGroup) => {
-      // ONLY process groups that actually have items (active in the PO)
-      // If a PR has 0 items in the PO, it's considered "removed" from the transaction, so don't show its missing list.
-      if (!poGroup.items || poGroup.items.length === 0) return;
-
       // Find original PR data
       const originalPR = prData.find(
         (p) => String(p.id) === String(poGroup.prId)
       );
       if (!originalPR) return;
 
-      // Find items that are in Original PR but NOT in poGroup.items
-      // Robust ID collection: Check both id and id_PRItem
-      const existingIds = new Set(
-        poGroup.items.map((item) => String(item.id_PRItem || item.id || ""))
-      );
-
       const itemsLeft = originalPR.items.filter((item: any) => {
-        // item from prData should have id or id_PRItem
-        const itemId = String(item.id || item.id_PRItem || "");
-        // Only show if not in existing AND not explicitly "Ditolak" (if status exists)
-        // AND remaining quantity > 0 (excludes items already fully PO'd in other POs)
+        const itemId = String(item.id || (item as any).id_PRItem || "");
         const isNotRejected = item.status !== "Ditolak" && item.status !== "Cancel";
-        const hasRemainingQty = (Number(item.jumlah) || 0) > 0;
-        return !existingIds.has(itemId) && isNotRejected && hasRemainingQty;
+
+        const baseAvailable = Number(item.jumlah) || 0; // From DB (Remaining)
+        const netUsed = usageMap.get(itemId) || 0;
+        const remaining = baseAvailable - netUsed;
+
+        return isNotRejected && remaining > 0;
+      }).map((item: any) => {
+        // Inject dynamic remaining quantity for display/logic
+        const itemId = String(item.id || (item as any).id_PRItem || "");
+        const baseAvailable = Number(item.jumlah) || 0;
+        const netUsed = usageMap.get(itemId) || 0;
+        return {
+          ...item,
+          quantityAwalPR: baseAvailable - netUsed // Dynamic remaining
+        };
       });
 
       if (itemsLeft.length > 0) {
@@ -1681,19 +1738,29 @@ function InputPOContent() {
 
         // 1. Add item to group
         const newItem = {
-          id: itemToAdd.id, // ID PR Item
+          ...itemToAdd, // Spread original
+          id: itemToAdd.id,
+          _uiId: `add-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          initialLoadedQty: 0,
           namaBarang: itemToAdd.namaBarang,
-          jumlahPO: itemToAdd.quantityAwalPR, // Default to remaining/initial qty
+          jumlahPO: itemToAdd.quantityAwalPR,
           jumlahAsli: itemToAdd.quantityAwalPR,
+
+          // Ensure PRItem fields explicit if spread not enough (safeguard)
+          jumlah: itemToAdd.jumlah,
+          originalJumlah: itemToAdd.originalJumlah,
+          quantityAwalPR: itemToAdd.quantityAwalPR,
+          satuan: itemToAdd.satuanLabel || itemToAdd.satuan || "",
+
           satuanLabel: itemToAdd.satuanLabel || itemToAdd.satuan || "",
           id_satuan: itemToAdd.id_satuan,
-          hargaSatuan: "", // Reset price
+          hargaSatuan: "",
           diskonItem: "",
           ppnItem: "",
           keterangan: itemToAdd.keterangan || "",
           skema: group.skema,
-          dibuatOleh: originalPR?.dibuatOleh || "", // Use originalPR
-          tanggalPR: originalPR?.tanggalPR, // Use originalPR
+          dibuatOleh: originalPR?.dibuatOleh || "",
+          tanggalPR: originalPR?.tanggalPR,
         };
 
         const newItems = [...group.items, newItem];
@@ -1756,10 +1823,10 @@ function InputPOContent() {
     }
   };
   // Fungsi untuk memberi class pada weekend
-  function highlightWeekends(date: Date) {
+  function highlightWeekends(date: Date): string {
     const day = date.getDay();
     if (day === 0 || day === 6) return "datepicker-red";
-    return undefined;
+    return "";
   }
 
   // Tambahkan helper normalizeToDateString
@@ -2606,14 +2673,14 @@ function InputPOContent() {
                     </TableHeader>
                     <TableBody>
                       {filteredPOItems
-                        .flatMap((poItem) =>
-                          poItem.items.map((item) => ({
+                        .flatMap((poItem: any) =>
+                          poItem.items.map((item: any) => ({
                             ...item,
                             noPR: poItem.noPR,
                             prId: poItem.prId,
                           }))
                         )
-                        .map((item, idx) => {
+                        .map((item: any, idx) => {
                           // Perhitungan diskon dan PPN per item
                           // Perhitungan diskon dan PPN per item
                           const harga = typeof item.hargaSatuan === "string"
@@ -2629,7 +2696,7 @@ function InputPOContent() {
                           let diskonAmount = 0;
 
                           if (mode === "persen") {
-                            diskonAmount = calculateDiskonModelPersen(itemSubtotal, item.diskonPersen);
+                            diskonAmount = calculateDiskonModelPersen(itemSubtotal, String(item.diskonPersen || ""));
                           } else if (mode === "nominal") {
                             diskonAmount = parseFloat(String(item.diskonNominal).replace(",", ".")) || 0;
                           } else {
@@ -2658,7 +2725,7 @@ function InputPOContent() {
                           const isLocked = (item as any).hasBTB;
 
                           return (
-                            <TableRow key={item.id} className={isLocked ? "bg-gray-100/50" : ""}>
+                            <TableRow key={item._uiId || item.id} className={isLocked ? "bg-gray-100/50" : ""}>
                               <TableCell className="uppercase p-1 text-xs">{item.noPR}</TableCell>
                               <TableCell className="uppercase p-1 text-xs">
                                 {item.namaBarang}
@@ -2677,7 +2744,7 @@ function InputPOContent() {
                                   onChange={(e) =>
                                     handleQtyChange(
                                       item.prId,
-                                      item.id,
+                                      item._uiId,
                                       e.target.value
                                     )
                                   }
@@ -2708,7 +2775,7 @@ function InputPOContent() {
                                   onChange={(e) => {
                                     handleHargaSatuanChange(
                                       item.prId,
-                                      item.id,
+                                      item._uiId,
                                       e.target.value
                                     );
                                   }}
@@ -2728,7 +2795,7 @@ function InputPOContent() {
                                   onChange={(e) =>
                                     handleDiskonPersenChange(
                                       item.prId,
-                                      item.id,
+                                      item._uiId,
                                       e.target.value
                                     )
                                   }
@@ -2738,7 +2805,7 @@ function InputPOContent() {
                                     if (val && /^\d+(\.\d+)?$/.test(val)) {
                                       handleDiskonPersenChange(
                                         item.prId,
-                                        item.id,
+                                        item._uiId,
                                         `${val}%`
                                       );
                                     }
@@ -2775,7 +2842,7 @@ function InputPOContent() {
                                     );
                                     handleDiskonNominalChange(
                                       item.prId,
-                                      item.id,
+                                      item._uiId,
                                       raw
                                     );
                                   }}
@@ -2799,7 +2866,7 @@ function InputPOContent() {
                                   onChange={(e) =>
                                     handlePPNItemChange(
                                       item.prId,
-                                      item.id,
+                                      item._uiId,
                                       e.target.value
                                     )
                                   }
@@ -2808,7 +2875,7 @@ function InputPOContent() {
                                     if (val && /^\d+(\.\d+)?$/.test(val)) {
                                       handlePPNItemChange(
                                         item.prId,
-                                        item.id,
+                                        item._uiId,
                                         `${val}%`
                                       );
                                     }
