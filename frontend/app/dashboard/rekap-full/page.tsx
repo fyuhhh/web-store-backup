@@ -598,7 +598,8 @@ export default function RekapFullPage() {
               // Untuk setiap PO Item yang terkait, cari PO dan BTB
               poItems.forEach((poItem: any) => {
                 const po = poData.find((p: any) => String(p.id_PO) === String(poItem.id_PO));
-                // Cari BTB Item yang terkait PO Item ini
+                // Untuk setiap BTB Item yang terkait, cari BTB
+                // REFACTOR: Aggregate BTB Items to prevent PO Data duplication
                 const btbItems = btbItemData.filter((bi: any) => String(bi.id_POItem) === String(poItem.id_POItem));
 
                 if (btbItems.length === 0) {
@@ -737,23 +738,39 @@ export default function RekapFullPage() {
                     divisiBKB: "",
                   });
                 } else {
-                  // Untuk setiap BTB Item yang terkait, cari BTB
-                  btbItems.forEach((btbItem: any) => {
+                  // --- ROW PER BTB WITH REDUCED PO DATA START ---
+                  // Revert to looping BTB items, but blank out PO data for subsequent rows to avoid "double counting"
+
+                  btbItems.forEach((btbItem: any, btbIdx: number) => {
                     const btb = btbData.find((b: any) => String(b.id_btb) === String(btbItem.id_btb));
 
+                    // Determine if we should show PO data (only for the first BTB row of this PO Item)
+                    const showPOData = (btbIdx === 0);
+
                     // --- BKB INTEGRATION START ---
-                    // Cari BKB Items yang terkait dengan BTB Item ini
                     const relatedBkbItems = bkbItemData.filter((bkb: any) => String(bkb.id_btb_item) === String(btbItem.id_btb_item));
 
-                    if (relatedBkbItems.length === 0) {
-                      // Jika tidak ada BKB, push baris sampai BTB
+                    // Common logic to push a row
+                    const pushRow = (bkbItem: any | null, bkbIdx: number = 0) => {
+                      const parentBkb = bkbItem ? bkbData.find((b: any) => String(b.id_bkb) === String(bkbItem.id_bkb)) : null;
+
+                      // Visual Deduplication Logic
+                      // PR: Always show (Duplicate for all child rows, as requested/observed)
+                      const showPR = true;
+
+                      // PO: Show only on 1st BTB and 1st BKB of that BTB (The distinct "Header" of the group)
+                      const showPO = (btbIdx === 0 && bkbIdx === 0);
+
+                      // BTB: Show only on 1st BKB of that BTB
+                      const showBTB = (bkbIdx === 0);
+
                       rekapRows.push({
-                        id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb || ""),
+                        id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb || "") + "-" + (bkbItem?.id_bkb_item || "0"),
                         id_PR: pr.id_PR,
-                        periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
-                        tahunPR: getYear(pr.tanggalPR),
-                        bulanPR: getMonthName(pr.tanggalPR),
-                        noPR: pr.noPR,
+                        periodePR: showPR && pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
+                        tahunPR: showPR ? getYear(pr.tanggalPR) : "",
+                        bulanPR: showPR ? getMonthName(pr.tanggalPR) : "",
+                        noPR: showPR ? pr.noPR : "",
                         tanggalPR: pr.tanggalPR
                           ? (() => {
                             const d = new Date(pr.tanggalPR);
@@ -763,14 +780,12 @@ export default function RekapFullPage() {
                           })()
                           : "",
                         hariPR: getDayName(pr.tanggalPR),
-                        // New Fields
                         kodeBarangPR: item.kodeBarang || "",
                         spesifikasi: item.spesifikasi || "",
                         noMR: pr.noMR || pr.no_mr || item.noMR || "",
-
                         daftarBarangPR: item.namaBarang,
                         quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
-                        quantityPR: item.jumlah ?? "", // duplicate removed in previous code but kept here for schema
+                        quantityPR: item.jumlah ?? "",
                         satuanPR: item.id_satuan
                           ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                           : "",
@@ -783,24 +798,24 @@ export default function RekapFullPage() {
                         skemaPRLabel: pr.id_skema
                           ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
                           : "",
+                        // TARGET PENCAPAIAN PO: Use DB value (now fixed in backend)
+                        targetPencapaianPO: btb?.targetPencapaianPo || "",
+
                         targetTanggalPO: formatDateSimple(pr.estimasipo),
-                        delay: btbItem?.delay || (po?.estimasiTanggalTerima && btb?.tanggal_btb
-                          ? (() => {
-                            const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
-                            return String(days);
-                          })()
-                          : ""),
+
+                        // PO Data - CONDITIONALLY BLANK (showPO)
+                        // STATUS (next to Target Pencapaian PO): Mapped to btb.delay as requested
+                        // This corresponds to key 'delay' in columns definition
+                        delay: btb?.delay || "",
+
                         id_POItem: poItem.id_POItem,
-                        status: (() => {
-                          if (poItem?.statusTerima) return poItem.statusTerima;
-                          if (pr.estimasipo && po?.tanggalPO) {
-                            const delay = countWorkingDaysBetween(pr.estimasipo, po.tanggalPO);
-                            return delay <= 0 ? "SCHEDULE" : "TIDAK TERCAPAI";
-                          }
-                          return po?.statusterima ?? pr.status ?? "";
-                        })(),
-                        noPO: po?.noPO || "",
-                        tanggalPO: po?.tanggalPO
+
+                        // STATUS (next to Target Tanggal PO): Mapped to pr_item.status as requested
+                        // This corresponds to key 'status' in columns definition
+                        status: item?.status || pr.status || "",
+
+                        noPO: showPO ? (po?.noPO || "") : "",
+                        tanggalPO: showPO && po?.tanggalPO
                           ? (() => {
                             const d = new Date(po.tanggalPO);
                             return `${d.getDate().toString().padStart(2, "0")}-${(
@@ -808,7 +823,7 @@ export default function RekapFullPage() {
                             ).toString().padStart(2, "0")}-${d.getFullYear()}`;
                           })()
                           : "",
-                        periodePO: po?.tanggalPO
+                        periodePO: showPO && po?.tanggalPO
                           ? (() => {
                             let d;
                             if (/^\d{2}-\d{2}-\d{4}$/.test(po.tanggalPO)) {
@@ -821,17 +836,16 @@ export default function RekapFullPage() {
                             return `${d.toLocaleString("id-ID", { month: "long" })} ${d.getFullYear()}`;
                           })()
                           : "",
-                        supplier: po?.id_supplier
+                        supplier: showPO && po?.id_supplier
                           ? localSupplierMap[String(po.id_supplier)] || ""
                           : "",
-                        quantityAwalPO: poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "",
-                        quantityPO: item?.jumlah ?? "",
-                        satuanPO:
-                          item.id_satuan
-                            ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
-                            : "",
-                        hargaSatuanPO: poItem?.hargaSatuan ?? "",
-                        diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
+                        quantityAwalPO: showPO ? (poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "") : "",
+                        quantityPO: showPO ? (item?.jumlah ?? "") : "",
+                        satuanPO: showPO ? (item.id_satuan
+                          ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
+                          : "") : "",
+                        hargaSatuanPO: showPO ? (poItem?.hargaSatuan ?? "") : "",
+                        diskonPersen: showPO ? (poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
                           ? (typeof poItem.diskonPersen === "string" && poItem.diskonPersen.includes("+")
                             ? poItem.diskonPersen
                             : (Number(poItem.diskonPersen) % 1 === 0
@@ -839,17 +853,17 @@ export default function RekapFullPage() {
                               : Number(poItem.diskonPersen).toFixed(2)
                             ) + "%"
                           )
-                          : "",
-                        diskonRp: poItem?.diskonRupiah ?? "",
-                        ppnPersen: poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
+                          : "") : "",
+                        diskonRp: showPO ? (poItem?.diskonRupiah ?? "") : "",
+                        ppnPersen: showPO ? (poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
                           ? (Number(poItem.ppnPersen) % 1 === 0
                             ? Number(poItem.ppnPersen).toString()
                             : Number(poItem.ppnPersen).toFixed(2)
                           ) + "%"
-                          : "",
-                        ppnRp: po?.ppnAmount ?? "",
-                        totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
-                        tanggalEstimasiDiterima: po?.estimasiTanggalTerima
+                          : "") : "",
+                        ppnRp: showPO ? (po?.ppnAmount ?? "") : "",
+                        totalHarga: showPO ? (poItem?.totalPerItem ?? computeItemTotal(po, poItem)) : "",
+                        tanggalEstimasiDiterima: showPO && po?.estimasiTanggalTerima
                           ? (() => {
                             const d = new Date(po.estimasiTanggalTerima);
                             return `${d.getDate().toString().padStart(2, "0")}-${(
@@ -857,18 +871,20 @@ export default function RekapFullPage() {
                             ).toString().padStart(2, "0")}-${d.getFullYear()}`;
                           })()
                           : "",
-                        statusPengiriman: po?.id_statusPengiriman
+                        statusPengiriman: showPO && po?.id_statusPengiriman
                           ? localStatusPengirimanMap[String(po.id_statusPengiriman)] || ""
                           : "",
-                        diorderOleh: po?.orderedBy
+                        diorderOleh: showPO && po?.orderedBy
                           ? localUserMap[String(po.orderedBy)] || po.orderedBy
                           : "",
-                        diinputOleh: poItem?.namaPembeli ?? "",
-                        terminPembayaran: po?.termin || po?.id_termin || "",
-                        skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
-                        noBTB: btb?.no_btb || "",
-                        id_btb: btb?.id_btb || "",
-                        tanggalBTB: btb?.tanggal_btb
+                        diinputOleh: showPO ? (poItem?.namaPembeli ?? "") : "",
+                        terminPembayaran: showPO ? (po?.termin || po?.id_termin || "") : "",
+                        skemaPO: showPO ? (po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "") : "",
+
+                        // BTB Data - CONDITIONALLY BLANK (showBTB)
+                        noBTB: showBTB ? (btb?.no_btb || "") : "",
+                        id_btb: showBTB ? (btb?.id_btb || "") : "",
+                        tanggalBTB: showBTB && btb?.tanggal_btb
                           ? (() => {
                             const d = new Date(btb.tanggal_btb);
                             return `${d.getDate().toString().padStart(2, "0")}-${(
@@ -876,7 +892,7 @@ export default function RekapFullPage() {
                             ).toString().padStart(2, "0")}-${d.getFullYear()}`;
                           })()
                           : "",
-                        periodeBTB: btb?.tanggal_btb
+                        periodeBTB: showBTB && btb?.tanggal_btb
                           ? (() => {
                             let d;
                             if (/^\d{2}-\d{2}-\d{4}$/.test(btb.tanggal_btb)) {
@@ -889,229 +905,42 @@ export default function RekapFullPage() {
                             return `${d.toLocaleString("id-ID", { month: "long" })} ${d.getFullYear()}`;
                           })()
                           : "",
-                        quantityBTB: btbItem?.jumlah_diterima ?? "",
-                        satuanBTB:
+                        quantityBTB: showBTB ? (btbItem?.jumlah_diterima ?? "") : "",
+                        satuanBTB: showBTB ? (
                           btbItem?.id_satuan
                             ? localSatuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
-                            : "",
-                        biayaBTB: btbItem?.biaya ?? btb?.biaya ?? "",
-                        sisaStokBTB: poItem?.jumlahPO ?? "",
-                        diterimaOleh: btb?.diterima_oleh
+                            : "") : "",
+                        biayaBTB: showBTB ? (btbItem?.biaya ?? btb?.biaya ?? "") : "",
+                        sisaStokBTB: showPO ? (poItem?.jumlahPO ?? "") : "", // Remainder calculation usually bound to PO
+                        diterimaOleh: showBTB ? (btb?.diterima_oleh
                           ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
-                          : "",
+                          : "") : "",
+                        statusPermintaanByPR: "",
                         plan: pr.plan || "",
-                        skemaBTB: btb?.id_skema
-                          ? localSkemaMap[String(btb.id_skema)] || btb.id_skema
+                        noPlan: "",
+                        skemaBTB: "",
+
+                        // BKB Fields (Always show as they are the unique leaf nodes if present)
+                        noBKB: parentBkb?.no_bkb || "",
+                        tanggalBKB: parentBkb?.tanggal_bkb
+                          ? formatDateSimple(parentBkb.tanggal_bkb)
                           : "",
-                        targetPencapaianPO: (() => {
-                          if (btbItem?.targetPencapaianPo) return btbItem.targetPencapaianPo;
-                          if (po?.estimasiTanggalTerima && btb?.tanggal_btb) {
-                            const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
-                            return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
-                          }
-                          return "";
-                        })(),
-                        id_btb_item: btbItem?.id_btb_item || "",
-
-                        // BKB Fields Empty
-                        noBKB: "",
-                        tanggalBKB: "",
-                        kodeBarangBKB: "",
-                        namaBarangBKB: "",
-                        quantityBKBData: "",
-                        satuanBKB: "",
-                        divisiBKB: "",
+                        kodeBarangBKB: bkbItem?.kodeBarang || "",
+                        namaBarangBKB: bkbItem?.nama_barang || "",
+                        quantityBKBData: bkbItem?.jumlah_keluar || "",
+                        satuanBKB: bkbItem?.satuan || "",
+                        divisiBKB: parentBkb?.divisi || ""
                       });
+                    };
+
+                    if (relatedBkbItems.length === 0) {
+                      pushRow(null);
                     } else {
-                      // Ada BKB items, loop lagi
                       relatedBkbItems.forEach((bkbItem: any, bkbIdx: number) => {
-                        const parentBkb = bkbData.find((b: any) => String(b.id_bkb) === String(bkbItem.id_bkb));
-
-                        rekapRows.push({
-                          id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb || "") + "-" + (bkbItem.id_bkb_item || bkbIdx),
-                          id_PR: pr.id_PR,
-                          periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
-                          tahunPR: getYear(pr.tanggalPR),
-                          bulanPR: getMonthName(pr.tanggalPR),
-                          noPR: pr.noPR,
-                          tanggalPR: pr.tanggalPR
-                            ? (() => {
-                              const d = new Date(pr.tanggalPR);
-                              return `${d.getDate().toString().padStart(2, "0")}-${(
-                                d.getMonth() + 1
-                              ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                            })()
-                            : "",
-                          hariPR: getDayName(pr.tanggalPR),
-                          // New Fields
-                          kodeBarangPR: item.kodeBarang || "",
-                          spesifikasi: item.spesifikasi || "",
-                          noMR: item.noMR || "",
-
-                          daftarBarangPR: item.namaBarang,
-                          quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
-                          quantityPR: item.jumlah ?? "",
-                          satuanPR: item.id_satuan
-                            ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
-                            : "",
-                          keteranganPR: item.keterangan || "",
-                          divisi: pr.id_divisi
-                            ? localDivisiMap[String(pr.id_divisi)] || pr.id_divisi
-                            : "",
-                          dibuatOleh: pr.dibuatOleh,
-                          skemaPR: pr.id_skema ?? "",
-                          skemaPRLabel: pr.id_skema
-                            ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
-                            : "",
-                          targetTanggalPO: formatDateSimple(pr.estimasipo),
-                          delay: btbItem?.delay || (po?.estimasiTanggalTerima && btb?.tanggal_btb
-                            ? (() => {
-                              const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
-                              return String(days);
-                            })()
-                            : ""),
-                          id_POItem: poItem.id_POItem,
-                          status: (() => {
-                            if (poItem?.statusTerima) return poItem.statusTerima;
-                            if (pr.estimasipo && po?.tanggalPO) {
-                              const delay = countWorkingDaysBetween(pr.estimasipo, po.tanggalPO);
-                              return delay <= 0 ? "SCHEDULE" : "TIDAK TERCAPAI";
-                            }
-                            return po?.statusterima ?? pr.status ?? "";
-                          })(),
-                          noPO: po?.noPO || "",
-                          tanggalPO: po?.tanggalPO
-                            ? (() => {
-                              const d = new Date(po.tanggalPO);
-                              return `${d.getDate().toString().padStart(2, "0")}-${(
-                                d.getMonth() + 1
-                              ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                            })()
-                            : "",
-                          periodePO: po?.tanggalPO
-                            ? (() => {
-                              let d;
-                              if (/^\d{2}-\d{2}-\d{4}$/.test(po.tanggalPO)) {
-                                const [day, month, year] = po.tanggalPO.split("-");
-                                d = new Date(`${year}-${month}-${day}`);
-                              } else {
-                                d = new Date(po.tanggalPO);
-                              }
-                              if (isNaN(d.getTime())) return "";
-                              return `${d.toLocaleString("id-ID", { month: "long" })} ${d.getFullYear()}`;
-                            })()
-                            : "",
-                          supplier: po?.id_supplier
-                            ? localSupplierMap[String(po.id_supplier)] || ""
-                            : "",
-                          quantityAwalPO: poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "",
-                          quantityPO: item?.jumlah ?? "",
-                          satuanPO:
-                            item.id_satuan
-                              ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
-                              : "",
-                          hargaSatuanPO: poItem?.hargaSatuan ?? "",
-                          diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
-                            ? (typeof poItem.diskonPersen === "string" && poItem.diskonPersen.includes("+")
-                              ? poItem.diskonPersen
-                              : (Number(poItem.diskonPersen) % 1 === 0
-                                ? Number(poItem.diskonPersen).toString()
-                                : Number(poItem.diskonPersen).toFixed(2)
-                              ) + "%"
-                            )
-                            : "",
-                          diskonRp: poItem?.diskonRupiah ?? "",
-                          ppnPersen: poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
-                            ? (Number(poItem.ppnPersen) % 1 === 0
-                              ? Number(poItem.ppnPersen).toString()
-                              : Number(poItem.ppnPersen).toFixed(2)
-                            ) + "%"
-                            : "",
-                          ppnRp: po?.ppnAmount ?? "",
-                          totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
-                          tanggalEstimasiDiterima: po?.estimasiTanggalTerima
-                            ? (() => {
-                              const d = new Date(po.estimasiTanggalTerima);
-                              return `${d.getDate().toString().padStart(2, "0")}-${(
-                                d.getMonth() + 1
-                              ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                            })()
-                            : "",
-                          statusPengiriman: po?.id_statusPengiriman
-                            ? localStatusPengirimanMap[String(po.id_statusPengiriman)] || ""
-                            : "",
-                          diorderOleh: po?.orderedBy
-                            ? localUserMap[String(po.orderedBy)] || po.orderedBy
-                            : "",
-                          diinputOleh: poItem?.namaPembeli ?? "",
-                          terminPembayaran: po?.termin || po?.id_termin || "",
-                          skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
-                          noBTB: btb?.no_btb || "",
-                          id_btb: btb?.id_btb || "",
-                          tanggalBTB: btb?.tanggal_btb
-                            ? (() => {
-                              const d = new Date(btb.tanggal_btb);
-                              return `${d.getDate().toString().padStart(2, "0")}-${(
-                                d.getMonth() + 1
-                              ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                            })()
-                            : "",
-                          periodeBTB: btb?.tanggal_btb
-                            ? (() => {
-                              let d;
-                              if (/^\d{2}-\d{2}-\d{4}$/.test(btb.tanggal_btb)) {
-                                const [day, month, year] = btb.tanggal_btb.split("-");
-                                d = new Date(`${year}-${month}-${day}`);
-                              } else {
-                                d = new Date(btb.tanggal_btb);
-                              }
-                              if (isNaN(d.getTime())) return "";
-                              return `${d.toLocaleString("id-ID", { month: "long" })} ${d.getFullYear()}`;
-                            })()
-                            : "",
-                          quantityBTB: btbItem?.jumlah_diterima ?? "",
-                          satuanBTB:
-                            btbItem?.id_satuan
-                              ? localSatuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
-                              : "",
-                          biayaBTB: btbItem?.biaya ?? btb?.biaya ?? "",
-                          sisaStokBTB: poItem?.jumlahPO ?? "",
-                          diterimaOleh: btb?.diterima_oleh
-                            ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
-                            : "",
-                          plan: pr.plan || "",
-                          skemaBTB: btb?.id_skema
-                            ? localSkemaMap[String(btb.id_skema)] || btb.id_skema
-                            : "",
-                          targetPencapaianPO: (() => {
-                            if (btbItem?.targetPencapaianPo) return btbItem.targetPencapaianPo;
-                            if (po?.estimasiTanggalTerima && btb?.tanggal_btb) {
-                              const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
-                              return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
-                            }
-                            return "";
-                          })(),
-                          id_btb_item: btbItem?.id_btb_item || "",
-
-                          // BKB Fields Populated
-                          noBKB: parentBkb?.no_bkb || "",
-                          tanggalBKB: parentBkb?.tanggal_bkb
-                            ? (() => {
-                              const d = new Date(parentBkb.tanggal_bkb);
-                              return `${d.getDate().toString().padStart(2, "0")}-${(
-                                d.getMonth() + 1
-                              ).toString().padStart(2, "0")}-${d.getFullYear()}`;
-                            })()
-                            : "",
-                          kodeBarangBKB: bkbItem?.kodeBarang || "",
-                          namaBarangBKB: bkbItem?.nama_barang || "",
-                          quantityBKBData: bkbItem?.jumlah_keluar || "",
-                          satuanBKB: bkbItem?.satuan || "",
-                          divisiBKB: parentBkb?.divisi || ""
-                        });
+                        pushRow(bkbItem, bkbIdx);
                       });
                     }
-                    // --- BKB INTEGRATION END ---
+
                   });
                 }
               });
@@ -2198,9 +2027,10 @@ export default function RekapFullPage() {
 
   // Helper: mapping status ke warna background cell (untuk kolom Status)
   function getStatusBg(status: string | undefined | null) {
-    if (!status) return "";
+    if (!status) return "bg-red-100"; // Empty status -> red
     const s = status.trim().toUpperCase();
-    if (s === "SCHEDULE (TERCAPAI)" || s === "SCHEDULE") return "bg-green-100";
+    // Use includes for more robust matching
+    if (s.includes("SCHEDULE") || s.includes("PART COMPLETE")) return "bg-green-100";
     return "bg-red-100";
   }
 

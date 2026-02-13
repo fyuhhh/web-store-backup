@@ -1,0 +1,14 @@
+
+--- Checking PR Item Columns ---
+ - id_PRItem (int(11))
+ - id_PR (int(11))
+ - kodeBarang (varchar(255))
+ - namaBarang (varchar(255))
+ - spesifikasi (text)
+ - noMR (varchar(255))
+ - jumlah (decimal(10,2))
+ - originalJumlah (decimal(10,2))
+ - quantityAwalPR (decimal(10,2))
+ - id_satuan (int(11))
+ - keterangan (text)
+ - status (varchar(50))

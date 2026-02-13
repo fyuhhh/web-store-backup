@@ -28,6 +28,7 @@ import maintenanceRoutes from "./routes/maintenance.js";
 import broadcastRoutes from "./routes/broadcast.js";
 import monitoringRoutes from "./routes/monitoring.js";
 import activityLogsRoutes from "./routes/activity_logs.js";
+import mrRoutes from "./routes/mr.js";
 
 const app = express();
 app.use(cors());
@@ -64,6 +65,7 @@ app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/broadcast", broadcastRoutes);
 app.use("/api/monitoring", monitoringRoutes);
 app.use("/api/activity-logs", activityLogsRoutes);
+app.use("/api/mr", mrRoutes);
 
 // === ADDED: debug endpoint to list registered routes ===
 app.get("/api/debug/routes", (req, res) => {

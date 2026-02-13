@@ -1,0 +1,75 @@
+
+--- Checking BTB Data Samples (Top 20) ---
+{"no_btb":"BTB/E-WALK/25/XII/008","targetPencapaianPo":"Tidak Tercapai","delay":"-43"}
+{"no_btb":"BTB/E-WALK/25/XII/019","targetPencapaianPo":"Tidak Tercapai","delay":"-13"}
+{"no_btb":"BTB/E-WALK/25/XII/012","targetPencapaianPo":"Tidak Tercapai","delay":"-6"}
+{"no_btb":"BTB/E-WALK/25/XII/031","targetPencapaianPo":"Tidak Tercapai","delay":"-36"}
+{"no_btb":"\tBTB/E-WALK/25/XII/030","targetPencapaianPo":"Tidak Tercapai","delay":"-14"}
+{"no_btb":"BTB/E-WALK/25/XII/021","targetPencapaianPo":"Tidak Tercapai","delay":"-15"}
+{"no_btb":"BTB/E-WALK/25/XII/033","targetPencapaianPo":"Tidak Tercapai","delay":"-11"}
+{"no_btb":"BTB/E-WALK/25/XII/067","targetPencapaianPo":"Tidak Tercapai","delay":"-15"}
+{"no_btb":"BTB/E-WALK/25/XII/052","targetPencapaianPo":"Tidak Tercapai","delay":"-12"}
+{"no_btb":"BTB/E-WALK/25/XII/020","targetPencapaianPo":"Tidak Tercapai","delay":"-18"}
+{"no_btb":"BTB/E-WALK/25/XII/013","targetPencapaianPo":"Tidak Tercapai","delay":"4"}
+{"no_btb":"BTB/E-WALK/25/XII/048","targetPencapaianPo":"Tidak Tercapai","delay":"-55"}
+{"no_btb":"BTB/E-WALK/25/XII/039","targetPencapaianPo":"Tidak Tercapai","delay":"-3"}
+{"no_btb":"BTB/E-WALK/25/XII/071","targetPencapaianPo":"Tidak Tercapai","delay":"6"}
+{"no_btb":"BTB/E-WALK/25/XII/073","targetPencapaianPo":"Tidak Tercapai","delay":"6"}
+{"no_btb":"BTB/E-WALK/25/XII/047","targetPencapaianPo":"Tidak Tercapai","delay":"0"}
+{"no_btb":"BTB/E-WALK/25/XII/074","targetPencapaianPo":"Tidak Tercapai","delay":"7"}
+{"no_btb":"BTB/E-WALK/25/XII/032","targetPencapaianPo":"Tidak Tercapai","delay":"-17"}
+{"no_btb":"BTB/E-WALK/25/XII/065","targetPencapaianPo":"Tidak Tercapai","delay":"-8"}
+{"no_btb":"BTB/E-WALK/25/XII/041","targetPencapaianPo":"Tidak Tercapai","delay":"-15"}
+
+--- Distribution of targetPencapaianPo ---
+Target Value: "Tidak Tercapai" Count: 300
+
+--- Distribution of delay ---
+Delay Value: "-1" Count: 5
+Delay Value: "-10" Count: 14
+Delay Value: "-11" Count: 18
+Delay Value: "-12" Count: 7
+Delay Value: "-13" Count: 14
+Delay Value: "-14" Count: 20
+Delay Value: "-15" Count: 15
+Delay Value: "-16" Count: 7
+Delay Value: "-17" Count: 12
+Delay Value: "-18" Count: 10
+Delay Value: "-19" Count: 8
+Delay Value: "-2" Count: 2
+Delay Value: "-20" Count: 8
+Delay Value: "-21" Count: 5
+Delay Value: "-22" Count: 7
+Delay Value: "-23" Count: 5
+Delay Value: "-24" Count: 8
+Delay Value: "-25" Count: 5
+Delay Value: "-26" Count: 4
+Delay Value: "-27" Count: 1
+Delay Value: "-28" Count: 4
+Delay Value: "-29" Count: 5
+Delay Value: "-3" Count: 3
+Delay Value: "-30" Count: 3
+Delay Value: "-32" Count: 3
+Delay Value: "-33" Count: 2
+Delay Value: "-34" Count: 1
+Delay Value: "-35" Count: 1
+Delay Value: "-36" Count: 1
+Delay Value: "-37" Count: 1
+Delay Value: "-39" Count: 1
+Delay Value: "-4" Count: 9
+Delay Value: "-40" Count: 13
+Delay Value: "-43" Count: 1
+Delay Value: "-49" Count: 1
+Delay Value: "-5" Count: 8
+Delay Value: "-55" Count: 1
+Delay Value: "-6" Count: 6
+Delay Value: "-7" Count: 15
+Delay Value: "-8" Count: 11
+Delay Value: "-9" Count: 14
+Delay Value: "0" Count: 6
+Delay Value: "1" Count: 4
+Delay Value: "17" Count: 1
+Delay Value: "4" Count: 3
+Delay Value: "5" Count: 1
+Delay Value: "6" Count: 4
+Delay Value: "7" Count: 2

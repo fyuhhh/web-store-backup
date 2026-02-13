@@ -6,21 +6,26 @@ import { logActivity } from '../utils/activityLogger.js';
 const router = express.Router();
 
 // Helper: bandingkan tanggal, return true jika tglBTB <= tglEstimasi
+// Helper: bandingkan tanggal, return true jika tglBTB <= tglEstimasi
 function isTanggalTercapai(tglEstimasi, tglBTB) {
   function toDateObj(t) {
     if (!t) return null;
+    let d;
     if (/^\d{2}-\d{2}-\d{4}$/.test(t)) {
-      const [d, m, y] = t.split("-");
-      return new Date(`${y}-${m}-${d}`);
+      const [day, month, year] = t.split("-");
+      d = new Date(`${year}-${month}-${day}`);
+    } else {
+      d = new Date(t);
     }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-      return new Date(t);
-    }
-    return new Date(t);
+    // Set to noon to avoid timezone weirdness
+    d.setHours(12, 0, 0, 0);
+    return d;
   }
   const dateEstimasi = toDateObj(tglEstimasi);
   const dateBTB = toDateObj(tglBTB);
   if (!dateEstimasi || !dateBTB || isNaN(dateEstimasi.getTime()) || isNaN(dateBTB.getTime())) return null;
+
+  // Return true if delay <= 0 (Early or On Time)
   return dateBTB.getTime() <= dateEstimasi.getTime();
 }
 
@@ -35,19 +40,31 @@ async function isSemuaJumlahPOZero(conn, id_po) {
 async function updateTargetPencapaianPoByBTB(conn, id_btb) {
   // Ambil id_po dan tanggal_btb dari btb
   const [[btb]] = await conn.query("SELECT id_po, tanggal_btb FROM btb WHERE id_btb = ?", [id_btb]);
-  if (!btb || !btb.id_po || !btb.tanggal_btb) return;
-  const id_po = btb.id_po;
+  if (!btb || !btb.id_po) return;
+
   const tanggal_btb = btb.tanggal_btb;
+
   // Ambil estimasiTanggalTerima dari po
-  const [[po]] = await conn.query("SELECT estimasiTanggalTerima FROM po WHERE id_PO = ?", [id_po]);
-  if (!po || !po.estimasiTanggalTerima) return;
-  // Cek semua jumlahPO pada po_item
-  const semuaZero = await isSemuaJumlahPOZero(conn, id_po);
-  let finalTarget = "Tidak Tercapai";
-  if (isTanggalTercapai(po.estimasiTanggalTerima, tanggal_btb) && semuaZero) {
-    finalTarget = "Tercapai";
+  const [[po]] = await conn.query("SELECT estimasiTanggalTerima FROM po WHERE id_PO = ?", [btb.id_po]);
+  if (!po || !po.estimasiTanggalTerima) {
+    // If no estimate, maybe default to "Tercapai" or null? keeping as is or null
+    return;
   }
-  await conn.query("UPDATE btb SET targetPencapaianPo = ? WHERE id_btb = ?", [finalTarget, id_btb]);
+
+  // Calculate strict delay first
+  const delay = hitungDelayTanggal(po.estimasiTanggalTerima, tanggal_btb);
+  let finalTarget = "Tidak Tercapai";
+
+  if (delay !== null) {
+    if (delay <= 0) {
+      finalTarget = "Tercapai";
+    } else {
+      finalTarget = "Tidak Tercapai";
+    }
+
+    // Update both target and delay to be consistent
+    await conn.query("UPDATE btb SET targetPencapaianPo = ?, delay = ? WHERE id_btb = ?", [finalTarget, delay, id_btb]);
+  }
 }
 
 // Fungsi hitung delay (jumlah hari: + jika telat, - jika lebih cepat)
@@ -55,21 +72,23 @@ function hitungDelayTanggal(estimasi, aktual) {
   if (!estimasi || !aktual) return null;
   // Normalisasi ke Date
   function toDateObj(t) {
+    let d;
     if (/^\d{2}-\d{2}-\d{4}$/.test(t)) {
-      const [d, m, y] = t.split("-");
-      return new Date(`${y}-${m}-${d}`);
+      const [day, month, year] = t.split("-");
+      d = new Date(`${year}-${month}-${day}`);
+    } else {
+      d = new Date(t);
     }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
-      return new Date(t);
-    }
-    return new Date(t);
+    d.setHours(12, 0, 0, 0); // Noon
+    return d;
   }
   const dateEstimasi = toDateObj(estimasi);
   const dateAktual = toDateObj(aktual);
+
   if (isNaN(dateEstimasi.getTime()) || isNaN(dateAktual.getTime())) return null;
   // Hitung selisih hari (dibulatkan)
   const msPerDay = 24 * 60 * 60 * 1000;
-  return Math.round((dateAktual - dateEstimasi) / msPerDay);
+  return Math.round((dateAktual.getTime() - dateEstimasi.getTime()) / msPerDay);
 }
 
 // GET Next BTB Number
@@ -248,8 +267,10 @@ router.post("/", async (req, res) => {
         delay = hitungDelayTanggal(estimasiTanggal, tanggal_btb);
       }
       if (po && po.estimasiTanggalTerima && tanggal_btb) {
-        const semuaZero = await isSemuaJumlahPOZero(conn, id_po);
-        if (isTanggalTercapai(po.estimasiTanggalTerima, tanggal_btb) && semuaZero) {
+        // Cek semua jumlahPO pada po_item (NO LONGER USED as per user request to decouple target from completion)
+        // const semuaZero = await isSemuaJumlahPOZero(conn, id_po);
+        // Updated logic: Only check if BTB date is within estimate (Delay <= 0)
+        if (isTanggalTercapai(po.estimasiTanggalTerima, tanggal_btb)) {
           targetPencapaianPo = "Tercapai";
         } else {
           targetPencapaianPo = "Tidak Tercapai";
@@ -343,8 +364,10 @@ router.put("/:id", async (req, res) => {
       if (id_po2 && tanggal_diterima) {
         const [[po]] = await conn.query("SELECT estimasiTanggalTerima FROM po WHERE id_PO = ?", [id_po2]);
         if (po && po.estimasiTanggalTerima) {
-          const semuaZero = await isSemuaJumlahPOZero(conn, id_po2);
-          if (isTanggalTercapai(po.estimasiTanggalTerima, tanggal_diterima) && semuaZero) {
+          // Cek semua jumlahPO (NO LONGER USED as per user request)
+          // const semuaZero = await isSemuaJumlahPOZero(conn, id_po2);
+          // Updated logic: Only check if BTB date is within estimate (Delay <= 0)
+          if (isTanggalTercapai(po.estimasiTanggalTerima, tanggal_diterima)) {
             targetPencapaianPo = "Tercapai";
           } else {
             targetPencapaianPo = "Tidak Tercapai";

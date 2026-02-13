@@ -1,0 +1,6 @@
+
+--- Checking PR Item Status Values ---
+Status: "PART COMPLETE"
+Status: "WAITING PART"
+Status: "WAITING PO"
+Status: "PARTIAL PART"
