@@ -1,6 +1,6 @@
 "use client";
 
-import { ScrollArea } from "@/components/ui/scroll-area";
+// import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -70,7 +70,7 @@ export function LiveActivityFeed({ logs }: LiveActivityFeedProps) {
                 </Badge>
             </div>
 
-            <ScrollArea className="flex-1 p-4 h-[500px]">
+            <div className="flex-1 p-4 overflow-y-auto max-h-[500px]">
                 <div className="space-y-4">
                     <AnimatePresence initial={false}>
                         {logs.map((log) => {
@@ -141,7 +141,7 @@ export function LiveActivityFeed({ logs }: LiveActivityFeedProps) {
                         </div>
                     )}
                 </div>
-            </ScrollArea>
+            </div>
         </div>
     );
 }

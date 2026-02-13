@@ -12,13 +12,13 @@ const DATA_FILE = path.join(__dirname, "../data/maintenance.json");
 const readData = () => {
     try {
         if (!fs.existsSync(DATA_FILE)) {
-            return { isActive: false, endTime: "", description: "" };
+            return { isActive: false, endTime: "", description: "", exemptedUsers: [] };
         }
         const data = fs.readFileSync(DATA_FILE, "utf8");
         return JSON.parse(data);
     } catch (error) {
         console.error("Error reading maintenance data:", error);
-        return { isActive: false, endTime: "", description: "" };
+        return { isActive: false, endTime: "", description: "", exemptedUsers: [] };
     }
 };
 
@@ -60,13 +60,14 @@ router.get("/", (req, res) => {
 
 // POST status (update)
 router.post("/", (req, res) => {
-    const { isActive, endTime, description, startTime } = req.body;
+    const { isActive, endTime, description, startTime, exemptedUsers } = req.body;
 
     const newData = {
         isActive: Boolean(isActive),
         endTime: endTime || "",
         startTime: startTime || "", // Add startTime field
-        description: description || ""
+        description: description || "",
+        exemptedUsers: Array.isArray(exemptedUsers) ? exemptedUsers : []
     };
 
     if (writeData(newData)) {

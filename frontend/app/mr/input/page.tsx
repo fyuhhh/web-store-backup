@@ -57,8 +57,14 @@ export default function InputMRPage() {
     // Header State
     const [noMR, setNoMR] = useState("");
     const [tanggalMR, setTanggalMR] = useState<Date | null>(new Date());
+    // Divisi State
     const [idDivisi, setIdDivisi] = useState("");
     const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
+    const [divisiSearch, setDivisiSearch] = useState("");
+    const [showAddDivisi, setShowAddDivisi] = useState(false);
+    const [newDivisi, setNewDivisi] = useState("");
+    const [editDivisiId, setEditDivisiId] = useState<string | null>(null);
+    const [editDivisiValue, setEditDivisiValue] = useState("");
 
     // Supplier State
     const [supplierId, setSupplierId] = useState("");
@@ -168,6 +174,60 @@ export default function InputMRPage() {
             if (res.ok) {
                 setSupplierOptions((prev) => prev.filter(s => String(s.id_supplier) !== id));
                 if (supplierId === id) setSupplierId("");
+            }
+        } catch (err) { }
+    };
+
+    // Divisi Handlers
+    const handleAddDivisi = async () => {
+        if (!newDivisi.trim()) return;
+        try {
+            const res = await fetch(API_BASE_URL + "/api/divisi", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ divisi: newDivisi }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setDivisiOptions((prev) => [...prev, data]);
+                setIdDivisi(String(data.id_divisi));
+                setShowAddDivisi(false);
+                setNewDivisi("");
+            }
+        } catch (err) {
+            console.error("Failed to add divisi", err);
+        }
+    };
+
+    const handleEditDivisi = async (id: string) => {
+        if (!editDivisiValue.trim()) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ divisi: editDivisiValue }),
+            });
+            if (res.ok) {
+                // Refresh list
+                fetch(`${API_BASE_URL}/api/divisi`)
+                    .then((res) => res.json())
+                    .then((data) => setDivisiOptions(data));
+                setEditDivisiId(null);
+                setEditDivisiValue("");
+            }
+        } catch (err) { }
+    };
+
+    const handleDeleteDivisi = async (id: string) => {
+        if (!id) return;
+        if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
+                method: "DELETE",
+            });
+            if (res.ok) {
+                setDivisiOptions((prev) => prev.filter(d => String(d.id_divisi) !== id));
+                if (idDivisi === id) setIdDivisi("");
             }
         } catch (err) { }
     };
@@ -328,153 +388,231 @@ export default function InputMRPage() {
                         <CardDescription>Lengkapi data header MR dan Supplier</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <div className="space-y-4">
-                            {/* Row 1: No MR, Tanggal MR, Supplier */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-2">
-                                    <Label>No. MR</Label>
-                                    <Input value={noMR} onChange={(e) => setNoMR(e.target.value)} placeholder="MR/..." />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Tanggal MR</Label>
-                                    <div>
-                                        <DatePicker
-                                            selected={tanggalMR}
-                                            onChange={(date) => setTanggalMR(date)}
-                                            dateFormat="dd-MM-yyyy"
-                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Supplier</Label>
-                                    <Select
-                                        value={supplierId}
-                                        onValueChange={setSupplierId}
-                                    >
-                                        <SelectTrigger className="w-full border-border focus:border-primary/50 bg-white">
-                                            <SelectValue placeholder="Pilih Supplier" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
-                                            <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
-                                                {showAddSupplier ? (
-                                                    <div className="flex items-center gap-2">
-                                                        <Input
-                                                            placeholder="Nama supplier baru"
-                                                            value={newSupplier}
-                                                            onChange={(e) => setNewSupplier(e.target.value)}
-                                                            className="h-8"
-                                                            autoFocus
-                                                        />
-                                                        <Button size="sm" onClick={handleAddSupplier}>Simpan</Button>
-                                                        <Button size="sm" variant="ghost" onClick={() => setShowAddSupplier(false)}>Batal</Button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-2">
-                                                        <Input
-                                                            placeholder="Cari supplier..."
-                                                            value={supplierSearch}
-                                                            onChange={(e) => setSupplierSearch(e.target.value)}
-                                                            className="h-8"
-                                                        />
-                                                        <Button size="sm" variant="outline" className="w-full h-8" onClick={() => setShowAddSupplier(true)}>
-                                                            + Tambah Supplier
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {!showAddSupplier && (
-                                                <>
-                                                    {supplierOptions.length === 0 ? (
-                                                        <div className="p-2 text-sm text-muted-foreground">Tidak ada data.</div>
-                                                    ) : (
-                                                        supplierOptions.filter((s) => s.namaSupplier.toLowerCase().includes(supplierSearch.toLowerCase())).map((s) => (
-                                                            <div key={s.id_supplier} className="flex items-center justify-between group px-1">
-                                                                {editSupplierId === String(s.id_supplier) ? (
-                                                                    <div className="flex items-center gap-1 w-full p-1">
-                                                                        <Input
-                                                                            value={editSupplierValue}
-                                                                            onChange={(e) => setEditSupplierValue(e.target.value)}
-                                                                            className="h-7 text-xs"
-                                                                        />
-                                                                        <Button size="sm" onClick={() => handleEditSupplier(String(s.id_supplier))} className="h-7 px-2">OK</Button>
-                                                                        <Button size="sm" variant="ghost" onClick={() => setEditSupplierId(null)} className="h-7 px-2">X</Button>
-                                                                    </div>
-                                                                ) : (
-                                                                    <>
-                                                                        <SelectItem value={String(s.id_supplier)} className="flex-1 cursor-pointer">
-                                                                            {s.namaSupplier}
-                                                                        </SelectItem>
-                                                                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                            <Button
-                                                                                size="icon"
-                                                                                variant="ghost"
-                                                                                className="h-6 w-6 text-blue-500"
-                                                                                onClick={(e) => {
-                                                                                    e.preventDefault();
-                                                                                    e.stopPropagation(); // prevent selection
-                                                                                    setEditSupplierId(String(s.id_supplier));
-                                                                                    setEditSupplierValue(s.namaSupplier);
-                                                                                }}
-                                                                            >
-                                                                                <Edit2 className="h-3 w-3" />
-                                                                            </Button>
-                                                                            <Button
-                                                                                size="icon"
-                                                                                variant="ghost"
-                                                                                className="h-6 w-6 text-red-500"
-                                                                                onClick={(e) => {
-                                                                                    e.preventDefault();
-                                                                                    e.stopPropagation();
-                                                                                    handleDeleteSupplier(String(s.id_supplier));
-                                                                                }}
-                                                                            >
-                                                                                <Trash2 className="h-3 w-3" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        ))
-                                                    )}
-                                                </>
-                                            )}
-                                        </SelectContent>
-                                    </Select>
+                        {/* Combined Grid: 5 Columns on LG, single row */}
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                            {/* 1. No MR */}
+                            <div className="space-y-2">
+                                <Label>No. MR</Label>
+                                <Input value={noMR} onChange={(e) => setNoMR(e.target.value)} placeholder="MR/..." />
+                            </div>
+                            {/* 2. Tanggal MR */}
+                            <div className="space-y-2">
+                                <Label>Tanggal MR</Label>
+                                <div className="w-full">
+                                    <DatePicker
+                                        selected={tanggalMR}
+                                        onChange={(date) => setTanggalMR(date)}
+                                        dateFormat="dd-MM-yyyy"
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        wrapperClassName="w-full"
+                                    />
                                 </div>
                             </div>
+                            {/* 3. Supplier */}
+                            <div className="space-y-2">
+                                <Label>Supplier</Label>
+                                <Select
+                                    value={supplierId}
+                                    onValueChange={setSupplierId}
+                                >
+                                    <SelectTrigger className="w-full border-border focus:border-primary/50 bg-white">
+                                        <SelectValue placeholder="Pilih Supplier" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                                        <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                            {showAddSupplier ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        placeholder="Nama supplier baru"
+                                                        value={newSupplier}
+                                                        onChange={(e) => setNewSupplier(e.target.value)}
+                                                        className="h-8"
+                                                        autoFocus
+                                                    />
+                                                    <Button size="sm" onClick={handleAddSupplier}>Simpan</Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => setShowAddSupplier(false)}>Batal</Button>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <Input
+                                                        placeholder="Cari supplier..."
+                                                        value={supplierSearch}
+                                                        onChange={(e) => setSupplierSearch(e.target.value)}
+                                                        className="h-8"
+                                                    />
+                                                    <Button size="sm" variant="outline" className="w-full h-8" onClick={() => setShowAddSupplier(true)}>
+                                                        + Tambah Supplier
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
 
-                            {/* Row 2: Divisi, Tanggal Pembelian */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="space-y-2">
-                                    <Label>Divisi</Label>
-                                    <Select value={idDivisi} onValueChange={setIdDivisi}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Pilih Divisi" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {divisiOptions.map((d) => (
-                                                <SelectItem key={d.id_divisi} value={String(d.id_divisi)}>
-                                                    {d.divisi}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                        {!showAddSupplier && (
+                                            <>
+                                                {supplierOptions.length === 0 ? (
+                                                    <div className="p-2 text-sm text-muted-foreground">Tidak ada data.</div>
+                                                ) : (
+                                                    supplierOptions.filter((s) => s.namaSupplier.toLowerCase().includes(supplierSearch.toLowerCase())).map((s) => (
+                                                        <div key={s.id_supplier} className="flex items-center justify-between group px-1">
+                                                            {editSupplierId === String(s.id_supplier) ? (
+                                                                <div className="flex items-center gap-1 w-full p-1">
+                                                                    <Input
+                                                                        value={editSupplierValue}
+                                                                        onChange={(e) => setEditSupplierValue(e.target.value)}
+                                                                        className="h-7 text-xs"
+                                                                    />
+                                                                    <Button size="sm" onClick={() => handleEditSupplier(String(s.id_supplier))} className="h-7 px-2">OK</Button>
+                                                                    <Button size="sm" variant="ghost" onClick={() => setEditSupplierId(null)} className="h-7 px-2">X</Button>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <SelectItem value={String(s.id_supplier)} className="flex-1 cursor-pointer">
+                                                                        {s.namaSupplier}
+                                                                    </SelectItem>
+                                                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        <Button
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            className="h-6 w-6 text-blue-500"
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation(); // prevent selection
+                                                                                setEditSupplierId(String(s.id_supplier));
+                                                                                setEditSupplierValue(s.namaSupplier);
+                                                                            }}
+                                                                        >
+                                                                            <Edit2 className="h-3 w-3" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            className="h-6 w-6 text-red-500"
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation();
+                                                                                handleDeleteSupplier(String(s.id_supplier));
+                                                                            }}
+                                                                        >
+                                                                            <Trash2 className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {/* 4. Divisi */}
+                            <div className="space-y-2">
+                                <Label>Divisi</Label>
+                                <Select value={idDivisi} onValueChange={setIdDivisi}>
+                                    <SelectTrigger className="w-full border-border focus:border-primary/50 bg-white">
+                                        <SelectValue placeholder="Pilih Divisi" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-white max-h-[384px] overflow-y-auto relative">
+                                        <div className="sticky top-0 z-20 bg-white px-2 py-1 border-b border-gray-100">
+                                            {showAddDivisi ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        placeholder="Nama divisi baru"
+                                                        value={newDivisi}
+                                                        onChange={(e) => setNewDivisi(e.target.value)}
+                                                        className="h-8"
+                                                        autoFocus
+                                                    />
+                                                    <Button size="sm" onClick={handleAddDivisi}>Simpan</Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => setShowAddDivisi(false)}>Batal</Button>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    <Input
+                                                        placeholder="Cari divisi..."
+                                                        value={divisiSearch}
+                                                        onChange={(e) => setDivisiSearch(e.target.value)}
+                                                        className="h-8"
+                                                    />
+                                                    <Button size="sm" variant="outline" className="w-full h-8" onClick={() => setShowAddDivisi(true)}>
+                                                        + Tambah Divisi
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {!showAddDivisi && (
+                                            <>
+                                                {divisiOptions.length === 0 ? (
+                                                    <div className="p-2 text-sm text-muted-foreground">Tidak ada data.</div>
+                                                ) : (
+                                                    divisiOptions.filter((d) => d.divisi.toLowerCase().includes(divisiSearch.toLowerCase())).map((d) => (
+                                                        <div key={d.id_divisi} className="flex items-center justify-between group px-1">
+                                                            {editDivisiId === String(d.id_divisi) ? (
+                                                                <div className="flex items-center gap-1 w-full p-1">
+                                                                    <Input
+                                                                        value={editDivisiValue}
+                                                                        onChange={(e) => setEditDivisiValue(e.target.value)}
+                                                                        className="h-7 text-xs"
+                                                                    />
+                                                                    <Button size="sm" onClick={() => handleEditDivisi(String(d.id_divisi))} className="h-7 px-2">OK</Button>
+                                                                    <Button size="sm" variant="ghost" onClick={() => setEditDivisiId(null)} className="h-7 px-2">X</Button>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <SelectItem value={String(d.id_divisi)} className="flex-1 cursor-pointer">
+                                                                        {d.divisi}
+                                                                    </SelectItem>
+                                                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        <Button
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            className="h-6 w-6 text-blue-500"
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation(); // prevent selection
+                                                                                setEditDivisiId(String(d.id_divisi));
+                                                                                setEditDivisiValue(d.divisi);
+                                                                            }}
+                                                                        >
+                                                                            <Edit2 className="h-3 w-3" />
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="icon"
+                                                                            variant="ghost"
+                                                                            className="h-6 w-6 text-red-500"
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                e.stopPropagation();
+                                                                                handleDeleteDivisi(String(d.id_divisi));
+                                                                            }}
+                                                                        >
+                                                                            <Trash2 className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            {/* 5. Tanggal Pembelian */}
+                            <div className="space-y-2">
+                                <Label>Tanggal Pembelian</Label>
+                                <div className="w-full">
+                                    <DatePicker
+                                        selected={tanggalPembelian}
+                                        onChange={(date) => setTanggalPembelian(date)}
+                                        dateFormat="dd-MM-yyyy"
+                                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        wrapperClassName="w-full"
+                                    />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label>Tanggal Pembelian</Label>
-                                    <div>
-                                        <DatePicker
-                                            selected={tanggalPembelian}
-                                            onChange={(date) => setTanggalPembelian(date)}
-                                            dateFormat="dd-MM-yyyy"
-                                            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                        />
-                                    </div>
-                                </div>
-                                {/* Empty column for spacing */}
-                                <div className="hidden md:block"></div>
                             </div>
                         </div>
                     </CardContent>

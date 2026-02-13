@@ -27,6 +27,10 @@ export default function MaintenanceAdminPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
+    // New state for exemptions
+    const [users, setUsers] = useState<any[]>([]);
+    const [exemptedUsers, setExemptedUsers] = useState<string[]>([]);
+
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem("userData") || "{}");
         const userId = String(userData.id ?? userData.id_user ?? "");
@@ -36,25 +40,41 @@ export default function MaintenanceAdminPage() {
             return;
         }
 
-        fetch(API_BASE_URL + "/api/maintenance")
-            .then((res) => res.json())
-            .then((data) => {
-                setIsActive(data.isActive);
-
-                // Format date for input
-                let formattedTime = "";
-                if (data.endTime) {
-                    const date = new Date(data.endTime);
+        // Fetch Maintenance Data & Users in parallel
+        Promise.all([
+            fetch(API_BASE_URL + "/api/maintenance").then(res => res.json()),
+            fetch(API_BASE_URL + "/api/user").then(res => res.json())
+        ])
+            .then(([maintData, usersData]) => {
+                // 1. Set Maintenance Data
+                setIsActive(maintData.isActive);
+                if (maintData.endTime) {
+                    const date = new Date(maintData.endTime);
                     const offset = date.getTimezoneOffset() * 60000;
-                    formattedTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
+                    const formattedTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
+                    setEndTime(formattedTime);
+                } else {
+                    setEndTime("");
                 }
-                setEndTime(formattedTime);
+                setDescription(maintData.description || "");
 
-                setDescription(data.description || "");
+                // Set Exempted Users (ensure it's an array of strings)
+                if (Array.isArray(maintData.exemptedUsers)) {
+                    setExemptedUsers(maintData.exemptedUsers.map(String));
+                } else {
+                    setExemptedUsers([]);
+                }
+
+                // 2. Set Users Data
+                if (Array.isArray(usersData)) {
+                    setUsers(usersData);
+                }
+
                 setLoading(false);
             })
             .catch((err) => {
                 console.error(err);
+                toast.error("Gagal memuat data.");
                 setLoading(false);
             });
     }, []);
@@ -88,6 +108,7 @@ export default function MaintenanceAdminPage() {
                     endTime: endTime ? new Date(endTime).toISOString() : "",
                     description,
                     startTime: isActive ? startTimeToSend : "",
+                    exemptedUsers, // Send the array of IDs
                 }),
             });
 
@@ -204,6 +225,47 @@ export default function MaintenanceAdminPage() {
                                         disabled={!isActive}
                                     />
                                 </div>
+
+                                {/* Exempted Users Selection */}
+                                <div className="space-y-3">
+                                    <Label className="text-base font-semibold">User Pengecualian (Whitelist)</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Pilih user yang tetap bisa mengakses sistem saat maintenance.
+                                    </p>
+                                    <div className="border rounded-md h-60 overflow-y-auto p-2 bg-white space-y-1">
+                                        {users.map((u) => {
+                                            const uid = String(u.id_user);
+                                            const isChecked = exemptedUsers.includes(uid);
+                                            // Always exempt ID 141 (Superadmin)
+                                            const isLocked = uid === "141";
+
+                                            return (
+                                                <div key={uid} className="flex items-center space-x-2 p-2 hover:bg-slate-50 rounded">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`user-${uid}`}
+                                                        checked={isChecked || isLocked}
+                                                        disabled={isLocked}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setExemptedUsers([...exemptedUsers, uid]);
+                                                            } else {
+                                                                setExemptedUsers(exemptedUsers.filter(id => id !== uid));
+                                                            }
+                                                        }}
+                                                        className="rounded border-slate-300 text-amber-500 focus:ring-amber-500 w-4 h-4"
+                                                    />
+                                                    <Label htmlFor={`user-${uid}`} className="flex-1 cursor-pointer font-normal text-sm">
+                                                        <span className="font-medium">{u.nama_pengguna}</span>
+                                                        <span className="text-slate-400 ml-2 text-xs">({u.role || u.peran || "User"})</span>
+                                                        {isLocked && <span className="ml-2 text-xs text-amber-600 font-bold">[Superadmin]</span>}
+                                                    </Label>
+                                                </div>
+                                            );
+                                        })}
+                                        {users.length === 0 && <p className="text-center text-sm text-slate-400 py-4">Tidak ada data user.</p>}
+                                    </div>
+                                </div>
                                 <p className="text-xs text-muted-foreground">
                                     Countdown akan ditampilkan sesuai waktu ini.
                                 </p>
@@ -268,7 +330,7 @@ export default function MaintenanceAdminPage() {
                             </CardHeader>
                             <CardContent>
                                 <p className="text-xs text-blue-600 leading-relaxed">
-                                    User dengan <strong>Role ID 141 (Super Admin)</strong> dan <strong>Role ID 2</strong> akan tetap bisa mengakses dashboard saat maintenance aktif.
+                                    User dengan <strong>Role ID 141 (Super Admin)</strong> dan user yang dipilih pada daftar di sebelah kiri akan tetap bisa mengakses dashboard saat maintenance aktif.
                                 </p>
                             </CardContent>
                         </Card>
