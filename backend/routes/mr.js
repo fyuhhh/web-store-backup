@@ -32,6 +32,36 @@ router.get("/", async (req, res, next) => {
     }
 });
 
+// GET All MR Items (monitoring view)
+router.get("/items/all", async (req, res, next) => {
+    try {
+        const query = `
+            SELECT 
+                mi.*, 
+                m.no_mr, 
+                m.tanggal_mr, 
+                m.tanggal_pembelian, 
+                m.nama_supplier, 
+                d.divisi as nama_divisi
+            FROM mr_item mi
+            JOIN mr m ON mi.id_mr = m.id_mr
+            LEFT JOIN divisi d ON m.id_divisi = d.id_divisi
+            ORDER BY m.created_at DESC, mi.id_mr_item ASC
+        `;
+        const [rows] = await db.query(query);
+        const formatted = rows.map((r) => ({
+            ...r,
+            tanggal_mr: formatDate(r.tanggal_mr),
+            tanggal_pembelian: formatDate(r.tanggal_pembelian),
+        }));
+        res.json(formatted);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// GET All MRs
+
 // GET Next MR Number
 router.get("/next-number", async (req, res, next) => {
     try {

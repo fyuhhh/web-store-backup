@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE_URL } from "@/lib/config";
 import {
     Table,
@@ -50,6 +51,27 @@ interface MRItem {
     total: number;
 }
 
+// Helper functions for formatting
+const formatRupiah = (value: number | string) => {
+    if (value === "" || value === 0 || value === "0") return "";
+    const num = Number(value);
+    if (isNaN(num)) return "";
+    return "Rp. " + num.toLocaleString("id-ID");
+};
+
+const parseRupiah = (value: string) => {
+    return value.replace(/[^0-9]/g, "");
+};
+
+const formatPersen = (value: number | string) => {
+    if (value === "" || value === 0 || value === "0") return "";
+    return String(value).replace("%", "") + "%";
+};
+
+const parsePersen = (value: string) => {
+    return value.replace(/[^0-9,.]/g, "").replace(",", ".");
+};
+
 export default function InputMRPage() {
     const [loading, setLoading] = useState(false);
     const [notif, setNotif] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -76,6 +98,15 @@ export default function InputMRPage() {
     const [editSupplierValue, setEditSupplierValue] = useState("");
 
     const [tanggalPembelian, setTanggalPembelian] = useState<Date | null>(new Date());
+    const [ppnIncluded, setPpnIncluded] = useState(false);
+
+    // Satuan State
+    const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
+    const [satuanSearch, setSatuanSearch] = useState("");
+    const [showAddSatuan, setShowAddSatuan] = useState(false);
+    const [newSatuan, setNewSatuan] = useState("");
+    const [editSatuanId, setEditSatuanId] = useState<string | null>(null);
+    const [editSatuanValue, setEditSatuanValue] = useState("");
 
     // Items State
     const [items, setItems] = useState<MRItem[]>([
@@ -105,6 +136,11 @@ export default function InputMRPage() {
             .then((res) => res.json())
             .then((data) => setSupplierOptions(data))
             .catch((err) => console.error("Failed to fetch suppliers", err));
+
+        fetch(`${API_BASE_URL}/api/satuan`)
+            .then((res) => res.json())
+            .then((data) => setSatuanOptions(data))
+            .catch((err) => console.error("Failed to fetch satuan", err));
     }, []);
 
     useEffect(() => {
@@ -232,51 +268,167 @@ export default function InputMRPage() {
         } catch (err) { }
     };
 
-    // Calculations
-    const calculateItemTotal = (item: MRItem): number => {
-        const qty = Number(item.quantity) || 0;
-        const harga = Number(item.harga_satuan) || 0;
-        let subtotal = qty * harga;
-
-        // Diskon
-        let diskonVal = 0;
-        if (item.diskon_rp) {
-            diskonVal = Number(item.diskon_rp);
-        } else if (item.diskon_persen) {
-            const persen = parseFloat(item.diskon_persen.replace("%", "")) || 0;
-            diskonVal = subtotal * (persen / 100);
+    // Satuan Handlers
+    const handleAddSatuan = async () => {
+        if (!newSatuan.trim()) return;
+        try {
+            const res = await fetch(API_BASE_URL + "/api/satuan", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ satuan: newSatuan }),
+            });
+            if (res.ok) {
+                // Refresh list
+                fetch(`${API_BASE_URL}/api/satuan`)
+                    .then((res) => res.json())
+                    .then((data) => setSatuanOptions(data));
+                setShowAddSatuan(false);
+                setNewSatuan("");
+            }
+        } catch (err) {
+            console.error("Failed to add satuan", err);
         }
-        subtotal -= diskonVal;
-
-        // PPN
-        let ppnVal = 0;
-        if (item.ppn_rp) {
-            ppnVal = Number(item.ppn_rp);
-        } else if (item.ppn_persen) {
-            const persen = Number(item.ppn_persen) || 0;
-            ppnVal = subtotal * (persen / 100);
-        }
-
-        return subtotal + ppnVal;
     };
 
-    // Update item field
+    const handleEditSatuan = async (id: string) => {
+        if (!editSatuanValue.trim()) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/satuan/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ satuan: editSatuanValue }),
+            });
+            if (res.ok) {
+                fetch(`${API_BASE_URL}/api/satuan`)
+                    .then((res) => res.json())
+                    .then((data) => setSatuanOptions(data));
+                setEditSatuanId(null);
+                setEditSatuanValue("");
+            }
+        } catch (err) { }
+    };
+
+    const handleDeleteSatuan = async (id: string) => {
+        if (!id) return;
+        if (!window.confirm("Yakin ingin menghapus satuan ini?")) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/satuan/${id}`, {
+                method: "DELETE",
+            });
+            if (res.ok) {
+                setSatuanOptions((prev) => prev.filter(s => String(s.id_satuan) !== id));
+            }
+        } catch (err) { }
+    };
+
+    // Calculations
+    const calculateItemTotal = (item: MRItem, ppnInc: boolean): number => {
+        const qty = Number(item.quantity) || 0;
+        const harga = Number(item.harga_satuan) || 0;
+        const subtotal = qty * harga;
+        let diskonVal = Number(item.diskon_rp) || 0;
+
+        // Net before tax
+        const netObj = subtotal - diskonVal;
+
+        if (ppnInc) {
+            // Total is simply the net amount (tax is inside)
+            return netObj;
+            // Note: ppn_rp should be extracted dynamically if needed, 
+            // but for 'total' field in MRItem, it usually represents "Amount To Pay" for that line.
+        } else {
+            let ppnVal = Number(item.ppn_rp) || 0;
+            return netObj + ppnVal;
+        }
+    };
+
+    // Update item field with smart calculation
     const updateItem = (id: string, field: keyof MRItem, value: any) => {
         setItems((prev) =>
             prev.map((item) => {
                 if (item.id === id) {
-                    const updated = { ...item, [field]: value };
-                    // Auto-calc PPN RP if Persen changes, or Diskon RP if Persen changes?
-                    // For simplicity, we just recalculate Total.
-                    // If user edits PPN %, we could auto-fill PPN Rp, but let's keep it simple:
-                    // We'll calculate TOTAL on render/save, but let's update local total for display
-                    updated.total = calculateItemTotal(updated);
+                    let updated = { ...item, [field]: value };
+
+                    // Recalculate based on current state (or updated field)
+                    const qty = Number(updated.quantity) || 0;
+                    const harga = Number(updated.harga_satuan) || 0;
+                    const subtotal = qty * harga; // Gross
+
+                    // 1. Recalculate Diskon RP if % exists
+                    if (field === "diskon_persen" || field === "quantity" || field === "harga_satuan") {
+                        if (updated.diskon_persen) {
+                            const persen = parseFloat(updated.diskon_persen.replace("%", "")) || 0;
+                            updated.diskon_rp = (subtotal * persen) / 100;
+                        }
+                    } else if (field === "diskon_rp") {
+                        // Recalculate Diskon %
+                        const rp = Number(value) || 0;
+                        updated.diskon_persen = subtotal > 0 ? ((rp / subtotal) * 100).toFixed(2) + "%" : "0%";
+                    }
+
+                    const diskonRp = Number(updated.diskon_rp) || 0;
+                    const afterDiskon = subtotal - diskonRp;
+
+                    // 2. Recalculate PPN RP if % exists (or field is PPN related)
+                    if (field === "ppn_persen" || field === "quantity" || field === "harga_satuan" || field === "diskon_persen" || field === "diskon_rp") {
+                        if (updated.ppn_persen) {
+                            const persen = Number(updated.ppn_persen) || 0;
+                            if (ppnIncluded) {
+                                // Inclusive: PPN = Total - (Total / (1 + Rate))
+                                // Total here is 'afterDiskon'
+                                const dpp = afterDiskon / (1 + (persen / 100));
+                                updated.ppn_rp = afterDiskon - dpp;
+                            } else {
+                                // Exclusive: PPN = DPP * Rate
+                                updated.ppn_rp = afterDiskon * (persen / 100);
+                            }
+                        }
+                    } else if (field === "ppn_rp") {
+                        // Reverse calculate %
+                        const ppnVal = Number(value) || 0;
+                        if (ppnIncluded) {
+                            // Difficult to reverse perfectly without circular logic if changing RP directly in Inclusive mode,
+                            // but generally: PPN = Total - (Total/1+R). 
+                            // Let's simplified: If user manually types PPN Rp, we validly assume it's the tax amount.
+                            // DPP = Total - PPN. Rate = PPN/DPP
+                            const dpp = afterDiskon - ppnVal;
+                            updated.ppn_persen = dpp > 0 ? ((ppnVal / dpp) * 100) : 0;
+                        } else {
+                            // Exclusive
+                            const dpp = afterDiskon;
+                            updated.ppn_persen = dpp > 0 ? ((ppnVal / dpp) * 100) : 0;
+                        }
+                    }
+
+                    updated.total = calculateItemTotal(updated, ppnIncluded);
                     return updated;
                 }
                 return item;
             })
         );
     };
+
+    // Effect to recalculate all items when ppnIncluded changes
+    useEffect(() => {
+        setItems(prev => prev.map(item => {
+            let updated = { ...item };
+            const qty = Number(updated.quantity) || 0;
+            const harga = Number(updated.harga_satuan) || 0;
+            const subtotal = qty * harga;
+            const diskonRp = Number(updated.diskon_rp) || 0;
+            const afterDiskon = subtotal - diskonRp;
+            const ppnPersen = Number(updated.ppn_persen) || 0;
+
+            if (ppnIncluded) {
+                const dpp = afterDiskon / (1 + (ppnPersen / 100));
+                updated.ppn_rp = afterDiskon - dpp;
+            } else {
+                updated.ppn_rp = afterDiskon * (ppnPersen / 100);
+            }
+            updated.total = calculateItemTotal(updated, ppnIncluded);
+            return updated;
+        }));
+    }, [ppnIncluded]);
 
     const addItem = () => {
         setItems((prev) => [
@@ -635,12 +787,12 @@ export default function InputMRPage() {
                                         <TableHead className="w-[80px]">Qty</TableHead>
                                         <TableHead className="w-[80px]">Satuan</TableHead>
                                         <TableHead className="min-w-[120px]">Keterangan</TableHead>
-                                        <TableHead className="min-w-[120px]">Harga (Rp)</TableHead>
-                                        <TableHead className="w-[80px]">Disc %</TableHead>
-                                        <TableHead className="w-[100px]">Disc Rp</TableHead>
-                                        <TableHead className="w-[80px]">PPN %</TableHead>
-                                        <TableHead className="w-[100px]">PPN Rp</TableHead>
-                                        <TableHead className="min-w-[120px]">Total</TableHead>
+                                        <TableHead className="min-w-[140px]">Harga (Rp.)</TableHead>
+                                        <TableHead className="w-[90px]">Diskon (%)</TableHead>
+                                        <TableHead className="min-w-[120px]">Diskon (Rp.)</TableHead>
+                                        <TableHead className="w-[90px]">PPN (%)</TableHead>
+                                        <TableHead className="min-w-[120px]">PPN (Rp.)</TableHead>
+                                        <TableHead className="min-w-[150px]">Total</TableHead>
                                         <TableHead className="w-[50px]"></TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -663,10 +815,100 @@ export default function InputMRPage() {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Input
+                                                <Select
                                                     value={item.satuan}
-                                                    onChange={(e) => updateItem(item.id, "satuan", e.target.value)}
-                                                />
+                                                    onValueChange={(value) => updateItem(item.id, "satuan", value)}
+                                                >
+                                                    <SelectTrigger className="w-full bg-white h-9">
+                                                        <SelectValue placeholder="" />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-white max-h-[300px] overflow-y-auto">
+                                                        <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100">
+                                                            {showAddSatuan ? (
+                                                                <div className="flex items-center gap-2">
+                                                                    <Input
+                                                                        placeholder="Satuan baru..."
+                                                                        value={newSatuan}
+                                                                        onChange={(e) => setNewSatuan(e.target.value)}
+                                                                        className="h-8"
+                                                                        autoFocus
+                                                                    />
+                                                                    <Button size="sm" onClick={handleAddSatuan} className="h-8 px-2">OK</Button>
+                                                                    <Button size="sm" variant="ghost" onClick={() => setShowAddSatuan(false)} className="h-8 px-2">X</Button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="space-y-2">
+                                                                    <Input
+                                                                        placeholder="Cari..."
+                                                                        value={satuanSearch}
+                                                                        onChange={(e) => setSatuanSearch(e.target.value)}
+                                                                        className="h-8 mb-1"
+                                                                    />
+                                                                    <Button size="sm" variant="outline" className="w-full h-7 text-xs" onClick={() => setShowAddSatuan(true)}>
+                                                                        + Tambah
+                                                                    </Button>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {!showAddSatuan && (
+                                                            <>
+                                                                {satuanOptions.length === 0 ? (
+                                                                    <div className="p-2 text-xs text-muted-foreground text-center">No data</div>
+                                                                ) : (
+                                                                    satuanOptions.filter((s) => s.satuan.toLowerCase().includes(satuanSearch.toLowerCase())).map((s) => (
+                                                                        <div key={s.id_satuan} className="flex items-center justify-between group px-1 py-0.5 hover:bg-slate-50">
+                                                                            {editSatuanId === String(s.id_satuan) ? (
+                                                                                <div className="flex items-center gap-1 w-full p-1">
+                                                                                    <Input
+                                                                                        value={editSatuanValue}
+                                                                                        onChange={(e) => setEditSatuanValue(e.target.value)}
+                                                                                        className="h-7 text-xs"
+                                                                                    />
+                                                                                    <Button size="sm" onClick={() => handleEditSatuan(String(s.id_satuan))} className="h-7 px-2">OK</Button>
+                                                                                    <Button size="sm" variant="ghost" onClick={() => setEditSatuanId(null)} className="h-7 px-2">X</Button>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <SelectItem value={s.satuan} className="flex-1 cursor-pointer py-1.5 text-sm">
+                                                                                        {s.satuan}
+                                                                                    </SelectItem>
+                                                                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                        <Button
+                                                                                            size="icon"
+                                                                                            variant="ghost"
+                                                                                            className="h-6 w-6 text-blue-500"
+                                                                                            onClick={(e) => {
+                                                                                                e.preventDefault();
+                                                                                                e.stopPropagation();
+                                                                                                setEditSatuanId(String(s.id_satuan));
+                                                                                                setEditSatuanValue(s.satuan);
+                                                                                            }}
+                                                                                        >
+                                                                                            <Edit2 className="h-3 w-3" />
+                                                                                        </Button>
+                                                                                        <Button
+                                                                                            size="icon"
+                                                                                            variant="ghost"
+                                                                                            className="h-6 w-6 text-red-500"
+                                                                                            onClick={(e) => {
+                                                                                                e.preventDefault();
+                                                                                                e.stopPropagation();
+                                                                                                handleDeleteSatuan(String(s.id_satuan));
+                                                                                            }}
+                                                                                        >
+                                                                                            <Trash2 className="h-3 w-3" />
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
                                             </TableCell>
                                             <TableCell>
                                                 <Input
@@ -676,42 +918,38 @@ export default function InputMRPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <Input
-                                                    type="number"
-                                                    value={item.harga_satuan}
-                                                    onChange={(e) => updateItem(item.id, "harga_satuan", e.target.value)}
+                                                    value={formatRupiah(item.harga_satuan)}
+                                                    onChange={(e) => updateItem(item.id, "harga_satuan", parseRupiah(e.target.value))}
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 <Input
-                                                    value={item.diskon_persen}
-                                                    onChange={(e) => updateItem(item.id, "diskon_persen", e.target.value)}
+                                                    value={formatPersen(item.diskon_persen)}
+                                                    onChange={(e) => updateItem(item.id, "diskon_persen", parsePersen(e.target.value))}
                                                     placeholder="0%"
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 <Input
-                                                    type="number"
-                                                    value={item.diskon_rp}
-                                                    onChange={(e) => updateItem(item.id, "diskon_rp", e.target.value)}
+                                                    value={formatRupiah(item.diskon_rp)}
+                                                    onChange={(e) => updateItem(item.id, "diskon_rp", parseRupiah(e.target.value))}
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 <Input
-                                                    type="number"
-                                                    value={item.ppn_persen}
-                                                    onChange={(e) => updateItem(item.id, "ppn_persen", e.target.value)}
+                                                    value={formatPersen(item.ppn_persen)}
+                                                    onChange={(e) => updateItem(item.id, "ppn_persen", parsePersen(e.target.value))}
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 <Input
-                                                    type="number"
-                                                    value={item.ppn_rp}
-                                                    onChange={(e) => updateItem(item.id, "ppn_rp", e.target.value)}
+                                                    value={formatRupiah(item.ppn_rp)}
+                                                    onChange={(e) => updateItem(item.id, "ppn_rp", parseRupiah(e.target.value))}
                                                 />
                                             </TableCell>
                                             <TableCell>
                                                 <div className="font-semibold">
-                                                    {item.total.toLocaleString('id-ID')}
+                                                    {item.total ? "Rp. " + item.total.toLocaleString('id-ID') : "Rp. 0"}
                                                 </div>
                                             </TableCell>
                                             <TableCell>
@@ -727,6 +965,94 @@ export default function InputMRPage() {
                     </CardContent>
                 </Card>
 
+
+
+                {/* PPN Checkbox */}
+                <div className="flex items-center gap-2 mt-4">
+                    <Checkbox
+                        id="ppn-included"
+                        checked={ppnIncluded}
+                        onCheckedChange={(checked) => setPpnIncluded(!!checked)}
+                    />
+                    <Label htmlFor="ppn-included" className="cursor-pointer">
+                        Harga sudah termasuk PPN
+                    </Label>
+                </div>
+
+                {/* Calculation Summary */}
+                <div className="mt-4">
+                    <h3 className="text-lg font-semibold mb-3">RINGKASAN PERHITUNGAN</h3>
+                    <div className="border rounded-lg p-4 space-y-3 bg-white">
+                        {(() => {
+                            const summary = items.reduce(
+                                (acc, item) => {
+                                    const qty = Number(item.quantity) || 0;
+                                    const harga = Number(item.harga_satuan) || 0;
+                                    const gross = qty * harga;
+                                    const diskon = Number(item.diskon_rp) || 0;
+                                    const ppn = Number(item.ppn_rp) || 0;
+                                    const net = gross - diskon;
+
+                                    let dpp = 0;
+                                    if (ppnIncluded) {
+                                        // If included, total = net
+                                        // PPN = net - (net / (1+rate))
+                                        // DPP = net - PPN
+                                        // Since we already calculated item.ppn_rp in state, we can use it? 
+                                        // Yes, for consistency.
+                                        dpp = net - ppn;
+                                    } else {
+                                        dpp = net;
+                                    }
+
+                                    return {
+                                        subtotal: acc.subtotal + dpp, // Accumulate DPP
+                                        diskon: acc.diskon + diskon,
+                                        ppn: acc.ppn + ppn,
+                                        total: acc.total + (item.total || 0),
+                                    };
+                                },
+                                { subtotal: 0, diskon: 0, ppn: 0, total: 0 }
+                            );
+
+                            return (
+                                <>
+                                    <div className="flex justify-between">
+                                        <span>Subtotal:</span>
+                                        <span>
+                                            Rp {summary.subtotal.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between font-medium">
+                                        <span>Total Diskon:</span>
+                                        <span className="text-red-500">
+                                            -Rp {summary.diskon.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span>Total PPN:</span>
+                                        <span className="text-green-600">
+                                            {ppnIncluded ? "" : "+"}Rp {summary.ppn.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                                        </span>
+                                    </div>
+                                    <hr className="my-2" />
+                                    <div className="flex justify-between text-lg font-bold">
+                                        <span>Total Pembayaran:</span>
+                                        <span className="text-primary">
+                                            Rp {summary.total.toLocaleString("id-ID", { maximumFractionDigits: 0 })}
+                                        </span>
+                                    </div>
+                                    {ppnIncluded && (
+                                        <div className="text-xs text-muted-foreground mt-2">
+                                            <b>Catatan:</b> Total pembayaran sudah termasuk PPN.
+                                        </div>
+                                    )}
+                                </>
+                            );
+                        })()}
+                    </div>
+                </div>
+
                 {/* Footer Actions */}
                 <div className="flex justify-end">
                     <Button size="lg" onClick={handleSave} disabled={loading} className="bg-primary hover:bg-primary/90">
@@ -736,6 +1062,6 @@ export default function InputMRPage() {
                 </div>
 
             </div>
-        </MainLayout>
+        </MainLayout >
     );
 }

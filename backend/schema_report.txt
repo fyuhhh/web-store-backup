@@ -1,0 +1,22 @@
+Verifying MR schema...
+[OK] mr.id_mr
+[OK] mr.no_mr
+[OK] mr.tanggal_mr
+[OK] mr.id_divisi
+[OK] mr.nama_supplier
+[OK] mr.tanggal_pembelian
+[OK] mr.created_at
+
+Verifying MR_ITEM schema...
+[OK] mr_item.id_mr_item
+[OK] mr_item.id_mr
+[OK] mr_item.nama_barang
+[OK] mr_item.quantity
+[OK] mr_item.satuan
+[OK] mr_item.keterangan
+[OK] mr_item.harga_satuan
+[OK] mr_item.diskon_persen
+[OK] mr_item.diskon_rp
+[OK] mr_item.ppn_persen
+[OK] mr_item.ppn_rp
+[OK] mr_item.total
