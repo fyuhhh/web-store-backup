@@ -22,6 +22,7 @@ import {
   PieChart,
   Pie,
   Cell,
+  Legend,
 } from "recharts";
 import {
   FileText,
@@ -32,9 +33,13 @@ import {
   TrendingDown,
   Clock,
   CheckCircle,
+  Sparkles,
+  Activity,
+  PieChart as PieChartIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion, Variants } from "framer-motion";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import "dayjs/locale/id";
@@ -305,7 +310,7 @@ export default function DashboardPage() {
       timer = setTimeout(() => {
         localStorage.removeItem("userData");
         window.location.href = "/login";
-      }, 600000); // 5 detik idle
+      }, 600000); // 10 menit idle (600000ms)
     };
 
     const events = ["mousemove", "keydown", "mousedown", "touchstart"];
@@ -318,788 +323,405 @@ export default function DashboardPage() {
     };
   }, []);
 
-  // PieChart data for Distribusi Status (pakai PR, bukan PO)
+  const router = useRouter();
+
+  // 1. Definisikan Animasi Stagger & Fade-Up untuk Framer Motion
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.15,
+      },
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 30 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        type: "spring",
+        stiffness: 80,
+        damping: 15,
+        duration: 0.6,
+      },
+    },
+  };
+
+  // 2. Data warna palet modern untuk Donut Chart
   const pieStatusData = [
     {
       name: "Waiting Part",
       value: prStatusDist.waitingPart,
-      color: "hsl(var(--success))", // Green
+      color: "url(#colorPieProses)",
     },
     {
       name: "Partial PO",
       value: prStatusDist.partialPO,
-      color: "hsl(30, 90%, 55%)", // Orange (approx) or use a variable if available
+      color: "url(#colorPieParsial)",
     },
     {
       name: "Waiting PO",
       value: prStatusDist.waitingPO,
-      color: "hsl(210, 90%, 55%)", // Blue (approx)
+      color: "url(#colorPieMenunggu)",
     },
   ];
 
-  // State for fade-in animation
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
-    // Mulai dari opacity 0, lalu set ke 1 agar animasi fade-in
-    setTimeout(() => setIsMounted(true), 10);
-  }, []);
-
-  // Tambahkan state untuk animasi count up
-  const [displayPR, setDisplayPR] = useState(0);
-  const [displayPO, setDisplayPO] = useState(0);
-  const [displayBTB, setDisplayBTB] = useState(0);
-  const [displayBKB, setDisplayBKB] = useState(0);
-
-  // Animasi count up untuk Total PR
-  useEffect(() => {
-    let raf: number;
-    let start: number | null = null;
-    let from = 0;
-    let to = totalPRItem;
-    let duration = 900;
-
-    function animateCountUp(ts: number) {
-      if (start === null) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
-      setDisplayPR(value);
-      if (progress < 1) {
-        raf = requestAnimationFrame(animateCountUp);
-      } else {
-        setDisplayPR(to);
-      }
-    }
-    function easeOutExpo(x: number) {
-      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
-    }
-    start = null;
-    from = 0;
-    to = totalPRItem;
-    setDisplayPR(0);
-    raf = requestAnimationFrame(animateCountUp);
-    return () => cancelAnimationFrame(raf);
-  }, [totalPRItem]);
-
-  // Animasi count up untuk Total PO
-  useEffect(() => {
-    let raf: number;
-    let start: number | null = null;
-    let from = 0;
-    let to = totalPOItem;
-    let duration = 900;
-
-    function animateCountUp(ts: number) {
-      if (start === null) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
-      setDisplayPO(value);
-      if (progress < 1) {
-        raf = requestAnimationFrame(animateCountUp);
-      } else {
-        setDisplayPO(to);
-      }
-    }
-    function easeOutExpo(x: number) {
-      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
-    }
-    start = null;
-    from = 0;
-    to = totalPOItem;
-    setDisplayPO(0);
-    raf = requestAnimationFrame(animateCountUp);
-    return () => cancelAnimationFrame(raf);
-  }, [totalPOItem]);
-
-  // Animasi count up untuk Total BTB
-  useEffect(() => {
-    let raf: number;
-    let start: number | null = null;
-    let from = 0;
-    let to = totalBTBItem;
-    let duration = 900;
-
-    function animateCountUp(ts: number) {
-      if (start === null) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
-      setDisplayBTB(value);
-      if (progress < 1) {
-        raf = requestAnimationFrame(animateCountUp);
-      } else {
-        setDisplayBTB(to);
-      }
-    }
-    function easeOutExpo(x: number) {
-      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
-    }
-    start = null;
-    from = 0;
-    to = totalBTBItem;
-    setDisplayBTB(0);
-    raf = requestAnimationFrame(animateCountUp);
-    return () => cancelAnimationFrame(raf);
-  }, [totalBTBItem]);
-
-  // Animasi count up untuk Total BKB
-  useEffect(() => {
-    let raf: number;
-    let start: number | null = null;
-    let from = 0;
-    let to = totalBKBItem;
-    let duration = 900;
-
-    function animateCountUp(ts: number) {
-      if (start === null) start = ts;
-      const progress = Math.min((ts - start) / duration, 1);
-      const value = Math.floor(from + (to - from) * easeOutExpo(progress));
-      setDisplayBKB(value);
-      if (progress < 1) {
-        raf = requestAnimationFrame(animateCountUp);
-      } else {
-        setDisplayBKB(to);
-      }
-    }
-    function easeOutExpo(x: number) {
-      return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
-    }
-    start = null;
-    from = 0;
-    to = totalBKBItem;
-    setDisplayBKB(0);
-    raf = requestAnimationFrame(animateCountUp);
-    return () => cancelAnimationFrame(raf);
-  }, [totalBKBItem]);
-
-  const router = useRouter();
-
-  // State untuk user (tambahan)
-
-
   return (
     <MainLayout>
-      <div
-        className={`transition-all duration-700 ${isMounted ? "opacity-100 scale-100" : "opacity-0 scale-95"
-          }`}
-      >
-        {/* Jam digital besar dan tanggal */}
-        <div className="flex flex-col items-center justify-center py-2">
-          <div
-            style={{
-              fontSize: "3.5rem",
-              fontWeight: "bold",
-              letterSpacing: "0.08em",
-              fontFamily: "monospace",
-              color: "#3396D3",
-              textShadow: "0 2px 12px #3396d355",
-              background: "rgba(255,255,255,0.7)",
-              borderRadius: "1.5rem",
-              padding: "0.5rem 2rem",
-              marginBottom: "0.5rem",
-              boxShadow: "0 2px 16px #3396d322",
-              userSelect: "none",
-            }}
-          >
-            {formatTime(now)}
-          </div>
-          <div className="text-xl font-semibold mt-2 text-muted-foreground">
-            {formatDate(now)}
-          </div>
-        </div>
+      <div className="min-h-full bg-slate-50/50 pb-10">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="show"
+          className="flex flex-col gap-6 max-w-7xl mx-auto px-4 sm:px-6 pt-4"
+        >
+          {/* 1. HERO BANNER (Jam Digital & Sapaan) */}
+          <motion.div variants={itemVariants} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 text-white shadow-xl isolate">
+            {/* Dekorasi Latar Belakang */}
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-[400px] h-[400px] bg-white opacity-5 blur-3xl rounded-full pointer-events-none"></div>
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-[300px] h-[300px] bg-blue-400 opacity-20 blur-3xl rounded-full pointer-events-none"></div>
 
-        {/* KPI Cards */}
-        {user && user.id_peran === 4 ? (
-          // Hanya tampilkan PR, BTB, BKB untuk id_peran 4 (Stock/Store)
-          <div className="flex justify-center">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6 w-full max-w-6xl">
-              {/* Total PR */}
-              <div
-                className="kpi-card-anim"
-                tabIndex={0}
-                role="button"
+            <div className="relative z-10 px-8 py-10 md:py-12 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              {/* Pesan Sapaan (Kiri) */}
+              <div className="max-w-2xl">
+                <Badge variant="outline" className="bg-white/10 text-blue-100 hover:bg-white/20 border-white/20 mb-4 backdrop-blur-md">
+                  <Sparkles className="w-3.5 h-3.5 mr-1 text-blue-300" />
+                  Sistem Monitoring Terpusat
+                </Badge>
+                <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight mb-3 leading-snug">
+                  Selamat datang, {user?.nama_pengguna || "Pengguna"}
+                </h1>
+                <p className="text-blue-100/90 text-sm md:text-base leading-relaxed max-w-2xl mb-0 font-medium tracking-wide">
+                  Kontrol seluruh aktivitas pesanan, penerimaan, dan pengeluaran barang secara langsung dalam satu dasbor.
+                </p>
+              </div>
+
+              {/* Jam Digital (Kanan) */}
+              <div className="flex flex-col items-end shrink-0 mt-4 md:mt-0 text-right">
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl py-4 px-6 border border-white/20 flex flex-col items-center justify-center text-center shadow-lg">
+                  <div className="text-4xl md:text-5xl font-extrabold tracking-wider tabular-nums text-white drop-shadow-md leading-none mb-2">
+                    {formatTime(now)}
+                  </div>
+                  <div className="text-xs font-bold text-blue-100/90 uppercase tracking-[0.15em]">
+                    {formatDate(now)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+          {/* 2 & 3. MODERNISASI 4 SUMMARY CARDS & GABUNGAN STATUS OVERVIEW DI BAWAHNYA */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0 mt-2">
+            
+            {/* Kartu 1: Total PR (+ Status PR gabungan) */}
+            <motion.div variants={itemVariants}>
+              <Card 
+                className="group relative overflow-hidden border-0 bg-white shadow-lg shadow-slate-200/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col h-full rounded-2xl"
                 onClick={() => router.push("/pr/monitoring")}
-                style={{ outline: "none" }}
               >
-                <Card className="bg-card border-border">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Total PR
-                    </CardTitle>
-                    <FileText className="h-4 w-4 text-primary" />
-                  </CardHeader>
-                  <CardContent>
+                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+                  <FileText className="h-32 w-32 text-indigo-600" />
+                </div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 z-10 space-y-0">
+                  <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                    Total PR Aktif
+                  </CardTitle>
+                  <div className="h-10 w-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-500 group-hover:text-white group-hover:shadow-[0_0_15px_rgba(79,70,229,0.5)] transition-all duration-300">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                </CardHeader>
+                <CardContent className="z-10 pb-4 flex-1 flex flex-col justify-between">
+                  <div>
                     {isLoading ? (
-                      <Skeleton className="h-9 w-24 my-1" />
+                      <Skeleton className="h-10 w-24 my-1" />
                     ) : (
-                      <div
-                        className="text-2xl font-bold text-foreground"
-                        style={{
-                          fontVariantNumeric: "tabular-nums",
-                          transition: "color 0.3s",
-                          minHeight: "2.5rem",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "flex-start",
-                        }}
-                      >
-                        <span
-                          key={displayPR}
-                          className="pr-1 animate-countup"
-                          style={{
-                            display: "inline-block",
-                            minWidth: "2ch",
-                          }}
-                        >
-                          {displayPR}
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
+                          {totalPRItem}
                         </span>
+                        <div className="flex items-center text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                          <TrendingUp className="w-3 h-3 mr-1" /> Trending
+                        </div>
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground"></p>
-                  </CardContent>
-                </Card>
-              </div>
-              {/* Total BTB */}
-              <div
-                className="kpi-card-anim"
-                tabIndex={0}
-                role="button"
-                onClick={() => router.push("/btb/monitoring")}
-                style={{ outline: "none" }}
-              >
-                <Card className="bg-card border-border">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Total BTB
-                    </CardTitle>
-                    <Package className="h-4 w-4 text-primary" />
-                  </CardHeader>
-                  <CardContent>
-                    <div
-                      className="text-2xl font-bold text-foreground"
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        transition: "color 0.3s",
-                        minHeight: "2.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                      }}
-                    >
-                      <span
-                        key={displayBTB}
-                        className="pr-1 animate-countup"
-                        style={{
-                          display: "inline-block",
-                          minWidth: "2ch",
-                        }}
-                      >
-                        {displayBTB}
+                  </div>
+                  
+                  {/* Status Overview Dipindah ke Sini (Bawah PR Angka) */}
+                  <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Menunggu</span>
+                      <span className="text-sm font-bold tracking-tight text-blue-600 flex items-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></div>
+                        {prStatusCount.waitingPO}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground"></p>
-                  </CardContent>
-                </Card>
-              </div>
-              {/* Total BKB */}
-              <div
-                className="kpi-card-anim"
-                tabIndex={0}
-                role="button"
-                onClick={() => router.push("/bkb/monitoring")}
-                style={{ outline: "none" }}
-              >
-                <Card className="bg-card border-border">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Total BKB
-                    </CardTitle>
-                    <PackageOpen className="h-4 w-4 text-primary" />
-                  </CardHeader>
-                  <CardContent>
-                    {isLoading ? (
-                      <Skeleton className="h-9 w-24 my-1" />
-                    ) : (
-                      <div
-                        className="text-2xl font-bold text-foreground"
-                        style={{
-                          fontVariantNumeric: "tabular-nums",
-                          transition: "color 0.3s",
-                          minHeight: "2.5rem",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "flex-start",
-                        }}
-                      >
-                        <span
-                          key={displayBKB}
-                          className="pr-1 animate-countup"
-                          style={{
-                            display: "inline-block",
-                            minWidth: "2ch",
-                          }}
-                        >
-                          {displayBKB}
-                        </span>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground"></p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </div>
-        ) : user && user.id_peran === 3 ? (
-          // Hanya tampilkan PO untuk id_peran 3 (Purchasing)
-          <div className="flex justify-center">
-            <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6 w-full max-w-md">
-              {/* Total PO */}
-              <div
-                className="kpi-card-anim"
-                tabIndex={0}
-                role="button"
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Parsial</span>
+                      <span className="text-sm font-bold tracking-tight text-amber-500 flex items-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mr-1.5"></div>
+                        {prStatusCount.partialPO}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Proses</span>
+                      <span className="text-sm font-bold tracking-tight text-emerald-500 flex items-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5"></div>
+                        {prStatusCount.waitingPart}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Kartu 2: Total PO */}
+            <motion.div variants={itemVariants}>
+              <Card 
+                className="group relative overflow-hidden border-0 bg-white shadow-lg shadow-slate-200/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col h-full rounded-2xl"
                 onClick={() => router.push("/po/monitoring")}
-                style={{ outline: "none" }}
               >
-                <Card className="bg-card border-border">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Total PO
+                <div className="absolute -right-4 -bottom-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:-rotate-12 duration-500">
+                  <ShoppingCart className="h-32 w-32 text-cyan-600" />
+                </div>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 z-10 space-y-0">
+                  <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                    Total PO Diterbitkan
+                  </CardTitle>
+                  <div className="h-10 w-10 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center group-hover:bg-cyan-500 group-hover:text-white group-hover:shadow-[0_0_15px_rgba(6,182,212,0.5)] transition-all duration-300">
+                    <ShoppingCart className="h-5 w-5" />
+                  </div>
+                </CardHeader>
+                <CardContent className="z-10 pb-4 flex-1">
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-24 my-1" />
+                  ) : (
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
+                        {totalPOItem}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-xs text-slate-400 mt-2 font-medium">Berdasarkan data {user?.skema === "PENTACITY" ? "Pentacity" : "Ewalk"}</p>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Kartu 3: Total BTB (Bisa disembunyikan pakai ternary if seperti sebelumnya) */}
+            {(!user || user.id_peran !== 3) && (
+              <motion.div variants={itemVariants}>
+                <Card 
+                  className="group relative overflow-hidden border-0 bg-white shadow-lg shadow-slate-200/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col h-full rounded-2xl"
+                  onClick={() => router.push("/btb/monitoring")}
+                >
+                  <div className="absolute -right-4 -bottom-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:-rotate-12 duration-500">
+                    <Package className="h-32 w-32 text-orange-600" />
+                  </div>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 z-10 space-y-0">
+                    <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                      Total BTB Masuk
                     </CardTitle>
-                    <ShoppingCart className="h-4 w-4 text-primary" />
+                    <div className="h-10 w-10 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white group-hover:shadow-[0_0_15px_rgba(249,115,22,0.5)] transition-all duration-300">
+                      <Package className="h-5 w-5" />
+                    </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="z-10 pb-4 flex-1">
                     {isLoading ? (
-                      <Skeleton className="h-9 w-24 my-1" />
+                      <Skeleton className="h-10 w-24 my-1" />
                     ) : (
-                      <div
-                        className="text-2xl font-bold text-foreground"
-                        style={{
-                          fontVariantNumeric: "tabular-nums",
-                          transition: "color 0.3s",
-                          minHeight: "2.5rem",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "flex-start",
-                        }}
-                      >
-                        <span
-                          key={displayPO}
-                          className="pr-1 animate-countup"
-                          style={{
-                            display: "inline-block",
-                            minWidth: "2ch",
-                          }}
-                        >
-                          {displayPO}
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
+                          {totalBTBItem}
                         </span>
                       </div>
                     )}
-                    <p className="text-xs text-muted-foreground"></p>
+                    <p className="text-xs text-slate-400 mt-2 font-medium">Laporan Tanda Terima Barang</p>
                   </CardContent>
                 </Card>
-              </div>
-            </div>
-          </div>
-        ) : (
-          // Untuk user lain: 4 card seperti biasa
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Total PR */}
-            <div
-              className="kpi-card-anim"
-              tabIndex={0}
-              role="button"
-              onClick={() => router.push("/pr/monitoring")}
-              style={{ outline: "none" }}
-            >
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total PR
-                  </CardTitle>
-                  <FileText className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <Skeleton className="h-9 w-24 my-1" />
-                  ) : (
-                    <div
-                      className="text-2xl font-bold text-foreground"
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        transition: "color 0.3s",
-                        minHeight: "2.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                      }}
-                    >
-                      <span
-                        key={displayPR}
-                        className="pr-1 animate-countup"
-                        style={{
-                          display: "inline-block",
-                          minWidth: "2ch",
-                        }}
-                      >
-                        {displayPR}
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground"></p>
-                </CardContent>
-              </Card>
-            </div>
-            {/* Total PO */}
-            <div
-              className="kpi-card-anim"
-              tabIndex={0}
-              role="button"
-              onClick={() => router.push("/po/monitoring")}
-              style={{ outline: "none" }}
-            >
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total PO
-                  </CardTitle>
-                  <ShoppingCart className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  {isLoading ? (
-                    <Skeleton className="h-9 w-24 my-1" />
-                  ) : (
-                    <div
-                      className="text-2xl font-bold text-foreground"
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        transition: "color 0.3s",
-                        minHeight: "2.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                      }}
-                    >
-                      <span
-                        key={displayPO}
-                        className="pr-1 animate-countup"
-                        style={{
-                          display: "inline-block",
-                          minWidth: "2ch",
-                        }}
-                      >
-                        {displayPO}
-                      </span>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground"></p>
-                </CardContent>
-              </Card>
-            </div>
-            {/* Total BTB (hanya tampil jika bukan user divisi) */}
-            {!user || user.id_peran !== 3 ? (
-              <div
-                className="kpi-card-anim"
-                tabIndex={0}
-                role="button"
-                onClick={() => router.push("/btb/monitoring")}
-                style={{ outline: "none" }}
-              >
-                <Card className="bg-card border-border">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Total BTB
-                    </CardTitle>
-                    <Package className="h-4 w-4 text-primary" />
-                  </CardHeader>
-                  <CardContent>
-                    <div
-                      className="text-2xl font-bold text-foreground"
-                      style={{
-                        fontVariantNumeric: "tabular-nums",
-                        transition: "color 0.3s",
-                        minHeight: "2.5rem",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                      }}
-                    >
-                      <span
-                        key={displayBTB}
-                        className="pr-1 animate-countup"
-                        style={{
-                          display: "inline-block",
-                          minWidth: "2ch",
-                        }}
-                      >
-                        {displayBTB}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground"></p>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : null}
-            {/* Total BKB */}
-            <div
-              className="kpi-card-anim"
-              tabIndex={0}
-              role="button"
-              onClick={() => router.push("/bkb/monitoring")}
-              style={{ outline: "none" }}
-            >
-              <Card className="bg-card border-border">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
-                    Total BKB
-                  </CardTitle>
-                  <PackageOpen className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div
-                    className="text-2xl font-bold text-foreground"
-                    style={{
-                      fontVariantNumeric: "tabular-nums",
-                      transition: "color 0.3s",
-                      minHeight: "2.5rem",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "flex-start",
-                    }}
-                  >
-                    <span
-                      key={displayBKB}
-                      className="pr-1 animate-countup"
-                      style={{
-                        display: "inline-block",
-                        minWidth: "2ch",
-                      }}
-                    >
-                      {displayBKB}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground"></p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            )}
 
-        {/* Status Overview di tengah */}
-        <div className="flex justify-center">
-          <Card className="bg-card border-border min-w-[320px] max-w-md w-full">
-            <CardHeader>
-              <CardTitle>Status Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-row gap-4 justify-between items-center px-2">
-                <div className="flex flex-col items-center">
-                  <CheckCircle className="h-5 w-5 text-success mb-1" />
-                  <span className="text-[10px] text-center whitespace-nowrap">Waiting Part</span>
-                  <span className="text-base font-bold text-success">
-                    {prStatusCount.waitingPart}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <Clock className="h-5 w-5 text-orange-500 mb-1" />
-                  <span className="text-[10px] text-center whitespace-nowrap">Partial PO</span>
-                  <span className="text-base font-bold text-orange-500">
-                    {prStatusCount.partialPO}
-                  </span>
-                </div>
-                <div className="flex flex-col items-center">
-                  <TrendingDown className="h-5 w-5 text-blue-500 mb-1" />
-                  <span className="text-[10px] text-center whitespace-nowrap">Waiting PO</span>
-                  <span className="text-base font-bold text-blue-500">
-                    {prStatusCount.waitingPO}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <style jsx>{`
-          .kpi-card-anim {
-            transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            border-radius: 1rem;
-          }
-          .kpi-card-anim:hover,
-          .kpi-card-anim:focus {
-            transform: scale(1.045) translateY(-2px);
-            box-shadow: 0 4px 24px #3396d322;
-            z-index: 2;
-          }
-          .animate-countup {
-            animation: countup-fadeup 0.5s cubic-bezier(0.4, 2, 0.6, 1);
-            box-shadow: 0 6px 18px -6px #3396d355;
-            border-radius: 0.4em;
-            background: rgba(255, 255, 255, 0.7);
-            padding: 0.1em 0.5em;
-          }
-          @keyframes countup-fadeup {
-            0% {
-              opacity: 0;
-              transform: translateY(16px) scale(1.08);
-              box-shadow: 0 12px 32px -8px #3396d355;
-            }
-            60% {
-              opacity: 1;
-              transform: translateY(-4px) scale(1.02);
-              box-shadow: 0 8px 24px -8px #3396d355;
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-              box-shadow: 0 6px 18px -6px #3396d355;
-            }
-          }
-        `}</style>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>Trend Bulanan</CardTitle>
-              <CardDescription>
-                Aktivitas Perbulan
-                {/* Year selector */}
-                {/* Date Range Selectors */}
-                <div className="flex flex-col xl:flex-row gap-2 mt-2 xl:mt-0 items-start xl:items-center">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                      Dari
-                    </span>
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="px-2 py-1 h-8 border border-slate-200 bg-white rounded-md text-xs w-[130px] shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                      Sampai
-                    </span>
-                    <input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="px-2 py-1 h-8 border border-slate-200 bg-white rounded-md text-xs w-[130px] shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={trendData["current"] || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar
-                    dataKey="waitingPart"
-                    fill="hsl(var(--success))"
-                    name="Waiting Part"
-                  />
-                  <Bar
-                    dataKey="partialPO"
-                    fill="hsl(30, 90%, 55%)"
-                    name="Partial PO"
-                  />
-                  <Bar
-                    dataKey="waitingPO"
-                    fill="hsl(210, 90%, 55%)"
-                    name="Waiting PO"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-card border-border">
-            <CardHeader>
-              <CardTitle>Distribusi Status</CardTitle>
-              <CardDescription>
-                Status PR: Waiting Part, Partial PO, Waiting PO
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={pieStatusData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }: any) =>
-                      `${name} ${(percent * 100).toFixed(0)}%`
-                    }
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {pieStatusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Supplier Performance */}
-        {/* HAPUS Evaluasi Supplier */}
-        {/* <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle>Evaluasi Supplier</CardTitle>
-            <CardDescription>
-              Performance supplier berdasarkan rating dan ketepatan waktu
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {supplierData.map((supplier, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 border border-border rounded-lg"
+            {/* Kartu 4: Total BKB */}
+            <motion.div variants={itemVariants}>
+                <Card 
+                  className="group relative overflow-hidden border-0 bg-white shadow-lg shadow-slate-200/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer flex flex-col h-full rounded-2xl"
+                  onClick={() => router.push("/bkb/monitoring")}
                 >
-                  <div className="flex-1">
-                    <h4 className="font-medium text-foreground">
-                      {supplier.name}
-                    </h4>
-                    <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
-                      <span>Rating: {supplier.rating}/5</span>
-                      <span>Orders: {supplier.orders}</span>
-                      <span>On-time: {supplier.onTime}%</span>
+                  <div className="absolute -right-4 -bottom-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+                    <PackageOpen className="h-32 w-32 text-emerald-600" />
+                  </div>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 z-10 space-y-0">
+                    <CardTitle className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                      Total BKB Keluar
+                    </CardTitle>
+                    <div className="h-10 w-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-[0_0_15px_rgba(16,185,129,0.5)] transition-all duration-300">
+                      <PackageOpen className="h-5 w-5" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="z-10 pb-4 flex-1">
+                    {isLoading ? (
+                      <Skeleton className="h-10 w-24 my-1" />
+                    ) : (
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
+                          {totalBKBItem}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-xs text-slate-400 mt-2 font-medium">Laporan Pengeluaran Material</p>
+                  </CardContent>
+                </Card>
+            </motion.div>
+
+          </div>
+
+
+          {/* 4. OPTIMALISASI TAMPILAN GRAFIK */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+            
+            {/* Bar Chart (Trend Bulanan) */}
+            <motion.div variants={itemVariants} className="h-full">
+              <Card className="h-full shadow-lg border-0 bg-white rounded-2xl flex flex-col">
+                <CardHeader className="pb-2 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <CardTitle className="text-base font-bold text-slate-800 flex items-center">
+                        <Activity className="w-5 h-5 mr-2 text-indigo-600"/> Trend Bulanan PR
+                      </CardTitle>
+                      <CardDescription className="font-medium mt-1">
+                        Aktivitas transaksi perbandingan waktu
+                      </CardDescription>
+                    </div>
+                    
+                    {/* Date Range Selectors */}
+                    <div className="flex bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden p-1 gap-1 w-full sm:w-auto">
+                        <div className="flex flex-col px-2 py-1 bg-slate-50 rounded-md flex-1">
+                          <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Mulai</span>
+                          <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="bg-transparent text-xs font-semibold text-slate-700 w-full outline-none"
+                          />
+                        </div>
+                        <div className="w-px bg-slate-200 shrink-0"></div>
+                        <div className="flex flex-col px-2 py-1 bg-slate-50 rounded-md flex-1">
+                          <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-0.5">Akhir</span>
+                          <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="bg-transparent text-xs font-semibold text-slate-700 w-full outline-none"
+                          />
+                        </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Progress value={supplier.onTime} className="w-20 h-2" />
-                    <Badge
-                      variant={
-                        supplier.onTime >= 90
-                          ? "default"
-                          : supplier.onTime >= 80
-                          ? "secondary"
-                          : "destructive"
-                      }
-                    >
-                      {supplier.onTime >= 90
-                        ? "Excellent"
-                        : supplier.onTime >= 80
-                        ? "Good"
-                        : "Poor"}
-                    </Badge>
+                </CardHeader>
+                <CardContent className="pt-6 pb-2 px-2 sm:px-6 flex-1 min-h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trendData["current"] || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorProses" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#34d399" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#059669" stopOpacity={1} />
+                        </linearGradient>
+                        <linearGradient id="colorParsial" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#fbbf24" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#d97706" stopOpacity={1} />
+                        </linearGradient>
+                        <linearGradient id="colorMenunggu" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#60a5fa" stopOpacity={1} />
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity={1} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#64748B", fontWeight: 600 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "#64748B", fontWeight: 600 }} />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', fontWeight: 600 }}
+                        cursor={{fill: '#F1F5F9', opacity: 0.5}}
+                      />
+                      {/* Using rounded corners for the top of the bars */}
+                      <Bar dataKey="waitingPart" fill="url(#colorProses)" name="Proses" radius={[6, 6, 0, 0]} maxBarSize={35} />
+                      <Bar dataKey="partialPO" fill="url(#colorParsial)" name="Parsial" radius={[6, 6, 0, 0]} maxBarSize={35} />
+                      <Bar dataKey="waitingPO" fill="url(#colorMenunggu)" name="Menunggu" radius={[6, 6, 0, 0]} maxBarSize={35} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Donut Chart (Distribusi Status) */}
+            <motion.div variants={itemVariants} className="h-full">
+              <Card className="h-full shadow-lg border-0 bg-white rounded-2xl flex flex-col">
+                <CardHeader className="pb-2 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+                  <CardTitle className="text-base font-bold text-slate-800 flex items-center">
+                    <PieChartIcon className="w-5 h-5 mr-2 text-indigo-600"/> Breakdown Status Request
+                  </CardTitle>
+                  <CardDescription className="font-medium mt-1">
+                    Persentase tingkat penyelesaian (PR)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6 pb-2 px-2 flex-1 flex flex-col overflow-hidden min-h-[300px] relative">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8 text-center z-0">
+                    <span className="text-4xl font-extrabold text-slate-800 tracking-tighter drop-shadow-sm">{totalPRItem}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Total PR</span>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card> */}
+                  <ResponsiveContainer width="100%" height="100%" className="relative z-10">
+                    <PieChart>
+                      <defs>
+                        <linearGradient id="colorPieProses" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#34d399" stopOpacity={1}/>
+                          <stop offset="100%" stopColor="#059669" stopOpacity={1}/>
+                        </linearGradient>
+                        <linearGradient id="colorPieParsial" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#fbbf24" stopOpacity={1}/>
+                          <stop offset="100%" stopColor="#d97706" stopOpacity={1}/>
+                        </linearGradient>
+                        <linearGradient id="colorPieMenunggu" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#60a5fa" stopOpacity={1}/>
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity={1}/>
+                        </linearGradient>
+                        <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                          <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#000000" floodOpacity="0.15" />
+                        </filter>
+                      </defs>
+                      <Pie
+                        data={pieStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={85}
+                        outerRadius={115}
+                        stroke="none"
+                        paddingAngle={4}
+                        dataKey="value"
+                        cornerRadius={4}
+                        style={{ filter: "url(#shadow)" }}
+                      >
+                        {pieStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', fontWeight: 600 }}
+                        itemStyle={{ color: '#1E293B', fontWeight: 600 }}
+                      />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={36} 
+                        iconType="circle"
+                        wrapperStyle={{ fontSize: '13px', fontWeight: 600, color: '#475569', paddingTop: '20px' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+          </div>
+
+        </motion.div>
       </div>
     </MainLayout>
   );

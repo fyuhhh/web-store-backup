@@ -467,14 +467,13 @@ export function Sidebar() {
             <LayoutDashboard className="h-6 w-6 text-white" />
           </motion.div>
           {!collapsed && (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex flex-col"
-            >
-              <span className="text-lg font-bold text-slate-800 tracking-tight leading-none text-[20px]">WebStore</span>
-              <span className="text-[10px] text-blue-500 font-semibold tracking-[0.15em] uppercase mt-1.5 opacity-80">Management</span>
-            </motion.div>
+            <div className="flex flex-col justify-center">
+              <span className="text-[22px] font-black tracking-tighter leading-none flex items-center">
+                <span className="text-blue-600">Flow</span>
+                <span className="text-slate-800">Store</span>
+                <span className="text-blue-500 ml-0.5 text-3xl leading-[0px] pb-2">.</span>
+              </span>
+            </div>
           )}
         </div>
       </div>

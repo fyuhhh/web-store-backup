@@ -92,7 +92,7 @@ const MainLayoutContent = ({
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-xl font-semibold text-foreground">
-                  Sistem Monitoring Purchasing dan Store | {skemaLabel} {divisiLabel ? `(${divisiLabel})` : ""}
+                  FlowStore | {skemaLabel} {divisiLabel ? `(${divisiLabel})` : ""}
                 </h1>
               </div>
               <div className="flex items-center space-x-4">

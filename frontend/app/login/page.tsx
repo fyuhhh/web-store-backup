@@ -416,7 +416,7 @@ export default function LoginPage() {
 
                 <div className="mt-8 text-center">
                     <p className={cn("text-xs transition-colors", isDivisi ? "text-indigo-300/60" : "text-slate-400")}>
-                        &copy; {new Date().getFullYear()} Sistem Monitoring Purchasing & Store
+                        &copy; {new Date().getFullYear()} FLOWSTORE
                     </p>
                 </div>
             </div>
