@@ -9,6 +9,7 @@ import { FileText, CheckCircle2, Clock, ArrowRight, Search, Sparkles, Activity, 
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
+import { motion, Variants } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/config";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -312,12 +313,41 @@ export default function DivisiDashboardPage() {
         (pr.isComplete ? "selesai" : "proses").includes(searchTerm.toLowerCase())
     );
 
+    const containerVariants: Variants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.15
+            }
+        }
+    };
+
+    const itemVariants: Variants = {
+        hidden: { opacity: 0, y: 30 },
+        show: { 
+            opacity: 1, 
+            y: 0,
+            transition: {
+                type: "spring",
+                stiffness: 80,
+                damping: 15,
+                duration: 0.6
+            }
+        }
+    };
+
     return (
         <MainLayout>
-            <div className={`flex flex-col gap-6 max-w-7xl mx-auto pb-8 px-4 sm:px-6 min-h-full transition-all duration-700 ease-out ${isMounted ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-4 scale-95"}`}>
+            <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="flex flex-col gap-6 max-w-7xl mx-auto pb-8 px-4 sm:px-6 min-h-full"
+            >
 
                 {/* Hero Section with Clock */}
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 text-white shadow-xl shrink-0 mt-2">
+                <motion.div variants={itemVariants} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 text-white shadow-xl shrink-0 mt-2">
                     <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
                         {/* Decorative Patterns */}
                         <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-blue-400 blur-[100px]"></div>
@@ -354,11 +384,13 @@ export default function DivisiDashboardPage() {
                             </p>
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
-                {/* Stats Cards */}
-                <div className="grid gap-4 md:grid-cols-3 shrink-0">
-                    <Card className="group relative overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+                {/* Stats Cards Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0 mt-2">
+                    {/* Total Permintaan */}
+                    <motion.div variants={itemVariants}>
+                        <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                         <div className="absolute -right-6 -top-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
                             <FileText className="h-32 w-32 text-blue-600" />
                         </div>
@@ -385,8 +417,11 @@ export default function DivisiDashboardPage() {
                             </div>
                         </CardContent>
                     </Card>
+                    </motion.div>
 
-                    <Card className="group relative overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+                    {/* Dalam Proses */}
+                    <motion.div variants={itemVariants}>
+                    <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                         <div className="absolute -right-6 -top-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:-rotate-12 duration-500">
                             <Clock className="h-32 w-32 text-orange-600" />
                         </div>
@@ -414,8 +449,11 @@ export default function DivisiDashboardPage() {
                             </div>
                         </CardContent>
                     </Card>
+                    </motion.div>
 
-                    <Card className="group relative overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white">
+                    {/* Selesai */}
+                    <motion.div variants={itemVariants}>
+                    <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
                         <div className="absolute -right-6 -top-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
                             <CheckCircle2 className="h-32 w-32 text-emerald-600" />
                         </div>
@@ -443,11 +481,13 @@ export default function DivisiDashboardPage() {
                             </div>
                         </CardContent>
                     </Card>
+                    </motion.div>
                 </div>
                 
-                {/* Charts Section */}
-                <div className="grid gap-4 md:grid-cols-3 shrink-0">
-                    <Card className="md:col-span-1 shadow-sm border border-slate-200 bg-white">
+                {/* Charts Area */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
+                    <motion.div variants={itemVariants} className="h-full">
+                        <Card className="h-full shadow-lg border-0 bg-white rounded-2xl">
                         <CardHeader className="pb-2 border-b bg-slate-50/50">
                             <CardTitle className="text-sm font-bold text-slate-800 flex items-center">
                                 <PieChartIcon className="w-4 h-4 mr-2 text-blue-600"/>
@@ -488,8 +528,10 @@ export default function DivisiDashboardPage() {
                             )}
                         </CardContent>
                     </Card>
+                    </motion.div>
 
-                    <Card className="md:col-span-2 shadow-sm border border-slate-200 bg-white">
+                    <motion.div variants={itemVariants} className="h-full">
+                        <Card className="h-full shadow-lg border-0 bg-white rounded-2xl">
                         <CardHeader className="pb-2 border-b bg-slate-50/50">
                             <CardTitle className="text-sm font-bold text-slate-800 flex items-center">
                                 <Activity className="w-4 h-4 mr-2 text-blue-600"/>
@@ -514,10 +556,12 @@ export default function DivisiDashboardPage() {
                             </ResponsiveContainer>
                         </CardContent>
                     </Card>
+                    </motion.div>
                 </div>
 
                 {/* Recent Activity Table */}
-                <Card className="shadow-sm border border-slate-200 bg-white overflow-hidden">
+                <motion.div variants={itemVariants}>
+                <Card className="shadow-lg border-0 bg-white rounded-2xl mt-2 overflow-hidden">
                     <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-50/80 border-b py-4 px-6 gap-4">
                         <div className="flex flex-col gap-1">
                             <CardTitle className="text-base font-bold text-slate-800 flex items-center">
@@ -600,7 +644,9 @@ export default function DivisiDashboardPage() {
                         </Table>
                     </CardContent>
                 </Card>
-            </div>
+                </motion.div>
+
+            </motion.div>
         </MainLayout>
     );
 }

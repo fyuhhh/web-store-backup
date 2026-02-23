@@ -23,6 +23,7 @@ import { Search, ChevronRight, Package, Calendar, FileText, ShoppingCart, Activi
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import 'dayjs/locale/id';
+import { motion, Variants } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/config";
 
@@ -200,12 +201,39 @@ export default function PesananAndaPage() {
         );
     });
 
+    const containerVariants: Variants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.15 }
+        }
+    };
+
+    const itemVariants: Variants = {
+        hidden: { opacity: 0, y: 30 },
+        show: { 
+            opacity: 1, 
+            y: 0,
+            transition: {
+                type: "spring",
+                stiffness: 80,
+                damping: 15,
+                duration: 0.6
+            }
+        }
+    };
+
     return (
         <MainLayout>
-            <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6">
+            <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="show"
+                className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6"
+            >
                 
                 {/* Hero Header Section */}
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-xl isolate">
+                <motion.div variants={itemVariants} className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-xl isolate">
                     <div className="absolute top-0 right-0 -mr-20 -mt-20 w-[400px] h-[400px] bg-white opacity-5 blur-3xl rounded-full"></div>
                     <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-[300px] h-[300px] bg-blue-400 opacity-20 blur-3xl rounded-full"></div>
                     
@@ -243,10 +271,11 @@ export default function PesananAndaPage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Main Table Card */}
-                <Card className="shadow-lg border-0 bg-white shadow-slate-200/50 rounded-2xl overflow-hidden">
+                <motion.div variants={itemVariants}>
+                    <Card className="shadow-lg border-0 bg-white shadow-slate-200/50 rounded-2xl overflow-hidden">
                     <CardHeader className="bg-white border-b border-slate-100 py-6 px-6 md:px-8">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                             <div className="space-y-1">
@@ -386,7 +415,8 @@ export default function PesananAndaPage() {
                         )}
                     </CardContent>
                 </Card>
-            </div>
+                </motion.div>
+            </motion.div>
         </MainLayout>
     );
 }
