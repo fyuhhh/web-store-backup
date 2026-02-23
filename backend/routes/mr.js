@@ -38,13 +38,16 @@ router.get("/items/all", async (req, res, next) => {
         const query = `
             SELECT 
                 mi.*, 
+                m.id_mr,
                 m.no_mr, 
                 m.tanggal_mr, 
                 m.tanggal_pembelian, 
                 m.nama_supplier, 
+                m.id_skema, 
+                m.id_divisi, 
                 d.divisi as nama_divisi
-            FROM mr_item mi
-            JOIN mr m ON mi.id_mr = m.id_mr
+            FROM mr m
+            LEFT JOIN mr_item mi ON m.id_mr = mi.id_mr
             LEFT JOIN divisi d ON m.id_divisi = d.id_divisi
             ORDER BY m.created_at DESC, mi.id_mr_item ASC
         `;
@@ -126,6 +129,7 @@ router.post("/", async (req, res, next) => {
             id_divisi,
             nama_supplier,
             tanggal_pembelian,
+            id_skema,
             items // Array of items
         } = req.body;
 
@@ -135,9 +139,9 @@ router.post("/", async (req, res, next) => {
 
         // Insert Header
         const [result] = await connection.query(
-            `INSERT INTO mr (no_mr, tanggal_mr, id_divisi, nama_supplier, tanggal_pembelian)
-       VALUES (?, ?, ?, ?, ?)`,
-            [no_mr, tanggal_mr, id_divisi || null, nama_supplier || null, tanggal_pembelian || null]
+            `INSERT INTO mr (no_mr, tanggal_mr, id_divisi, nama_supplier, tanggal_pembelian, id_skema)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+            [no_mr, tanggal_mr, id_divisi || null, nama_supplier || null, tanggal_pembelian || null, id_skema || null]
         );
 
         const id_mr = result.insertId;
@@ -167,6 +171,105 @@ router.post("/", async (req, res, next) => {
 
         await connection.commit();
         res.status(201).json({ message: "MR Created", id_mr });
+    } catch (err) {
+        await connection.rollback();
+        next(err);
+    } finally {
+        connection.release();
+    }
+});
+// DELETE MR (and cascaded items)
+router.delete("/:id", async (req, res, next) => {
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const { id } = req.params;
+
+        // Delete Items first (optional if ON DELETE CASCADE is set, but safer here)
+        await connection.query("DELETE FROM mr_item WHERE id_mr = ?", [id]);
+        
+        // Delete Header
+        const [result] = await connection.query("DELETE FROM mr WHERE id_mr = ?", [id]);
+        
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: "MR not found" });
+        }
+
+        await connection.commit();
+        res.json({ message: "MR deleted successfully" });
+    } catch (err) {
+        await connection.rollback();
+        next(err);
+    } finally {
+        connection.release();
+    }
+});
+
+// DELETE Item specific
+router.delete("/items/:id", async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const [result] = await db.query("DELETE FROM mr_item WHERE id_mr_item = ?", [id]);
+        if (result.affectedRows === 0) return res.status(404).json({ message: "Item not found" });
+        res.json({ message: "Item deleted successfully" });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// UPDATE MR (Full Update)
+router.put("/:id", async (req, res, next) => {
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const { id } = req.params;
+        const {
+            no_mr,
+            tanggal_mr,
+            id_divisi,
+            nama_supplier,
+            tanggal_pembelian,
+            id_skema,
+            items // Array of items
+        } = req.body;
+
+        // Update Header
+        await connection.query(
+            `UPDATE mr 
+             SET no_mr=?, tanggal_mr=?, id_divisi=?, nama_supplier=?, tanggal_pembelian=?, id_skema=?
+             WHERE id_mr=?`,
+            [no_mr, tanggal_mr, id_divisi || null, nama_supplier || null, tanggal_pembelian || null, id_skema || null, id]
+        );
+
+        // Update Items strategy: Delete all and re-insert (Simplest for now)
+        // Ideally we should track IDs, but strict replace is acceptable for MR as it's a simple document.
+        await connection.query("DELETE FROM mr_item WHERE id_mr = ?", [id]);
+
+        if (items && Array.isArray(items) && items.length > 0) {
+            const values = items.map(item => [
+                id,
+                item.nama_barang,
+                item.quantity || 0,
+                item.satuan || null,
+                item.keterangan || null,
+                item.harga_satuan || 0,
+                item.diskon_persen || null,
+                item.diskon_rp || 0,
+                item.ppn_persen || 0,
+                item.ppn_rp || 0,
+                item.total || 0
+            ]);
+
+            await connection.query(
+                `INSERT INTO mr_item (id_mr, nama_barang, quantity, satuan, keterangan, harga_satuan, diskon_persen, diskon_rp, ppn_persen, ppn_rp, total)
+                 VALUES ?`,
+                [values]
+            );
+        }
+
+        await connection.commit();
+        res.json({ message: "MR updated successfully" });
     } catch (err) {
         await connection.rollback();
         next(err);

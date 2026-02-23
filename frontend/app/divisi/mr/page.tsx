@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
+import React, { useEffect, useState, useRef } from "react";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
     Card,
@@ -66,7 +65,7 @@ const TruncatedText = ({ text, maxLength = 15 }: { text: string; maxLength?: num
     );
 };
 
-export default function MonitoringMRPage() {
+export default function DivisiMonitoringMRPage() {
     const [originalData, setOriginalData] = useState<any[]>([]);
     const [filteredData, setFilteredData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -86,40 +85,25 @@ export default function MonitoringMRPage() {
     const [filterTanggalMR, setFilterTanggalMR] = useState<string[]>([]);
     const [tanggalMRSearchTerm, setTanggalMRSearchTerm] = useState("");
 
-    // Schema Filter
+    // Schema & Divisi Filter
     const [userSkemaId, setUserSkemaId] = useState<string | null>(null);
+    const [userDivisiId, setUserDivisiId] = useState<string | null>(null);
 
     // Selection
-
-
-    const [userDivisiId, setUserDivisiId] = useState<string | null>(null);
-    const [isDivisiUser, setIsDivisiUser] = useState(false);
-
-    // Delete States
-    const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
-    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-    const [deleteItemModalOpen, setDeleteItemModalOpen] = useState(false);
-    const [deleteId, setDeleteId] = useState<string | null>(null); // ID MR to delete
-    const [deleteMode, setDeleteMode] = useState<"mr" | "item" | null>(null);
-    const [selectedItemIdsToDelete, setSelectedItemIdsToDelete] = useState<string[]>([]);
-    const [localMRItemsForDelete, setLocalMRItemsForDelete] = useState<any[]>([]); // New state for delete modal
-    
-    // Toast State (reuse or add if missing)
-    const [toastOpen, setToastOpen] = useState(false);
-    const [toastMsg, setToastMsg] = useState("");
-    const [toastType, setToastType] = useState<"success" | "error">("success");
+    const [selectedMRs, setSelectedMRs] = useState<string[]>([]);
 
     const tableWrapperRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem("userData") || "{}");
-        setUserSkemaId(userData.id_skema || userData.skema || null);
-        setUserDivisiId(userData.id_divisi || null);
-        // Check if user is Divisi (id_peran 2 or role 'divisi')
-        if (Number(userData.id_peran) === 2 || (userData.role && userData.role.toLowerCase() === 'divisi')) {
-            setIsDivisiUser(true);
-        }
-        
+        // Prioritize id_skema, verify if it aligns with DB types (string vs number)
+        const skema = userData.id_skema ?? userData.skema ?? null;
+        setUserSkemaId(skema ? String(skema) : null);
+
+        // Divisi Filter
+        const divisi = userData.id_divisi ?? null;
+        setUserDivisiId(divisi ? String(divisi) : null);
+
         fetchData();
     }, []);
 
@@ -140,12 +124,15 @@ export default function MonitoringMRPage() {
     };
     
     // Export State
-    const [exportMode, setExportMode] = useState<"all" | "range">("all");
+    const [exportMode, setExportMode] = useState<"all" | "selected" | "range">("all");
     const [exportStartDate, setExportStartDate] = useState("");
     const [exportEndDate, setExportEndDate] = useState("");
 
     // Helper functions for Export Data filtering
     const getExportMRData = () => {
+        if (exportMode === "selected" && selectedMRs.length > 0) {
+            return filteredData.filter(item => selectedMRs.includes(item.no_mr));
+        }
         if (exportMode === "range" && exportStartDate && exportEndDate) {
             const start = new Date(exportStartDate);
             const end = new Date(exportEndDate);
@@ -175,7 +162,6 @@ export default function MonitoringMRPage() {
         }
     }, [filterStartDate, filterEndDate]);
 
-    // Filter Logic
     // Filter Logic
     useEffect(() => {
         let res = [...originalData];
@@ -219,24 +205,21 @@ export default function MonitoringMRPage() {
             res = res.filter(item => filterTanggalMR.includes(item.tanggal_mr));
         }
 
-        // 6. Filter by Schema (User Context) - SKIP for Divisi User (they rely on id_divisi)
-        if (userSkemaId && !isDivisiUser) {
+        // 6. Filter by Schema (User Context)
+        if (userSkemaId) {
              res = res.filter(item => {
                 if (item.id_skema === null || item.id_skema === undefined) return false; 
                 return String(item.id_skema) === String(userSkemaId);
              });
         }
 
-        // 7. Filter by Division (for Divisi User)
-        if (isDivisiUser && userDivisiId) {
-            res = res.filter(item => {
-               if (!item.id_divisi) return false;
-               return String(item.id_divisi) === String(userDivisiId);
-            });
-       }
+        // 7. Filter by User Divisi (Strict)
+        if (userDivisiId) {
+            res = res.filter(item => String(item.id_divisi) === String(userDivisiId));
+        }
 
         setFilteredData(res);
-    }, [originalData, searchTerm, filterNoMR, filterNamaBarang, filterStartDate, filterEndDate, filterTanggalMR, userSkemaId, userDivisiId, isDivisiUser]);
+    }, [originalData, searchTerm, filterNoMR, filterNamaBarang, filterStartDate, filterEndDate, filterTanggalMR, userSkemaId, userDivisiId]);
 
     // Group items by No MR
     const groupedData = filteredData.reduce((acc, item) => {
@@ -250,7 +233,15 @@ export default function MonitoringMRPage() {
 
 
     // Selection
+    const toggleSelectAll = (checked: boolean) => {
+        if (checked) setSelectedMRs(uniqueMRs);
+        else setSelectedMRs([]);
+    };
 
+    const toggleSelectMR = (noMR: string, checked: boolean) => {
+        if (checked) setSelectedMRs(prev => [...prev, noMR]);
+        else setSelectedMRs(prev => prev.filter(id => id !== noMR));
+    };
 
     // Export Excel
     const handleExportExcel = async () => {
@@ -346,7 +337,7 @@ export default function MonitoringMRPage() {
 
              // Merge Cells Logic (Left: Col 1, 2; Right: Col 14, 15, 16; Middle: Col 13 Total MR)
             const endRow = currentRow - 1;
-            const colsToMerge = [13, 14, 15, 16];
+            const colsToMerge = [1, 2, 13, 14, 15, 16];
 
             if (endRow > startRow) {
                 colsToMerge.forEach(col => {
@@ -391,7 +382,7 @@ export default function MonitoringMRPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Monitoring_MR_${dayjs().format("YYYYMMDD_HHmmss")}.xlsx`;
+        a.download = `Monitoring_MR_Divisi_${dayjs().format("YYYYMMDD_HHmmss")}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -407,128 +398,13 @@ export default function MonitoringMRPage() {
         verticalAlign: "middle"
     };
 
-    // Delete Handlers
-    const handleDelete = (id_mr: string) => {
-        console.log("handleDelete called with ID:", id_mr);
-        if (!id_mr) {
-            console.error("handleDelete received null/undefined ID!");
-            return;
-        }
-        setDeleteId(id_mr);
-        setDeleteChoiceOpen(true);
-        setDeleteMode(null);
-    };
-
-    const handleDeleteChoice = (mode: "mr" | "item") => {
-        setDeleteMode(mode);
-        setDeleteChoiceOpen(false);
-        if (mode === "mr") {
-            setConfirmDeleteOpen(true);
-        } else if (mode === "item") {
-            // Prepare items in format similar to PR Monitoring: [{ mrId, items }]
-            // groupedData is keyed by no_mr, but we need to find by id_mr (deleteId)
-            let targetNoMR = "";
-            let targetItems: any[] = [];
-            
-            // Find the MR data
-            for (const [no, items] of Object.entries(groupedData)) {
-                const typedItems = items as any[];
-                if (typedItems[0]?.id_mr === deleteId) {
-                    targetNoMR = no;
-                    targetItems = typedItems;
-                    break;
-                }
-            }
-
-            // Set state for modal
-            // We use 'selectedPRItemsForDelete' structure
-            // New state needed: selectedMRItemsForDelete
-            setLocalMRItemsForDelete([{ mrId: deleteId, noMR: targetNoMR, items: targetItems }]);
-            setSelectedItemIdsToDelete([]);
-            setDeleteItemModalOpen(true);
-        }
-    };
-
-    const confirmDeleteMR = async () => {
-        console.log("confirmDeleteMR called, deleteId:", deleteId);
-        if (!deleteId) {
-            console.error("No deleteId set!");
-            return;
-        }
-        setConfirmDeleteOpen(false);
-        try {
-            const url = `${API_BASE_URL}/api/mr/${deleteId}`;
-            console.log("Sending DELETE request to:", url);
-            const res = await fetch(url, { method: "DELETE" });
-            const json = await res.json();
-            console.log("Delete response:", res.status, json);
-
-            if (res.ok) {
-                setToastMsg("MR berhasil dihapus");
-                setToastType("success");
-                setToastOpen(true);
-                fetchData(); // Reload data
-            } else {
-                setToastMsg(json.message || "Gagal menghapus MR");
-                setToastType("error");
-                setToastOpen(true);
-            }
-        } catch (err) {
-            console.error("Error in confirmDeleteMR:", err);
-            setToastMsg("Terjadi kesalahan sistem: " + String(err));
-            setToastType("error");
-            setToastOpen(true);
-        }
-        setDeleteId(null);
-    };
-
-    const confirmDeleteItems = async () => {
-        console.log("confirmDeleteItems called. selectedIds:", selectedItemIdsToDelete);
-        setDeleteItemModalOpen(false);
-        try {
-            // Logic similar to PR Monitoring: Delete by ID
-            const errors = [];
-            for (const itemId of selectedItemIdsToDelete) {
-               console.log("Deleting item ID:", itemId);
-               const res = await fetch(`${API_BASE_URL}/api/mr/items/${itemId}`, { method: "DELETE" });
-               if (!res.ok) {
-                   const json = await res.json();
-                   errors.push(`ID ${itemId}: ${json.message}`);
-               }
-            }
-            
-            if (errors.length > 0) {
-                console.error("Errors deleting items:", errors);
-                setToastMsg("Beberapa item gagal dihapus");
-                setToastType("error");
-            } else {
-                setToastMsg("Item MR berhasil dihapus");
-                setToastType("success");
-            }
-            setToastOpen(true);
-            fetchData();
-        } catch (err) {
-             console.error("Error in confirmDeleteItems:", err);
-             setToastMsg("Gagal menghapus item: " + String(err));
-             setToastType("error");
-             setToastOpen(true);
-        }
-        setDeleteId(null);
-        setSelectedItemIdsToDelete([]);
-    };
-
-    const handleEdit = (mr: any) => {
-        // Redirect to input page with ID
-        window.location.href = `/mr/input?id=${mr.id_mr}`;
-    };
-
     return (
         <MainLayout>
              <div className="space-y-6">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-3xl font-bold">Monitoring Material Request</h1>
-                        <p className="text-muted-foreground">Lihat dan kelola Material Request yang sudah dibuat</p>
+                        <h1 className="text-3xl font-bold">Monitoring Material Request (Divisi)</h1>
+                        <p className="text-muted-foreground">Lihat dan kelola Material Request Anda</p>
                     </div>
                      {/* Export Popover */}
                      <Popover>
@@ -551,8 +427,9 @@ export default function MonitoringMRPage() {
                                 </div>
 
                                 <Tabs defaultValue={exportMode} onValueChange={(v) => setExportMode(v as any)} className="w-full">
-                                    <TabsList className="grid w-full grid-cols-2">
+                                    <TabsList className="grid w-full grid-cols-3">
                                         <TabsTrigger value="all" className="text-xs">Semua</TabsTrigger>
+                                        <TabsTrigger value="selected" className="text-xs">Pilihan</TabsTrigger>
                                         <TabsTrigger value="range" className="text-xs">Tanggal</TabsTrigger>
                                     </TabsList>
 
@@ -566,6 +443,19 @@ export default function MonitoringMRPage() {
                                         </p>
                                     </TabsContent>
 
+                                    <TabsContent value="selected" className="mt-4 space-y-2">
+                                        <div className="p-3 bg-gray-50 rounded-md border text-center">
+                                            <span className="text-xs text-muted-foreground block mb-1">Data Terpilih</span>
+                                            <span className={`text-xl font-bold ${selectedMRs.length > 0 ? 'text-primary' : 'text-gray-400'}`}>
+                                                {selectedMRs.length} MR
+                                            </span>
+                                        </div>
+                                        {selectedMRs.length === 0 && (
+                                            <p className="text-[10px] text-red-500 text-center">
+                                                Pilih checkbox pada tabel terlebih dahulu.
+                                            </p>
+                                        )}
+                                    </TabsContent>
 
                                     <TabsContent value="range" className="mt-4 space-y-3">
                                         <div className="grid gap-2">
@@ -599,6 +489,7 @@ export default function MonitoringMRPage() {
                                     onClick={handleExportExcel}
                                     className="w-full h-9 bg-green-600 hover:bg-green-700 text-white gap-2"
                                     disabled={
+                                        (exportMode === "selected" && selectedMRs.length === 0) ||
                                         (exportMode === "range" && (!exportStartDate || !exportEndDate))
                                     }
                                 >
@@ -664,7 +555,7 @@ export default function MonitoringMRPage() {
                     <CardHeader>
                         <CardTitle>Daftar Material Request</CardTitle>
                         <CardDescription>
-                            Total: {uniqueMRs.length} MR
+                            Total: {uniqueMRs.length} MR | Dipilih: {selectedMRs.length}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0 sm:p-4">
@@ -677,10 +568,18 @@ export default function MonitoringMRPage() {
                              <Table className="min-w-[2000px] border-collapse" style={{ tableLayout: 'fixed' }}>
                                 <TableHeader>
                                     <TableRow className="h-10">
-
+                                         {/* Sticky Checkbox (Most Left) */}
+                                        <TableHead className="w-[50px] text-center border p-0 z-20" style={{ ...headerStyle, left: 0 }}>
+                                            <div className="flex justify-center items-center h-full">
+                                                <Checkbox
+                                                    checked={uniqueMRs.length > 0 && selectedMRs.length === uniqueMRs.length}
+                                                    onCheckedChange={toggleSelectAll}
+                                                />
+                                            </div>
+                                        </TableHead>
                                         
                                         {/* No MR with Filter */}
-                                        <TableHead className="w-[200px] text-center border p-0 z-20" style={{ ...headerStyle, left: 0 }}>
+                                        <TableHead className="w-[200px] text-center border p-0" style={headerStyle}>
                                             <Popover>
                                                 <PopoverTrigger asChild>
                                                     <Button variant="ghost" className="w-full h-full p-0 font-bold hover:bg-transparent uppercase rounded-none">
@@ -769,10 +668,10 @@ export default function MonitoringMRPage() {
                                         <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>SATUAN</TableHead>
                                         <TableHead className="w-[200px] text-center border font-bold uppercase" style={headerStyle}>KETERANGAN</TableHead>
                                         <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>HARGA</TableHead>
-                                        <TableHead className="w-[80px] text-center border p-0 font-bold uppercase" style={headerStyle}>DISC %</TableHead>
+                                        <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>DISC %</TableHead>
                                         <TableHead className="w-[100px] text-center border font-bold uppercase" style={headerStyle}>DISC RP</TableHead>
                                         <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>SUB</TableHead>
-                                        <TableHead className="w-[80px] text-center border p-0 font-bold uppercase" style={headerStyle}>PPN %</TableHead>
+                                        <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>PPN %</TableHead>
                                         <TableHead className="w-[100px] text-center border font-bold uppercase" style={headerStyle}>PPN RP</TableHead>
                                         
                                         {/* Grand Total (Merged) */}
@@ -782,10 +681,6 @@ export default function MonitoringMRPage() {
                                         <TableHead className="w-[350px] text-center border font-bold uppercase" style={headerStyle}>SUPPLIER</TableHead>
                                         <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>TGL BELI</TableHead>
                                         <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>DIVISI</TableHead>
-                                        {/* AKSI Column */}
-                                        {!isDivisiUser && (
-                                            <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>AKSI</TableHead>
-                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -811,17 +706,19 @@ export default function MonitoringMRPage() {
 
                                                 return (
                                                     <TableRow key={index + "_" + item.id_mr_item} className="hover:bg-gray-50 even:bg-gray-50">
-                                                        {/* Left Merged: No MR, Tanggal */}
+                                                        {/* Left Merged: Checkbox, No MR, Tanggal */}
                                                         {isFirst && (
                                                             <>
-                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white font-medium p-2 align-middle" style={{ verticalAlign: 'top' }}>
-                                                                    <div 
-                                                                        className={`pt-2 ${!isDivisiUser ? "cursor-pointer hover:text-blue-600 hover:underline" : ""}`}
-                                                                        onClick={() => !isDivisiUser && handleEdit(items[0])}
-                                                                        title={!isDivisiUser ? "Klik untuk edit" : ""}
-                                                                    >
-                                                                        {item.no_mr}
+                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-0" style={{ position: 'sticky', left: 0, zIndex: 9, verticalAlign: 'top' }}>
+                                                                    <div className="flex justify-center pt-3">
+                                                                         <Checkbox
+                                                                            checked={selectedMRs.includes(noMR)}
+                                                                            onCheckedChange={(c) => toggleSelectMR(noMR, !!c)}
+                                                                        />
                                                                     </div>
+                                                                </TableCell>
+                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white font-medium p-2 align-middle" style={{ verticalAlign: 'top' }}>
+                                                                    <div className="pt-2">{item.no_mr}</div>
                                                                 </TableCell>
                                                                 <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2 align-middle" style={{ verticalAlign: 'top' }}>
                                                                     <div className="pt-2">{formatDate(item.tanggal_mr)}</div>
@@ -830,10 +727,7 @@ export default function MonitoringMRPage() {
                                                         )}
 
                                                         {/* Item Details */}
-                                                        {/* Item Details */}
-                                                        <TableCell className="border p-2">
-                                                            {item.id_mr_item ? item.nama_barang : <span className="text-gray-400 italic">No items</span>}
-                                                        </TableCell>
+                                                        <TableCell className="border p-2">{item.nama_barang}</TableCell>
                                                         <TableCell className="text-center border p-2">{formatNumber(qty)}</TableCell>
                                                         <TableCell className="text-center border p-2">{item.satuan}</TableCell>
                                                         <TableCell className="border text-xs text-muted-foreground p-2">
@@ -865,20 +759,6 @@ export default function MonitoringMRPage() {
                                                                 <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
                                                                     <div className="pt-2">{item.nama_divisi}</div>
                                                                 </TableCell>
-                                                                {!isDivisiUser && (
-                                                                    <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
-                                                                        <div className="pt-2 flex justify-center">
-                                                                            <Button 
-                                                                                variant="ghost" 
-                                                                                size="sm" 
-                                                                                className="hover:text-red-600 hover:bg-red-50"
-                                                                                onClick={() => handleDelete(item.id_mr)}
-                                                                            >
-                                                                                <Trash2 className="h-4 w-4" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </TableCell>
-                                                                )}
                                                             </>
                                                         )}
                                                     </TableRow>
@@ -891,197 +771,7 @@ export default function MonitoringMRPage() {
                          </div>
                     </CardContent>
                 </Card>
-            {/* Modals */}
-             <DeleteChoiceModal 
-                open={deleteChoiceOpen} 
-                onClose={() => setDeleteChoiceOpen(false)} 
-                onChoose={handleDeleteChoice} 
-            />
-            <ConfirmModal
-                open={confirmDeleteOpen} 
-                title="Hapus MR" 
-                description="Apakah anda yakin ingin menghapus MR ini? Tindakan ini tidak dapat dibatalkan."
-                onConfirm={confirmDeleteMR}
-                onCancel={() => setConfirmDeleteOpen(false)} 
-            />
-            <DeleteItemModal
-                open={deleteItemModalOpen}
-                mrItems={localMRItemsForDelete}
-                selectedIds={selectedItemIdsToDelete}
-                setSelectedIds={setSelectedItemIdsToDelete}
-                onConfirm={confirmDeleteItems}
-                onCancel={() => setDeleteItemModalOpen(false)}
-            />
-             <Toast 
-                open={toastOpen} 
-                onClose={() => setToastOpen(false)} 
-                message={toastMsg} 
-                type={toastType} 
-            />
              </div>
         </MainLayout>
     );
-}
-
-function DeleteChoiceModal({ open, onClose, onChoose }: any) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  console.log("DeleteChoiceModal render:", { open, mounted });
-
-  if (!open || !mounted) return null;
-  
-  const body = document.querySelector("body");
-  if (!body) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px]">
-        <h2 className="text-lg font-semibold mb-2">Pilih Jenis Hapus</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Anda ingin menghapus seluruh MR beserta semua item, atau hanya
-          menghapus item tertentu dari MR yang dipilih?
-        </p>
-        <div className="flex flex-col gap-2">
-          <Button variant="destructive" onClick={() => onChoose("mr")}>
-            Hapus MR (Semua)
-          </Button>
-          <Button variant="outline" onClick={() => onChoose("item")}>
-            Hapus Item pada MR
-          </Button>
-          <Button variant="ghost" onClick={onClose}>
-            Batal
-          </Button>
-        </div>
-      </div>
-    </div>,
-    body
-  );
-}
-
-function ConfirmModal({ open, title, description, onConfirm, onCancel }: any) {
-    const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
-
-    if (!open || !mounted) return null;
-
-    const body = document.querySelector("body");
-    if (!body) return null;
-
-    return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
-            <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
-                <h2 className="text-lg font-bold mb-2">{title}</h2>
-                <p className="mb-4 text-sm text-gray-600">{description}</p>
-                <div className="flex justify-end gap-2">
-                    <Button variant="ghost" onClick={onCancel}>Batal</Button>
-                    <Button variant="destructive" onClick={onConfirm}>Hapus</Button>
-                </div>
-            </div>
-        </div>,
-        body
-    );
-}
-
-function DeleteItemModal({
-  open,
-  mrItems,
-  selectedIds,
-  setSelectedIds,
-  onConfirm,
-  onCancel,
-}: any) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  if (!open || !mounted) return null;
-
-  const body = document.querySelector("body");
-  if (!body) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
-      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[420px] max-h-[80vh] overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-2">
-          Pilih Item MR yang akan dihapus
-        </h2>
-        <div className="space-y-4">
-          {mrItems.map(({ mrId, noMR, items }: any) => (
-            <div key={mrId}>
-              <div className="font-semibold mb-1">
-                MR: {noMR || mrId}
-              </div>
-              {items.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  Tidak ada item pada MR ini.
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {items.map((item: any, idx: number) => {
-                    const valueId = String(item.id_mr_item);
-                    return (
-                      <label key={valueId} className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          value={valueId}
-                          checked={selectedIds.includes(valueId)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedIds([...selectedIds, valueId]);
-                            } else {
-                              setSelectedIds(
-                                selectedIds.filter((x: string) => x !== valueId)
-                              );
-                            }
-                          }}
-                        />
-                        <span>
-                          {item.nama_barang} ({item.quantity} {item.satuan})
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onCancel}>
-            Batal
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={selectedIds.length === 0}
-          >
-            Hapus Item Terpilih ({selectedIds.length})
-          </Button>
-        </div>
-      </div>
-    </div>,
-    body
-  );
-}
-
-function Toast({ open, onClose, message, type = "success" }: any) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-      setMounted(true);
-      if (open) {
-          const timer = setTimeout(onClose, 3000);
-          return () => clearTimeout(timer);
-      }
-  }, [open, onClose]);
-
-  if (!open || !mounted) return null;
-  const body = document.querySelector("body");
-  if (!body) return null;
-
-  return createPortal(
-    <div className={`fixed top-4 right-4 z-[9999] px-4 py-2 rounded shadow-lg text-white ${type === "error" ? "bg-red-600" : "bg-green-600"}`}>
-      {message}
-    </div>,
-    body
-  );
 }
