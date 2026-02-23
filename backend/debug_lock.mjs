@@ -10,7 +10,7 @@ function log(msg) {
 
 async function check() {
     try {
-        fs.writeFileSync(LOG_FILE, ''); // Clear file
+        fs.writeFileSync(LOG_FILE, ''); // file bersih
     } catch (e) { }
 
     try {

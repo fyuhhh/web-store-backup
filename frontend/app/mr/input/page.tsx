@@ -634,7 +634,7 @@ export default function InputMRPage() {
                                     <h3 className="font-semibold text-lg text-gray-800">Informasi Dasar</h3>
                                 </div>
                             </CardHeader>
-                            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {/* No MR */}
                                 <div className="space-y-2">
                                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">No. MR</Label>
@@ -670,6 +670,56 @@ export default function InputMRPage() {
                                     </div>
                                 </div>
 
+                                {/* Divisi */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Divisi</Label>
+                                    <Select value={idDivisi} onValueChange={setIdDivisi}>
+                                        <SelectTrigger className="w-full bg-white border-gray-200">
+                                            <SelectValue placeholder="Pilih Divisi" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-white max-h-[300px]">
+                                             <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100 mb-1">
+                                                 {showAddDivisi ? (
+                                                     <div className="flex items-center gap-2">
+                                                         <Input
+                                                             placeholder="Nama divisi baru"
+                                                             value={newDivisi}
+                                                             onChange={(e) => setNewDivisi(e.target.value)}
+                                                             className="h-8"
+                                                             autoFocus
+                                                         />
+                                                         <Button size="sm" onClick={handleAddDivisi} className="h-8">Simpan</Button>
+                                                         <Button size="sm" variant="ghost" onClick={() => setShowAddDivisi(false)} className="h-8">Batal</Button>
+                                                     </div>
+                                                 ) : (
+                                                     <div className="space-y-2">
+                                                         <Input placeholder="Cari divisi..." value={divisiSearch} onChange={(e) => setDivisiSearch(e.target.value)} className="h-8 bg-gray-50" />
+                                                         <Button size="sm" variant="secondary" className="w-full h-8 text-xs" onClick={() => setShowAddDivisi(true)}>+ Tambah</Button>
+                                                     </div>
+                                                 )}
+                                             </div>
+                                             {!showAddDivisi && divisiOptions.filter(d => d.divisi.toLowerCase().includes(divisiSearch.toLowerCase())).map(d => (
+                                                  <div key={d.id_divisi} className="flex items-center justify-between group px-2 py-1.5 hover:bg-gray-50 rounded-sm">
+                                                      {editDivisiId === String(d.id_divisi) ? (
+                                                          <div className="flex items-center gap-1 w-full">
+                                                              <Input value={editDivisiValue} onChange={(e) => setEditDivisiValue(e.target.value)} className="h-7 text-xs" />
+                                                              <Button size="sm" onClick={() => handleEditDivisi(String(d.id_divisi))} className="h-7 px-2">OK</Button>
+                                                              <Button size="sm" variant="ghost" onClick={() => setEditDivisiId(null)} className="h-7 px-2">X</Button>
+                                                          </div>
+                                                      ) : (
+                                                          <>
+                                                              <SelectItem value={String(d.id_divisi)} className="flex-1">{d.divisi}</SelectItem>
+                                                              <div className="flex items-center opacity-0 group-hover:opacity-100">
+                                                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-blue-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditDivisiId(String(d.id_divisi)); setEditDivisiValue(d.divisi); }}><Edit2 className="h-3 w-3" /></Button>
+                                                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteDivisi(String(d.id_divisi)); }}><Trash2 className="h-3 w-3" /></Button>
+                                                              </div>
+                                                          </>
+                                                      )}
+                                                  </div>
+                                             ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                                 {/* Supplier */}
                                 <div className="space-y-2 lg:col-span-1">
                                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Supplier</Label>
@@ -746,56 +796,6 @@ export default function InputMRPage() {
                                     </div>
                                 </div>
 
-                                {/* Divisi */}
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Divisi</Label>
-                                    <Select value={idDivisi} onValueChange={setIdDivisi}>
-                                        <SelectTrigger className="w-full bg-white border-gray-200">
-                                            <SelectValue placeholder="Pilih Divisi" />
-                                        </SelectTrigger>
-                                        <SelectContent className="bg-white max-h-[300px]">
-                                             <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100 mb-1">
-                                                 {showAddDivisi ? (
-                                                     <div className="flex items-center gap-2">
-                                                         <Input
-                                                             placeholder="Nama divisi baru"
-                                                             value={newDivisi}
-                                                             onChange={(e) => setNewDivisi(e.target.value)}
-                                                             className="h-8"
-                                                             autoFocus
-                                                         />
-                                                         <Button size="sm" onClick={handleAddDivisi} className="h-8">Simpan</Button>
-                                                         <Button size="sm" variant="ghost" onClick={() => setShowAddDivisi(false)} className="h-8">Batal</Button>
-                                                     </div>
-                                                 ) : (
-                                                     <div className="space-y-2">
-                                                         <Input placeholder="Cari divisi..." value={divisiSearch} onChange={(e) => setDivisiSearch(e.target.value)} className="h-8 bg-gray-50" />
-                                                         <Button size="sm" variant="secondary" className="w-full h-8 text-xs" onClick={() => setShowAddDivisi(true)}>+ Tambah</Button>
-                                                     </div>
-                                                 )}
-                                             </div>
-                                             {!showAddDivisi && divisiOptions.filter(d => d.divisi.toLowerCase().includes(divisiSearch.toLowerCase())).map(d => (
-                                                  <div key={d.id_divisi} className="flex items-center justify-between group px-2 py-1.5 hover:bg-gray-50 rounded-sm">
-                                                      {editDivisiId === String(d.id_divisi) ? (
-                                                          <div className="flex items-center gap-1 w-full">
-                                                              <Input value={editDivisiValue} onChange={(e) => setEditDivisiValue(e.target.value)} className="h-7 text-xs" />
-                                                              <Button size="sm" onClick={() => handleEditDivisi(String(d.id_divisi))} className="h-7 px-2">OK</Button>
-                                                              <Button size="sm" variant="ghost" onClick={() => setEditDivisiId(null)} className="h-7 px-2">X</Button>
-                                                          </div>
-                                                      ) : (
-                                                          <>
-                                                              <SelectItem value={String(d.id_divisi)} className="flex-1">{d.divisi}</SelectItem>
-                                                              <div className="flex items-center opacity-0 group-hover:opacity-100">
-                                                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-blue-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditDivisiId(String(d.id_divisi)); setEditDivisiValue(d.divisi); }}><Edit2 className="h-3 w-3" /></Button>
-                                                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteDivisi(String(d.id_divisi)); }}><Trash2 className="h-3 w-3" /></Button>
-                                                              </div>
-                                                          </>
-                                                      )}
-                                                  </div>
-                                             ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
                                 {/* Tanggal Pembelian */}
                                 <div className="space-y-2">
                                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tanggal Pembelian</Label>

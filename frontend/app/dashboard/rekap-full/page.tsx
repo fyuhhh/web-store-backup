@@ -1501,7 +1501,7 @@ export default function RekapFullPage() {
         // Columns: daftarBarangPR, quantityAwalPR, satuanPR, keteranganPR
         if (prItemGroup.rowSpan > 1) {
           const prItemEndRow = prItemStartRow + prItemGroup.rowSpan - 1;
-          const prItemKeys = ["daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", "quantityPR"]; // quantityPR seems to represent Sisa Qty field in some contexts or current qty
+          const prItemKeys = ["daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", "quantityPR", "divisi", "dibuatOleh", "targetTanggalPO"]; // quantityPR seems to represent Sisa Qty field in some contexts or current qty
           prItemKeys.forEach(k => {
             const idx = exportColumns.findIndex(c => c.key === k);
             if (idx >= 0) {
@@ -1514,10 +1514,10 @@ export default function RekapFullPage() {
       }); // end prItemGroups
 
       // Merge PR Level columns
-      // Columns: periodePR, noPR, tanggalPR, hariPR, divisi, dibuatOleh, targetTanggalPO, status, skemaPR
+      // Columns: periodePR, noPR, tanggalPR, hariPR, status, skemaPR
       if (prGroup.rowSpan > 1) {
         const prEndRow = prStartRow + prGroup.rowSpan - 1;
-        const prKeys = ["periodePR", "noPR", "tanggalPR", "hariPR", "divisi", "dibuatOleh", "targetTanggalPO", "status", /* "skemaPR" */];
+        const prKeys = ["periodePR", "noPR", "tanggalPR", "hariPR", "status", /* "skemaPR" */];
         prKeys.forEach(k => {
           const idx = exportColumns.findIndex(c => c.key === k);
           if (idx >= 0) {
@@ -1708,8 +1708,8 @@ export default function RekapFullPage() {
         if (prItemGroup.rowSpan > 1) {
           const prItemEndRow = prItemStartRow + prItemGroup.rowSpan - 1;
           // Columns 4-7, 9-10 are PR Item level? No.
-          // Kode Barang(2), Nama(3), Qty(4), Satuan(5), Spesifikasi(6), NoMR(8), Keterangan(9)
-          const prItemColsIndices = [2, 3, 4, 5, 6, 8, 9];
+          // Kode Barang(2), Nama(3), Qty(4), Satuan(5), Spesifikasi(6), NoMR(8), Keterangan(9), Divisi(10), User(11)
+          const prItemColsIndices = [2, 3, 4, 5, 6, 8, 9, 10, 11];
           prItemColsIndices.forEach(idx => {
             worksheet.mergeCells(prItemStartRow, idx + 1, prItemEndRow, idx + 1);
           });
@@ -1718,8 +1718,8 @@ export default function RekapFullPage() {
       // Merge Logic for PR
       if (prGroup.rowSpan > 1) {
         const prEndRow = prStartRow + prGroup.rowSpan - 1;
-        // Columns 0, 1, 7(Status), 10(Divisi), 11(User)
-        const prColsIndices = [0, 1, 7, 10, 11];
+        // Columns 0, 1, 7(Status)
+        const prColsIndices = [0, 1, 7];
         prColsIndices.forEach(idx => {
           worksheet.mergeCells(prStartRow, idx + 1, prEndRow, idx + 1);
         });
@@ -2096,7 +2096,7 @@ export default function RekapFullPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
@@ -2272,7 +2272,7 @@ export default function RekapFullPage() {
         {/* Jika tanggal belum diisi, tampilkan pesan */}
         {/* Jika tanggal belum diisi, tetap tampilkan tabel (default all/open-ended) */}
         {false ? (
-          <Card className="bg-card border-border">
+          <Card className="bg-white bg-card border-border">
             <CardHeader>
               <CardTitle>Daftar Rekap Full</CardTitle>
               <CardDescription>
@@ -2282,7 +2282,7 @@ export default function RekapFullPage() {
             </CardHeader>
           </Card>
         ) : (
-          <Card className="bg-card border-border">
+          <Card className="bg-white bg-card border-border">
             <CardHeader>
               <CardTitle>Daftar Rekap Full</CardTitle>
               <CardDescription>
@@ -2371,7 +2371,7 @@ export default function RekapFullPage() {
 
                                     {/* No. PR */}
                                     {isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prGroup.rowSpan}>
                                         <span
                                           className={`font-bold text-black ${currentUserRole === 3 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
                                           onClick={() => {
@@ -2387,31 +2387,31 @@ export default function RekapFullPage() {
                                     ) : null}
                                     {/* Tanggal PR */}
                                     {isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prGroup.rowSpan}>
                                         {(item.tanggalPR || "").toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Hari PR */}
                                     {isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prGroup.rowSpan}>
                                         {(item.hariPR || "").toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Daftar Barang PR */}
                                     {isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prItemGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {(item.daftarBarangPR || "").toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Quantity Awal PR */}
                                     {isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 text-right uppercase" rowSpan={prItemGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 text-right uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {formatInt(item.quantityAwalPR)}
                                       </TableCell>
                                     ) : null}
                                     {/* Satuan PR */}
                                     {isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prItemGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {typeof item.satuanPR === "string"
                                           ? item.satuanPR.toUpperCase()
                                           : item.satuanPR ?? ""}
@@ -2419,36 +2419,36 @@ export default function RekapFullPage() {
                                     ) : null}
                                     {/* No. MR */}
                                     {isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase font-bold text-left" rowSpan={prItemGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase font-bold text-left align-top" rowSpan={prItemGroup.rowSpan}>
                                         {(item.noMR || "").toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Keterangan PR */}
                                     {isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prItemGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {/* KeteranganPopover sudah handle string, tambahkan .toUpperCase() */}
                                         <KeteranganPopover text={typeof item.keteranganPR === "string" ? item.keteranganPR.toUpperCase() : ""} max={20} />
                                       </TableCell>
                                     ) : null}
                                     {/* Divisi */}
-                                    {isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {typeof item.divisi === "string"
                                           ? item.divisi.toUpperCase()
                                           : item.divisi ?? ""}
                                       </TableCell>
                                     ) : null}
                                     {/* Dibuat Oleh */}
-                                    {isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {typeof item.dibuatOleh === "string"
                                           ? item.dibuatOleh.replace(/_/g, " ").toUpperCase()
                                           : item.dibuatOleh ?? ""}
                                       </TableCell>
                                     ) : null}
                                     {/* Target Tanggal PO */}
-                                    {isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                    {isFirstPRItem ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {typeof item.targetTanggalPO === "string"
                                           ? formatTanggalDisplay(item.targetTanggalPO).toUpperCase()
                                           : item.targetTanggalPO ?? ""}
@@ -2457,7 +2457,7 @@ export default function RekapFullPage() {
                                     {/* Status */}
                                     {/* Status - Per Item */}
                                     <TableCell
-                                      className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"} ${editingStatusId === item.id
+                                      className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase align-top ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"} ${editingStatusId === item.id
                                         ? "bg-gray-200"
                                         : getStatusBg(item.status)
                                         }`}
@@ -2571,7 +2571,7 @@ export default function RekapFullPage() {
 
                                     {/* No. PO */}
                                     {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
                                         <span
                                           className={`font-bold text-black ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
                                           onClick={() => {
@@ -2587,45 +2587,45 @@ export default function RekapFullPage() {
                                     ) : null}
                                     {/* Tanggal PO */}
                                     {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
                                         {formatTanggalDisplay(item.tanggalPO).toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Supplier */}
                                     {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
                                         {typeof item.supplier === "string"
                                           ? item.supplier.toUpperCase()
                                           : item.supplier ?? ""}
                                       </TableCell>
                                     ) : null}
                                     {/* Quantity Awal PO */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.quantityAwalPO)}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{formatInt(item.quantityAwalPO)}</TableCell>
                                     {/* Satuan PO */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
                                       {typeof item.satuanPO === "string"
                                         ? item.satuanPO.toUpperCase()
                                         : item.satuanPO ?? ""}
                                     </TableCell>
                                     {/* Harga Satuan PO */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 text-right uppercase">
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 text-right uppercase align-top">
                                       {item.hargaSatuanPO !== undefined && item.hargaSatuanPO !== null && item.hargaSatuanPO !== ""
                                         ? formatRupiahFull(item.hargaSatuanPO).toUpperCase()
                                         : ""}
                                     </TableCell>
                                     {/* Diskon (%) */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{(item.diskonPersen || "").toUpperCase()}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{(item.diskonPersen || "").toUpperCase()}</TableCell>
                                     {/* Diskon (Rp) */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatRupiahFull(item.diskonRp).toUpperCase()}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{formatRupiahFull(item.diskonRp).toUpperCase()}</TableCell>
                                     {/* PPN (%) */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{(item.ppnPersen || "").toUpperCase()}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{(item.ppnPersen || "").toUpperCase()}</TableCell>
                                     {/* PPN (Rp) */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatRupiahFull(item.ppnRp).toUpperCase()}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{formatRupiahFull(item.ppnRp).toUpperCase()}</TableCell>
                                     {/* Total Harga */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatRupiahFull(item.totalHarga).toUpperCase()}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{formatRupiahFull(item.totalHarga).toUpperCase()}</TableCell>
                                     {/* Status Pengiriman */}
                                     {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
                                         {typeof item.statusPengiriman === "string"
                                           ? item.statusPengiriman.toUpperCase()
                                           : item.statusPengiriman ?? ""}
@@ -2633,19 +2633,19 @@ export default function RekapFullPage() {
                                     ) : null}
                                     {/* Tanggal Estimasi Diterima */}
                                     {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
                                         {formatTanggalDisplay(item.tanggalEstimasiDiterima).toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Diinput Oleh */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
                                       {typeof item.diinputOleh === "string"
                                         ? item.diinputOleh.toUpperCase()
                                         : item.diinputOleh ?? ""}
                                     </TableCell>
                                     {/* Diorder Oleh */}
                                     {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
                                         {typeof item.diorderOleh === "string"
                                           ? item.diorderOleh.replace(/_/g, " ").toUpperCase()
                                           : item.diorderOleh ?? ""}
@@ -2653,7 +2653,7 @@ export default function RekapFullPage() {
                                     ) : null}
                                     {/* Termin Pembayaran */}
                                     {isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={poGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
                                         {(item.terminPembayaran || "").toUpperCase()}
                                       </TableCell>
                                     ) : null}
@@ -2832,7 +2832,7 @@ export default function RekapFullPage() {
 
                                     {/* No. BTB */}
                                     {isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={btbGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={btbGroup.rowSpan}>
                                         <span
                                           className="cursor-pointer font-bold text-black hover:text-blue-600 hover:underline"
                                           onClick={() => {
@@ -2847,39 +2847,39 @@ export default function RekapFullPage() {
                                     ) : null}
                                     {/* Tanggal BTB */}
                                     {isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={btbGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={btbGroup.rowSpan}>
                                         {(item.tanggalBTB || "").toUpperCase()}
                                       </TableCell>
                                     ) : null}
                                     {/* Quantity BTB */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.quantityBTB)}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{formatInt(item.quantityBTB)}</TableCell>
                                     {/* Satuan BTB */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
                                       {typeof item.satuanBTB === "string"
                                         ? item.satuanBTB.toUpperCase()
                                         : item.satuanBTB ?? ""}
                                     </TableCell>
                                     {/* Biaya BTB */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatRupiahFull(item.biayaBTB).toUpperCase()}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{formatRupiahFull(item.biayaBTB).toUpperCase()}</TableCell>
                                     {/* Sisa Stok BTB */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.sisaStokBTB)}</TableCell>
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">{formatInt(item.sisaStokBTB)}</TableCell>
                                     {/* Diterima Oleh */}
                                     {isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={btbGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={btbGroup.rowSpan}>
                                         {typeof item.diterimaOleh === "string"
                                           ? item.diterimaOleh.replace(/_/g, " ").toUpperCase()
                                           : item.diterimaOleh ?? ""}
                                       </TableCell>
                                     ) : null}
                                     {/* Plan */}
-                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
                                       {typeof item.plan === "string"
                                         ? item.plan.toUpperCase()
                                         : item.plan ?? ""}
                                     </TableCell>
                                     {/* Skema BTB */}
                                     {isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase" rowSpan={btbGroup.rowSpan}>
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase align-top" rowSpan={btbGroup.rowSpan}>
                                         {typeof item.skemaBTB === "string"
                                           ? item.skemaBTB.toUpperCase()
                                           : item.skemaBTB ?? ""}

@@ -905,7 +905,7 @@ export default function BTBMonitoringPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
@@ -1068,7 +1068,7 @@ export default function BTBMonitoringPage() {
           </div>
         </div>
         {/* Table */}
-        <Card className="bg-card border-border">
+        <Card className="bg-white bg-card border-border">
           <CardHeader>
             <CardTitle>Daftar Bukti Terima Barang</CardTitle>
             <CardDescription>

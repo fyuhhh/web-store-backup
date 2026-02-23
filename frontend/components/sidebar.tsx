@@ -105,8 +105,10 @@ const menuItems = [
   },
 ];
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExternalCollapsed }: { collapsed?: boolean, setCollapsed?: (val: boolean) => void } = {}) {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = externalCollapsed !== undefined ? externalCollapsed : internalCollapsed;
+  const setCollapsed = setExternalCollapsed !== undefined ? setExternalCollapsed : setInternalCollapsed;
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
@@ -438,18 +440,7 @@ export function Sidebar() {
         "bg-[#fcfdff] border-r border-slate-200 shadow-[4px_0_24px_rgba(0,0,0,0.02)]"
       )}
     >
-      {/* Floating Toggle Button */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => setCollapsed(!collapsed)}
-        className={cn(
-          "absolute -right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full border border-slate-200 bg-white shadow-sm z-[60] hover:bg-slate-50 text-slate-400 p-0",
-          "transition-all duration-300"
-        )}
-      >
-        {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-      </Button>
+      {/* Floating Toggle Button removed (now controlled via header hamburger) */}
 
       {/* Subtle Background Accent */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -490,7 +481,27 @@ export function Sidebar() {
 
             if (item.submenu) {
               return (
-                <div key={item.title} className="group mb-1">
+                <div 
+                  key={item.title} 
+                  className="group mb-1"
+                  onMouseEnter={() => {
+                    if (typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches) {
+                      if (!collapsed && !expandedItems.includes(item.title)) {
+                        setExpandedItems((prev) => [...prev, item.title]);
+                      }
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    if (typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches) {
+                      if (!collapsed) {
+                        const isActiveParent = item.submenu?.some((sub) => pathname === sub.href);
+                        if (!isActiveParent) {
+                          setExpandedItems((prev) => prev.filter((t) => t !== item.title));
+                        }
+                      }
+                    }
+                  }}
+                >
                   <button
                     onClick={() => !collapsed && toggleExpanded(item.title)}
                     className={cn(

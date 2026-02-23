@@ -152,8 +152,8 @@ export default function RekapFullPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <Card>
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
+        <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-200">
           <CardHeader>
             <CardTitle>Rekapitulasi BTB & BKB</CardTitle>
             <CardDescription>

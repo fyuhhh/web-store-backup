@@ -667,6 +667,8 @@ export default function DivisiMonitoringMRPage() {
                                         <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>QTY</TableHead>
                                         <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>SATUAN</TableHead>
                                         <TableHead className="w-[200px] text-center border font-bold uppercase" style={headerStyle}>KETERANGAN</TableHead>
+                                        <TableHead className="w-[300px] text-center border font-bold uppercase" style={headerStyle}>SUPPLIER</TableHead>
+                                        <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>TGL BELI</TableHead>
                                         <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>HARGA</TableHead>
                                         <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>DISC %</TableHead>
                                         <TableHead className="w-[100px] text-center border font-bold uppercase" style={headerStyle}>DISC RP</TableHead>
@@ -678,9 +680,7 @@ export default function DivisiMonitoringMRPage() {
                                         <TableHead className="w-[150px] text-center border font-bold uppercase" style={headerStyle}>TOTAL MR</TableHead>
 
                                         {/* Right Merged Columns */}
-                                        <TableHead className="w-[350px] text-center border font-bold uppercase" style={headerStyle}>SUPPLIER</TableHead>
-                                        <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>TGL BELI</TableHead>
-                                        <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>DIVISI</TableHead>
+                                        <TableHead className="w-[180px] px-4 text-center border font-bold uppercase" style={headerStyle}>DIVISI</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -733,6 +733,20 @@ export default function DivisiMonitoringMRPage() {
                                                         <TableCell className="border text-xs text-muted-foreground p-2">
                                                             <TruncatedText text={item.keterangan} />
                                                         </TableCell>
+                                                        {isFirst ? (
+                                                            <>
+                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2 whitespace-nowrap overflow-hidden text-ellipsis" style={{ verticalAlign: 'top', maxWidth: '300px' }}>
+                                                                    <div className="pt-2" title={item.nama_supplier}>{item.nama_supplier}</div>
+                                                                </TableCell>
+                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
+                                                                    <div className="pt-2">{formatDate(item.tanggal_pembelian)}</div>
+                                                                </TableCell>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                {/* Empty cells to maintain grid alignment for spanned rows */}
+                                                            </>
+                                                        )}
                                                         <TableCell className="text-right border whitespace-nowrap p-2">{formatCurrency(harga)}</TableCell>
                                                         <TableCell className="text-center border p-2">{Number(item.diskon_persen) ? parseFloat(item.diskon_persen) + "%" : "-"}</TableCell>
                                                         <TableCell className="text-right border whitespace-nowrap p-2">{item.diskon_rp ? formatCurrency(item.diskon_rp) : "-"}</TableCell>
@@ -747,19 +761,11 @@ export default function DivisiMonitoringMRPage() {
                                                             </TableCell>
                                                         )}
 
-                                                         {/* Right Merged: Supplier, Tgl Beli, Divisi */}
+                                                         {/* Right Merged: Divisi */}
                                                          {isFirst && (
-                                                            <>
-                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2 whitespace-nowrap overflow-hidden text-ellipsis" style={{ verticalAlign: 'top', maxWidth: '350px' }}>
-                                                                    <div className="pt-2" title={item.nama_supplier}>{item.nama_supplier}</div>
-                                                                </TableCell>
-                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
-                                                                    <div className="pt-2">{formatDate(item.tanggal_pembelian)}</div>
-                                                                </TableCell>
-                                                                <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
-                                                                    <div className="pt-2">{item.nama_divisi}</div>
-                                                                </TableCell>
-                                                            </>
+                                                            <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
+                                                                <div className="pt-2">{item.nama_divisi}</div>
+                                                            </TableCell>
                                                         )}
                                                     </TableRow>
                                                 );

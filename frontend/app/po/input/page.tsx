@@ -1938,7 +1938,7 @@ function InputPOContent() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         {/* Notifikasi tengah layar */}
         {notif && (
           <div
@@ -1981,7 +1981,7 @@ function InputPOContent() {
         )}
 
         {/* PO Form */}
-        <Card className="bg-card border-border shadow-md rounded-md">
+        <Card className="bg-white bg-card border-border shadow-md rounded-md">
           <CardHeader>
             <CardTitle>Buat Purchase Order</CardTitle>
             <CardDescription>

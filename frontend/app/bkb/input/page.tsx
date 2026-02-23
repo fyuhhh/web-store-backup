@@ -914,7 +914,7 @@ export default function BKBInputPage() {
       skemaMap[String(formData.skema)] || formData.skema || "-";
     return (
       <MainLayout>
-        <div className="max-w-[1400px] px-4 mx-auto py-8">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 max-w-[1400px] px-4 mx-auto py-8">
           <h1 className="text-2xl font-bold mb-4">Input BKB</h1>
           {/* Notifikasi */}
           {notif && (
@@ -1373,7 +1373,7 @@ export default function BKBInputPage() {
   // Tabel BTB: urutan kolom sama seperti monitoring BTB
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         {/* Notifikasi tengah layar */}
         {notif && (
           <div
@@ -1458,7 +1458,7 @@ export default function BKBInputPage() {
           </Button>
         </div>
         {/* Table */}
-        <Card>
+        <Card className="bg-white border-0 shadow-sm ring-1 ring-slate-200">
           <CardHeader>
             <CardTitle>DAFTAR BTB</CardTitle>
             <CardDescription>

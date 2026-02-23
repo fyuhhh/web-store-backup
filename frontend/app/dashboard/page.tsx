@@ -43,6 +43,8 @@ import { motion, Variants } from "framer-motion";
 import dayjs from "dayjs";
 import isBetween from "dayjs/plugin/isBetween";
 import "dayjs/locale/id";
+import CountUp from "@/components/ui/count-up";
+import TextType from "@/components/ui/text-type";
 import { API_BASE_URL } from "@/lib/config";
 
 dayjs.extend(isBetween);
@@ -371,7 +373,7 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-full bg-slate-50/50 pb-10">
+      <div className="min-h-full pb-10">
         <motion.div
           variants={containerVariants}
           initial="hidden"
@@ -392,7 +394,15 @@ export default function DashboardPage() {
                   Sistem Monitoring Terpusat
                 </Badge>
                 <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight mb-3 leading-snug">
-                  Selamat datang, {user?.nama_pengguna || "Pengguna"}
+                  <TextType 
+                    text={[`Selamat datang, ${user?.nama_pengguna || "Pengguna"}`]}
+                    typingSpeed={60}
+                    pauseDuration={1500}
+                    showCursor
+                    cursorCharacter="|"
+                    deletingSpeed={30}
+                    loop={false}
+                  />
                 </h1>
                 <p className="text-blue-100/90 text-sm md:text-base leading-relaxed max-w-2xl mb-0 font-medium tracking-wide">
                   Kontrol seluruh aktivitas pesanan, penerimaan, dan pengeluaran barang secara langsung dalam satu dasbor.
@@ -439,7 +449,7 @@ export default function DashboardPage() {
                     ) : (
                       <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
-                          {totalPRItem}
+                          <CountUp from={0} to={Number(totalPRItem) || 0} separator="." duration={2.5} />
                         </span>
                         <div className="flex items-center text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
                           <TrendingUp className="w-3 h-3 mr-1" /> Trending
@@ -499,7 +509,7 @@ export default function DashboardPage() {
                   ) : (
                     <div className="flex items-baseline gap-2">
                       <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
-                        {totalPOItem}
+                        <CountUp from={0} to={Number(totalPOItem) || 0} separator="." duration={2.5} />
                       </span>
                     </div>
                   )}
@@ -532,7 +542,7 @@ export default function DashboardPage() {
                     ) : (
                       <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
-                          {totalBTBItem}
+                          <CountUp from={0} to={Number(totalBTBItem) || 0} separator="." duration={2.5} />
                         </span>
                       </div>
                     )}
@@ -565,7 +575,7 @@ export default function DashboardPage() {
                     ) : (
                       <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
-                          {totalBKBItem}
+                          <CountUp from={0} to={Number(totalBKBItem) || 0} separator="." duration={2.5} />
                         </span>
                       </div>
                     )}

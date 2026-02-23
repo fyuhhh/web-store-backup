@@ -10,6 +10,8 @@ import { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
 import { motion, Variants } from "framer-motion";
+import CountUp from "@/components/ui/count-up";
+import TextType from "@/components/ui/text-type";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/config";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
@@ -361,7 +363,15 @@ export default function DivisiDashboardPage() {
                                 Divisi {userDivisiName || 'Monitoring'}
                             </Badge>
                             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-3">
-                                {getGreeting()}, {userName.split(' ')[0] || 'User'}! 👋
+                                <TextType 
+                                    text={[`${getGreeting()}, ${userName.split(' ')[0] || 'User'}!`]}
+                                    typingSpeed={60}
+                                    pauseDuration={1500}
+                                    showCursor
+                                    cursorCharacter="|"
+                                    deletingSpeed={30}
+                                    loop={false}
+                                />
                             </h1>
                             <p className="text-blue-100 text-sm md:text-base max-w-md leading-relaxed opacity-90">
                                 Berikut adalah ringkasan aktivitas pengadaan dan permintaan barang dari divisi Anda hari ini.
@@ -390,97 +400,108 @@ export default function DivisiDashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0 mt-2">
                     {/* Total Permintaan */}
                     <motion.div variants={itemVariants}>
-                        <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
-                        <div className="absolute -right-6 -top-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-                            <FileText className="h-32 w-32 text-blue-600" />
-                        </div>
-                        <CardHeader className="pb-2 pt-5 px-5">
-                            <div className="flex justify-between items-start">
-                                <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Pesanan</CardTitle>
-                                <div className="p-2.5 bg-blue-50 rounded-xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                    <FileText className="h-5 w-5" />
+                        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-300 rounded-2xl group">
+                            {/* Decorative Background Elements */}
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all transform group-hover:scale-110 group-hover:rotate-12 duration-500 pointer-events-none">
+                                <FileText className="h-32 w-32 text-white" />
+                            </div>
+                            <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="absolute top-10 right-10 w-20 h-20 bg-indigo-300 opacity-20 rounded-full blur-xl pointer-events-none"></div>
+                            
+                            <CardHeader className="pb-2 pt-5 px-5 relative z-10">
+                                <div className="flex justify-between items-start">
+                                    <CardTitle className="text-xs font-bold text-blue-100 uppercase tracking-wider">Total Pesanan</CardTitle>
+                                    <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white shadow-inner border border-white/10 group-hover:bg-white/30 transition-colors">
+                                        <FileText className="h-5 w-5" />
+                                    </div>
                                 </div>
-                            </div>
-                        </CardHeader>
-                        <CardContent className="px-5 pb-5">
-                            <div className="flex items-baseline gap-2 mb-1">
-                                <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
-                                    {displayTotal}
-                                </span>
-                            </div>
-                            <div className="flex items-center text-xs font-medium text-slate-500 mt-3">
-                                <span className="flex items-center text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full mr-2">
-                                    <TrendingUp className="w-3 h-3 mr-1" />
-                                    All Time
-                                </span>
-                                Keseluruhan
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardHeader>
+                            <CardContent className="px-5 pb-5 relative z-10">
+                                <div className="flex items-baseline gap-2 mb-1">
+                                    <span className="text-4xl font-black text-white tabular-nums tracking-tight drop-shadow-md">
+                                        <CountUp from={0} to={Number(displayTotal) || 0} separator="." duration={2.5} />
+                                    </span>
+                                </div>
+                                <div className="flex items-center text-xs font-medium text-blue-100 mt-3 bg-black/10 w-fit px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
+                                    <TrendingUp className="w-3.5 h-3.5 mr-1.5 text-blue-200" />
+                                    <span className="opacity-90">Keseluruhan Waktu</span>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </motion.div>
 
                     {/* Dalam Proses */}
                     <motion.div variants={itemVariants}>
-                    <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
-                        <div className="absolute -right-6 -top-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:-rotate-12 duration-500">
-                            <Clock className="h-32 w-32 text-orange-600" />
-                        </div>
-                        <CardHeader className="pb-2 pt-5 px-5">
-                            <div className="flex justify-between items-start">
-                                <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">Dalam Proses</CardTitle>
-                                <div className="p-2.5 bg-orange-50 rounded-xl text-orange-600 group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                                    <Clock className="h-5 w-5" />
-                                </div>
+                        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all duration-300 rounded-2xl group">
+                            {/* Decorative Background Elements */}
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all transform group-hover:scale-110 group-hover:-rotate-12 duration-500 pointer-events-none">
+                                <Clock className="h-32 w-32 text-white" />
                             </div>
-                        </CardHeader>
-                        <CardContent className="px-5 pb-5">
-                            <div className="flex items-baseline gap-2 mb-1">
-                                <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
-                                    {displayProses}
-                                </span>
-                            </div>
-                            <div className="flex items-center text-xs font-medium text-slate-500 mt-3">
-                                <div className="flex-1 mr-3">
-                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-orange-500 rounded-full" style={{ width: stats.total ? `${(stats.proses / stats.total) * 100}%` : '0%' }}></div>
+                            <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="absolute top-10 right-10 w-20 h-20 bg-yellow-300 opacity-20 rounded-full blur-xl pointer-events-none"></div>
+
+                            <CardHeader className="pb-2 pt-5 px-5 relative z-10">
+                                <div className="flex justify-between items-start">
+                                    <CardTitle className="text-xs font-bold text-orange-100 uppercase tracking-wider">Dalam Proses</CardTitle>
+                                    <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white shadow-inner border border-white/10 group-hover:bg-white/30 transition-colors">
+                                        <Clock className="h-5 w-5" />
                                     </div>
                                 </div>
-                                <span className="text-orange-600 font-semibold">{stats.total > 0 ? Math.round((stats.proses/stats.total)*100) : 0}%</span>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardHeader>
+                            <CardContent className="px-5 pb-5 relative z-10">
+                                <div className="flex items-baseline gap-2 mb-1">
+                                    <span className="text-4xl font-black text-white tabular-nums tracking-tight drop-shadow-md">
+                                        <CountUp from={0} to={Number(displayProses) || 0} separator="." duration={2.5} />
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs mt-3 bg-black/10 px-3 py-2 rounded-xl border border-white/10 backdrop-blur-sm">
+                                    <div className="flex-1 mr-3 relative">
+                                        <div className="absolute inset-0 bg-white/20 rounded-full blur-[2px]"></div>
+                                        <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden relative z-10">
+                                            <div className="h-full bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]" style={{ width: stats.total ? `${(stats.proses / stats.total) * 100}%` : '0%' }}></div>
+                                        </div>
+                                    </div>
+                                    <span className="text-white font-bold drop-shadow-sm">{stats.total > 0 ? Math.round((stats.proses/stats.total)*100) : 0}%</span>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </motion.div>
 
                     {/* Selesai */}
                     <motion.div variants={itemVariants}>
-                    <Card className="shadow-lg border-0 bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
-                        <div className="absolute -right-6 -top-6 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-                            <CheckCircle2 className="h-32 w-32 text-emerald-600" />
-                        </div>
-                        <CardHeader className="pb-2 pt-5 px-5">
-                            <div className="flex justify-between items-start">
-                                <CardTitle className="text-xs font-bold text-slate-500 uppercase tracking-wider">Selesai</CardTitle>
-                                <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
-                                    <CheckCircle2 className="h-5 w-5" />
-                                </div>
+                        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 rounded-2xl group">
+                            {/* Decorative Background Elements */}
+                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all transform group-hover:scale-110 group-hover:-rotate-12 duration-500 pointer-events-none">
+                                <CheckCircle2 className="h-32 w-32 text-white" />
                             </div>
-                        </CardHeader>
-                        <CardContent className="px-5 pb-5">
-                            <div className="flex items-baseline gap-2 mb-1">
-                                <span className="text-4xl font-black text-slate-800 tabular-nums tracking-tight">
-                                    {displaySelesai}
-                                </span>
-                            </div>
-                            <div className="flex items-center text-xs font-medium text-slate-500 mt-3">
-                                <div className="flex-1 mr-3">
-                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: stats.total ? `${(stats.selesai / stats.total) * 100}%` : '0%' }}></div>
+                            <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="absolute top-10 right-10 w-20 h-20 bg-lime-300 opacity-20 rounded-full blur-xl pointer-events-none"></div>
+
+                            <CardHeader className="pb-2 pt-5 px-5 relative z-10">
+                                <div className="flex justify-between items-start">
+                                    <CardTitle className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Selesai</CardTitle>
+                                    <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white shadow-inner border border-white/10 group-hover:bg-white/30 transition-colors">
+                                        <CheckCircle2 className="h-5 w-5" />
                                     </div>
                                 </div>
-                                <span className="text-emerald-600 font-semibold">{stats.total > 0 ? Math.round((stats.selesai/stats.total)*100) : 0}%</span>
-                            </div>
-                        </CardContent>
-                    </Card>
+                            </CardHeader>
+                            <CardContent className="px-5 pb-5 relative z-10">
+                                <div className="flex items-baseline gap-2 mb-1">
+                                    <span className="text-4xl font-black text-white tabular-nums tracking-tight drop-shadow-md">
+                                        <CountUp from={0} to={Number(displaySelesai) || 0} separator="." duration={2.5} />
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs mt-3 bg-black/10 px-3 py-2 rounded-xl border border-white/10 backdrop-blur-sm">
+                                    <div className="flex-1 mr-3 relative">
+                                        <div className="absolute inset-0 bg-white/20 rounded-full blur-[2px]"></div>
+                                        <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden relative z-10">
+                                            <div className="h-full bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]" style={{ width: stats.total ? `${(stats.selesai / stats.total) * 100}%` : '0%' }}></div>
+                                        </div>
+                                    </div>
+                                    <span className="text-white font-bold drop-shadow-sm">{stats.total > 0 ? Math.round((stats.selesai/stats.total)*100) : 0}%</span>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </motion.div>
                 </div>
                 

@@ -1440,7 +1440,7 @@ export default function RekapFullPage() {
         // Columns: daftarBarangPR, quantityAwalPR, satuanPR, keteranganPR
         if (prItemGroup.rowSpan > 1) {
           const prItemEndRow = prItemStartRow + prItemGroup.rowSpan - 1;
-          const prItemKeys = ["daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", "quantityPR"]; // quantityPR seems to represent Sisa Qty field in some contexts or current qty
+          const prItemKeys = ["daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", "quantityPR", "divisi", "dibuatOleh", "targetTanggalPO"]; // quantityPR seems to represent Sisa Qty field in some contexts or current qty
           prItemKeys.forEach(k => {
             const idx = exportColumns.findIndex(c => c.key === k);
             if (idx >= 0) {
@@ -1453,10 +1453,10 @@ export default function RekapFullPage() {
       }); // end prItemGroups
 
       // Merge PR Level columns
-      // Columns: periodePR, noPR, tanggalPR, hariPR, divisi, dibuatOleh, targetTanggalPO, status, skemaPR
+      // Columns: periodePR, noPR, tanggalPR, hariPR, status, skemaPR
       if (prGroup.rowSpan > 1) {
         const prEndRow = prStartRow + prGroup.rowSpan - 1;
-        const prKeys = ["noPR", "tanggalPR", "hariPR", "divisi", "dibuatOleh", "targetTanggalPO", "status"];
+        const prKeys = ["noPR", "tanggalPR", "hariPR", "status"];
         prKeys.forEach(k => {
           const idx = exportColumns.findIndex(c => c.key === k);
           if (idx >= 0) {
@@ -1881,8 +1881,8 @@ export default function RekapFullPage() {
                                   }
                                   {/* Divisi */}
                                   {
-                                    isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                    isFirstPRItem ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {typeof item.divisi === "string"
                                           ? item.divisi.toUpperCase()
                                           : item.divisi ?? ""}
@@ -1891,8 +1891,8 @@ export default function RekapFullPage() {
                                   }
                                   {/* Dibuat Oleh */}
                                   {
-                                    isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                    isFirstPRItem ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {typeof item.dibuatOleh === "string"
                                           ? item.dibuatOleh.replace(/_/g, " ").toUpperCase()
                                           : item.dibuatOleh ?? ""}
@@ -1901,8 +1901,8 @@ export default function RekapFullPage() {
                                   }
                                   {/* Target Tanggal PO */}
                                   {
-                                    isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase" rowSpan={prGroup.rowSpan}>
+                                    isFirstPRItem ? (
+                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
                                         {typeof item.targetTanggalPO === "string"
                                           ? formatTanggalDisplay(item.targetTanggalPO).toUpperCase()
                                           : item.targetTanggalPO ?? ""}

@@ -17,7 +17,8 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/components/ui/input"
+import CountUp from "@/components/ui/count-up";
 import { Button } from "@/components/ui/button";
 import { Search, ChevronRight, Package, Calendar, FileText, ShoppingCart, Activity } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -258,7 +259,7 @@ export default function PesananAndaPage() {
                                     <Activity className="w-3.5 h-3.5" /> Total Pesanan
                                 </span>
                                 <span className="text-3xl font-bold tabular-nums">
-                                    {isLoading ? '-' : calculatedTotalPesanan}
+                                    {isLoading ? '-' : <CountUp from={0} to={calculatedTotalPesanan || 0} separator="." duration={2.5} />}
                                 </span>
                             </div>
                             <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 flex flex-col min-w-[130px]">
@@ -266,7 +267,7 @@ export default function PesananAndaPage() {
                                     <Package className="w-3.5 h-3.5" /> Total Barang
                                 </span>
                                 <span className="text-3xl font-bold tabular-nums">
-                                    {isLoading ? '-' : calculatedTotalBarang}
+                                    {isLoading ? '-' : <CountUp from={0} to={calculatedTotalBarang || 0} separator="." duration={2.5} />}
                                 </span>
                             </div>
                         </div>

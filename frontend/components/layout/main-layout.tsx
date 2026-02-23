@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, ArrowUp } from "lucide-react";
+import { LogOut, User, ArrowUp, Menu } from "lucide-react";
 import { RoleGuard } from "@/components/ui/role-guard";
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
 import { API_BASE_URL } from "@/lib/config";
@@ -22,6 +22,7 @@ const MainLayoutContent = ({
   maintenanceWarning,
   countdown,
   skemaLabel,
+  peranLabel,
   divisiLabel,
   userDetail,
   userData,
@@ -31,6 +32,7 @@ const MainLayoutContent = ({
   maintenanceWarning: string | null;
   countdown: string;
   skemaLabel: string;
+  peranLabel: string;
   divisiLabel: string;
   userDetail: any;
   userData: any;
@@ -39,6 +41,7 @@ const MainLayoutContent = ({
   // --- SMART HEADER & BACK TO TOP LOGIC ---
   const [hidden, setHidden] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
   const { scrollY } = useScroll({ container: mainRef });
 
@@ -76,7 +79,7 @@ const MainLayoutContent = ({
       )}
 
       <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar />
+        <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
         <div className="flex-1 flex flex-col overflow-hidden relative">
 
           {/* Smart Sticky Header */}
@@ -90,9 +93,17 @@ const MainLayoutContent = ({
             className="absolute top-0 left-0 right-0 z-40 bg-card/80 backdrop-blur-md border-b border-border px-6 py-4 shadow-sm"
           >
             <div className="flex items-center justify-between">
-              <div>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-full hover:bg-slate-100 text-slate-500 hover:text-slate-900"
+                  onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                >
+                  <Menu className="h-5 w-5" />
+                </Button>
                 <h1 className="text-xl font-semibold text-foreground">
-                  FlowStore | {skemaLabel} {divisiLabel ? `(${divisiLabel})` : ""}
+                  Portal {peranLabel} <span className="text-slate-300 mx-1">|</span> {skemaLabel} {divisiLabel ? `(${divisiLabel})` : ""}
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
@@ -116,7 +127,7 @@ const MainLayoutContent = ({
           {/* Main Content with Top Padding compensation for absolute header */}
           <main
             ref={mainRef}
-            className="flex-1 overflow-auto bg-background p-6 pt-[88px] relative scroll-smooth"
+            className="flex-1 overflow-auto bg-slate-50 p-6 pt-[88px] relative scroll-smooth"
           >
             {children}
 
@@ -283,6 +294,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         maintenanceWarning={maintenanceWarning}
         countdown={countdown}
         skemaLabel={skemaLabel}
+        peranLabel={peranLabel}
         divisiLabel={divisiLabel}
         userDetail={userDetail}
         userData={userData}

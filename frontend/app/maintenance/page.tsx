@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/lib/config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import TextType from "@/components/ui/text-type";
 
 export default function MaintenancePage() {
     const [endTime, setEndTime] = useState<string | null>(null);
@@ -87,7 +88,15 @@ export default function MaintenancePage() {
                         </div>
 
                         <h1 className="text-3xl font-bold text-slate-900 tracking-tight mb-3">
-                            Sistem Dalam Perbaikan
+                            <TextType 
+                                text={["Sistem Dalam Perbaikan", "Sedang Maintanance", "Akan Segera Kembali!"]}
+                                typingSpeed={70}
+                                pauseDuration={2500}
+                                showCursor
+                                cursorCharacter="|"
+                                deletingSpeed={40}
+                                loop={true}
+                            />
                         </h1>
 
                         <p className="text-slate-500 text-lg mb-8 leading-relaxed">

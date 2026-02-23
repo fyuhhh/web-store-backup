@@ -716,7 +716,7 @@ export default function StatusPOPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -824,7 +824,7 @@ export default function StatusPOPage() {
         </div>
 
         {/* PR Siap Proses ke PO */}
-        <Card className="bg-card border-border">
+        <Card className="bg-white bg-card border-border">
           <CardHeader>
             <CardTitle>PR Siap Proses ke PO</CardTitle>
             <CardDescription>

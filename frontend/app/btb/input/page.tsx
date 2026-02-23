@@ -1380,7 +1380,7 @@ export default function BTBInputPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-6">
         {/* Notifikasi tengah layar */}
         {notif && (
           <div
@@ -1459,7 +1459,7 @@ export default function BTBInputPage() {
 
         {/* Tabel PO dari Monitoring PO */}
         {!showForm && (
-          <Card className="bg-card border-border">
+          <Card className="bg-white bg-card border-border">
             <CardHeader>
               <CardTitle>Daftar Purchase Order</CardTitle>
               <CardDescription>
@@ -2371,7 +2371,7 @@ export default function BTBInputPage() {
         {/* BTB Form - show only when showForm is true */}
         {
           showForm && (
-            <Card className="bg-card border-border shadow-md rounded-md">
+            <Card className="bg-white bg-card border-border shadow-md rounded-md">
               <CardHeader>
                 <CardTitle>
                   {editingBTB ? "Edit BTB" : "Tambah BTB Baru"}
