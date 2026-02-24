@@ -351,7 +351,7 @@ function KeteranganPopover({ text, max = 20 }: { text: string; max?: number }) {
   );
 }
 
-export default function RekapFullPage() {
+export default function MonitoringStokPage() {
   const [rekapData, setRekapData] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   // Hilangkan pagination: tampilkan semua data sesuai rentang tanggal
@@ -918,28 +918,10 @@ export default function RekapFullPage() {
           return dateA - dateB;
         });
 
-        // --- FILTER BY DIVISION NAME (NAME-BASED) ---
-        let finalRows = rekapRows;
-
-        if (userDivisiId) {
-          // localDivisiMap is available in this scope
-          const userDivName = localDivisiMap[String(userDivisiId)];
-
-          console.log("Filtering Logic - User ID:", userDivisiId, "Name:", userDivName);
-
-          if (userDivName) {
-            finalRows = rekapRows.filter(row => {
-              // Compare row.divisi (Name) with userDivName
-              // Ensure strict equality or case-insensitive if needed (names are usually consistent from map)
-              return row.divisi === userDivName;
-            });
-          } else {
-            // If ID exists but name not found in map?
-            // Fallback: If map is missing, row.divisi might be the ID itself (see construction logic)
-            // Try comparing row.divisi with ID string just in case
-            finalRows = rekapRows.filter(row => String(row.divisi) === String(userDivisiId));
-          }
-        }
+        // --- FILTER BY DIVISION PURCHASING & STORE ---
+        let finalRows = rekapRows.filter(row => {
+          return row.divisi && String(row.divisi).toUpperCase() === "PURCHASING & STORE";
+        });
 
         setRekapData(finalRows);
       } catch (err) {
@@ -1573,10 +1555,10 @@ export default function RekapFullPage() {
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              Rekap Full Monitoring
+              Monitoring Stok
             </h1>
             <p className="text-muted-foreground">
-              Tabel rekap PR, PO dan BTB
+              Tabel rekap PR, PO dan BTB untuk Divisi PURCHASING & STORE
             </p>
           </div>
           <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-lg border border-gray-200">

@@ -260,6 +260,11 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
           icon: ShoppingCart,
         },
         {
+          title: "Monitoring Stok",
+          href: "/divisi/monitoring-stok",
+          icon: BarChart3,
+        },
+        {
           title: "Full Rekap",
           href: "/divisi/rekap-full",
           icon: BarChart3,
