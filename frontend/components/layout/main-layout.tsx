@@ -194,51 +194,65 @@ export function MainLayout({ children }: MainLayoutProps) {
       .then((data) => setDivisiList(data));
 
     // --- MAINTENANCE CHECK ---
-    const checkMaintenance = async () => {
+    let maintenanceData: any = null;
+
+    const tickCountdown = () => {
+      if (!maintenanceData || !maintenanceData.isActive) return;
+      
+      const whitelist = ["141", "90", "89", "85"];
+      const currentId = String(parsed.id ?? parsed.id_user ?? "");
+
+      if (!whitelist.includes(currentId)) {
+        const now = new Date().getTime();
+        const startTime = maintenanceData.startTime ? new Date(maintenanceData.startTime).getTime() : 0;
+        const endTime = maintenanceData.endTime ? new Date(maintenanceData.endTime).getTime() : 0;
+
+        // Jika belum lockout (masih dalam grace period 5 menit)
+        if (startTime > 0 && now < startTime) {
+          const diff = startTime - now;
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+          setCountdown(`${minutes}m ${seconds}s`);
+          setMaintenanceWarning("Akan segera maintenance ketika hitung mundur selesai, segera menyelesaikan/mengehentikan proses/inputan Anda, terima kasih.");
+        } else {
+          // Sudah lockout
+          setMaintenanceWarning(null); // Clear warning to redirect
+
+          // Double check end time validity (backend usually handles auto-disable, but for safety)
+          if (endTime === 0 || now < endTime) {
+            // Redirect to maintenance page
+            if (window.location.pathname !== "/maintenance") {
+              window.location.href = "/maintenance";
+            }
+          }
+        }
+      }
+    };
+
+    const fetchMaintenance = async () => {
       try {
         const res = await fetch(API_BASE_URL + "/api/maintenance", { cache: "no-store", headers: { "Pragma": "no-cache" } });
         const data = await res.json();
+        maintenanceData = data;
 
-        if (data.isActive) {
-          const whitelist = ["141", "90", "89", "85"];
-          const currentId = String(parsed.id ?? parsed.id_user ?? "");
-
-          if (!whitelist.includes(currentId)) {
-            const now = new Date().getTime();
-            const startTime = data.startTime ? new Date(data.startTime).getTime() : 0;
-            const endTime = data.endTime ? new Date(data.endTime).getTime() : 0;
-
-            // Jika belum lockout (masih dalam grace period 5 menit)
-            if (startTime > 0 && now < startTime) {
-              const diff = startTime - now;
-              const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-              const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-              setCountdown(`${minutes}m ${seconds}s`);
-              setMaintenanceWarning("Akan segera maintenance ketika hitung mundur selesai, segera menyelesaikan/mengehentikan proses/inputan Anda, terima kasih.");
-            } else {
-              // Sudah lockout
-              setMaintenanceWarning(null); // Clear warning to redirect
-
-              // Double check end time validity (backend usually handles auto-disable, but for safety)
-              if (endTime === 0 || now < endTime) {
-                // Redirect to maintenance page
-                if (window.location.pathname !== "/maintenance") {
-                  window.location.href = "/maintenance";
-                }
-              }
-            }
-          }
-        } else {
+        if (!data.isActive) {
           setMaintenanceWarning(null);
+        } else {
+          tickCountdown();
         }
       } catch (e) {
         console.error("Maintenance check failed", e);
       }
     };
 
-    checkMaintenance();
-    const interval = setInterval(checkMaintenance, 1000); // Check every 1s for smooth countdown
-    return () => clearInterval(interval);
+    fetchMaintenance();
+    const fetchInterval = setInterval(fetchMaintenance, 60000); // Check API every 60s (reduces backend log spam)
+    const tickInterval = setInterval(tickCountdown, 1000); // Check local countdown every 1s
+
+    return () => {
+      clearInterval(fetchInterval);
+      clearInterval(tickInterval);
+    };
 
   }, [router]);
 

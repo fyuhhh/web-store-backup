@@ -86,8 +86,9 @@ const columns = [
   { key: "tanggalEstimasiDiterima", label: "ESTIMASI DITERIMA" },
   { key: "diinputOleh", label: "DIORDER OLEH" },
   { key: "diorderOleh", label: "DIBUAT OLEH" },
+  { key: "terminPembayaran", label: "TERMIN PEMBAYARAN" },
   { key: "targetPencapaianPO", label: "TARGET PENCAPAIAN PO" },
-  { key: "delay", label: "STATUS" },
+  { key: "delay", label: "STATUS DELAY" },
   { key: "quantityPO", label: "QUANTITY BELUM PO" },
   { key: "skemaPO", label: "SKEMA PO" },
   { key: "noBTB", label: "NO. BTB" },
@@ -98,8 +99,16 @@ const columns = [
   { key: "sisaStokBTB", label: "QUANTITY BELUM BTB" },
   { key: "diterimaOleh", label: "DITERIMA OLEH" },// baru
   { key: "plan", label: "PLAN / NO PLAN" },
+  { key: "statusPR_closed", label: "STATUS PR" },
   { key: "skemaBTB", label: "SKEMA BTB" },
 ];
+
+function computeStatusPRClosed(quantityBelumPO: any, quantityBelumBTB: any) {
+  const q1 = (quantityBelumPO !== "" && quantityBelumPO !== null && quantityBelumPO !== undefined) ? Number(quantityBelumPO) : -1;
+  const q2 = (quantityBelumBTB !== "" && quantityBelumBTB !== null && quantityBelumBTB !== undefined) ? Number(quantityBelumBTB) : -1;
+  if (q1 === 0 && q2 === 0) return "CLOSED";
+  return "";
+}
 
 function getMonthName(dateStr: string) {
   if (!dateStr) return "";
@@ -290,9 +299,12 @@ function getMonthNameCorrected(dateStr: string) {
 
 function formatDateSimple(dateStr: string) {
   if (!dateStr) return "";
+  if (/^\d{2}-\d{2}-\d{4}$/.test(dateStr)) {
+    return dateStr.replace(/-/g, "/");
+  }
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
-  return `${d.getDate().toString().padStart(2, "0")}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getFullYear()}`;
+  return `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1).toString().padStart(2, "0")}/${d.getFullYear()}`;
 }
 
 // Helper untuk popover keterangan (hover, abu-abu, di luar tabel)
@@ -553,7 +565,7 @@ export default function RekapFullPage() {
                 hariPR: getDayName(pr.tanggalPR),
                 daftarBarangPR: item.namaBarang,
                 quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
-                quantityPO: item.jumlah ?? "",
+                quantityPR: item.jumlah ?? "",
                 satuanPR: item.id_satuan
                   ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                   : "",
@@ -589,6 +601,7 @@ export default function RekapFullPage() {
                 statusPengiriman: "",
                 diorderOleh: "",
                 diinputOleh: "",
+                terminPembayaran: "",
                 skemaPO: "",
                 noBTB: "",
                 tanggalBTB: "",
@@ -597,12 +610,12 @@ export default function RekapFullPage() {
                 namaBarangBTB: "",
                 quantityBTB: "",
                 satuanBTB: "",
-                sisaStokBTB: "",
-                statusPermintaanByPR: "",
-                plan: pr.plan || "",
-                noPlan: "",
                 biayaBTB: "",
+                sisaStokBTB: "",
                 diterimaOleh: "",
+                quantityPO: item.jumlah ?? "",
+                statusPR_closed: computeStatusPRClosed(item.jumlah, -1),
+                plan: pr.plan || "",
                 skemaBTB: "",
                 targetPencapaianPO: "",
               });
@@ -676,7 +689,7 @@ export default function RekapFullPage() {
                       ? localSupplierMap[String(po.id_supplier)] || ""
                       : "",
                     quantityAwalPO: poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "",
-                    quantityPO: item?.jumlah ?? "",
+                    quantityPO: 0,
                     satuanPO:
                       item.id_satuan
                         ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
@@ -715,6 +728,7 @@ export default function RekapFullPage() {
                       ? localUserMap[String(po.orderedBy)] || po.orderedBy
                       : "",
                     diinputOleh: poItem?.namaPembeli ?? "",
+                    terminPembayaran: po?.termin || po?.id_termin || "",
                     skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
                     noBTB: "",
                     tanggalBTB: "",
@@ -723,22 +737,20 @@ export default function RekapFullPage() {
                     namaBarangBTB: "",
                     quantityBTB: "",
                     satuanBTB: "",
-                    sisaStokBTB: poItem?.jumlahPO || "",
-                    statusPermintaanByPR: "",
-                    plan: pr.plan || "",
-                    noPlan: "",
                     biayaBTB: "",
+                    sisaStokBTB: poItem?.jumlahPO || poItem?.jumlah_po || "",
                     diterimaOleh: "",
+                    statusPR_closed: computeStatusPRClosed(0, poItem?.jumlahPO || poItem?.jumlah_po),
+                    plan: pr.plan || "",
                     skemaBTB: "",
                     targetPencapaianPO: "",
-                    id_btb_item: "",
                   });
                 } else {
-                  // Untuk setiap BTB Item yang terkait, cari BTB
+                  // Untuk tiap BTB Item, tampilkan baris lengkap
                   btbItems.forEach((btbItem: any) => {
                     const btb = btbData.find((b: any) => String(b.id_btb) === String(btbItem.id_btb));
                     rekapRows.push({
-                      id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb || ""),
+                      id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb_item || ""),
                       id_PR: pr.id_PR,
                       periodePR: pr.tanggalPR ? `${getMonthName(pr.tanggalPR)} ${getYear(pr.tanggalPR)}` : "",
                       tahunPR: getYear(pr.tanggalPR),
@@ -756,7 +768,7 @@ export default function RekapFullPage() {
                       hariPR: getDayName(pr.tanggalPR),
                       daftarBarangPR: item.namaBarang,
                       quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
-                      // quantityPO removed (duplicate)
+                      quantityPR: item.jumlah ?? "",
                       satuanPR: item.id_satuan
                         ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
                         : "",
@@ -776,15 +788,8 @@ export default function RekapFullPage() {
                           return String(days);
                         })()
                         : "",
-                      id_POItem: poItem.id_POItem,
-                      status: (() => {
-                        if (poItem?.statusTerima) return poItem.statusTerima;
-                        if (pr.estimasipo && po?.tanggalPO) {
-                          const delay = countWorkingDaysBetween(pr.estimasipo, po.tanggalPO);
-                          return delay <= 0 ? "SCHEDULE" : "TIDAK TERCAPAI";
-                        }
-                        return po?.statusterima ?? pr.status ?? "";
-                      })(),
+                      status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "",
+                      id_POItem: poItem?.id_POItem || "",
                       noPO: po?.noPO || "",
                       tanggalPO: po?.tanggalPO
                         ? (() => {
@@ -811,7 +816,7 @@ export default function RekapFullPage() {
                         ? localSupplierMap[String(po.id_supplier)] || ""
                         : "",
                       quantityAwalPO: poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "",
-                      quantityPO: item?.jumlah ?? "",
+                      quantityPO: 0,
                       satuanPO:
                         item.id_satuan
                           ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
@@ -850,6 +855,7 @@ export default function RekapFullPage() {
                         ? localUserMap[String(po.orderedBy)] || po.orderedBy
                         : "",
                       diinputOleh: poItem?.namaPembeli ?? "",
+                      terminPembayaran: po?.termin || po?.id_termin || "",
                       skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
                       noBTB: btb?.no_btb || "",
                       id_btb: btb?.id_btb || "",
@@ -880,10 +886,11 @@ export default function RekapFullPage() {
                           ? localSatuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
                           : "",
                       biayaBTB: btbItem?.biaya ?? btb?.biaya ?? "",
-                      sisaStokBTB: poItem?.jumlahPO ?? "",
+                      sisaStokBTB: 0,
                       diterimaOleh: btb?.diterima_oleh
                         ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                         : "",
+                      statusPR_closed: computeStatusPRClosed(0, 0),
                       plan: pr.plan || "",
                       skemaBTB: btb?.id_skema
                         ? localSkemaMap[String(btb.id_skema)] || btb.id_skema
@@ -922,21 +929,10 @@ export default function RekapFullPage() {
         let finalRows = rekapRows;
 
         if (userDivisiId) {
-          // localDivisiMap is available in this scope
           const userDivName = localDivisiMap[String(userDivisiId)];
-
-          console.log("Filtering Logic - User ID:", userDivisiId, "Name:", userDivName);
-
           if (userDivName) {
-            finalRows = rekapRows.filter(row => {
-              // Compare row.divisi (Name) with userDivName
-              // Ensure strict equality or case-insensitive if needed (names are usually consistent from map)
-              return row.divisi === userDivName;
-            });
+            finalRows = rekapRows.filter(row => row.divisi === userDivName);
           } else {
-            // If ID exists but name not found in map?
-            // Fallback: If map is missing, row.divisi might be the ID itself (see construction logic)
-            // Try comparing row.divisi with ID string just in case
             finalRows = rekapRows.filter(row => String(row.divisi) === String(userDivisiId));
           }
         }
@@ -950,6 +946,7 @@ export default function RekapFullPage() {
     fetchData();
 
   }, []);
+
 
 
   // Ambil id_skema dari localStorage (userData)
@@ -1065,7 +1062,7 @@ export default function RekapFullPage() {
   // Tidak ada pagination, gunakan seluruh filteredData
   const pagedData = filteredData;
 
-  // Group rows by id_PR, then by PR Item, then by PO, then by BTB
+
   function groupRowsForTable(rows: any[]) {
     const grouped: { [id_PR: string]: any[] } = {};
     rows.forEach((row) => {
@@ -1401,71 +1398,17 @@ export default function RekapFullPage() {
               currentRowIdx++;
             });
 
-            // Merge BTB Level columns
-            // Columns: periodeBTB, noBTB, tanggalBTB, quantityBTB, satuanBTB, biayaBTB, sisaStokBTB, diterimaOleh, plan, skemaBTB
-            // Cek key di columns definition
-            if (btbGroup.rowSpan > 1) {
-              const btbEndRow = btbStartRow + btbGroup.rowSpan - 1;
-              // List key untuk BTB level
-              const btbKeys = ["noBTB", "tanggalBTB", "quantityBTB", "satuanBTB", "biayaBTB", "sisaStokBTB", "diterimaOleh", "plan", "dikeluarkanOleh"];
-              btbKeys.forEach(k => {
-                const idx = exportColumns.findIndex(c => c.key === k);
-                if (idx >= 0) {
-                  try {
-                    worksheet.mergeCells(btbStartRow, idx + 1, btbEndRow, idx + 1);
-                  } catch (e) { }
-                }
-              });
-            }
+            // Merge BTB Level columns - REMOVED for consistency with no-rowSpan layout
           }); // end btbGroups
 
-          // Merge PO Level columns
-          // Columns: periodePO, noPO, tanggalPO, supplier, quantityAwalPO, satuanPO, hargaSatuanPO, diskonPersen, diskonRp, ppnPersen, ppnRp, totalHarga, statusPengiriman, tanggalEstimasiDiterima, diorderOleh, diinputOleh, targetPencapaianPO, delay, quantityPO, skemaPO
-          if (poGroup.rowSpan > 1) {
-            const poEndRow = poStartRow + poGroup.rowSpan - 1;
-            const poKeys = ["noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO", "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman", "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "terminPembayaran", "targetPencapaianPO", "delay", "quantityPO"];
-            poKeys.forEach(k => {
-              const idx = exportColumns.findIndex(c => c.key === k);
-              if (idx >= 0) {
-                try {
-                  worksheet.mergeCells(poStartRow, idx + 1, poEndRow, idx + 1);
-                } catch (e) { }
-              }
-            });
-          }
+          // Merge PO Level columns - REMOVED for consistency with no-rowSpan layout
 
         }); // end poGroups
 
-        // Merge PR Item Level columns
-        // Columns: daftarBarangPR, quantityAwalPR, satuanPR, keteranganPR
-        if (prItemGroup.rowSpan > 1) {
-          const prItemEndRow = prItemStartRow + prItemGroup.rowSpan - 1;
-          const prItemKeys = ["daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", "quantityPR", "divisi", "dibuatOleh", "targetTanggalPO"]; // quantityPR seems to represent Sisa Qty field in some contexts or current qty
-          prItemKeys.forEach(k => {
-            const idx = exportColumns.findIndex(c => c.key === k);
-            if (idx >= 0) {
-              try {
-                worksheet.mergeCells(prItemStartRow, idx + 1, prItemEndRow, idx + 1);
-              } catch (e) { }
-            }
-          });
-        }
+        // Merge PR Item Level columns - REMOVED for consistency with no-rowSpan layout
       }); // end prItemGroups
 
-      // Merge PR Level columns
-      // Columns: periodePR, noPR, tanggalPR, hariPR, status, skemaPR
-      if (prGroup.rowSpan > 1) {
-        const prEndRow = prStartRow + prGroup.rowSpan - 1;
-        const prKeys = ["noPR", "tanggalPR", "hariPR", "status"];
-        prKeys.forEach(k => {
-          const idx = exportColumns.findIndex(c => c.key === k);
-          if (idx >= 0) {
-            try {
-              worksheet.mergeCells(prStartRow, idx + 1, prEndRow, idx + 1);
-            } catch (e) { }
-          }
-        });
-      }
+      // Merge PR Level columns - REMOVED for consistency with no-rowSpan layout
 
     }); // end prGroup
 
@@ -1484,7 +1427,8 @@ export default function RekapFullPage() {
       divisi: 15,
       noPR: 18,
       noPO: 18,
-      noBTB: 18
+      noBTB: 18,
+      terminPembayaran: 20
     };
     exportColumns.forEach((col, idx) => {
       if (widthMap[col.key]) {
@@ -1809,106 +1753,75 @@ export default function RekapFullPage() {
                                   {/* Periode PR */}
 
                                   {/* No. MR */}
-                                  {
-                                    isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prGroup.rowSpan}>
-                                        <span className="font-bold text-black">
-                                          {(item.noMR || "").toUpperCase()}
-                                        </span>
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPR ? (
+                                      <span className="font-bold text-black">
+                                        {(item.noMR || "").toUpperCase()}
+                                      </span>
+                                    ) : null}
+                                  </TableCell>
                                   {/* No. PR */}
-                                  {
-                                    isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prGroup.rowSpan}>
-                                        <span className="font-bold text-black">
-                                          {(item.noPR || "").toUpperCase()}
-                                        </span>
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPR ? (
+                                      <span className="font-bold text-black">
+                                        {(item.noPR || "").toUpperCase()}
+                                      </span>
+                                    ) : null}
+                                  </TableCell>
                                   {/* Tanggal PR */}
-                                  {
-                                    isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prGroup.rowSpan}>
-                                        {(item.tanggalPR || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPR ? (item.tanggalPR || "").toUpperCase() : null}
+                                  </TableCell>
                                   {/* Hari PR */}
-                                  {
-                                    isFirstPR ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prGroup.rowSpan}>
-                                        {(item.hariPR || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPR ? (item.hariPR || "").toUpperCase() : null}
+                                  </TableCell>
                                   {/* Daftar Barang PR */}
-                                  {
-                                    isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
-                                        {(item.daftarBarangPR || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPRItem ? (item.daftarBarangPR || "").toUpperCase() : null}
+                                  </TableCell>
                                   {/* Quantity Awal PR */}
-                                  {
-                                    isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 text-right uppercase align-top" rowSpan={prItemGroup.rowSpan}>
-                                        {formatInt(item.quantityAwalPR)}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 text-right uppercase align-top">
+                                    {isFirstPRItem ? formatInt(item.quantityAwalPR) : null}
+                                  </TableCell>
                                   {/* Satuan PR */}
-                                  {
-                                    isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
-                                        {typeof item.satuanPR === "string"
-                                          ? item.satuanPR.toUpperCase()
-                                          : item.satuanPR ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPRItem ? (
+                                      typeof item.satuanPR === "string"
+                                        ? item.satuanPR.toUpperCase()
+                                        : item.satuanPR ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Keterangan PR */}
-                                  {
-                                    isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
-                                        {/* KeteranganPopover sudah handle string, tambahkan .toUpperCase() */}
-                                        <KeteranganPopover text={typeof item.keteranganPR === "string" ? item.keteranganPR.toUpperCase() : ""} max={20} />
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPRItem ? (
+                                      <KeteranganPopover text={typeof item.keteranganPR === "string" ? item.keteranganPR.toUpperCase() : ""} max={20} />
+                                    ) : null}
+                                  </TableCell>
                                   {/* Divisi */}
-                                  {
-                                    isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
-                                        {typeof item.divisi === "string"
-                                          ? item.divisi.toUpperCase()
-                                          : item.divisi ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPRItem ? (
+                                      typeof item.divisi === "string"
+                                        ? item.divisi.toUpperCase()
+                                        : item.divisi ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Dibuat Oleh */}
-                                  {
-                                    isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
-                                        {typeof item.dibuatOleh === "string"
-                                          ? item.dibuatOleh.replace(/_/g, " ").toUpperCase()
-                                          : item.dibuatOleh ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPRItem ? (
+                                      typeof item.dibuatOleh === "string"
+                                        ? item.dibuatOleh.replace(/_/g, " ").toUpperCase()
+                                        : item.dibuatOleh ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Target Tanggal PO */}
-                                  {
-                                    isFirstPRItem ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={prItemGroup.rowSpan}>
-                                        {typeof item.targetTanggalPO === "string"
-                                          ? formatTanggalDisplay(item.targetTanggalPO).toUpperCase()
-                                          : item.targetTanggalPO ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPRItem ? (
+                                      typeof item.targetTanggalPO === "string"
+                                        ? formatTanggalDisplay(item.targetTanggalPO).toUpperCase()
+                                        : item.targetTanggalPO ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Status */}
                                   {/* Status - Per Item */}
                                   <TableCell
@@ -1917,48 +1830,35 @@ export default function RekapFullPage() {
                                     <span>{(item.status || "").toUpperCase()}</span>
                                   </TableCell>
                                   {/* Skema PR */}
-                                  {
-                                    isFirstPR ? (
-                                      <TableCell
-                                        className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase align-top"
-                                        rowSpan={prGroup.rowSpan}
-                                      >
-                                        {typeof item.skemaPRLabel === "string"
-                                          ? item.skemaPRLabel.toUpperCase()
-                                          : item.skemaPRLabel ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase align-top">
+                                    {isFirstPR ? (
+                                      typeof item.skemaPRLabel === "string"
+                                        ? item.skemaPRLabel.toUpperCase()
+                                        : item.skemaPRLabel ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Periode PO */}
 
                                   {/* No. PO */}
-                                  {
-                                    isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
-                                        <span className="font-bold text-black">
-                                          {(item.noPO || "").toUpperCase()}
-                                        </span>
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPO ? (
+                                      <span className="font-bold text-black">
+                                        {(item.noPO || "").toUpperCase()}
+                                      </span>
+                                    ) : null}
+                                  </TableCell>
                                   {/* Tanggal PO */}
-                                  {
-                                    isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
-                                        {formatTanggalDisplay(item.tanggalPO).toUpperCase()}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPO ? formatTanggalDisplay(item.tanggalPO).toUpperCase() : null}
+                                  </TableCell>
                                   {/* Supplier */}
-                                  {
-                                    isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
-                                        {typeof item.supplier === "string"
-                                          ? item.supplier.toUpperCase()
-                                          : item.supplier ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPO ? (
+                                      typeof item.supplier === "string"
+                                        ? item.supplier.toUpperCase()
+                                        : item.supplier ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Quantity Awal PO */}
                                   <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.quantityAwalPO)}</TableCell>
                                   {/* Satuan PO */}
@@ -1984,23 +1884,17 @@ export default function RekapFullPage() {
                                   {/* Total Harga */}
                                   <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatRupiahFull(item.totalHarga).toUpperCase()}</TableCell>
                                   {/* Status Pengiriman */}
-                                  {
-                                    isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
-                                        {typeof item.statusPengiriman === "string"
-                                          ? item.statusPengiriman.toUpperCase()
-                                          : item.statusPengiriman ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPO ? (
+                                      typeof item.statusPengiriman === "string"
+                                        ? item.statusPengiriman.toUpperCase()
+                                        : item.statusPengiriman ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Tanggal Estimasi Diterima */}
-                                  {
-                                    isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
-                                        {formatTanggalDisplay(item.tanggalEstimasiDiterima).toUpperCase()}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPO ? formatTanggalDisplay(item.tanggalEstimasiDiterima).toUpperCase() : null}
+                                  </TableCell>
                                   {/* Diinput Oleh */}
                                   <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
                                     {typeof item.diinputOleh === "string"
@@ -2008,15 +1902,17 @@ export default function RekapFullPage() {
                                       : item.diinputOleh ?? ""}
                                   </TableCell>
                                   {/* Diorder Oleh */}
-                                  {
-                                    isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={poGroup.rowSpan}>
-                                        {typeof item.diorderOleh === "string"
-                                          ? item.diorderOleh.replace(/_/g, " ").toUpperCase()
-                                          : item.diorderOleh ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPO ? (
+                                      typeof item.diorderOleh === "string"
+                                        ? item.diorderOleh.replace(/_/g, " ").toUpperCase()
+                                        : item.diorderOleh ?? ""
+                                    ) : null}
+                                  </TableCell>
+                                  {/* Termin Pembayaran */}
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstPO ? (item.terminPembayaran || "").toUpperCase() : null}
+                                  </TableCell>
                                   {/* Target Pencapaian PO */}
                                   <TableCell
                                     className={`px-3 py-1 border-b border-r border-gray-300 ${getTargetPencapaianPoBg(item.targetPencapaianPO)} uppercase`}
@@ -2030,33 +1926,23 @@ export default function RekapFullPage() {
                                   {/* Quantity PO */}
                                   <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.quantityPO)}</TableCell>
                                   {/* Skema PO */}
-                                  {
-                                    isFirstPO ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase align-top" rowSpan={poGroup.rowSpan}>
-                                        {(item.skemaPO || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase align-top">
+                                    {isFirstPO ? (item.skemaPO || "").toUpperCase() : null}
+                                  </TableCell>
                                   {/* Periode BTB */}
 
                                   {/* No. BTB */}
-                                  {
-                                    isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={btbGroup.rowSpan}>
-                                        <span className="font-bold text-black">
-                                          {(item.noBTB || "").toUpperCase()}
-                                        </span>
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstBTB ? (
+                                      <span className="font-bold text-black">
+                                        {(item.noBTB || "").toUpperCase()}
+                                      </span>
+                                    ) : null}
+                                  </TableCell>
                                   {/* Tanggal BTB */}
-                                  {
-                                    isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={btbGroup.rowSpan}>
-                                        {(item.tanggalBTB || "").toUpperCase()}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstBTB ? (item.tanggalBTB || "").toUpperCase() : null}
+                                  </TableCell>
                                   {/* Quantity BTB */}
                                   <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.quantityBTB)}</TableCell>
                                   {/* Satuan BTB */}
@@ -2070,31 +1956,33 @@ export default function RekapFullPage() {
                                   {/* Sisa Stok BTB */}
                                   <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">{formatInt(item.sisaStokBTB)}</TableCell>
                                   {/* Diterima Oleh */}
-                                  {
-                                    isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top" rowSpan={btbGroup.rowSpan}>
-                                        {typeof item.diterimaOleh === "string"
-                                          ? item.diterimaOleh.replace(/_/g, " ").toUpperCase()
-                                          : item.diterimaOleh ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
+                                    {isFirstBTB ? (
+                                      typeof item.diterimaOleh === "string"
+                                        ? item.diterimaOleh.replace(/_/g, " ").toUpperCase()
+                                        : item.diterimaOleh ?? ""
+                                    ) : null}
+                                  </TableCell>
                                   {/* Plan */}
                                   <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase">
                                     {typeof item.plan === "string"
                                       ? item.plan.toUpperCase()
                                       : item.plan ?? ""}
                                   </TableCell>
+                                    {/* STATUS PR */}
+                                    <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top font-bold text-center">
+                                      {typeof item.statusPR_closed === "string"
+                                        ? item.statusPR_closed.toUpperCase()
+                                        : item.statusPR_closed ?? ""}
+                                    </TableCell>
                                   {/* Skema BTB */}
-                                  {
-                                    isFirstBTB ? (
-                                      <TableCell className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase align-top" rowSpan={btbGroup.rowSpan}>
-                                        {typeof item.skemaBTB === "string"
-                                          ? item.skemaBTB.toUpperCase()
-                                          : item.skemaBTB ?? ""}
-                                      </TableCell>
-                                    ) : null
-                                  }
+                                  <TableCell className="px-3 py-1 border-b border-r border-gray-300 hidden uppercase align-top">
+                                    {isFirstBTB ? (
+                                      typeof item.skemaBTB === "string"
+                                        ? item.skemaBTB.toUpperCase()
+                                        : item.skemaBTB ?? ""
+                                    ) : null}
+                                  </TableCell>
                                 </TableRow>
                               );
                             })

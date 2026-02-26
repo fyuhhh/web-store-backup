@@ -101,7 +101,7 @@ async function calculateTargetPODate(startDateStr) {
   // Mon (Start) -> +1 (Tue), +2 (Wed), +3 (Thu) -> Result Thu
   // Fri (Start) -> +1 (Mon), +2 (Tue), +3 (Wed) -> Result Wed (skip Sat/Sun)
 
-  while (workingDaysAdded < 4) {
+  while (workingDaysAdded < 3) {
     // Add 1 day
     currentDate.setDate(currentDate.getDate() + 1);
 
