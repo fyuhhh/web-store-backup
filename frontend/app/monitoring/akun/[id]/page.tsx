@@ -211,15 +211,15 @@ export default function MonitoringAkunPage() {
         return (
             <MainLayout>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-500">
-                    <div className="flex items-center gap-4 mb-4">
-                        <Button variant="outline" size="icon" onClick={() => router.back()} className="h-10 w-10">
-                            <ArrowLeft className="w-5 h-5" />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100 mb-2">
+                        <Button variant="outline" size="icon" onClick={() => router.back()} className="h-10 w-10 shrink-0 rounded-full hover:bg-slate-100">
+                            <ArrowLeft className="w-5 h-5 text-slate-600" />
                         </Button>
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                            <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                                 Pusat Monitoring (Live)
                             </h1>
-                            <p className="text-muted-foreground">
+                            <p className="text-slate-500 text-sm mt-1">
                                 Memantau aktivitas dan login pengguna secara real-time.
                             </p>
                         </div>
@@ -272,56 +272,97 @@ export default function MonitoringAkunPage() {
     // Reuse the old UI structure for normal profile view
     return (
         <MainLayout>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 animate-in fade-in duration-500">
                 {/* Header */}
-                <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => router.back()} className="h-10 w-10">
-                        <ArrowLeft className="w-5 h-5" />
+                <div className="flex items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+                    <Button variant="outline" size="icon" onClick={() => router.back()} className="h-10 w-10 shrink-0 rounded-full hover:bg-slate-100">
+                        <ArrowLeft className="w-5 h-5 text-slate-600" />
                     </Button>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Monitoring Akun</h1>
-                        <p className="text-slate-500">Detail profil dan aktivitas pengguna.</p>
+                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Monitoring Akun</h1>
+                        <p className="text-slate-500 text-sm mt-1">Detail profil dan pantau riwayat aktivitas pengguna.</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <Card className="bg-blue-50/50 border-blue-100 hover:shadow-md transition-shadow">
+                        <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                            <div className="p-3 bg-blue-100 rounded-2xl mb-3 text-blue-600 shadow-sm">
+                                <FileText className="w-6 h-6" />
+                            </div>
+                            <span className="text-3xl font-bold text-blue-700">{stats.pr}</span>
+                            <span className="text-sm text-blue-600 font-medium mt-1">Purchase Request</span>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-purple-50/50 border-purple-100 hover:shadow-md transition-shadow">
+                        <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                            <div className="p-3 bg-purple-100 rounded-2xl mb-3 text-purple-600 shadow-sm">
+                                <ShoppingCart className="w-6 h-6" />
+                            </div>
+                            <span className="text-3xl font-bold text-purple-700">{stats.po}</span>
+                            <span className="text-sm text-purple-600 font-medium mt-1">Purchase Order</span>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-amber-50/50 border-amber-100 hover:shadow-md transition-shadow">
+                        <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                            <div className="p-3 bg-amber-100 rounded-2xl mb-3 text-amber-600 shadow-sm">
+                                <Package className="w-6 h-6" />
+                            </div>
+                            <span className="text-3xl font-bold text-amber-700">{stats.btb || 0}</span>
+                            <span className="text-sm text-amber-600 font-medium mt-1">Penerimaan Barang</span>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="bg-indigo-50/50 border-indigo-100 hover:shadow-md transition-shadow">
+                        <CardContent className="p-6 flex flex-col items-center justify-center text-center">
+                            <div className="p-3 bg-indigo-100 rounded-2xl mb-3 text-indigo-600 shadow-sm">
+                                <Truck className="w-6 h-6" />
+                            </div>
+                            <span className="text-3xl font-bold text-indigo-700">{stats.bkb || 0}</span>
+                            <span className="text-sm text-indigo-600 font-medium mt-1">Pengeluaran Barang</span>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Standard Profile Card */}
                     <div className="lg:col-span-1 space-y-6">
-                        <Card className="border-t-4 border-t-blue-600 shadow-sm">
-                            <CardHeader className="text-center pb-2">
-                                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <User className="w-10 h-10 text-blue-600" />
+                        <Card className="border-t-4 border-t-blue-500 shadow-sm hover:shadow-md transition-shadow bg-white rounded-2xl overflow-hidden">
+                            <CardHeader className="text-center pb-4 pt-8 bg-gradient-to-b from-blue-50/30 to-white">
+                                <div className="w-24 h-24 bg-white border-4 border-slate-50 shadow-sm rounded-full flex items-center justify-center mx-auto mb-4 relative">
+                                    <div className="absolute inset-0 rounded-full bg-blue-100/50 animate-pulse"></div>
+                                    <User className="w-10 h-10 text-blue-500 relative z-10" />
                                 </div>
-                                <CardTitle className="text-xl">{user.nama_pengguna}</CardTitle>
+                                <CardTitle className="text-2xl font-bold text-slate-800">{user.nama_pengguna}</CardTitle>
                                 <CardDescription>
-                                    <Badge variant="secondary" className="mt-2">{user.roleName}</Badge>
+                                    <Badge className="mt-3 bg-slate-100 text-slate-700 hover:bg-slate-200 border-none px-4 py-1.5 text-sm">{user.roleName}</Badge>
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4 pt-4">
-                                <div className="flex items-center justify-between py-2 border-b border-slate-100">
-                                    <span className="text-sm text-slate-500">Divisi</span>
-                                    <span className="text-sm font-medium">{user.divisiName}</span>
+                            <CardContent className="space-y-4 px-6 pb-8">
+                                <div className="flex items-center gap-3 py-3 border-b border-slate-100">
+                                    <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><Building2 className="w-4 h-4" /></div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-slate-500 font-medium">Divisi</p>
+                                        <p className="text-sm font-semibold text-slate-800">{user.divisiName}</p>
+                                    </div>
                                 </div>
-                                <div className="flex items-center justify-between py-2">
-                                    <span className="text-sm text-slate-500">Skema</span>
-                                    <span className="text-sm font-medium">{user.skemaName}</span>
+                                <div className="flex items-center gap-3 py-3">
+                                    <div className="p-2 bg-slate-50 text-slate-400 rounded-lg"><Database className="w-4 h-4" /></div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-slate-500 font-medium">Skema</p>
+                                        <p className="text-sm font-semibold text-slate-800">{user.skemaName}</p>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
 
                     {/* Standard Activity List */}
-                    <div className="lg:col-span-2">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Riwayat Aktivitas (Terakhir)</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                {logs.length === 0 ? <p className="text-muted-foreground text-center py-4">Tidak ada aktivitas.</p> : (
-                                    <LiveActivityFeed logs={logs} />
-                                )}
-                            </CardContent>
-                        </Card>
+                    <div className="lg:col-span-2 h-[600px] flex flex-col">
+                        <LiveActivityFeed logs={logs || []} />
                     </div>
                 </div>
             </div>

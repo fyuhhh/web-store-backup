@@ -288,7 +288,7 @@ router.put("/:id", async (req, res, next) => {
     const validColumns = [
       "id_PO", "id_PRItem", "hargaSatuan", "jumlahPO", "jumlahAsli",
       "diskonPersen", "diskonRupiah", "ppnPersen", "ppnRupiah",
-      "totalPerItem", "namaPembeli", "keterangan", "id_satuan", "statusTerima"
+      "totalPerItem", "namaPembeli", "keterangan", "id_satuan", "statusTerima", "status_po"
     ];
 
     const fields = Object.keys(payload).filter(key => validColumns.includes(key));

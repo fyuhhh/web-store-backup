@@ -152,7 +152,7 @@ export default function DashboardPage() {
       timer = setTimeout(() => {
         localStorage.removeItem("userData");
         window.location.href = "/login";
-      }, 600000); // 5 detik idle
+      }, 10800000); // 3 jam idle
     };
 
     const events = ["mousemove", "keydown", "mousedown", "touchstart"];
@@ -312,7 +312,7 @@ export default function DashboardPage() {
       timer = setTimeout(() => {
         localStorage.removeItem("userData");
         window.location.href = "/login";
-      }, 600000); // 10 menit idle (600000ms)
+      }, 10800000); // 3 jam idle
     };
 
     const events = ["mousemove", "keydown", "mousedown", "touchstart"];

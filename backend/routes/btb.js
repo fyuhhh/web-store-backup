@@ -38,32 +38,51 @@ async function isSemuaJumlahPOZero(conn, id_po) {
 
 // Helper: update targetPencapaianPo pada BTB (id_btb) berdasarkan kondisi terbaru
 async function updateTargetPencapaianPoByBTB(conn, id_btb) {
-  // Ambil id_po dan tanggal_btb dari btb
-  const [[btb]] = await conn.query("SELECT id_po, tanggal_btb FROM btb WHERE id_btb = ?", [id_btb]);
+  // Ambil id_po dan tanggal_btb, serta target lama dari btb
+  const [[btb]] = await conn.query("SELECT id_po, tanggal_btb, targetPencapaianPo FROM btb WHERE id_btb = ?", [id_btb]);
   if (!btb || !btb.id_po) return;
 
   const tanggal_btb = btb.tanggal_btb;
 
+  // Cek apakah target saat ini sudah custom user entry
+  const currentTarget = (btb.targetPencapaianPo || "").trim().toUpperCase();
+  const isCustom = currentTarget && !["", "TERCAPAI", "TIDAK TERCAPAI", "WAITING PART"].includes(currentTarget);
+
+  // Jika tidak ada tanggal_btb, maka otomatis WAITING PART
+  if (!tanggal_btb) {
+    if (!isCustom) {
+      await conn.query("UPDATE btb SET targetPencapaianPo = 'WAITING PART', delay = null WHERE id_btb = ?", [id_btb]);
+    }
+    return;
+  }
+
   // Ambil estimasiTanggalTerima dari po
   const [[po]] = await conn.query("SELECT estimasiTanggalTerima FROM po WHERE id_PO = ?", [btb.id_po]);
   if (!po || !po.estimasiTanggalTerima) {
-    // If no estimate, maybe default to "Tercapai" or null? keeping as is or null
+    if (!isCustom) {
+      await conn.query("UPDATE btb SET targetPencapaianPo = 'WAITING PART', delay = null WHERE id_btb = ?", [id_btb]);
+    }
     return;
   }
 
   // Calculate strict delay first
   const delay = hitungDelayTanggal(po.estimasiTanggalTerima, tanggal_btb);
-  let finalTarget = "Tidak Tercapai";
+  let finalTarget = "TIDAK TERCAPAI";
 
   if (delay !== null) {
     if (delay <= 0) {
-      finalTarget = "Tercapai";
+      finalTarget = "TERCAPAI";
     } else {
-      finalTarget = "Tidak Tercapai";
+      finalTarget = "TIDAK TERCAPAI";
     }
 
-    // Update both target and delay to be consistent
-    await conn.query("UPDATE btb SET targetPencapaianPo = ?, delay = ? WHERE id_btb = ?", [finalTarget, delay, id_btb]);
+    if (!isCustom) {
+      // Update both target and delay to be consistent
+      await conn.query("UPDATE btb SET targetPencapaianPo = ?, delay = ? WHERE id_btb = ?", [finalTarget, delay, id_btb]);
+    } else {
+      // Only update delay if target is custom
+      await conn.query("UPDATE btb SET delay = ? WHERE id_btb = ?", [delay, id_btb]);
+    }
   }
 }
 

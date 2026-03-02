@@ -1923,7 +1923,7 @@ function InputPOContent() {
       timer = setTimeout(() => {
         localStorage.removeItem("userData");
         window.location.href = "/login";
-      }, 600000); // 5 detik idle
+      }, 10800000); // 3 jam idle
     };
 
     const events = ["mousemove", "keydown", "mousedown", "touchstart"];

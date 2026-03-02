@@ -239,6 +239,48 @@ function countCalendarDaysBetween(startDateStr: string, endDateStr: string) {
 
 
 // Helper format tanggal dd-mm-yyyy +1 hari (fix: handle dd-mm-yyyy and yyyy-mm-dd)
+function computeTargetPOStatus(targetTanggalPO: string, tanggalPO: string) {
+  if (!targetTanggalPO) return "WAITING PROGRESS PO"; // If no target exists but we need to show status
+  if (!tanggalPO) return "WAITING PROGRESS PO"; // No PO yet
+
+  // Parse Target PO Date
+  let targetDateObj: Date | null = null;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(targetTanggalPO)) {
+    const [d, m, y] = targetTanggalPO.split("/");
+    targetDateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{2}-\d{2}-\d{4}$/.test(targetTanggalPO)) {
+    const [d, m, y] = targetTanggalPO.split("-");
+    targetDateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(targetTanggalPO)) {
+    targetDateObj = new Date(targetTanggalPO);
+  }
+
+  // Parse actual PO Date
+  let poDateObj: Date | null = null;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(tanggalPO)) {
+    const [d, m, y] = tanggalPO.split("/");
+    poDateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{2}-\d{2}-\d{4}$/.test(tanggalPO)) {
+    const [d, m, y] = tanggalPO.split("-");
+    poDateObj = new Date(`${y}-${m}-${d}`);
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(tanggalPO)) {
+    poDateObj = new Date(tanggalPO);
+  }
+
+  if (!targetDateObj || isNaN(targetDateObj.getTime())) return "WAITING PROGRESS PO";
+  if (!poDateObj || isNaN(poDateObj.getTime())) return "WAITING PROGRESS PO";
+
+  // Compare strictly on Date level by setting hours to 0
+  targetDateObj.setHours(0, 0, 0, 0);
+  poDateObj.setHours(0, 0, 0, 0);
+
+  if (poDateObj <= targetDateObj) {
+    return "TERCAPAI";
+  } else {
+    return "TIDAK TERCAPAI";
+  }
+}
+
 function formatTanggalTambahSehari(tgl: string) {
   if (!tgl) return "";
   // Jika sudah dd/mm/yyyy, ubah ke Date dulu
@@ -549,12 +591,7 @@ export default function RekapFullPage() {
                   : "",
                 targetTanggalPO: formatDateSimple(pr.estimasipo),
                 delay: "",
-                status:
-                  pr.status === "PARTIAL PO"
-                    ? "WAITING PO"
-                    : pr.status && !["Menunggu", "Gantung", "Diproses"].includes(pr.status)
-                      ? pr.status
-                      : "",
+                status: computeTargetPOStatus(formatDateSimple(pr.estimasipo), ""),
                 noPO: "",
                 tanggalPO: "",
                 periodePO: "",
@@ -647,7 +684,13 @@ export default function RekapFullPage() {
                       : "",
                     targetTanggalPO: formatDateSimple(pr.estimasipo),
                     delay: "",
-                    status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "",
+                    status: poItem?.status_po || computeTargetPOStatus(
+                      formatDateSimple(pr.estimasipo),
+                      po?.tanggalPO ? (() => {
+                        const d = new Date(po.tanggalPO);
+                        return `${d.getDate().toString().padStart(2, "0")}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                      })() : ""
+                    ),
                     id_POItem: poItem?.id_POItem || "",
                     noPO: po?.noPO || "",
                     tanggalPO: po?.tanggalPO
@@ -731,7 +774,7 @@ export default function RekapFullPage() {
                     biayaBTB: "",
                     diterimaOleh: "",
                     skemaBTB: "",
-                    targetPencapaianPO: "",
+                    targetPencapaianPO: "WAITING PART",
                     id_btb_item: "",
 
                     // BKB Fields Empty
@@ -805,7 +848,7 @@ export default function RekapFullPage() {
                           ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
                           : "",
                         // TARGET PENCAPAIAN PO: Use DB value (now fixed in backend)
-                        targetPencapaianPO: btb?.targetPencapaianPo || "",
+                        targetPencapaianPO: btb?.targetPencapaianPo || (showPO ? "WAITING PART" : ""),
 
                         targetTanggalPO: formatDateSimple(pr.estimasipo),
 
@@ -814,11 +857,15 @@ export default function RekapFullPage() {
                         // This corresponds to key 'delay' in columns definition
                         delay: btb?.delay || "",
 
-                        id_POItem: poItem.id_POItem,
-
                         // STATUS (next to Target Tanggal PO): Mapped to pr_item.status as requested
                         // This corresponds to key 'status' in columns definition
-                        status: item?.status || pr.status || "",
+                        status: showPO ? (poItem?.status_po || computeTargetPOStatus(
+                          formatDateSimple(pr.estimasipo),
+                          po?.tanggalPO ? (() => {
+                            const d = new Date(po.tanggalPO);
+                            return `${d.getDate().toString().padStart(2, "0")}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getFullYear()}`;
+                          })() : ""
+                        )) : computeTargetPOStatus(formatDateSimple(pr.estimasipo), ""),
 
                         noPO: showPO ? (po?.noPO || "") : "",
                         tanggalPO: showPO && po?.tanggalPO
@@ -1774,17 +1821,17 @@ export default function RekapFullPage() {
 
   // Opsi status yang diizinkan
   const statusOptions = [
-    "SCHEDULE",
-    "Tidak Tercapai",
+    "TERCAPAI",
+    "TIDAK TERCAPAI",
+    "WAITING PROGRESS PO",
     "Custom..."
   ];
 
   // Opsi target pencapaian yang diizinkan (sesuai permintaan)
   const targetOptions = [
-    "Tercapai",
-    "Tidak Tercapai",
-    "WAITING DELIVERY",
-    "WAITING PAYMENT",
+    "TERCAPAI",
+    "TIDAK TERCAPAI",
+    "WAITING PART",
     "Custom...",
   ];
 
@@ -1830,11 +1877,11 @@ export default function RekapFullPage() {
         return;
       }
 
-      // Update statusTerima di po_item (backend)
+      // Update status_po di po_item (backend)
       await fetch(`${API_BASE_URL}/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statusTerima: newStatus }),
+        body: JSON.stringify({ status_po: newStatus }),
       });
       // Update di frontend (refresh data)
       setRekapData((prev) =>
@@ -1904,7 +1951,7 @@ export default function RekapFullPage() {
       await fetch(`${API_BASE_URL}/api/po-item/${item.id_POItem}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statusTerima: customVal }),
+        body: JSON.stringify({ status_po: customVal }),
       });
       setRekapData((prev) =>
         prev.map((row) =>
@@ -1982,11 +2029,8 @@ export default function RekapFullPage() {
     if (!status) return "";
     const s = status.trim().toUpperCase();
     if (s === "TERCAPAI") return "bg-green-100";
-    if (s === "TIDAK TERCAPAI") return "bg-red-100";
-    if (s === "WAITING PAYMENT") return "bg-yellow-100";
-    if (s === "WAITING DELIVERY") return "bg-orange-100";
-    if (s === "INDENT PART") return "bg-blue-100";
-    // Jika typo atau status lain, tetap merah muda
+    if (s === "WAITING PART") return "bg-yellow-100";
+    // Jika typo atau status custom lain, tetap merah muda
     return "bg-red-100";
   }
 
@@ -1994,9 +2038,9 @@ export default function RekapFullPage() {
   function getStatusBg(status: string | undefined | null) {
     if (!status) return "bg-red-100"; // Empty status -> red
     const s = status.trim().toUpperCase();
-    // Use includes for more robust matching
-    if (s.includes("SCHEDULE") || s.includes("PART COMPLETE")) return "bg-green-100";
-    return "bg-red-100";
+    if (s === "TERCAPAI") return "bg-green-100";
+    if (s === "WAITING PROGRESS PO") return "bg-yellow-100";
+    return "bg-red-100"; // TIDAK TERCAPAI and Custom statuses
   }
 
   // Helper format tanggal ke dd-mm-yyyy dan bisa lebihkan hari

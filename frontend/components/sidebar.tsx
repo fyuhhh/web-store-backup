@@ -58,14 +58,14 @@ const menuItems = [
       { title: "Monitoring BTB", href: "/btb/monitoring" },
     ],
   },
-  {
-    title: "BKB",
-    icon: PackageOpen,
-    submenu: [
-      { title: "Input BKB", href: "/bkb/input" },
-      { title: "Monitoring BKB", href: "/bkb/monitoring" },
-    ],
-  },
+  // {
+  //   title: "BKB",
+  //   icon: PackageOpen,
+  //   submenu: [
+  //     { title: "Input BKB", href: "/bkb/input" },
+  //     { title: "Monitoring BKB", href: "/bkb/monitoring" },
+  //   ],
+  // },
   {
     title: "Rekap Keseluruhan",
     href: "/dashboard/rekap-full",
@@ -224,14 +224,14 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
             { title: "Monitoring BTB", href: "/btb/monitoring" },
           ],
         },
-        {
-          title: "BKB",
-          icon: PackageOpen,
-          submenu: [
-            { title: "Input BKB", href: "/bkb/input" },
-            { title: "Monitoring BKB", href: "/bkb/monitoring" },
-          ],
-        },
+        // {
+        //   title: "BKB",
+        //   icon: PackageOpen,
+        //   submenu: [
+        //     { title: "Input BKB", href: "/bkb/input" },
+        //     { title: "Monitoring BKB", href: "/bkb/monitoring" },
+        //   ],
+        // },
         {
           title: "Rekap Keseluruhan",
           href: "/dashboard/rekap-full",
@@ -318,14 +318,14 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
             { title: "Monitoring BTB", href: "/btb/monitoring" },
           ],
         },
-        {
-          title: "BKB",
-          icon: PackageOpen,
-          submenu: [
-            { title: "Input BKB", href: "/bkb/input" },
-            { title: "Monitoring BKB", href: "/bkb/monitoring" },
-          ],
-        },
+        // {
+        //   title: "BKB",
+        //   icon: PackageOpen,
+        //   submenu: [
+        //     { title: "Input BKB", href: "/bkb/input" },
+        //     { title: "Monitoring BKB", href: "/bkb/monitoring" },
+        //   ],
+        // },
         {
           title: "Rekap Keseluruhan",
           href: "/dashboard/rekap-full",
@@ -353,14 +353,14 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
             { title: "Monitoring PR", href: "/pr/monitoring" },
           ],
         },
-        {
-          title: "BKB",
-          icon: PackageOpen,
-          submenu: [
-            { title: "Input BKB", href: "/bkb/input" },
-            { title: "Monitoring BKB", href: "/bkb/monitoring" },
-          ],
-        },
+        // {
+        //   title: "BKB",
+        //   icon: PackageOpen,
+        //   submenu: [
+        //     { title: "Input BKB", href: "/bkb/input" },
+        //     { title: "Monitoring BKB", href: "/bkb/monitoring" },
+        //   ],
+        // },
         {
           title: "Rekap Keseluruhan",
           href: "/dashboard/rekap-full",

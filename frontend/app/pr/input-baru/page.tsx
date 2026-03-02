@@ -680,8 +680,7 @@ export default function InputBaruPRPage() {
     if (day === 0 || day === 6) return "datepicker-red";
     return "";
   }
-
-  // Auto-logout logic (testing: 5 detik idle)
+  // Auto-logout logic
   useEffect(() => {
     let timer: NodeJS.Timeout;
     const resetTimer = () => {
@@ -689,7 +688,7 @@ export default function InputBaruPRPage() {
       timer = setTimeout(() => {
         localStorage.removeItem("userData");
         window.location.href = "/login";
-      }, 600000); // 5 detik idle
+      }, 10800000); // 3 jam idle
     };
 
     const events = ["mousemove", "keydown", "mousedown", "touchstart"];

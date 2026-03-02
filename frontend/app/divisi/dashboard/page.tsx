@@ -300,10 +300,35 @@ export default function DivisiDashboardPage() {
     if (isLoading) {
         return (
             <MainLayout>
-                <div className="flex items-center justify-center h-[calc(100vh-100px)]">
-                    <div className="flex flex-col items-center gap-2">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p className="text-muted-foreground text-sm">Memuat dashboard...</p>
+                <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-8 px-4 sm:px-6 min-h-full mt-2 animate-pulse">
+                    {/* Hero Skeleton */}
+                    <div className="h-40 w-full bg-slate-100/50 rounded-3xl border border-slate-200/50 relative overflow-hidden">
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+                    </div>
+                    {/* Cards Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="h-32 w-full bg-slate-100/50 rounded-2xl border border-slate-200/50 relative overflow-hidden">
+                             <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+                        </div>
+                        <div className="h-32 w-full bg-slate-100/50 rounded-2xl border border-slate-200/50 relative overflow-hidden">
+                             <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+                        </div>
+                        <div className="h-32 w-full bg-slate-100/50 rounded-2xl border border-slate-200/50 relative overflow-hidden">
+                             <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+                        </div>
+                    </div>
+                    {/* Charts Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="h-[320px] w-full bg-slate-100/50 rounded-2xl border border-slate-200/50 relative overflow-hidden">
+                             <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+                        </div>
+                        <div className="h-[320px] w-full bg-slate-100/50 rounded-2xl border border-slate-200/50 relative overflow-hidden">
+                             <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
+                        </div>
+                    </div>
+                    {/* Table Skeleton */}
+                    <div className="h-64 w-full bg-slate-100/50 rounded-2xl border border-slate-200/50 mb-8 relative overflow-hidden">
+                         <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
                     </div>
                 </div>
             </MainLayout>
@@ -349,20 +374,20 @@ export default function DivisiDashboardPage() {
             >
 
                 {/* Hero Section with Clock */}
-                <motion.div variants={itemVariants} className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-800 to-blue-950 text-white shadow-xl shrink-0 mt-2">
-                    <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-                        {/* Decorative Patterns */}
-                        <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-blue-400 blur-[100px]"></div>
-                        <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-indigo-500 blur-[100px]"></div>
+                <motion.div variants={itemVariants} className="relative overflow-hidden rounded-3xl bg-white border border-slate-200 text-slate-800 shadow-sm shrink-0 mt-2">
+                    <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden rounded-3xl">
+                        {/* Elegant light mesh gradient */}
+                        <div className="absolute top-[-20%] left-[-10%] w-[400px] h-[400px] rounded-full bg-blue-50/50 blur-[80px]"></div>
+                        <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-indigo-50/50 blur-[80px]"></div>
                     </div>
 
                     <div className="relative z-10 flex flex-col md:flex-row items-center justify-between p-8 md:p-10">
                         <div className="text-center md:text-left mb-6 md:mb-0">
-                            <Badge variant="outline" className="mb-4 text-blue-200 border-blue-400/30 bg-blue-900/40 px-3 py-1 backdrop-blur-md">
-                                <Sparkles className="w-3.5 h-3.5 mr-2 text-yellow-300" />
+                            <Badge variant="outline" className="mb-4 text-blue-600 border-blue-200 bg-blue-50/50 px-3 py-1 backdrop-blur-md">
+                                <Sparkles className="w-3.5 h-3.5 mr-2 text-blue-500" />
                                 Divisi {userDivisiName || 'Monitoring'}
                             </Badge>
-                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-3">
+                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-3 text-slate-900">
                                 <TextType 
                                     text={[`${getGreeting()}, ${userName.split(' ')[0] || 'User'}!`]}
                                     typingSpeed={60}
@@ -373,23 +398,23 @@ export default function DivisiDashboardPage() {
                                     loop={false}
                                 />
                             </h1>
-                            <p className="text-blue-100 text-sm md:text-base max-w-md leading-relaxed opacity-90">
+                            <p className="text-slate-500 text-sm md:text-base max-w-md leading-relaxed">
                                 Berikut adalah ringkasan aktivitas pengadaan dan permintaan barang dari divisi Anda hari ini.
                             </p>
                         </div>
                         
-                        <div className="flex flex-col items-center bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 shadow-inner min-w-[200px]">
-                            <h2 className="text-5xl font-bold tracking-tighter tabular-nums mb-1 flex items-center justify-center">
+                        <div className="flex flex-col items-center bg-slate-50/80 backdrop-blur-md rounded-2xl p-6 border border-slate-100 shadow-sm min-w-[200px]">
+                            <h2 className="text-5xl font-bold tracking-tighter tabular-nums mb-1 flex items-center justify-center text-slate-800">
                                 {dayjs(currentTime).format("HH:mm")}
-                                <span className="text-2xl text-blue-300 mx-1 flex flex-col justify-center gap-1.5 h-8 opacity-70 animate-pulse">
+                                <span className="text-2xl text-slate-300 mx-1 flex flex-col justify-center gap-1.5 h-8 opacity-70 animate-pulse">
                                    <div className="w-1.5 h-1.5 bg-current rounded-full"></div>
                                    <div className="w-1.5 h-1.5 bg-current rounded-full"></div>
                                 </span>
-                                <span className="text-2xl text-blue-300 tabular-nums">
+                                <span className="text-2xl text-slate-400 tabular-nums">
                                     {dayjs(currentTime).format("ss")}
                                 </span>
                             </h2>
-                            <p className="text-sm text-blue-100 font-medium">
+                            <p className="text-sm text-slate-500 font-medium">
                                 {dayjs(currentTime).locale("id").format("dddd, D MMMM YYYY")}
                             </p>
                         </div>
@@ -400,31 +425,25 @@ export default function DivisiDashboardPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 shrink-0 mt-2">
                     {/* Total Permintaan */}
                     <motion.div variants={itemVariants}>
-                        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 transition-all duration-300 rounded-2xl group">
-                            {/* Decorative Background Elements */}
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all transform group-hover:scale-110 group-hover:rotate-12 duration-500 pointer-events-none">
-                                <FileText className="h-32 w-32 text-white" />
-                            </div>
-                            <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="absolute top-10 right-10 w-20 h-20 bg-indigo-300 opacity-20 rounded-full blur-xl pointer-events-none"></div>
-                            
-                            <CardHeader className="pb-2 pt-5 px-5 relative z-10">
+                        <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-500 hover:-translate-y-1 rounded-2xl group">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                            <CardHeader className="pb-2 pt-5 px-6 relative z-10">
                                 <div className="flex justify-between items-start">
-                                    <CardTitle className="text-xs font-bold text-blue-100 uppercase tracking-wider">Total Pesanan</CardTitle>
-                                    <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white shadow-inner border border-white/10 group-hover:bg-white/30 transition-colors">
+                                    <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Pesanan</CardTitle>
+                                    <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform duration-300">
                                         <FileText className="h-5 w-5" />
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="px-5 pb-5 relative z-10">
+                            <CardContent className="px-6 pb-6 relative z-10">
                                 <div className="flex items-baseline gap-2 mb-1">
-                                    <span className="text-4xl font-black text-white tabular-nums tracking-tight drop-shadow-md">
+                                    <span className="text-4xl font-bold text-slate-800 tabular-nums tracking-tight">
                                         <CountUp from={0} to={Number(displayTotal) || 0} separator="." duration={2.5} />
                                     </span>
                                 </div>
-                                <div className="flex items-center text-xs font-medium text-blue-100 mt-3 bg-black/10 w-fit px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-sm">
-                                    <TrendingUp className="w-3.5 h-3.5 mr-1.5 text-blue-200" />
-                                    <span className="opacity-90">Keseluruhan Waktu</span>
+                                <div className="flex items-center text-xs font-medium text-slate-500 mt-2">
+                                    <TrendingUp className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+                                    <span>Keseluruhan Waktu</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -432,36 +451,29 @@ export default function DivisiDashboardPage() {
 
                     {/* Dalam Proses */}
                     <motion.div variants={itemVariants}>
-                        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-lg shadow-orange-500/30 hover:shadow-xl hover:shadow-orange-500/40 transition-all duration-300 rounded-2xl group">
-                            {/* Decorative Background Elements */}
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all transform group-hover:scale-110 group-hover:-rotate-12 duration-500 pointer-events-none">
-                                <Clock className="h-32 w-32 text-white" />
-                            </div>
-                            <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="absolute top-10 right-10 w-20 h-20 bg-yellow-300 opacity-20 rounded-full blur-xl pointer-events-none"></div>
-
-                            <CardHeader className="pb-2 pt-5 px-5 relative z-10">
+                        <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-500 hover:-translate-y-1 rounded-2xl group">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+                            <CardHeader className="pb-2 pt-5 px-6 relative z-10">
                                 <div className="flex justify-between items-start">
-                                    <CardTitle className="text-xs font-bold text-orange-100 uppercase tracking-wider">Dalam Proses</CardTitle>
-                                    <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white shadow-inner border border-white/10 group-hover:bg-white/30 transition-colors">
+                                    <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Dalam Proses</CardTitle>
+                                    <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl group-hover:scale-110 transition-transform duration-300">
                                         <Clock className="h-5 w-5" />
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="px-5 pb-5 relative z-10">
-                                <div className="flex items-baseline gap-2 mb-1">
-                                    <span className="text-4xl font-black text-white tabular-nums tracking-tight drop-shadow-md">
+                            <CardContent className="px-6 pb-6 relative z-10">
+                                <div className="flex items-baseline gap-2 mb-2">
+                                    <span className="text-4xl font-bold text-slate-800 tabular-nums tracking-tight">
                                         <CountUp from={0} to={Number(displayProses) || 0} separator="." duration={2.5} />
                                     </span>
                                 </div>
-                                <div className="flex items-center justify-between text-xs mt-3 bg-black/10 px-3 py-2 rounded-xl border border-white/10 backdrop-blur-sm">
+                                <div className="flex items-center justify-between text-xs mt-2 w-full">
                                     <div className="flex-1 mr-3 relative">
-                                        <div className="absolute inset-0 bg-white/20 rounded-full blur-[2px]"></div>
-                                        <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden relative z-10">
-                                            <div className="h-full bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]" style={{ width: stats.total ? `${(stats.proses / stats.total) * 100}%` : '0%' }}></div>
+                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-orange-500 rounded-full" style={{ width: stats.total ? `${(stats.proses / stats.total) * 100}%` : '0%' }}></div>
                                         </div>
                                     </div>
-                                    <span className="text-white font-bold drop-shadow-sm">{stats.total > 0 ? Math.round((stats.proses/stats.total)*100) : 0}%</span>
+                                    <span className="text-slate-600 font-medium">{stats.total > 0 ? Math.round((stats.proses/stats.total)*100) : 0}%</span>
                                 </div>
                             </CardContent>
                         </Card>
@@ -469,41 +481,41 @@ export default function DivisiDashboardPage() {
 
                     {/* Selesai */}
                     <motion.div variants={itemVariants}>
-                        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-emerald-400 to-teal-500 text-white shadow-lg shadow-emerald-500/30 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 rounded-2xl group">
-                            {/* Decorative Background Elements */}
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all transform group-hover:scale-110 group-hover:-rotate-12 duration-500 pointer-events-none">
-                                <CheckCircle2 className="h-32 w-32 text-white" />
-                            </div>
-                            <div className="absolute -left-10 -bottom-10 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl pointer-events-none"></div>
-                            <div className="absolute top-10 right-10 w-20 h-20 bg-lime-300 opacity-20 rounded-full blur-xl pointer-events-none"></div>
-
-                            <CardHeader className="pb-2 pt-5 px-5 relative z-10">
+                        <Card className="relative overflow-hidden bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-500 hover:-translate-y-1 rounded-2xl group">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+                            <CardHeader className="pb-2 pt-5 px-6 relative z-10">
                                 <div className="flex justify-between items-start">
-                                    <CardTitle className="text-xs font-bold text-emerald-100 uppercase tracking-wider">Selesai</CardTitle>
-                                    <div className="p-2.5 bg-white/20 backdrop-blur-sm rounded-xl text-white shadow-inner border border-white/10 group-hover:bg-white/30 transition-colors">
+                                    <CardTitle className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Selesai</CardTitle>
+                                    <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform duration-300">
                                         <CheckCircle2 className="h-5 w-5" />
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="px-5 pb-5 relative z-10">
-                                <div className="flex items-baseline gap-2 mb-1">
-                                    <span className="text-4xl font-black text-white tabular-nums tracking-tight drop-shadow-md">
+                            <CardContent className="px-6 pb-6 relative z-10">
+                                <div className="flex items-baseline gap-2 mb-2">
+                                    <span className="text-4xl font-bold text-slate-800 tabular-nums tracking-tight">
                                         <CountUp from={0} to={Number(displaySelesai) || 0} separator="." duration={2.5} />
                                     </span>
                                 </div>
-                                <div className="flex items-center justify-between text-xs mt-3 bg-black/10 px-3 py-2 rounded-xl border border-white/10 backdrop-blur-sm">
+                                <div className="flex items-center justify-between text-xs mt-2 w-full">
                                     <div className="flex-1 mr-3 relative">
-                                        <div className="absolute inset-0 bg-white/20 rounded-full blur-[2px]"></div>
-                                        <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden relative z-10">
-                                            <div className="h-full bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.8)]" style={{ width: stats.total ? `${(stats.selesai / stats.total) * 100}%` : '0%' }}></div>
+                                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-emerald-500 rounded-full" style={{ width: stats.total ? `${(stats.selesai / stats.total) * 100}%` : '0%' }}></div>
                                         </div>
                                     </div>
-                                    <span className="text-white font-bold drop-shadow-sm">{stats.total > 0 ? Math.round((stats.selesai/stats.total)*100) : 0}%</span>
+                                    <span className="text-slate-600 font-medium">{stats.total > 0 ? Math.round((stats.selesai/stats.total)*100) : 0}%</span>
                                 </div>
                             </CardContent>
                         </Card>
                     </motion.div>
                 </div>
+
+                {/* Quick Actions Row */}
+                <motion.div variants={itemVariants} className="flex flex-wrap gap-3 mt-1">
+                    <Button variant="outline" onClick={() => router.push('/divisi/monitoring-stok')} className="bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-sm rounded-full px-5 transition-all w-full sm:w-auto h-10 group">
+                        <Activity className="w-4 h-4 mr-2 text-slate-500 group-hover:text-blue-500 transition-colors" /> Lihat Monitoring Stok
+                    </Button>
+                </motion.div>
                 
                 {/* Charts Area */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
@@ -622,10 +634,15 @@ export default function DivisiDashboardPage() {
                             <TableBody>
                                 {filteredRecent.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                                            <div className="flex flex-col items-center justify-center">
-                                                <Search className="w-8 h-8 text-slate-300 mb-3" />
-                                                <p>{searchTerm ? "Tidak ditemukan pesanan yang cocok." : "Belum ada aktivitas pesanan."}</p>
+                                        <TableCell colSpan={6} className="text-center py-16 text-muted-foreground border-b-0">
+                                            <div className="flex flex-col items-center justify-center max-w-sm mx-auto">
+                                                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6 shadow-inner border border-slate-100">
+                                                    <FileText className="w-8 h-8 text-slate-300 stroke-[1.5]" />
+                                                </div>
+                                                <h3 className="text-slate-900 font-semibold mb-1">{searchTerm ? "Pesanan Tidak Ditemukan" : "Belum Ada Pesanan"}</h3>
+                                                <p className="text-sm text-slate-500 mb-6 text-center">
+                                                    {searchTerm ? "Coba gunakan kata kunci pencarian yang lain." : "Sepertinya divisi Anda belum membuat permintaan pembelian barang."}
+                                                </p>
                                             </div>
                                         </TableCell>
                                     </TableRow>

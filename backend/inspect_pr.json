@@ -1,0 +1,158 @@
+{
+  "pr": {
+    "id_PR": 396,
+    "noPR": "PR/E-WALK/25/XII/028",
+    "tanggalPR": "2025-12-10T16:00:00.000Z",
+    "id_divisi": 33,
+    "noMR": null,
+    "id_urgensi": 2,
+    "status": "PARTIAL PO",
+    "dibuatOleh": "MEGA SELVIA",
+    "id_skema": 2,
+    "createdAt": "2026-01-05T02:57:04.000Z",
+    "estimasipo": "2025-12-15T16:00:00.000Z",
+    "plan": "No Plan"
+  },
+  "prItems": [
+    {
+      "id_PRItem": 657,
+      "id_PR": 396,
+      "kodeBarang": null,
+      "namaBarang": "HYDRAULIC CRIMPING TOOL KRISBOW KW0102705 - TOOL SET SET 16 - 400 MM",
+      "spesifikasi": null,
+      "noMR": null,
+      "jumlah": "1.00",
+      "originalJumlah": "1.00",
+      "quantityAwalPR": "1.00",
+      "id_satuan": 35,
+      "keterangan": "UNTUK TOOL CRIMPING KABEL (PENAMBAHAN ALAT KARENA ALAT YANG LAMA UNTUK UKURAN KABEL BESAR) - DEADLINE : TGL 09/01/2026",
+      "status": "WAITING PO"
+    },
+    {
+      "id_PRItem": 658,
+      "id_PR": 396,
+      "kodeBarang": null,
+      "namaBarang": "CLAMP KABEL 10 MM + PAKU BETON",
+      "spesifikasi": null,
+      "noMR": null,
+      "jumlah": "0.00",
+      "originalJumlah": "100.00",
+      "quantityAwalPR": "100.00",
+      "id_satuan": 35,
+      "keterangan": "UNTUK PERAPIAN INSTALASI KABEL PAMERAN DI ATRIUM - DEADLINE : TGL 09/01/2026",
+      "status": "WAITING PART"
+    },
+    {
+      "id_PRItem": 659,
+      "id_PR": 396,
+      "kodeBarang": null,
+      "namaBarang": "CLAMP KABEL 12 MM + PAKU BETON",
+      "spesifikasi": null,
+      "noMR": null,
+      "jumlah": "0.00",
+      "originalJumlah": "100.00",
+      "quantityAwalPR": "100.00",
+      "id_satuan": 35,
+      "keterangan": "UNTUK PERAPIAN INSTALASI KABEL PAMERAN DI ATRIUM - DEADLINE : TGL 09/01/2026",
+      "status": "WAITING PART"
+    }
+  ],
+  "poItems": [
+    {
+      "prItemId": 657,
+      "poItems": []
+    },
+    {
+      "prItemId": 658,
+      "poItems": [
+        {
+          "id_POItem": 634,
+          "id_PO": 334,
+          "id_PRItem": 658,
+          "hargaSatuan": "74.87",
+          "jumlahPO": 0,
+          "jumlahAsli": 100,
+          "diskonPersen": "0",
+          "diskonRupiah": "0.00",
+          "ppnPersen": "11.00",
+          "ppnRupiah": "741.95",
+          "totalPerItem": "7487.00",
+          "namaPembeli": "IRVAN",
+          "keterangan": "UNTUK PERAPIAN INSTALASI KABEL PAMERAN DI ATRIUM - DEADLINE : TGL 09/01/2026",
+          "id_satuan": null,
+          "statusTerima": "SCHEDULE",
+          "status": "PART COMPLETE",
+          "noPO": "PO/E-WALK/WBL/25/XII/00029",
+          "tanggalPO": "2025-12-11T16:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "prItemId": 659,
+      "poItems": [
+        {
+          "id_POItem": 635,
+          "id_PO": 334,
+          "id_PRItem": 659,
+          "hargaSatuan": "108.39",
+          "jumlahPO": 0,
+          "jumlahAsli": 100,
+          "diskonPersen": "0",
+          "diskonRupiah": "0.00",
+          "ppnPersen": "11.00",
+          "ppnRupiah": "1074.14",
+          "totalPerItem": "10839.00",
+          "namaPembeli": "IRVAN",
+          "keterangan": "UNTUK PERAPIAN INSTALASI KABEL PAMERAN DI ATRIUM - DEADLINE : TGL 09/01/2026",
+          "id_satuan": null,
+          "statusTerima": "SCHEDULE",
+          "status": "PART COMPLETE",
+          "noPO": "PO/E-WALK/WBL/25/XII/00029",
+          "tanggalPO": "2025-12-11T16:00:00.000Z"
+        }
+      ]
+    }
+  ],
+  "btbItems": [
+    {
+      "poItemId": 634,
+      "btbItems": [
+        {
+          "id_btb_item": 389,
+          "id_btb": 231,
+          "id_POItem": 634,
+          "nama_barang": "CLAMP KABEL 10 MM + PAKU BETON",
+          "jumlah_diterima": "100.00",
+          "id_satuan": 35,
+          "keterangan": "UNTUK PERAPIAN INSTALASI KABEL PAMERAN DI ATRIUM - DEADLINE : TGL 09/01/2026",
+          "qty_sisa": "100.00",
+          "created_at": "2026-01-09T09:51:14.000Z",
+          "biaya": "7487.00",
+          "targetPencapaianPo": null,
+          "no_btb": "BTB/E-WALK/25/XII/043",
+          "tanggal_btb": "2025-12-17T16:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "poItemId": 635,
+      "btbItems": [
+        {
+          "id_btb_item": 390,
+          "id_btb": 231,
+          "id_POItem": 635,
+          "nama_barang": "CLAMP KABEL 12 MM + PAKU BETON",
+          "jumlah_diterima": "100.00",
+          "id_satuan": 35,
+          "keterangan": "UNTUK PERAPIAN INSTALASI KABEL PAMERAN DI ATRIUM - DEADLINE : TGL 09/01/2026",
+          "qty_sisa": "100.00",
+          "created_at": "2026-01-09T09:51:14.000Z",
+          "biaya": "10839.00",
+          "targetPencapaianPo": null,
+          "no_btb": "BTB/E-WALK/25/XII/043",
+          "tanggal_btb": "2025-12-17T16:00:00.000Z"
+        }
+      ]
+    }
+  ]
+}

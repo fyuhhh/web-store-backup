@@ -69,7 +69,7 @@ function determinePlan(tgl) {
   return result;
 }
 
-// Helper: Calculate Target PO Date (3 working days, skip weekends & holidays)
+// Helper: Calculate Target PO Date (2 calendar days)
 async function calculateTargetPODate(startDateStr) {
   if (!startDateStr) return null;
 
@@ -78,46 +78,8 @@ async function calculateTargetPODate(startDateStr) {
     return null;
   }
 
-  // Fetch holidays from DB
-  let holidays = [];
-  try {
-    const [rows] = await db.query("SELECT tanggal FROM holidays");
-    holidays = rows.map((row) => {
-      // Ensure specific string format YYYY-MM-DD
-      const d = new Date(row.tanggal);
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      return `${yyyy}-${mm}-${dd}`;
-    });
-  } catch (err) {
-    console.error("Error fetching holidays:", err);
-    // Proceed without holidays if DB fails, to avoid blocking PR creation
-  }
-
-  let workingDaysAdded = 0;
-  // Target is +3 working days
-  // Example:
-  // Mon (Start) -> +1 (Tue), +2 (Wed), +3 (Thu) -> Result Thu
-  // Fri (Start) -> +1 (Mon), +2 (Tue), +3 (Wed) -> Result Wed (skip Sat/Sun)
-
-  while (workingDaysAdded < 3) {
-    // Add 1 day
-    currentDate.setDate(currentDate.getDate() + 1);
-
-    const day = currentDate.getDay(); // 0=Sun, 6=Sat
-    const yyyy = currentDate.getFullYear();
-    const mm = String(currentDate.getMonth() + 1).padStart(2, "0");
-    const dd = String(currentDate.getDate()).padStart(2, "0");
-    const dateStr = `${yyyy}-${mm}-${dd}`;
-
-    const isWeekend = day === 0 || day === 6;
-    const isHoliday = holidays.includes(dateStr);
-
-    if (!isWeekend && !isHoliday) {
-      workingDaysAdded++;
-    }
-  }
+  // Add 2 calendar days
+  currentDate.setDate(currentDate.getDate() + 2);
 
   // Format result
   const yyyy = currentDate.getFullYear();

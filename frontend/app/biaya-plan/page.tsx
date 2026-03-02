@@ -47,6 +47,27 @@ export default function BiayaPlanPage() {
     keterangan: "",
   })
 
+  // Auto-logout logic
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        localStorage.removeItem("userData");
+        window.location.href = "/login";
+      }, 10800000); // 3 jam idle
+    };
+
+    const events = ["mousemove", "keydown", "mousedown", "touchstart"];
+    events.forEach((ev) => window.addEventListener(ev, resetTimer));
+    resetTimer();
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach((ev) => window.removeEventListener(ev, resetTimer));
+    };
+  }, []);
+
   useEffect(() => {
     loadData()
     calculateRealisasi()
