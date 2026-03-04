@@ -4,8 +4,10 @@ import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, ArrowUp, Menu } from "lucide-react";
+import { LogOut, User, ArrowUp, Menu, MessageSquare } from "lucide-react";
 import { RoleGuard } from "@/components/ui/role-guard";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { motion, useScroll, useMotionValueEvent, AnimatePresence } from "framer-motion";
 import { API_BASE_URL } from "@/lib/config";
 import { logActivity } from "@/utils/activity";
@@ -42,6 +44,12 @@ const MainLayoutContent = ({
   const [hidden, setHidden] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Kritik & Saran States
+  const [isKritikOpen, setIsKritikOpen] = useState(false);
+  const [kritikText, setKritikText] = useState("");
+  const [isSubmittingKritik, setIsSubmittingKritik] = useState(false);
+
   const mainRef = useRef<HTMLElement>(null);
   const { scrollY } = useScroll({ container: mainRef });
 
@@ -64,6 +72,33 @@ const MainLayoutContent = ({
 
   const scrollToTop = () => {
     mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleKritikSubmit = async () => {
+    if (!kritikText.trim()) return;
+    setIsSubmittingKritik(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/kritik-saran`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id_user: userDetail?.id_user || userData?.id_user || userData?.id,
+          nama_pengguna: userDetail?.username || userData?.username || "Unknown User",
+          isi: kritikText
+        }),
+      });
+
+      if (!response.ok) throw new Error("Gagal mengirim kritik & saran");
+
+      alert("Terima kasih atas kritik & saran Anda!");
+      setKritikText("");
+      setIsKritikOpen(false);
+    } catch (error) {
+      console.error(error);
+      alert("Terjadi kesalahan saat mengirim kritik & saran. Silakan coba lagi.");
+    } finally {
+      setIsSubmittingKritik(false);
+    }
   };
 
   return (
@@ -107,10 +142,46 @@ const MainLayoutContent = ({
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                <div className="flex items-center space-x-2 text-sm text-muted-foreground mr-2">
                   <User className="h-4 w-4" />
                   <span>{userDetail?.username || userData.username}</span>
                 </div>
+                
+                {/* Kritik & Saran Button */}
+                <Dialog open={isKritikOpen} onOpenChange={setIsKritikOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-green-600 text-green-600 hover:bg-green-600 hover:text-white bg-transparent"
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Kritik & Saran
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px] bg-white">
+                    <DialogHeader>
+                      <DialogTitle>Kritik & Saran</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <Textarea
+                        placeholder="Silahkan isi kritik & saran anda disini...."
+                        value={kritikText}
+                        onChange={(e) => setKritikText(e.target.value)}
+                        className="min-h-[150px]"
+                        disabled={isSubmittingKritik}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsKritikOpen(false)} disabled={isSubmittingKritik}>Batal</Button>
+                      <Button onClick={handleKritikSubmit} disabled={isSubmittingKritik || !kritikText.trim()} className="bg-primary group relative">
+                        {isSubmittingKritik ? "Mengirim..." : "Kirim"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                {/* Logout Button */}
                 <Button
                   variant="outline"
                   size="sm"

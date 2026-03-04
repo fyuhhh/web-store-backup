@@ -867,6 +867,7 @@ export default function RekapFullPage() {
                           })() : ""
                         )) : computeTargetPOStatus(formatDateSimple(pr.estimasipo), ""),
 
+                        id_POItem: poItem?.id_POItem || "",
                         noPO: showPO ? (po?.noPO || "") : "",
                         tanggalPO: showPO && po?.tanggalPO
                           ? (() => {
@@ -1850,10 +1851,11 @@ export default function RekapFullPage() {
 
   // Handler klik kolom target pencapaian: buka dropdown
   function handleTargetEditClick(item: any) {
-    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
+    // Block editing for Divisi (id_peran 2), Store (id_peran 4) and Restricted Users
+    if (currentUserRole === 2 || currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
       return;
     }
-    if (!item.id_btb_item) return; // Use item ID check
+    if (!item.id_btb) return; // Use BTB ID check
     setEditingTargetId(item.id); // pakai id unik row
     setEditingTargetValue(item.targetPencapaianPO || "");
     setCustomTargetInput(""); // reset custom input
@@ -1907,25 +1909,25 @@ export default function RekapFullPage() {
     setEditingTargetId(item.id);
     setEditingTargetLoading(true);
 
-    let targetId = item.id_btb_item; // Use item ID
+    let targetId = item.id_btb; // Use BTB ID
 
     if (!targetId) {
-      alert("BTB Item ID tidak ditemukan");
+      alert("BTB ID tidak ditemukan");
       setEditingTargetId(null);
       setEditingTargetLoading(false);
       return;
     }
 
     try {
-      await fetch(`${API_BASE_URL}/api/btb-item/${targetId}`, {
-        method: "PUT", // PUT for item update
+      await fetch(`${API_BASE_URL}/api/btb/${targetId}`, {
+        method: "PATCH", // PATCH for btb update
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: newTarget }),
       });
-      // Update all rows with same id_btb_item
+      // Update all rows with same id_btb
       setRekapData((prev) =>
         prev.map((row) =>
-          row.id_btb_item === item.id_btb_item ? { ...row, targetPencapaianPO: newTarget } : row
+          row.id_btb === item.id_btb ? { ...row, targetPencapaianPO: newTarget } : row
         )
       );
     } catch (err) {
@@ -1966,30 +1968,29 @@ export default function RekapFullPage() {
   }
 
   // Handler submit custom target
-  // Handler submit custom target
   async function handleCustomTargetSubmit(item: any) {
     const customVal = customTargetInput.trim();
     if (!customVal) return;
     setEditingTargetLoading(true);
 
-    let targetId = item.id_btb_item;
+    let targetId = item.id_btb;
 
     if (!targetId) {
-      alert("BTB Item ID tidak ditemukan");
+      alert("BTB ID tidak ditemukan");
       setEditingTargetId(null);
       setEditingTargetLoading(false);
       return;
     }
 
     try {
-      await fetch(`${API_BASE_URL}/api/btb-item/${targetId}`, {
-        method: "PUT",
+      await fetch(`${API_BASE_URL}/api/btb/${targetId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetPencapaianPo: customVal }),
       });
       setRekapData((prev) =>
         prev.map((row) =>
-          row.id_btb_item === item.id_btb_item ? { ...row, targetPencapaianPO: customVal } : row
+          row.id_btb === item.id_btb ? { ...row, targetPencapaianPO: customVal } : row
         )
       );
     } catch (err) {

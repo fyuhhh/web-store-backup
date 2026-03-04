@@ -29,6 +29,7 @@ import broadcastRoutes from "./routes/broadcast.js";
 import monitoringRoutes from "./routes/monitoring.js";
 import activityLogsRoutes from "./routes/activity_logs.js";
 import mrRoutes from "./routes/mr.js";
+import kritikSaranRoutes from "./routes/kritik_saran.js";
 
 const app = express();
 app.use(cors());
@@ -66,6 +67,7 @@ app.use("/api/broadcast", broadcastRoutes);
 app.use("/api/monitoring", monitoringRoutes);
 app.use("/api/activity-logs", activityLogsRoutes);
 app.use("/api/mr", mrRoutes);
+app.use("/api/kritik-saran", kritikSaranRoutes);
 
 // === ADDED: debug endpoint to list registered routes ===
 app.get("/api/debug/routes", (req, res) => {
