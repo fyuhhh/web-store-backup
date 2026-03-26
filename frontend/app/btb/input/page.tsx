@@ -251,7 +251,7 @@ export default function BTBInputPage() {
         .map((item) => ({
           ...item,
           qtySisa: item.qtySisa ?? item.jumlahPO,
-          poItemId: poItem.noPR + "-" + item.id,
+          poItemId: String(item.id_POItem), // Gunakan id_POItem sebagai key unik
           satuan: item.satuan,
           id_satuan: item.id_satuan ?? null, // <-- pastikan id_satuan ikut
         }))
@@ -533,6 +533,7 @@ export default function BTBInputPage() {
             // --- Perubahan: urutkan item berdasarkan id_PRItem ASC ---
             const item = {
               id: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
+              id_POItem: pi.id_POItem, // Simpan id_POItem asli dari db
               namaBarang: prItem.namaBarang ?? prItem.namabarang ?? "",
               jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlah) || 0,
               jumlahAsli: Number(pi.jumlahAsli) || Number(pi.jumlah) || 0,
@@ -795,9 +796,7 @@ export default function BTBInputPage() {
           .map((item) => {
             // Cari poItem dari poItems (ambil id_POItem dan id_satuan)
             const poItem = poItems.find(
-              (p) =>
-                String(p.id_PRItem) === String(item.id) ||
-                p.namaBarang === item.namaBarang
+              (p) => String(p.id_POItem) === String(item.poItemId)
             );
             const hargaSatuanInt = poItem?.hargaSatuan
               ? Number(poItem.hargaSatuan)
@@ -980,7 +979,7 @@ export default function BTBInputPage() {
 
   // Fungsi untuk handle checkbox item di tabel PO
   const handleSelectPOItem = (poId: string, poItemId: string, checked: boolean) => {
-    const key = `${poId}::${poItemId}`;
+    const key = `${poId}::${poItemId}`; // poItemId di sini sudah id_POItem (string)
     if (checked) {
       setSelectedPOItemIds((prev) => [...prev, key]);
     } else {
@@ -1028,7 +1027,7 @@ export default function BTBInputPage() {
     let selectedPOObjects = filteredPOData.filter((po) =>
       po.poItems.some((poItem: any) =>
         poItem.items.some((item: any) =>
-          selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+          selectedPOItemIds.includes(`${po.id}::${item.id_POItem}`)
         )
       )
     );
@@ -1496,7 +1495,7 @@ export default function BTBInputPage() {
                                 poItem.items
                                   .filter((item: any) => item.jumlahPO > 0)
                                   .map((item: any) =>
-                                    selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                    selectedPOItemIds.includes(`${po.id}::${item.id_POItem}`)
                                   )
                               ).some(Boolean)
                             ) &&
@@ -1505,7 +1504,7 @@ export default function BTBInputPage() {
                                   poItem.items
                                     .filter((item: any) => item.jumlahPO > 0)
                                     .map((item: any) =>
-                                      selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                      selectedPOItemIds.includes(`${po.id}::${item.id_POItem}`)
                                     )
                                 ).every(Boolean)
                               )
@@ -1515,7 +1514,7 @@ export default function BTBInputPage() {
                                   poItem.items
                                     .filter((item: any) => item.jumlahPO > 0)
                                     .map((item: any) =>
-                                      selectedPOItemIds.includes(`${po.id}::${poItem.noPR}-${item.id}`)
+                                      selectedPOItemIds.includes(`${po.id}::${item.id_POItem}`)
                                     )
                                 ).every(Boolean)
                               )
@@ -2204,7 +2203,7 @@ export default function BTBInputPage() {
                           }))
                       );
                       // Kumpulkan semua item key untuk group PO ini
-                      const groupItemKeys = allItems.map((item: any) => `${po.id}::${item.noPR}-${item.id}`);
+                      const groupItemKeys = allItems.map((item: any) => `${po.id}::${item.id_POItem}`);
 
                       const allGroupSelected = groupItemKeys.length > 0 && groupItemKeys.every((key) => selectedPOItemIds.includes(key));
                       const someGroupSelected = groupItemKeys.some((key) => selectedPOItemIds.includes(key));
@@ -2257,9 +2256,9 @@ export default function BTBInputPage() {
                               {/* Checkbox + Nama Barang */}
                               <TableCell className="px-3 py-1 border-r border-gray-300 text-left min-w-[200px] flex items-left gap-2 justify-left uppercase">
                                 <Checkbox
-                                  checked={selectedPOItemIds.includes(`${po.id}::${item.noPR}-${item.id}`)}
+                                  checked={selectedPOItemIds.includes(`${po.id}::${item.id_POItem}`)}
                                   onCheckedChange={(checked) =>
-                                    handleSelectPOItem(po.id, `${item.noPR}-${item.id}`, checked === true)
+                                    handleSelectPOItem(po.id, String(item.id_POItem), checked === true)
                                   }
                                 />
                                 {item.namaBarang}

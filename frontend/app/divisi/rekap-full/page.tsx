@@ -747,8 +747,10 @@ export default function RekapFullPage() {
                   });
                 } else {
                   // Untuk tiap BTB Item, tampilkan baris lengkap
-                  btbItems.forEach((btbItem: any) => {
+                  btbItems.forEach((btbItem: any, btbIdx: number) => {
                     const btb = btbData.find((b: any) => String(b.id_btb) === String(btbItem.id_btb));
+                    const isFirstBTB = btbIdx === 0;
+
                     rekapRows.push({
                       id: pr.id_PR + "-" + idx + "-" + (poItem.id_POItem || "") + "-" + (btbItem.id_btb_item || ""),
                       id_PR: pr.id_PR,
@@ -788,10 +790,18 @@ export default function RekapFullPage() {
                           return String(days);
                         })()
                         : "",
-                      status: poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "",
+                      status: isFirstBTB ? (poItem?.statusTerima ?? po?.statusterima ?? pr.status ?? "") : "",
+                      targetPencapaianPO: isFirstBTB ? (() => {
+                        if (btbItem?.targetPencapaianPo) return btbItem.targetPencapaianPo;
+                        if (po?.estimasiTanggalTerima && btb?.tanggal_btb) {
+                          const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
+                          return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
+                        }
+                        return (po?.noPO ? "WAITING DELIVERY" : "WAITING PROGRESS PO");
+                      })() : "",
                       id_POItem: poItem?.id_POItem || "",
-                      noPO: po?.noPO || "",
-                      tanggalPO: po?.tanggalPO
+                      noPO: isFirstBTB ? (po?.noPO || "") : "",
+                      tanggalPO: isFirstBTB && po?.tanggalPO
                         ? (() => {
                           const d = new Date(po.tanggalPO);
                           return `${d.getDate().toString().padStart(2, "0")}-${(
@@ -799,7 +809,7 @@ export default function RekapFullPage() {
                           ).toString().padStart(2, "0")}-${d.getFullYear()}`;
                         })()
                         : "",
-                      periodePO: po?.tanggalPO
+                      periodePO: isFirstBTB && po?.tanggalPO
                         ? (() => {
                           let d;
                           if (/^\d{2}-\d{2}-\d{4}$/.test(po.tanggalPO)) {
@@ -812,17 +822,17 @@ export default function RekapFullPage() {
                           return `${d.toLocaleString("id-ID", { month: "long" })} ${d.getFullYear()}`;
                         })()
                         : "",
-                      supplier: po?.id_supplier
+                      supplier: isFirstBTB && po?.id_supplier
                         ? localSupplierMap[String(po.id_supplier)] || ""
                         : "",
-                      quantityAwalPO: poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "",
+                      quantityAwalPO: isFirstBTB ? (poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || "") : "",
                       quantityPO: 0,
-                      satuanPO:
+                      satuanPO: isFirstBTB ? (
                         item.id_satuan
                           ? localSatuanMap[String(item.id_satuan)] || item.id_satuan
-                          : "",
-                      hargaSatuanPO: poItem?.hargaSatuan ?? "",
-                      diskonPersen: poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
+                          : "") : "",
+                      hargaSatuanPO: isFirstBTB ? (poItem?.hargaSatuan ?? "") : "",
+                      diskonPersen: isFirstBTB ? (poItem?.diskonPersen !== undefined && poItem?.diskonPersen !== null
                         ? (typeof poItem.diskonPersen === "string" && poItem.diskonPersen.includes("+")
                           ? poItem.diskonPersen
                           : (Number(poItem.diskonPersen) % 1 === 0
@@ -830,17 +840,17 @@ export default function RekapFullPage() {
                             : Number(poItem.diskonPersen).toFixed(2)
                           ) + "%"
                         )
-                        : "",
-                      diskonRp: poItem?.diskonRupiah ?? "",
-                      ppnPersen: poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
+                        : "") : "",
+                      diskonRp: isFirstBTB ? (poItem?.diskonRupiah ?? "") : "",
+                      ppnPersen: isFirstBTB ? (poItem?.ppnPersen !== undefined && poItem?.ppnPersen !== null
                         ? (Number(poItem.ppnPersen) % 1 === 0
                           ? Number(poItem.ppnPersen).toString()
                           : Number(poItem.ppnPersen).toFixed(2)
                         ) + "%"
-                        : "",
-                      ppnRp: po?.ppnAmount ?? "",
-                      totalHarga: poItem?.totalPerItem ?? computeItemTotal(po, poItem),
-                      tanggalEstimasiDiterima: po?.estimasiTanggalTerima
+                          : "") : "",
+                      ppnRp: isFirstBTB ? (po?.ppnAmount ?? "") : "",
+                      totalHarga: isFirstBTB ? (poItem?.totalPerItem ?? computeItemTotal(po, poItem)) : "",
+                      tanggalEstimasiDiterima: isFirstBTB && po?.estimasiTanggalTerima
                         ? (() => {
                           const d = new Date(po.estimasiTanggalTerima);
                           return `${d.getDate().toString().padStart(2, "0")}-${(
@@ -848,15 +858,15 @@ export default function RekapFullPage() {
                           ).toString().padStart(2, "0")}-${d.getFullYear()}`;
                         })()
                         : "",
-                      statusPengiriman: po?.id_statusPengiriman
+                      statusPengiriman: isFirstBTB && po?.id_statusPengiriman
                         ? localStatusPengirimanMap[String(po.id_statusPengiriman)] || ""
                         : "",
-                      diorderOleh: po?.orderedBy
+                      diorderOleh: isFirstBTB && po?.orderedBy
                         ? localUserMap[String(po.orderedBy)] || po.orderedBy
                         : "",
-                      diinputOleh: poItem?.namaPembeli ?? "",
-                      terminPembayaran: po?.termin || po?.id_termin || "",
-                      skemaPO: po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "",
+                      diinputOleh: isFirstBTB ? (poItem?.namaPembeli ?? "") : "",
+                      terminPembayaran: isFirstBTB ? (po?.termin || po?.id_termin || "") : "",
+                      skemaPO: isFirstBTB ? (po?.id_skema ? localSkemaMap[String(po.id_skema)] || "" : "") : "",
                       noBTB: btb?.no_btb || "",
                       id_btb: btb?.id_btb || "",
                       tanggalBTB: btb?.tanggal_btb
@@ -890,19 +900,11 @@ export default function RekapFullPage() {
                       diterimaOleh: btb?.diterima_oleh
                         ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                         : "",
-                      statusPR_closed: computeStatusPRClosed(0, 0),
+                      statusPR_closed: isFirstBTB ? computeStatusPRClosed(0, 0) : "",
                       plan: pr.plan || "",
                       skemaBTB: btb?.id_skema
                         ? localSkemaMap[String(btb.id_skema)] || btb.id_skema
                         : "",
-                      targetPencapaianPO: (() => {
-                        if (btbItem?.targetPencapaianPo) return btbItem.targetPencapaianPo;
-                        if (po?.estimasiTanggalTerima && btb?.tanggal_btb) {
-                          const days = countCalendarDaysBetween(po.estimasiTanggalTerima, btb.tanggal_btb);
-                          return days <= 0 ? "TERCAPAI" : "TIDAK TERCAPAI";
-                        }
-                        return "";
-                      })(),
                       id_btb_item: btbItem?.id_btb_item || "",
                     });
                   });
@@ -1319,6 +1321,31 @@ export default function RekapFullPage() {
                 const excelColIdx = colIdx + 1;
                 let val = rowDetail[col.key];
 
+                // --- DEDUPLICATION LOGIC ---
+                const isFirstPR = currentRowIdx === prStartRow;
+                const isFirstPRItem = currentRowIdx === prItemStartRow;
+                const isFirstPO = currentRowIdx === poStartRow;
+                const isFirstBTB = currentRowIdx === btbStartRow;
+
+                // Columns mapped to their respective hierarchy levels in Divisi portal
+                const prCols = ["noMR", "noPR", "tanggalPR", "hariPR", "skemaPR", "plan"];
+                const prItemCols = [
+                  "daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", 
+                  "divisi", "dibuatOleh", "targetTanggalPO", "status", "statusPR_closed"
+                ];
+                const poCols = [
+                  "noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO",
+                  "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman",
+                  "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "terminPembayaran",
+                  "targetPencapaianPO", "skemaPO", "delay"
+                ];
+                const btbCols = ["noBTB", "tanggalBTB", "quantityBTB", "satuanBTB", "biayaBTB", "sisaStokBTB", "diterimaOleh", "skemaBTB"];
+
+                if (!isFirstPR && prCols.includes(col.key)) val = "";
+                if (!isFirstPRItem && prItemCols.includes(col.key)) val = "";
+                if (!isFirstPO && poCols.includes(col.key)) val = "";
+                if (!isFirstBTB && btbCols.includes(col.key)) val = "";
+
                 const cell = row.getCell(excelColIdx);
 
                 // --- FORMATTING VALUE ---
@@ -1454,7 +1481,7 @@ export default function RekapFullPage() {
 
   // Helper: mapping status Target Pencapaian PO ke warna background cell
   function getTargetPencapaianPoBg(status: string | undefined | null) {
-    if (!status) return "";
+    if (!status || status.trim() === "") return "";
     const s = status.trim().toUpperCase();
     if (s === "TERCAPAI") return "bg-green-100";
     if (s === "TIDAK TERCAPAI") return "bg-red-100";
@@ -1467,7 +1494,7 @@ export default function RekapFullPage() {
 
   // Helper: mapping status ke warna background cell (untuk kolom Status)
   function getStatusBg(status: string | undefined | null) {
-    if (!status) return "";
+    if (!status || status.trim() === "") return "";
     const s = status.trim().toUpperCase();
     if (s === "SCHEDULE (TERCAPAI)" || s === "SCHEDULE") return "bg-green-100";
     return "bg-red-100";

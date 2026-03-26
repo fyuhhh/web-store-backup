@@ -9,11 +9,18 @@ const router = express.Router();
 // GET all PO items
 router.get("/", async (req, res, next) => {
   try {
-    const [rows] = await db.query(
-      `SELECT po_item.*, 
+    const { po } = req.query;
+    let sql = `SELECT po_item.*, 
         (SELECT COUNT(*) FROM btb_item WHERE btb_item.id_POItem = po_item.id_POItem) > 0 AS hasBTB
-       FROM po_item ORDER BY id_POItem ASC`
-    );
+       FROM po_item`;
+    let params = [];
+    if (po) {
+      sql += ` WHERE po_item.id_PO = ?`;
+      params.push(po);
+    }
+    sql += ` ORDER BY id_POItem ASC`;
+
+    const [rows] = await db.query(sql, params);
     // --- FIX: pastikan hargaSatuan, jumlahPO, jumlahAsli integer ---
     const fixedRows = rows.map((row) => ({
       ...row,

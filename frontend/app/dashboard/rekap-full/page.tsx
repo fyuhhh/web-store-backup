@@ -848,7 +848,7 @@ export default function RekapFullPage() {
                           ? localSkemaMap[String(pr.id_skema)] || pr.id_skema
                           : "",
                         // TARGET PENCAPAIAN PO: Use DB value (now fixed in backend)
-                        targetPencapaianPO: btb?.targetPencapaianPo || (showPO ? "WAITING PART" : ""),
+                        targetPencapaianPO: showPO ? (btb?.targetPencapaianPo || "WAITING PART") : "",
 
                         targetTanggalPO: formatDateSimple(pr.estimasipo),
 
@@ -865,7 +865,7 @@ export default function RekapFullPage() {
                             const d = new Date(po.tanggalPO);
                             return `${d.getDate().toString().padStart(2, "0")}-${(d.getMonth() + 1).toString().padStart(2, "0")}-${d.getFullYear()}`;
                           })() : ""
-                        )) : computeTargetPOStatus(formatDateSimple(pr.estimasipo), ""),
+                        )) : "",
 
                         id_POItem: poItem?.id_POItem || "",
                         noPO: showPO ? (po?.noPO || "") : "",
@@ -970,7 +970,7 @@ export default function RekapFullPage() {
                           ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                           : "") : "",
                         statusPermintaanByPR: "",
-                        statusPR_closed: computeStatusPRClosed(item, typeof poItem !== "undefined" ? poItem : null),
+                        statusPR_closed: showPO ? computeStatusPRClosed(item, typeof poItem !== "undefined" ? poItem : null) : "",
                     plan: pr.plan || "",
                         noPlan: "",
                         skemaBTB: "",
@@ -1445,6 +1445,33 @@ export default function RekapFullPage() {
                 // Excel columns 1-indexed
                 const excelColIdx = colIdx + 1;
                 let val = rowDetail[col.key];
+
+                // --- DEDUPLICATION LOGIC ---
+                const isFirstPR = currentRowIdx === prStartRow;
+                const isFirstPRItem = currentRowIdx === prItemStartRow;
+                const isFirstPO = currentRowIdx === poStartRow;
+                const isFirstBTB = currentRowIdx === btbStartRow;
+
+                const prCols = ["noPR", "tanggalPR", "hariPR", "skemaPR", "plan"];
+                const prItemCols = [
+                  "noMR", "daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", 
+                  "divisi", "dibuatOleh", "targetTanggalPO", "status", "statusPR_closed"
+                ];
+                const poCols = [
+                  "noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO",
+                  "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman",
+                  "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "terminPembayaran",
+                  "targetPencapaianPO", "skemaPO", "delay"
+                ];
+                // BTB level is the bottom-most, so we don't clear its core fields unless there are multiple rows within one BTB?
+                // Actually, the structure is btbGroups -> items (which are the final detail rows).
+                // If one BTB has multiple items, we might want to deduplicate btb-level info.
+                const btbCols = ["noBTB", "tanggalBTB", "quantityBTB", "satuanBTB", "biayaBTB", "sisaStokBTB", "diterimaOleh", "skemaBTB"];
+
+                if (!isFirstPR && prCols.includes(col.key)) val = "";
+                if (!isFirstPRItem && prItemCols.includes(col.key)) val = "";
+                if (!isFirstPO && poCols.includes(col.key)) val = "";
+                if (!isFirstBTB && btbCols.includes(col.key)) val = "";
 
                 const cell = row.getCell(excelColIdx);
 
@@ -2027,7 +2054,7 @@ export default function RekapFullPage() {
 
   // Helper: mapping status Target Pencapaian PO ke warna background cell
   function getTargetPencapaianPoBg(status: string | undefined | null) {
-    if (!status) return "";
+    if (!status || status.trim() === "") return "";
     const s = status.trim().toUpperCase();
     if (s === "TERCAPAI") return "bg-green-100";
     if (s === "WAITING PART") return "bg-yellow-100";
@@ -2037,7 +2064,7 @@ export default function RekapFullPage() {
 
   // Helper: mapping status ke warna background cell (untuk kolom Status)
   function getStatusBg(status: string | undefined | null) {
-    if (!status) return "bg-red-100"; // Empty status -> red
+    if (!status || status.trim() === "") return "";
     const s = status.trim().toUpperCase();
     if (s === "TERCAPAI") return "bg-green-100";
     if (s === "WAITING PROGRESS PO") return "bg-yellow-100";
