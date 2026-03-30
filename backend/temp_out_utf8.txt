@@ -1,0 +1,31 @@
+PR Items: 5
+
+PR Item: PENGUNCI DAYA TOMBOL TAYEE LW42 - SAKLAR KUNCI ESCALATOR ATAS/BAWAH LW42A1Y-4736OF302 (id: 1681)
+  PO Items: 1
+    PO Item: id_POItem=1437, noPO=PO-PSV/WBL/26/II/00057, QTY=0
+      BTB Items: 1
+        BTB Item: id_btb_item=1561, no_btb=INV/BTB/26/III/00077, qty=2.00
+
+PR Item: BEARING NEWEL - MERK SIGMA ( 609RS - 17 LINKS ) (id: 1682)
+  PO Items: 1
+    PO Item: id_POItem=1438, noPO=PO-PSV/WBL/26/II/00057, QTY=0
+      BTB Items: 1
+        BTB Item: id_btb_item=1562, no_btb=INV/BTB/26/III/00077, qty=6.00
+
+PR Item: BEARING NEWEL - MERK SIGMA ( 609RS - 17 LINKS ) (id: 1683)
+  PO Items: 1
+    PO Item: id_POItem=1439, noPO=PO-PSV/WBL/26/II/00057, QTY=0
+      BTB Items: 1
+        BTB Item: id_btb_item=1563, no_btb=INV/BTB/26/III/00077, qty=6.00
+
+PR Item: BEARING NEWEL - MERK SIGMA ( 609RS - 17 LINKS ) (id: 1684)
+  PO Items: 1
+    PO Item: id_POItem=1440, noPO=PO-PSV/WBL/26/II/00057, QTY=0
+      BTB Items: 1
+        BTB Item: id_btb_item=1564, no_btb=INV/BTB/26/III/00077, qty=6.00
+
+PR Item: BEARING NEWEL - MERK SIGMA ( 609RS - 17 LINKS ) (id: 1685)
+  PO Items: 1
+    PO Item: id_POItem=1441, noPO=PO-PSV/WBL/26/II/00057, QTY=0
+      BTB Items: 1
+        BTB Item: id_btb_item=1565, no_btb=INV/BTB/26/III/00077, qty=6.00

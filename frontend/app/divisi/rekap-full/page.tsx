@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import ReactDOM from "react-dom";
@@ -644,6 +644,7 @@ export default function RekapFullPage() {
                       })()
                       : "",
                     hariPR: getDayName(pr.tanggalPR),
+                    id_PRItem: item.id_PRItem || "",
                     daftarBarangPR: item.namaBarang,
                     quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
                     quantityPR: item.jumlah ?? "",
@@ -747,8 +748,10 @@ export default function RekapFullPage() {
                   });
                 } else {
                   // Untuk tiap BTB Item, tampilkan baris lengkap
+                  let runningBalance = Number(poItem?.jumlahAsli || poItem?.jumlahPO || poItem?.jumlah_po || 0);
                   btbItems.forEach((btbItem: any, btbIdx: number) => {
                     const btb = btbData.find((b: any) => String(b.id_btb) === String(btbItem.id_btb));
+                    runningBalance -= Number(btbItem?.jumlah_diterima || 0);
                     const isFirstBTB = btbIdx === 0;
 
                     rekapRows.push({
@@ -768,6 +771,7 @@ export default function RekapFullPage() {
                         })()
                         : "",
                       hariPR: getDayName(pr.tanggalPR),
+                      id_PRItem: item.id_PRItem || "",
                       daftarBarangPR: item.namaBarang,
                       quantityAwalPR: item.quantityAwalPR ?? item.jumlah ?? "",
                       quantityPR: item.jumlah ?? "",
@@ -896,7 +900,7 @@ export default function RekapFullPage() {
                           ? localSatuanMap[String(btbItem.id_satuan)] || btbItem.id_satuan
                           : "",
                       biayaBTB: btbItem?.biaya ?? btb?.biaya ?? "",
-                      sisaStokBTB: 0,
+                      sisaStokBTB: runningBalance,
                       diterimaOleh: btb?.diterima_oleh
                         ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                         : "",
@@ -1114,16 +1118,13 @@ export default function RekapFullPage() {
     });
 
     return sortedGroups.map(([id_PR, items]) => {
-      // Group by PR Item (by daftarBarangPR + satuanPR + quantityAwalPR)
+      // Group by PR Item
       const prItemGroups: { [prItemKey: string]: any[] } = {};
       items.forEach((item) => {
-        // Use daftarBarangPR + satuanPR + quantityAwalPR as key
-        const prItemKey =
-          String(item.daftarBarangPR) +
-          "|" +
-          String(item.satuanPR) +
-          "|" +
-          String(item.quantityAwalPR);
+        // Use id_PRItem as key. If not available, fallback to daftarBarangPR + satuanPR + quantityAwalPR
+        const prItemKey = item.id_PRItem 
+          ? String(item.id_PRItem)
+          : String(item.daftarBarangPR) + "|" + String(item.satuanPR) + "|" + String(item.quantityAwalPR);
         if (!prItemGroups[prItemKey]) prItemGroups[prItemKey] = [];
         prItemGroups[prItemKey].push(item);
       });
@@ -1742,24 +1743,25 @@ export default function RekapFullPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {groupedTableData.map((prGroup) => (
+                  {groupedTableData.map((prGroup, globalPrIdx) => (
                     <React.Fragment key={prGroup.id_PR}>
                       {/* For each PR Item group inside PR group */}
-                      {prGroup.prItemGroups.map((prItemGroup) =>
-                        prItemGroup.poGroups.map((poGroup) =>
-                          poGroup.btbGroups.map((btbGroup) =>
+                      {prGroup.prItemGroups.map((prItemGroup, prItemGrpIdx) =>
+                        prItemGroup.poGroups.map((poGroup, poGrpIdx) =>
+                          poGroup.btbGroups.map((btbGroup, btbGrpIdx) =>
                             btbGroup.items.map((item, idx) => {
-                              // Find index of this item in prItemGroup.items (for PR Item rowSpan logic)
-                              const prItemIdx = prItemGroup.items.indexOf(item);
-                              // For PO rowSpan, only show on first item in PO group
-                              const isFirstPO = poGroup.items.indexOf(item) === 0;
+                              // For BTB logical trace
+                              const isFirstBTB_logic = idx === 0;
+                              // For PO logical trace
+                              const isFirstPO_logic = btbGrpIdx === 0 && isFirstBTB_logic;
                               // For PR Item rowSpan, only show on first item in PR Item group
-                              const isFirstPRItem = prItemIdx === 0;
+                              const isFirstPRItem = poGrpIdx === 0 && isFirstPO_logic;
                               // For PR rowSpan, only show on first item in PR group
-                              const prIdx = prGroup.items.indexOf(item);
-                              const isFirstPR = prIdx === 0;
-                              // For BTB rowSpan, only show on first item in BTB group
-                              const isFirstBTB = idx === 0;
+                              const isFirstPR = prItemGrpIdx === 0 && isFirstPRItem;
+
+                              // VISUAL OVERRIDE: User requested PO and BTB data to be printed on every row
+                              const isFirstPO = true;
+                              const isFirstBTB = true;
                               // Only allow edit on the last item in BTB group
                               const isEditableRow = idx === btbGroup.items.length - 1;
                               return (
