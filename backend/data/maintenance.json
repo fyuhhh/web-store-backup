@@ -1,8 +1,8 @@
 {
-  "isActive": false,
-  "endTime": "2026-03-25T06:30:00.000Z",
-  "startTime": "",
-  "description": "Sedang update untuk pembaruan data Rekap Keseluruhan.",
+  "isActive": true,
+  "endTime": "2026-03-30T08:15:00.000Z",
+  "startTime": "2026-03-30T07:55:40.096Z",
+  "description": "Restart PC server, mohon menunggu.",
   "exemptedUsers": [
     "166",
     "110",
