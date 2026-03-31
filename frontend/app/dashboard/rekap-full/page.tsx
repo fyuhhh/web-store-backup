@@ -976,8 +976,8 @@ export default function RekapFullPage() {
                           ? localUserMap[String(btb.diterima_oleh)] || btb.diterima_oleh
                           : "") : "",
                         statusPermintaanByPR: "",
-                        statusPR_closed: showPO ? computeStatusPRClosed(item, typeof poItem !== "undefined" ? poItem : null) : "",
-                    plan: pr.plan || "",
+                        statusPR_closed: runningBalance === 0 ? "CLOSED" : "",
+                        plan: pr.plan || "",
                         noPlan: "",
                         skemaBTB: "",
 
@@ -1454,8 +1454,10 @@ export default function RekapFullPage() {
                 const prCols = ["noPR", "tanggalPR", "hariPR", "skemaPR", "plan"];
                 const prItemCols = [
                   "noMR", "daftarBarangPR", "quantityAwalPR", "satuanPR", "keteranganPR", 
-                  "divisi", "dibuatOleh", "targetTanggalPO", "status", "statusPR_closed"
+                  "divisi", "dibuatOleh", "targetTanggalPO", "status"
                 ];
+                // Custom PR Item Cols that should not be deduplicated if they change per row
+                const prItemColsDynamic = ["statusPR_closed"];
                 const poCols = [
                   "noPO", "tanggalPO", "supplier", "quantityAwalPO", "satuanPO", "hargaSatuanPO",
                   "diskonPersen", "diskonRp", "ppnPersen", "ppnRp", "totalHarga", "statusPengiriman",
@@ -1469,6 +1471,7 @@ export default function RekapFullPage() {
 
                 if (!isFirstPR && prCols.includes(col.key)) val = "";
                 if (!isFirstPRItem && prItemCols.includes(col.key)) val = "";
+                // Note: statusPR_closed is NOT in prItemCols anymore, so it is not blanked here.
                 if (!isFirstPO && poCols.includes(col.key)) val = "";
                 if (!isFirstBTB && btbCols.includes(col.key)) val = "";
 
