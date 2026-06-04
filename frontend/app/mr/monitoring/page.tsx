@@ -94,6 +94,7 @@ export default function MonitoringMRPage() {
 
     const [userDivisiId, setUserDivisiId] = useState<string | null>(null);
     const [isDivisiUser, setIsDivisiUser] = useState(false);
+    const [isReadOnly, setIsReadOnly] = useState(false);
 
     // Delete States
     const [deleteChoiceOpen, setDeleteChoiceOpen] = useState(false);
@@ -118,6 +119,11 @@ export default function MonitoringMRPage() {
         // Check if user is Divisi (id_peran 2 or role 'divisi')
         if (Number(userData.id_peran) === 2 || (userData.role && userData.role.toLowerCase() === 'divisi')) {
             setIsDivisiUser(true);
+        }
+        
+        const userId = Number(userData.id_user || userData.id || 0);
+        if ([112, 113, 168, 169].includes(userId)) {
+            setIsReadOnly(true);
         }
         
         fetchData();
@@ -783,7 +789,7 @@ export default function MonitoringMRPage() {
                                         {/* Right Merged Columns */}
                                         <TableHead className="w-[180px] px-4 text-center border font-bold uppercase" style={headerStyle}>DIVISI</TableHead>
                                         {/* AKSI Column */}
-                                        {!isDivisiUser && (
+                                        {!isDivisiUser && !isReadOnly && (
                                             <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>AKSI</TableHead>
                                         )}
                                     </TableRow>
@@ -817,8 +823,8 @@ export default function MonitoringMRPage() {
                                                                 <TableCell rowSpan={items.length} className="text-center align-top border bg-white font-medium p-2 align-middle" style={{ verticalAlign: 'top' }}>
                                                                     <div 
                                                                         className={`pt-2 ${!isDivisiUser ? "cursor-pointer hover:text-blue-600 hover:underline" : ""}`}
-                                                                        onClick={() => !isDivisiUser && handleEdit(items[0])}
-                                                                        title={!isDivisiUser ? "Klik untuk edit" : ""}
+                                                                        onClick={() => !isDivisiUser && !isReadOnly && handleEdit(items[0])}
+                                                                        title={(!isDivisiUser && !isReadOnly) ? "Klik untuk edit" : ""}
                                                                     >
                                                                         {item.no_mr}
                                                                     </div>
@@ -829,7 +835,6 @@ export default function MonitoringMRPage() {
                                                             </>
                                                         )}
 
-                                                        {/* Item Details */}
                                                         {/* Item Details */}
                                                         <TableCell className="border p-2">
                                                             {item.id_mr_item ? item.nama_barang : <span className="text-gray-400 italic">No items</span>}
@@ -873,13 +878,21 @@ export default function MonitoringMRPage() {
                                                                 <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
                                                                     <div className="pt-2">{item.nama_divisi}</div>
                                                                 </TableCell>
-                                                                {!isDivisiUser && (
-                                                                    <TableCell rowSpan={items.length} className="text-center align-top border bg-white p-2" style={{ verticalAlign: 'top' }}>
-                                                                        <div className="pt-2 flex justify-center">
+                                                                {!isDivisiUser && !isReadOnly && (
+                                                                    <TableCell className="border text-center align-middle" rowSpan={items.length}>
+                                                                        <div className="flex flex-col gap-1 items-center">
                                                                             <Button 
-                                                                                variant="ghost" 
+                                                                                variant="outline" 
                                                                                 size="sm" 
-                                                                                className="hover:text-red-600 hover:bg-red-50"
+                                                                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                                                                                onClick={() => handleEdit(item)}
+                                                                            >
+                                                                                <Download className="h-4 w-4 rotate-180" /> 
+                                                                            </Button>
+                                                                            <Button 
+                                                                                variant="outline" 
+                                                                                size="sm" 
+                                                                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
                                                                                 onClick={() => handleDelete(item.id_mr)}
                                                                             >
                                                                                 <Trash2 className="h-4 w-4" />

@@ -1,11 +1,10 @@
 {
   "isActive": false,
-  "endTime": "2026-03-30T08:15:00.000Z",
+  "endTime": "2026-06-04T07:00:00.000Z",
   "startTime": "",
-  "description": "Restart PC server, mohon menunggu.",
+  "description": "Pembaruan lintas skema",
   "exemptedUsers": [
     "166",
-    "110",
     "111",
     "94"
   ]

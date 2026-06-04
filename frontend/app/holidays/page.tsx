@@ -16,7 +16,6 @@ import { Trash2, Plus } from "lucide-react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { API_BASE_URL } from "@/lib/config";
-// import "./datepicker-red-weekend.css"; // Reuse existing if available or create valid one
 
 export default function HolidaysPage() {
     const [holidays, setHolidays] = useState<any[]>([]);
@@ -40,13 +39,18 @@ export default function HolidaysPage() {
     };
 
     useEffect(() => {
+        const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+        const userIdNum = Number(userData.id_user || userData.id || 0);
+        if ([168, 169].includes(userIdNum)) {
+            window.location.href = "/dashboard";
+            return;
+        }
         fetchHolidays();
     }, []);
 
     const handleAddString = async () => {
         if (!newDate) return;
 
-        // Format YYYY-MM-DD for backend
         const yyyy = newDate.getFullYear();
         const mm = String(newDate.getMonth() + 1).padStart(2, "0");
         const dd = String(newDate.getDate()).padStart(2, "0");
@@ -81,7 +85,6 @@ export default function HolidaysPage() {
         }
     };
 
-    // Helper format display DD-MM-YYYY
     const formatDateDisplay = (isoString: string) => {
         try {
             const date = new Date(isoString);
@@ -105,7 +108,6 @@ export default function HolidaysPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Form Tambah */}
                     <Card>
                         <CardHeader>
                             <CardTitle>Tambah Hari Libur</CardTitle>
@@ -138,7 +140,6 @@ export default function HolidaysPage() {
                         </CardContent>
                     </Card>
 
-                    {/* List Libur */}
                     <Card>
                         <CardHeader>
                             <CardTitle>Daftar Hari Libur</CardTitle>

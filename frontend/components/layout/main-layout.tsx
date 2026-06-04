@@ -29,6 +29,7 @@ const MainLayoutContent = ({
   userDetail,
   userData,
   handleLogout,
+  skemaList = [],
 }: {
   children: React.ReactNode;
   maintenanceWarning: string | null;
@@ -39,7 +40,24 @@ const MainLayoutContent = ({
   userDetail: any;
   userData: any;
   handleLogout: () => void;
+  skemaList?: any[];
 }) => {
+  const [selectedSkemaId, setSelectedSkemaId] = useState<string>("");
+  const id_peran = userDetail?.id_peran ?? userData?.id_peran ?? userData?.role;
+  const isDivisi = Number(id_peran) === 2 || String(id_peran).toLowerCase() === "divisi";
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const currentSkema = localStorage.getItem("selectedSkemaId") || String(userDetail?.id_skema ?? userData?.id_skema ?? userData?.skema ?? "");
+      setSelectedSkemaId(currentSkema);
+    }
+  }, [userDetail, userData]);
+
+  const handleSkemaChange = (newSkemaId: string) => {
+    localStorage.setItem("selectedSkemaId", newSkemaId);
+    setSelectedSkemaId(newSkemaId);
+    window.location.reload();
+  };
   // --- SMART HEADER & BACK TO TOP LOGIC ---
   const [hidden, setHidden] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -142,6 +160,23 @@ const MainLayoutContent = ({
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
+                {isDivisi && skemaList && skemaList.length > 0 && (
+                  <div className="flex items-center space-x-2 mr-2">
+                    <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Skema:</span>
+                    <select
+                      value={selectedSkemaId}
+                      onChange={(e) => handleSkemaChange(e.target.value)}
+                      className="h-9 w-32 rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer hover:bg-slate-50 font-medium text-slate-700"
+                    >
+                      {skemaList.map((s: any) => (
+                        <option key={s.id_skema} value={String(s.id_skema)}>
+                          {s.skema}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div className="flex items-center space-x-2 text-sm text-muted-foreground mr-2">
                   <User className="h-4 w-4" />
                   <span>{userDetail?.username || userData.username}</span>
@@ -327,6 +362,26 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   }, [router]);
 
+  // These hooks MUST be before any early return (Rules of Hooks)
+  const [activeSkemaId, setActiveSkemaId] = useState<string | null>(null);
+
+  // Derive peran/skema info (safe to compute even when userData is null)
+  const rawSkema = userDetail?.id_skema ?? userData?.id_skema ?? userData?.skema;
+  const id_peran = userDetail?.id_peran ?? userData?.id_peran ?? userData?.role;
+  const id_divisi = userDetail?.id_divisi ?? userData?.id_divisi;
+  const isDivisi = Number(id_peran) === 2 || String(id_peran ?? "").toLowerCase() === "divisi";
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const selected = localStorage.getItem("selectedSkemaId");
+      if (isDivisi && selected) {
+        setActiveSkemaId(selected);
+      } else {
+        setActiveSkemaId(rawSkema ? String(rawSkema) : null);
+      }
+    }
+  }, [rawSkema, isDivisi]);
+
   const handleLogout = async () => {
     try {
       const stored = localStorage.getItem("userData");
@@ -345,6 +400,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       socket.disconnect();
     });
     localStorage.removeItem("userData");
+    localStorage.removeItem("selectedSkemaId");
     router.push("/login");
   };
 
@@ -352,10 +408,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     return <div>Loading...</div>;
   }
 
-  // Ambil id_skema dan id_peran dari userDetail, fallback ke userData
-  const id_skema = userDetail?.id_skema ?? userData.id_skema ?? userData.skema;
-  const id_peran = userDetail?.id_peran ?? userData.id_peran ?? userData.role;
-  const id_divisi = userDetail?.id_divisi ?? userData.id_divisi;
+  const id_skema = activeSkemaId ?? rawSkema;
 
   // Cari label skema dan peran dari list
   const skemaLabel =
@@ -384,6 +437,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         userDetail={userDetail}
         userData={userData}
         handleLogout={handleLogout}
+        skemaList={skemaList}
       >
         <RouteActivityLogger />
         {children}

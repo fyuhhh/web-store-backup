@@ -135,6 +135,7 @@ export default function LoginPage() {
             }
 
             localStorage.setItem("userData", JSON.stringify(data.user));
+            localStorage.removeItem("selectedSkemaId");
 
             // --- MAINTENANCE CHECK START ---
             try {

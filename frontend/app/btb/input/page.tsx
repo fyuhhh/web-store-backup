@@ -244,10 +244,10 @@ export default function BTBInputPage() {
   >([]);
 
   // Helper to get PO item remaining qty
-  function getPOItemsWithSisa(po: POData) {
+  function getPOItemsWithSisa(po: POData, includeZero: boolean = false) {
     return po.poItems.flatMap((poItem) =>
       poItem.items
-        .filter((item) => item.jumlahPO > 0)
+        .filter((item) => includeZero || item.jumlahPO > 0)
         .map((item) => ({
           ...item,
           qtySisa: item.qtySisa ?? item.jumlahPO,
@@ -280,6 +280,13 @@ export default function BTBInputPage() {
     if (userDataStr) {
       try {
         const userData = JSON.parse(userDataStr);
+        const userIdNum = Number(userData.id_user || userData.id || 0);
+
+        if ([168, 169].includes(userIdNum)) {
+          window.location.href = "/btb/monitoring";
+          return;
+        }
+
         const sId = userData.id_skema ?? userData.skema;
         if (sId) {
           setUserSkemaId(String(sId));
@@ -291,12 +298,9 @@ export default function BTBInputPage() {
     }
   }, []);
 
-
-
-
-
-
-
+  // === Edit Mode Logic ===
+  const searchParams = useSearchParams();
+  const editBtbId = searchParams.get("id");
 
   // Auto-fill BTB Number on PO Selection/Date change
   useEffect(() => {
@@ -325,8 +329,8 @@ export default function BTBInputPage() {
 
     // Guard: Only auto-fill if field is empty OR looks like a standard format "BTB/..."
     const isEmpryOrStandard = !noBTB || noBTB.startsWith("BTB/");
-    if (!isEmpryOrStandard) {
-      console.log("[Auto-fill BTB] Skipping: Field not empty/standard");
+    if (!isEmpryOrStandard || editBtbId) {
+      console.log("[Auto-fill BTB] Skipping: Field not empty/standard, or in Edit mode");
       return;
     }
 
@@ -363,8 +367,6 @@ export default function BTBInputPage() {
   const [backendPOData, setBackendPOData] = useState<any[]>([]);
 
   // === Edit Mode Logic ===
-  const searchParams = useSearchParams();
-  const editBtbId = searchParams.get("id");
   const [btbDataForEdit, setBtbDataForEdit] = useState<any>(null);
   const [lockedItems, setLockedItems] = useState<Record<string, boolean>>({});
 
@@ -414,11 +416,11 @@ export default function BTBInputPage() {
               });
 
               if (foundNoPR) {
-                const key = `${foundNoPR}-${bItem.id_POItem}`;
+                const key = String(bItem.id_POItem);
                 qtyObj[key] = Number(bItem.jumlah_diterima);
-                if (bItem.hasBKB) {
-                  lockObj[key] = true;
-                }
+                // if (bItem.hasBKB) {
+                //   lockObj[key] = true;
+                // }
               }
             });
 
@@ -429,7 +431,7 @@ export default function BTBInputPage() {
               poId: targetPO.id,
               noPO: targetPO.noPO,
               supplier: targetPO.supplier,
-              items: getPOItemsWithSisa(targetPO).filter((item) =>
+              items: getPOItemsWithSisa(targetPO, true).filter((item) =>
                 qtyObj[item.poItemId] !== undefined
               )
             }];

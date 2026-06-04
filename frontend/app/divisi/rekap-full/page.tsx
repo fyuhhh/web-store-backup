@@ -964,12 +964,13 @@ export default function RekapFullPage() {
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        // id_skema bisa di userData atau skema
-        setUserSkemaId(String(parsed.id_skema ?? parsed.skema ?? ""));
+        // id_skema bisa di userData atau skema, prioritize selectedSkemaId
+        const skema = localStorage.getItem("selectedSkemaId") || String(parsed.id_skema ?? parsed.skema ?? "");
+        setUserSkemaId(skema);
         // Log id_skema yang diterima
         console.log(
-          "User id_skema (from localStorage):",
-          parsed.id_skema ?? parsed.skema ?? ""
+          "User id_skema (resolved):",
+          skema
         );
       } catch {
         setUserSkemaId(null);

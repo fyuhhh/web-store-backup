@@ -131,6 +131,14 @@ export default function InputMRPage() {
     useEffect(() => {
         const fetchInitialData = async () => {
           try {
+            // Check for restricted users
+            const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+            const userIdNum = Number(userData.id_user || userData.id || 0);
+            if ([168, 169].includes(userIdNum)) {
+                window.location.href = "/mr/monitoring";
+                return;
+            }
+
             const [divisiRes, supplierRes, satuanRes] = await Promise.all([
               fetch(`${API_BASE_URL}/api/divisi`),
               fetch(`${API_BASE_URL}/api/supplier`),

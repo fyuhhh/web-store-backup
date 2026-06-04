@@ -168,16 +168,29 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
       href: "/divisi/mr", // Direct link to Monitoring
     };
 
-    if (user && (Number(user.id) === 112 || Number(user.id) === 113)) {
-      // Spesifik untuk user IRVAN (113) dan JOHN (112)
-      // View Only access for PO
+    const isRestrictedUser = user && (
+      Number(user.id_user || user.id) === 112 || 
+      Number(user.id_user || user.id) === 113 || 
+      Number(user.id_user || user.id) === 168 || 
+      Number(user.id_user || user.id) === 169
+    );
+
+    if (isRestrictedUser) {
+      // Spesifik untuk user IRVAN (113), JOHN (112), dan Read-Only Users (168, 169)
+      // View Only access for PO, PR, BTB, and MR
       menu = [
         {
           title: "Dashboard",
           href: "/dashboard",
           icon: LayoutDashboard,
         },
-        mrMenu,
+        {
+          title: "PR (Purchase Request)",
+          icon: FileText,
+          submenu: [
+            { title: "Monitoring PR", href: "/pr/monitoring" },
+          ],
+        },
         {
           title: "PO (Purchase Order)",
           icon: ShoppingCart,
@@ -185,6 +198,14 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
             { title: "Monitoring PO", href: "/po/monitoring" },
           ],
         },
+        {
+          title: "BTB",
+          icon: Package,
+          submenu: [
+            { title: "Monitoring BTB", href: "/btb/monitoring" },
+          ],
+        },
+        mrDivisiMenu, // MR Monitoring only link is already in mrDivisiMenu href
         {
           title: "Rekap Keseluruhan",
           href: "/dashboard/rekap-full",

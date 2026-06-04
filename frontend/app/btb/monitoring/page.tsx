@@ -152,6 +152,7 @@ export default function BTBMonitoringPage() {
   const [btbRows, setBtbRows] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSpecialUser, setIsSpecialUser] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [filterStatus, setFilterStatus] = useState("");
 
   const tableWrapperRef = React.useRef<HTMLDivElement>(null);
@@ -299,16 +300,17 @@ export default function BTBMonitoringPage() {
     // Ambil semua id_btb yang dipilih
     // REFACTOR: Strictly filter by id_btb. idList must contain BTB IDs.
     const btbIds = btbRows
-      .filter((row) => idList.includes(row.id_btb))
-      .map((row) => row.id_btb);
+      .filter((row) => idList.includes(String(row.id_btb)))
+      .map((row) => String(row.id_btb));
 
     // Jika ada id_btb yang sudah diproses di BKB, tampilkan notif gagal dan batalkan aksi
-    const processed = btbIds.filter((id) => btbProcessedInBKB.includes(String(id)));
-    if (processed.length > 0) {
-      setToastMsg("Gagal mengembalikan BTB ke PO, karena BTB telah di proses. Hapus BKB terkait telebih dahulu.");
-      setToastOpen(true);
-      return;
-    }
+    // BKB check removed as per user request
+    // const processed = btbIds.filter((id) => btbProcessedInBKB.includes(String(id)));
+    // if (processed.length > 0) {
+    //   setToastMsg("Gagal mengembalikan BTB ke PO, karena BTB telah di proses. Hapus BKB terkait telebih dahulu.");
+    //   setToastOpen(true);
+    //   return;
+    // }
 
     // Ambil semua item BTB yang memiliki id_btb yang sama
     // FIX: Filter btbRows to only include items belonging to the selected btbIds
@@ -476,8 +478,12 @@ export default function BTBMonitoringPage() {
     const userData = JSON.parse(localStorage.getItem("userData") || "{}");
     setUserSchema(userData.skema || "");
     setUserSkemaId(String(userData.id_skema ?? userData.skema ?? "")); // Set id_skema user
-    if ([98, 141].includes(Number(userData.id_user || userData.id))) {
+    const userId = Number(userData.id_user || userData.id || 0);
+    if ([98, 141].includes(userId)) {
       setIsSpecialUser(true);
+    }
+    if ([112, 113, 168, 169].includes(userId)) {
+      setIsReadOnly(true);
     }
   }, []);
 
@@ -1074,14 +1080,15 @@ export default function BTBMonitoringPage() {
             <CardDescription>
               Total: {filteredBTBData.length} BTB Item
             </CardDescription>
-            {exportMode === "selected" && selectedBTBIds.length > 0 && (
+            {!isReadOnly && selectedBTBIds.length > 0 && (
               <Button
                 variant="destructive"
-                className="mt-2"
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => handleDelete(selectedBTBIds)}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Hapus BTB Terpilih ({selectedBTBIds.length})
+                Kembalikan ke PO ({selectedBTBIds.length})
               </Button>
             )}
           </CardHeader>
@@ -1570,6 +1577,7 @@ export default function BTBMonitoringPage() {
                           const getId = (x: any) => x.id_btb_item ?? x.id_btbItem ?? x.id;
                           return getId(a) - getId(b);
                         });
+                        const firstInRow = items[0];
                         return (
                           <React.Fragment key={noBTB}>
                             <TableRow
@@ -1669,14 +1677,17 @@ export default function BTBMonitoringPage() {
                                       <Pencil className="h-3 w-3" />
                                     </Button>
                                   </Link>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleDelete(items[0].id_btb)}
-                                    title="Hapus BTB"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
+                                  {!isReadOnly && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 w-8 p-0 text-red-600 hover:bg-red-50 border-red-200"
+                                      onClick={() => handleDelete([String(firstInRow.id_btb)])}
+                                      title="Kembalikan semua item di BTB ini ke PO"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </div>
                               </TableCell>
                             </TableRow>

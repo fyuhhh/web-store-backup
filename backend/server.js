@@ -97,6 +97,16 @@ app.get("/api/debug/routes", (req, res) => {
 });
 // === END ADDED ===
 
+// === Express fallback handler for Socket.io requests without trailing slash ===
+app.all("/api/socket.io", (req, res, next) => {
+  const ioInstance = req.app.get("io");
+  if (ioInstance) {
+    ioInstance.engine.handleRequest(req, res);
+  } else {
+    next();
+  }
+});
+
 // error handling
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
@@ -123,6 +133,7 @@ const httpServer = createServer(app);
 
 // Initialize Socket.io
 const io = new Server(httpServer, {
+  path: "/api/socket.io",
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
@@ -131,6 +142,7 @@ const io = new Server(httpServer, {
 
 // Initialize Logger
 initLogger(io);
+app.set("io", io);
 
 // Socket Connection Handler
 // Socket Connection Handler

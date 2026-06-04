@@ -253,6 +253,7 @@ export default function MonitoringPOPage() {
 
   // --- STATE for Divisi Role ---
   const [isDivisi, setIsDivisi] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   // -----------------------------
 
   // Pagination states
@@ -356,11 +357,16 @@ export default function MonitoringPOPage() {
       const userDataStr = localStorage.getItem("userData");
       const userDataObj = userDataStr ? JSON.parse(userDataStr) : {};
       const role = (userDataObj.role || "").toLowerCase();
+      // Map Divisi
       const userId = Number(userDataObj.id || userDataObj.id_user || 0);
 
       // Logic: Hide ONLY if role is 'divisi' AND user is NOT in allow list (98, 141)
       const isRestricted = role === "divisi" && ![98, 141].includes(userId);
       setIsDivisi(isRestricted);
+
+      if ([112, 113, 168, 169].includes(userId)) {
+        setIsReadOnly(true);
+      }
       // -------------------------------------------
 
       // Create Set of PO IDs that have BTB
@@ -2831,14 +2837,35 @@ export default function MonitoringPOPage() {
                                   className="font-medium px-3 py-1 border-r border-gray-300 align-middle uppercase"
                                   rowSpan={allItems.length}
                                 >
+                                  <div className="flex space-x-1 justify-center">
+                                    {!isReadOnly && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDelete(po.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3 " />
+                                      </Button>
+                                    )}
+                                  </div>
                                   <TooltipProvider>
                                     <Tooltip>
                                       <TooltipTrigger asChild>
                                         <span
                                           onClick={() => {
+                                            if (isReadOnly) return;
+                                            if (po.isProcessed) {
+                                              setToastMsg("PO sudah di-BTB, tidak dapat edit/hapus");
+                                              setToastError(true);
+                                              setToastOpen(true);
+                                              return;
+                                            }
                                             window.location.href = `/po/input?id=${po.id}`;
                                           }}
-                                          className="cursor-pointer transition-colors duration-200 hover:text-blue-600 text-gray-700"
+                                          className={`${isReadOnly ? "" : "cursor-pointer"} transition-colors duration-200 ${po.isProcessed || isReadOnly
+                                            ? "hover:text-red-500 text-gray-700"
+                                            : "hover:text-blue-600"
+                                            }`}
                                         >
                                           {po.noPO}
                                         </span>

@@ -83,10 +83,17 @@ export default function InputBaruPRPage() {
 
     const userDataLocal = JSON.parse(localStorage.getItem("userData") || "{}");
     const userId = userDataLocal.id_user || userDataLocal.id || null;
+    const userIdNum = Number(userId || 0);
+
+    // Block restricted users from direct access
+    if ([112, 113, 168, 169].includes(userIdNum)) {
+      window.location.href = "/pr/monitoring";
+      return;
+    }
 
     if (userId) {
       // Check special user
-      if ([98, 141].includes(Number(userId))) {
+      if ([98, 141].includes(userIdNum)) {
         setIsSpecialUser(true);
       }
 

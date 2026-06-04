@@ -81,6 +81,14 @@ export default function KelolaAkunPage() {
 
   // Ambil id_peran dari roleOptions dan mapping peran dari backend
   useEffect(() => {
+    // Check for restricted users
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    const userIdNum = Number(userData.id_user || userData.id || 0);
+    if ([168, 169].includes(userIdNum)) {
+      window.location.href = "/dashboard";
+      return;
+    }
+
     // Fetch peran dari backend
     fetch(API_BASE_URL + "/api/peran")
       .then((res) => res.json())

@@ -206,6 +206,7 @@ export default function MonitoringPRPage() {
   // Tambahkan state untuk id_skema user
   const [userSkemaId, setUserSkemaId] = useState<string | null>(null);
   const [isSpecialUser, setIsSpecialUser] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   useEffect(() => {
     // initializeDummyData(); // HAPUS BARIS INI
@@ -231,6 +232,9 @@ export default function MonitoringPRPage() {
     const userId = userData.id_user || userData.id || null;
     if (userId && [98, 141].includes(Number(userId))) {
       setIsSpecialUser(true);
+    }
+    if (userId && [112, 113, 168, 169].includes(Number(userId))) {
+      setIsReadOnly(true);
     }
   }, [],);
 
@@ -1300,7 +1304,7 @@ export default function MonitoringPRPage() {
             <CardDescription>
               Total: {filteredPRData.length} PR | Dipilih: {selectedPRs.length}
             </CardDescription>
-            {selectedPRs.length > 0 && (
+            {!isReadOnly && selectedPRs.length > 0 && (
               <Button
                 variant="destructive"
                 className="mt-2"
@@ -2147,6 +2151,7 @@ export default function MonitoringPRPage() {
                                   <TooltipTrigger asChild>
                                     <span
                                       onClick={() => {
+                                        if (isReadOnly) return;
                                         const s = (pr.status || "").toUpperCase();
                                         if (["MENUNGGU", "WAITING PO", "PARTIAL PO", "DRAFT"].includes(s)) {
                                           window.location.href = `/pr/input-baru?id=${pr.id}`;
@@ -2156,7 +2161,7 @@ export default function MonitoringPRPage() {
                                           setToastOpen(true);
                                         }
                                       }}
-                                      className={`cursor-pointer transition-colors duration-200 ${!["MENUNGGU", "WAITING PO", "PARTIAL PO", "DRAFT"].includes((pr.status || "").toUpperCase())
+                                      className={`${isReadOnly ? "" : "cursor-pointer"} transition-colors duration-200 ${!["MENUNGGU", "WAITING PO", "PARTIAL PO", "DRAFT"].includes((pr.status || "").toUpperCase()) || isReadOnly
                                         ? "hover:text-red-500 text-gray-700"
                                         : "hover:text-blue-600"
                                         }`}
@@ -2166,9 +2171,9 @@ export default function MonitoringPRPage() {
                                   </TooltipTrigger>
                                   <TooltipContent>
                                     <p>
-                                      {pr.status !== "Menunggu"
+                                      {isReadOnly ? "Hanya dapat melihat (Read-Only)" : (pr.status !== "Menunggu"
                                         ? "Tidak dapat edit, hapus PO terlebih dahulu"
-                                        : "Klik untuk edit"}
+                                        : "Klik untuk edit")}
                                     </p>
                                   </TooltipContent>
                                 </Tooltip>
@@ -2226,15 +2231,15 @@ export default function MonitoringPRPage() {
                             </TableCell> */}
                             <TableCell rowSpan={validItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
                               <div className="flex space-x-1 justify-center">
-
-                                {/* Button Edit removed, click PR Number instead */}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleDelete(pr.id)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
+                                {!isReadOnly && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleDelete(pr.id)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>

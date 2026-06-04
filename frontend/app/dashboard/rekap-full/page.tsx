@@ -570,6 +570,7 @@ export default function RekapFullPage() {
                   : "",
                 hariPR: getDayName(pr.tanggalPR),
                 // New Fields
+                id_PRItem: item.id_PRItem,
                 kodeBarangPR: item.kodeBarang || "",
                 spesifikasi: item.spesifikasi || "",
                 noMR: pr.noMR || pr.no_mr || item.noMR || "",
@@ -663,6 +664,7 @@ export default function RekapFullPage() {
                       : "",
                     hariPR: getDayName(pr.tanggalPR),
                     // New Fields
+                    id_PRItem: item.id_PRItem,
                     kodeBarangPR: item.kodeBarang || "",
                     spesifikasi: item.spesifikasi || "",
                     noMR: pr.noMR || pr.no_mr || item.noMR || "",
@@ -1431,10 +1433,12 @@ export default function RekapFullPage() {
         const prItemStartRow = currentRowIdx;
 
         prItemGroup.poGroups.forEach((poGroup) => {
-          const poStartRow = currentRowIdx;
+          // Capture first row of this PO group for data carry-forward
+          const firstPORow = poGroup.items[0] || {};
 
           poGroup.btbGroups.forEach((btbGroup) => {
-            const btbStartRow = currentRowIdx;
+            // Capture first row of this BTB group for data carry-forward
+            const firstBTBRow = btbGroup.items[0] || {};
 
             // Di level terdalam (BTB Groups), kita punya n baris item
             btbGroup.items.forEach((rowDetail) => {
@@ -1448,8 +1452,6 @@ export default function RekapFullPage() {
                 // --- DEDUPLICATION LOGIC ---
                 const isFirstPR = currentRowIdx === prStartRow;
                 const isFirstPRItem = currentRowIdx === prItemStartRow;
-                const isFirstPO = currentRowIdx === poStartRow;
-                const isFirstBTB = currentRowIdx === btbStartRow;
 
                 const prCols = ["noPR", "tanggalPR", "hariPR", "skemaPR", "plan"];
                 const prItemCols = [
@@ -1464,16 +1466,21 @@ export default function RekapFullPage() {
                   "tanggalEstimasiDiterima", "diorderOleh", "diinputOleh", "terminPembayaran",
                   "targetPencapaianPO", "skemaPO", "delay"
                 ];
-                // BTB level is the bottom-most, so we don't clear its core fields unless there are multiple rows within one BTB?
-                // Actually, the structure is btbGroups -> items (which are the final detail rows).
-                // If one BTB has multiple items, we might want to deduplicate btb-level info.
                 const btbCols = ["noBTB", "tanggalBTB", "quantityBTB", "satuanBTB", "biayaBTB", "sisaStokBTB", "diterimaOleh", "skemaBTB"];
 
+                // PR and PR Item level deduplication (keep as-is, matches frontend behavior)
                 if (!isFirstPR && prCols.includes(col.key)) val = "";
                 if (!isFirstPRItem && prItemCols.includes(col.key)) val = "";
-                // Note: statusPR_closed is NOT in prItemCols anymore, so it is not blanked here.
-                if (!isFirstPO && poCols.includes(col.key)) val = "";
-                if (!isFirstBTB && btbCols.includes(col.key)) val = "";
+
+                // VISUAL OVERRIDE: Match frontend behavior - show PO and BTB data on every row
+                // For PO columns: carry forward data from the first row in the PO group if current row is blank
+                if (poCols.includes(col.key) && (val === "" || val === undefined || val === null)) {
+                  val = firstPORow[col.key] ?? "";
+                }
+                // For BTB columns: carry forward data from the first row in the BTB group if current row is blank
+                if (btbCols.includes(col.key) && (val === "" || val === undefined || val === null)) {
+                  val = firstBTBRow[col.key] ?? "";
+                }
 
                 const cell = row.getCell(excelColIdx);
 
@@ -1807,7 +1814,7 @@ export default function RekapFullPage() {
 
   // Handler klik kolom delay: buka popover (input text direct)
   function handleDelayEditClick(item: any) {
-    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
+    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169) {
       // Store (Role 4) and Restricted Users cannot edit
       return;
     }
@@ -1868,7 +1875,7 @@ export default function RekapFullPage() {
   // Handler klik kolom status: buka dropdown
   function handleStatusEditClick(item: any) {
     // Block editing for Store (id_peran 4) and Restricted Users
-    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
+    if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169) {
       // Optional: alert("Store tidak memiliki akses edit status");
       return;
     }
@@ -1881,7 +1888,7 @@ export default function RekapFullPage() {
   // Handler klik kolom target pencapaian: buka dropdown
   function handleTargetEditClick(item: any) {
     // Block editing for Divisi (id_peran 2), Store (id_peran 4) and Restricted Users
-    if (currentUserRole === 2 || currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) {
+    if (currentUserRole === 2 || currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169) {
       return;
     }
     if (!item.id_btb) return; // Use BTB ID check
@@ -2413,9 +2420,9 @@ export default function RekapFullPage() {
                                     <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
                                       {isFirstPR ? (
                                         <span
-                                          className={`font-bold text-black ${currentUserRole === 3 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
+                                          className={`font-bold text-black ${currentUserRole === 3 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
                                           onClick={() => {
-                                            if (currentUserRole === 3 || currentUserId === 112 || currentUserId === 113) return; // Disable for Purchasing & Restricted
+                                            if (currentUserRole === 3 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169) return; // Disable for Purchasing & Restricted
                                             if (item.noPR) {
                                               window.location.href = `/pr/monitoring?highlight=${encodeURIComponent(item.noPR)}`;
                                             }
@@ -2487,15 +2494,15 @@ export default function RekapFullPage() {
                                     {/* Status */}
                                     {/* Status - Per Item */}
                                     <TableCell
-                                      className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase align-top ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"} ${editingStatusId === item.id
+                                      className={`px-3 py-1 border-b border-r border-gray-300 relative group uppercase align-top ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "" : "cursor-pointer"} ${editingStatusId === item.id
                                         ? "bg-gray-200"
                                         : getStatusBg(item.status)
                                         }`}
-                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? undefined : () => handleStatusEditClick(item)}
+                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? undefined : () => handleStatusEditClick(item)}
                                       style={{ opacity: editingStatusLoading && editingStatusId === item.id ? 0.5 : 1 }}
-                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "Tidak dapat mengedit status" : "Klik untuk edit status"}
+                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "Tidak dapat mengedit status" : "Klik untuk edit status"}
                                     >
-                                      {editingStatusId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 ? (
+                                      {editingStatusId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 && currentUserId !== 168 && currentUserId !== 169 ? (
                                         <Popover open={true} onOpenChange={(open) => { if (!open) setEditingStatusId(null); }}>
                                           <PopoverTrigger asChild>
                                             <div className="cursor-pointer">{item.status || "Pilih Status"}</div>
@@ -2603,9 +2610,9 @@ export default function RekapFullPage() {
                                     <TableCell className="px-3 py-1 border-b border-r border-gray-300 uppercase align-top">
                                       {isFirstPO ? (
                                         <span
-                                          className={`font-bold text-black ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
+                                          className={`font-bold text-black ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "" : "cursor-pointer hover:text-blue-600 hover:underline"}`}
                                           onClick={() => {
-                                            if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113) return;
+                                            if (currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169) return;
                                             if (item.noPO) {
                                               window.location.href = `/po/monitoring?highlight=${encodeURIComponent(item.noPO)}`;
                                             }
@@ -2683,8 +2690,8 @@ export default function RekapFullPage() {
                                     </TableCell>
                                     {/* Target Pencapaian PO */}
                                     <TableCell
-                                      className={`px-3 py-1 border-b border-r border-gray-300 ${getTargetPencapaianPoBg(item.targetPencapaianPO)} ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"} uppercase`}
-                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? undefined : () => handleTargetEditClick(item)}
+                                      className={`px-3 py-1 border-b border-r border-gray-300 ${getTargetPencapaianPoBg(item.targetPencapaianPO)} ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "" : "cursor-pointer"} uppercase`}
+                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? undefined : () => handleTargetEditClick(item)}
                                       style={{
                                         opacity:
                                           updatingTargetId &&
@@ -2693,9 +2700,9 @@ export default function RekapFullPage() {
                                             ? 0.5
                                             : 1
                                       }}
-                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "Tidak dapat mengedit target" : "Klik untuk update Target Pencapaian PO"}
+                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "Tidak dapat mengedit target" : "Klik untuk update Target Pencapaian PO"}
                                     >
-                                      {editingTargetId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 ? (
+                                      {editingTargetId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 && currentUserId !== 168 && currentUserId !== 169 ? (
                                         <Popover open={true} onOpenChange={(open) => { if (!open) setEditingTargetId(null); }}>
                                           <PopoverTrigger asChild>
                                             <div className="cursor-pointer">{item.targetPencapaianPO || "Pilih Target"}</div>
@@ -2788,11 +2795,11 @@ export default function RekapFullPage() {
                                     </TableCell>
                                     {/* Delay - Ungrouped / Per Row */}
                                     <TableCell
-                                      className={`px-3 py-1 border-b border-r border-gray-300 uppercase ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "" : "cursor-pointer"}`}
-                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? undefined : () => handleDelayEditClick(item)}
-                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 ? "Tidak dapat mengedit delay" : "Klik untuk update Delay"}
+                                      className={`px-3 py-1 border-b border-r border-gray-300 uppercase ${currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "" : "cursor-pointer"}`}
+                                      onClick={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? undefined : () => handleDelayEditClick(item)}
+                                      title={currentUserRole === 4 || currentUserId === 112 || currentUserId === 113 || currentUserId === 168 || currentUserId === 169 ? "Tidak dapat mengedit delay" : "Klik untuk update Delay"}
                                     >
-                                      {editingDelayId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 ? (
+                                      {editingDelayId === item.id && currentUserRole !== 4 && currentUserId !== 112 && currentUserId !== 113 && currentUserId !== 168 && currentUserId !== 169 ? (
                                         <Popover open={true} onOpenChange={(open) => { if (!open) setEditingDelayId(null); }}>
                                           <PopoverTrigger asChild>
                                             <div className="cursor-pointer">{item.delay || "Set Delay"}</div>

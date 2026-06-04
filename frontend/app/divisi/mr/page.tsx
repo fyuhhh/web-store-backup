@@ -97,7 +97,7 @@ export default function DivisiMonitoringMRPage() {
     useEffect(() => {
         const userData = JSON.parse(localStorage.getItem("userData") || "{}");
         // Prioritize id_skema, verify if it aligns with DB types (string vs number)
-        const skema = userData.id_skema ?? userData.skema ?? null;
+        const skema = localStorage.getItem("selectedSkemaId") || (userData.id_skema ?? userData.skema ?? null);
         setUserSkemaId(skema ? String(skema) : null);
 
         // Divisi Filter

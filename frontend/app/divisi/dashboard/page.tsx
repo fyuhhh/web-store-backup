@@ -135,7 +135,7 @@ export default function DivisiDashboardPage() {
                     try {
                         const u = JSON.parse(storedUser);
                         myDivisiId = String(u.id_divisi || "");
-                        mySkemaId = String(u.id_skema || ""); // Get from LS
+                        mySkemaId = localStorage.getItem("selectedSkemaId") || String(u.id_skema || ""); // Get from LS
                         setUserName(u.nama_pengguna || u.username || "User");
                         debugSource = "LocalStorage";
 
@@ -150,9 +150,7 @@ export default function DivisiDashboardPage() {
                                         myDivisiId = String(uData.id_divisi);
                                         setUserDivisiId(myDivisiId);
                                     }
-                                    if (uData.id_skema) {
-                                        mySkemaId = String(uData.id_skema); // Get from API
-                                    }
+                                    mySkemaId = localStorage.getItem("selectedSkemaId") || String(uData.id_skema || ""); // Prioritize selectedSkemaId
                                     debugSource = "Backend API";
                                 }
                             } catch (err) {

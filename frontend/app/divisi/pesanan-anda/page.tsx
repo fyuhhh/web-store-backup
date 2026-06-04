@@ -49,7 +49,7 @@ export default function PesananAndaPage() {
                     const user = JSON.parse(userRaw);
                     userId = user.id || user.id_user;
                     if (user.id_divisi) initialDivisiId = String(user.id_divisi);
-                    if (user.id_skema) initialSkemaId = String(user.id_skema);
+                    initialSkemaId = localStorage.getItem("selectedSkemaId") || String(user.id_skema || "");
                 } catch (e) {
                     console.error("Failed to parse user data", e);
                 }
@@ -66,7 +66,8 @@ export default function PesananAndaPage() {
                     const uData = await uRes.json();
                     if (uData) {
                         if (uData.id_divisi) setUserDivisiId(String(uData.id_divisi));
-                        if (uData.id_skema) setUserSkemaId(String(uData.id_skema));
+                        const currentSkema = localStorage.getItem("selectedSkemaId") || String(uData.id_skema || "");
+                        if (currentSkema) setUserSkemaId(currentSkema);
                     }
                 } catch (err) {
                     console.error("Failed to refresh user data:", err);

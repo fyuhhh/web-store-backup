@@ -98,7 +98,7 @@ export default function EditPOPage() {
                 PRItem & {
                     hargaSatuan: number | string;
                     jumlahPO: number;
-                    jumlahAsli: number; // Total available (sisa PR + yg sudah di PO ini)
+                    jumlahAsli: number;
                     diskonItem: string;
                     diskonPersen?: string;
                     diskonNominal?: string;
@@ -106,8 +106,7 @@ export default function EditPOPage() {
                     skema: string;
                     dibuatOleh: string;
                     id_satuan: string;
-                    // Tambahan field untuk tracking
-                    id_POItem?: string; // ID PO Item dari backend untuk referensi (tidak dipakai update direct, tapi untuk mapping)
+                    id_POItem?: string;
                 }
             >;
         }>
@@ -139,6 +138,33 @@ export default function EditPOPage() {
         [key: string]: "persen" | "nominal";
     }>({});
 
+    // --- Helper Functions ---
+    function getSatuanLabel(satuanValue: string) {
+        const found = satuanOptions.find(
+            (s: any) => String(s.id_satuan) === String(satuanValue)
+        );
+        return found ? found.satuan : satuanValue;
+    }
+
+    function highlightWeekends(date: Date) {
+        const day = date.getDay();
+        if (day === 0 || day === 6) return "datepicker-red";
+        return undefined;
+    }
+
+    function formatDateForBackend(date: Date | string | null) {
+        if (!date) return "";
+        if (typeof date === "string") {
+            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+            if (date.includes("T")) return date.split("T")[0];
+            return date;
+        }
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    }
+
     // --- Fetch Initial Data & References ---
     useEffect(() => {
         const fetchReferences = async () => {
@@ -169,6 +195,13 @@ export default function EditPOPage() {
 
         // Get user schema
         const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+        const userIdNum = Number(userData.id_user || userData.id || 0);
+
+        if ([168, 169].includes(userIdNum)) {
+            window.location.href = "/po/monitoring";
+            return;
+        }
+
         setUserSkema(userData.skema || "");
     }, []);
 
@@ -195,8 +228,6 @@ export default function EditPOPage() {
                 const prRes = await fetch(API_BASE_URL + "/api/pr");
                 const prs = await prRes.json();
 
-                // Kita butuh fetch PR items spesifik untuk update quantity "jumlahAsli"
-                // Ambil semua PR Items
                 const prItemsRes = await fetch(API_BASE_URL + "/api/pr-item");
                 const allPrItems = await prItemsRes.json();
 
@@ -212,19 +243,14 @@ export default function EditPOPage() {
                     ppn: poData.ppn ? String(poData.ppn) : "",
                     statusPengiriman: String(poData.id_statusPengiriman),
                     skema: poData.id_skema,
-                    namaPembeli: currentPoItems[0]?.namaPembeli || "", // Assuming same buyer for all items in PO
+                    namaPembeli: currentPoItems[0]?.namaPembeli || "",
                 });
 
                 // 5. Group PO Items by PR ID to match `poItems` state structure
-                // Structure: Array<{ prId, noPR, skema, items: [...] }>
-
-                // First map backend items to rich items
                 const richItems = currentPoItems.map((pItem: any) => {
                     const prItem = allPrItems.find((pi: any) => String(pi.id_PRItem) === String(pItem.id_PRItem)) || {};
                     const parentPR = prs.find((pr: any) => String(pr.id_PR) === String(prItem.id_PR)) || {};
 
-                    // Calculate "Jumlah Asli" (Total Available if PO is reset)
-                    // = Current Sisa di PR + Quantity di PO ini
                     const sisaDiPR = Number(prItem.jumlah) || 0;
                     const qtyDiPO = Number(pItem.jumlahPO) || 0;
                     const jumlahAsliTotal = sisaDiPR + qtyDiPO;
@@ -233,10 +259,9 @@ export default function EditPOPage() {
                         prId: parentPR.id_PR,
                         noPR: parentPR.noPR,
                         skema: parentPR.id_skema,
-                        // Item details
-                        id: pItem.id_PRItem, // Use PR Item ID as key identifier
+                        id: pItem.id_PRItem,
                         id_POItem: pItem.id_po_item,
-                        namaBarang: prItem.namaBarang || pItem.namaBarang, // fallback
+                        namaBarang: prItem.namaBarang || pItem.namaBarang,
                         jumlahPO: qtyDiPO,
                         jumlahAsli: jumlahAsliTotal,
                         hargaSatuan: pItem.hargaSatuan,
@@ -247,13 +272,11 @@ export default function EditPOPage() {
                         keterangan: pItem.keterangan || prItem.keterangan || "",
                         id_satuan: pItem.id_satuan || prItem.id_satuan,
                         satuanLabel: getSatuanLabel(pItem.id_satuan || prItem.id_satuan),
-                        // Parent info for grouping
                         prDate: parentPR.tanggalPR,
                         dibuatOleh: parentPR.dibuatOleh,
                     };
                 });
 
-                // Group by PR
                 const groupedMap = new Map();
                 richItems.forEach((item: any) => {
                     if (!groupedMap.has(item.prId)) {
@@ -276,34 +299,7 @@ export default function EditPOPage() {
         };
 
         fetchPOAndItems();
-    }, [id_PO, satuanOptions]); // Re-run if ID or options change
-
-    // --- Helper Functions ---
-    function getSatuanLabel(satuanValue: string) {
-        const found = satuanOptions.find(
-            (s: any) => String(s.id_satuan) === String(satuanValue)
-        );
-        return found ? found.satuan : satuanValue;
-    }
-
-    function highlightWeekends(date: Date) {
-        const day = date.getDay();
-        if (day === 0 || day === 6) return "datepicker-red";
-        return undefined;
-    }
-
-    function formatDateForBackend(date: Date | string | null) {
-        if (!date) return "";
-        if (typeof date === "string") {
-            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
-            if (date.includes("T")) return date.split("T")[0];
-            return date;
-        }
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-    }
+    }, [id_PO, satuanOptions]);
 
     // --- Calculation Logic (Copied from Input) ---
     const calculateTotal = () => {
@@ -342,8 +338,6 @@ export default function EditPOPage() {
                 let diskonAmount = 0;
                 let diskonBreakdownArr: Array<any> = [];
 
-                // Determine calculation method based on last change or existing data
-                // For Edit Page: if diskonPersen exists and no last change record, treat as percent
                 const isPersen =
                     lastDiskonChanged[diskonKey] === "persen" ||
                     (!lastDiskonChanged[diskonKey] && item.diskonPersen && item.diskonPersen.includes("%"));
@@ -352,13 +346,13 @@ export default function EditPOPage() {
                     let currentAmount = itemSubtotal;
                     const diskonPersenArr = (item.diskonPersen || "")
                         .split("+")
-                        .map((d) => d.trim())
-                        .filter((d) => d.endsWith("%"))
-                        .map((d) => {
+                        .map((d: any) => d.trim())
+                        .filter((d: any) => d.endsWith("%"))
+                        .map((d: any) => {
                             const val = parseFloat(d.replace("%", "").replace(",", "."));
                             return isNaN(val) ? null : val;
                         })
-                        .filter((v) => v !== null) as number[];
+                        .filter((v: any) => v !== null) as number[];
 
                     diskonPersenArr.forEach((persen, idx) => {
                         const amount = currentAmount * (persen / 100);
@@ -371,7 +365,6 @@ export default function EditPOPage() {
                         });
                     });
                 } else {
-                    // Nominal
                     diskonAmount = parseFloat(String(item.diskonNominal).replace(",", ".")) || 0;
                     if (diskonAmount > 0) {
                         diskonBreakdownArr.push({
@@ -428,11 +421,9 @@ export default function EditPOPage() {
     useEffect(() => {
         const calculations = calculateTotal();
         setDiscountBreakdown(calculations.breakdown);
-    }, [poFormData.diskon, poItems, ppnIncluded]); // Add ppnIncluded dependency
+    }, [poFormData.diskon, poItems, ppnIncluded]);
 
     // --- Handlers ---
-
-    // Suppliers
     const handleAddSupplier = async () => {
         if (!newSupplier.trim()) return;
         const res = await fetch(API_BASE_URL + "/api/supplier", {
@@ -458,7 +449,6 @@ export default function EditPOPage() {
                 body: JSON.stringify({ namaSupplier: editSupplierValue }),
             });
             if (res.ok) {
-                // refresh
                 const ref = await fetch(API_BASE_URL + "/api/supplier");
                 setSupplierOptions(await ref.json());
                 setEditSupplierId(null);
@@ -478,7 +468,6 @@ export default function EditPOPage() {
         } catch { }
     };
 
-    // Status Pengiriman
     const handleAddStatusPengiriman = async () => {
         if (!newStatusPengiriman.trim()) return;
         const res = await fetch(API_BASE_URL + "/api/status-pengiriman", {
@@ -564,7 +553,6 @@ export default function EditPOPage() {
                 }
                 const itemSubtotal = harga * (Number(i.jumlahPO) || 0);
 
-                // Calculate conversion to nominal
                 let diskonAmount = 0;
                 let currentAmount = itemSubtotal;
                 const diskonPersenArr = value.split("+").filter(d => d.trim().endsWith("%"));
@@ -638,14 +626,11 @@ export default function EditPOPage() {
         const loadingToast = toast.loading("Menyimpan Perubahan PO...");
 
         try {
-            // 1. Reset Items (Backend performs: Restore PR Qty -> Delete PO Items)
-            // This ensures we start "clean" with the PRs restored to their pre-PO state
             const resetRes = await fetch(`${API_BASE_URL}/api/po/reset-items/${id_PO}`, {
                 method: "POST",
             });
             if (!resetRes.ok) throw new Error("Gagal mereset data lama");
 
-            // 2. Update PO Header
             function parseDiskonPersenToNumber(diskonStr: string) {
                 if (!diskonStr) return 0;
                 const match = diskonStr.match(/(\d+(\.\d+)?)%?/);
@@ -664,24 +649,19 @@ export default function EditPOPage() {
                     ppn: parseFloat(poFormData.ppn) || 0,
                     ppnAmount: calculations.totalPPN,
                     totalPembayaran: calculations.totalPayment,
-                    // orderedBy: tidak perlu diupdate jika tidak berubah, atau kirim user login
                     estimasiTanggalTerima: formatDateForBackend(poFormData.estimasiTanggalDiterima),
                     id_statusPengiriman: poFormData.statusPengiriman,
-                    status: "Menunggu", // Atau biarkan status lama jika ada logika lain
+                    status: "Menunggu",
                 }),
             });
 
-            // 3. Re-insert PO Items (Create new PO Items -> Deduct PR Items)
-            // Mirror logic from Create PO
             for (const poItem of poItems) {
                 for (const item of poItem.items) {
                     const jumlahPOInt = Math.floor(Number(item.jumlahPO)) || 0;
-                    const jumlahAsliInt = Math.floor(Number(item.jumlahAsli)) || 0; // This is the total avail (restored amount)
+                    const jumlahAsliInt = Math.floor(Number(item.jumlahAsli)) || 0;
 
-                    // Skip if quantity is 0
                     if (jumlahPOInt === 0) continue;
 
-                    // Calculate Details
                     let diskonPersenValue = 0;
                     if (item.diskonPersen && typeof item.diskonPersen === "string") {
                         const match = item.diskonPersen.match(/(\d+(\.\d+)?)/);
@@ -693,7 +673,6 @@ export default function EditPOPage() {
                     const harga = typeof item.hargaSatuan === "string" ? parseFloat(item.hargaSatuan.replace(/\./g, "").replace(",", ".")) : Number(item.hargaSatuan);
                     const itemSubtotal = harga * jumlahPOInt;
 
-                    // Re-calc diskon amount exact
                     let diskonAmount = 0;
                     if (item.diskonPersen && typeof item.diskonPersen === "string") {
                         let cur = itemSubtotal;
@@ -711,13 +690,12 @@ export default function EditPOPage() {
                     const ppnRupiahValue = afterDiskon * (ppnPersenValue / 100);
                     const totalPerItem = afterDiskon + ppnRupiahValue;
 
-                    // A. Create PO Item
                     await fetch(API_BASE_URL + "/api/po-item", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             id_PO: id_PO,
-                            id_PRItem: item.id, // item.id is PR Item ID
+                            id_PRItem: item.id,
                             hargaSatuan: harga,
                             jumlahPO: jumlahPOInt,
                             jumlahAsli: jumlahAsliInt,
@@ -732,12 +710,9 @@ export default function EditPOPage() {
                         }),
                     });
 
-                    // B. Update PR Item Quantity (Deduct again)
-                    // Fetch current to get generic props if needed
                     const prItemRes = await fetch(`${API_BASE_URL}/api/pr-item/${item.id}`);
                     const prItemData = await prItemRes.json();
-
-                    const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt); // Deduct new PO Qty from Total Avail
+                    const newJumlah = Math.max(0, jumlahAsliInt - jumlahPOInt);
 
                     await fetch(`${API_BASE_URL}/api/pr-item/${item.id}`, {
                         method: "PUT",
@@ -755,7 +730,6 @@ export default function EditPOPage() {
                 }
             }
 
-            // Update PR Status (Sync function from Input)
             const prIds = Array.from(new Set(poItems.map((poItem) => poItem.prId)));
             for (const prId of prIds) {
                 const prItemRes = await fetch(`${API_BASE_URL}/api/pr-item/pr/${prId}`);
@@ -782,7 +756,7 @@ export default function EditPOPage() {
 
             toast.dismiss(loadingToast);
             toast.success("PO berhasil diperbarui!");
-            setTimeout(() => router.push("/po/status"), 1500);
+            setTimeout(() => router.push("/po/monitoring"), 1500);
 
         } catch (err) {
             console.error(err);
@@ -795,7 +769,6 @@ export default function EditPOPage() {
     return (
         <MainLayout>
             <div className="space-y-6">
-                {/* Header */}
                 <div className="flex justify-between items-center">
                     <div>
                         <h1 className="text-3xl font-bold text-foreground">Edit PO</h1>
@@ -811,14 +784,12 @@ export default function EditPOPage() {
                     </Button>
                 </div>
 
-                {/* PO Form */}
                 <Card className="bg-card border-border shadow-md rounded-md">
                     <CardHeader>
                         <CardTitle>Edit Purchase Order</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-4">
-                            {/* Row 1 */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                                 <div className="space-y-2">
                                     <Label>No. PO</Label>
@@ -866,13 +837,9 @@ export default function EditPOPage() {
                                 </div>
                             </div>
 
-                            {/* Baris 2: Supplier, Status Pengiriman, Nama Pembeli */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
-                                {/* Supplier */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="supplier">
-                                        Supplier
-                                    </Label>
+                                    <Label htmlFor="supplier">Supplier</Label>
                                     <Select
                                         value={String(poFormData.supplier)}
                                         onValueChange={(value) =>
@@ -935,130 +902,87 @@ export default function EditPOPage() {
                                                     </>
                                                 )}
                                             </div>
-                                            {showAddSupplier
-                                                ? null
-                                                : (
-                                                    <>
-                                                        {supplierOptions.length === 0 ? (
-                                                            <SelectItem value="__loading" disabled>
-                                                                Memuat...
-                                                            </SelectItem>
-                                                        ) : (
-                                                            supplierOptions
-                                                                .filter((sup: any) =>
-                                                                    sup.namaSupplier
-                                                                        .toLowerCase()
-                                                                        .includes(supplierSearch.toLowerCase())
-                                                                )
-                                                                .map((sup: any) => (
-                                                                    <div
-                                                                        key={sup.id_supplier}
-                                                                        className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                                                                    >
-                                                                        {editSupplierId === String(sup.id_supplier) ? (
-                                                                            <>
-                                                                                <Input
-                                                                                    value={editSupplierValue}
-                                                                                    onChange={(e) =>
-                                                                                        setEditSupplierValue(e.target.value)
-                                                                                    }
-                                                                                    className="w-[90px] h-7 text-xs"
-                                                                                    disabled={showAddSupplier}
-                                                                                />
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    className="px-2 py-1 text-xs bg-primary text-white"
-                                                                                    onClick={() =>
-                                                                                        handleEditSupplier(String(sup.id_supplier))
-                                                                                    }
-                                                                                    disabled={showAddSupplier}
-                                                                                >
-                                                                                    Simpan
-                                                                                </Button>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    variant="outline"
-                                                                                    className="px-2 py-1 text-xs"
-                                                                                    onClick={() => {
-                                                                                        setEditSupplierId(null);
-                                                                                        setEditSupplierValue("");
-                                                                                    }}
-                                                                                    disabled={showAddSupplier}
-                                                                                >
-                                                                                    Batal
-                                                                                </Button>
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <SelectItem
-                                                                                    key={sup.id_supplier}
-                                                                                    value={String(sup.id_supplier)}
-                                                                                    className="flex-1"
-                                                                                    disabled={showAddSupplier}
-                                                                                >
-                                                                                    {sup.namaSupplier}
-                                                                                </SelectItem>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    className="text-xs text-blue-600 px-1 py-0.5"
-                                                                                    onClick={() => {
-                                                                                        setEditSupplierId(String(sup.id_supplier));
-                                                                                        setEditSupplierValue(sup.namaSupplier);
-                                                                                    }}
-                                                                                    disabled={showAddSupplier}
-                                                                                >
-                                                                                    Edit
-                                                                                </Button>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    className="text-xs text-red-600 px-1 py-0.5"
-                                                                                    onClick={() =>
-                                                                                        handleDeleteSupplier(String(sup.id_supplier))
-                                                                                    }
-                                                                                    disabled={showAddSupplier}
-                                                                                >
-                                                                                    Hapus
-                                                                                </Button>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                ))
-                                                        )}
-                                                        {supplierOptions.length > 0 &&
-                                                            supplierOptions.filter((sup: any) =>
+                                            {!showAddSupplier && (
+                                                <>
+                                                    {supplierOptions.length === 0 ? (
+                                                        <SelectItem value="__loading" disabled>Memuat...</SelectItem>
+                                                    ) : (
+                                                        supplierOptions
+                                                            .filter((sup: any) =>
                                                                 sup.namaSupplier
                                                                     .toLowerCase()
                                                                     .includes(supplierSearch.toLowerCase())
-                                                            ).length === 0 && (
-                                                                <SelectItem value="__notfound" disabled>
-                                                                    Data tidak ditemukan
-                                                                </SelectItem>
-                                                            )}
-                                                    </>
-                                                )
-                                            }
+                                                            )
+                                                            .map((sup: any) => (
+                                                                <div
+                                                                    key={sup.id_supplier}
+                                                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
+                                                                >
+                                                                    {editSupplierId === String(sup.id_supplier) ? (
+                                                                        <>
+                                                                            <Input
+                                                                                value={editSupplierValue}
+                                                                                onChange={(e) => setEditSupplierValue(e.target.value)}
+                                                                                className="w-[90px] h-7 text-xs"
+                                                                            />
+                                                                            <Button
+                                                                                size="sm"
+                                                                                className="px-2 py-1 text-xs bg-primary text-white"
+                                                                                onClick={() => handleEditSupplier(String(sup.id_supplier))}
+                                                                            >
+                                                                                Simpan
+                                                                            </Button>
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="outline"
+                                                                                className="px-2 py-1 text-xs"
+                                                                                onClick={() => {
+                                                                                    setEditSupplierId(null);
+                                                                                    setEditSupplierValue("");
+                                                                                }}
+                                                                            >
+                                                                                Batal
+                                                                            </Button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <SelectItem value={String(sup.id_supplier)} className="flex-1">
+                                                                                {sup.namaSupplier}
+                                                                            </SelectItem>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                className="text-xs text-blue-600 px-1 py-0.5"
+                                                                                onClick={() => {
+                                                                                    setEditSupplierId(String(sup.id_supplier));
+                                                                                    setEditSupplierValue(sup.namaSupplier);
+                                                                                }}
+                                                                            >
+                                                                                Edit
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                className="text-xs text-red-600 px-1 py-0.5"
+                                                                                onClick={() => handleDeleteSupplier(String(sup.id_supplier))}
+                                                                            >
+                                                                                Hapus
+                                                                            </Button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                    )}
+                                                </>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
 
-                                {/* Status Pengiriman */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="statusPengiriman">
-                                        Status Pengiriman
-                                    </Label>
+                                    <Label htmlFor="statusPengiriman">Status Pengiriman</Label>
                                     <Select
                                         value={String(poFormData.statusPengiriman)}
                                         onValueChange={(value) =>
-                                            setPoFormData({
-                                                ...poFormData,
-                                                statusPengiriman: value,
-                                            })
+                                            setPoFormData({ ...poFormData, statusPengiriman: value })
                                         }
                                     >
                                         <SelectTrigger className="border-border focus:border-primary/50 bg-white">
@@ -1076,7 +1000,6 @@ export default function EditPOPage() {
                                                             autoFocus
                                                         />
                                                         <Button
-                                                            type="button"
                                                             size="sm"
                                                             onClick={handleAddStatusPengiriman}
                                                             className="bg-primary text-white"
@@ -1084,7 +1007,6 @@ export default function EditPOPage() {
                                                             Simpan
                                                         </Button>
                                                         <Button
-                                                            type="button"
                                                             size="sm"
                                                             variant="outline"
                                                             onClick={() => {
@@ -1102,346 +1024,245 @@ export default function EditPOPage() {
                                                             value={statusPengirimanSearch}
                                                             onChange={(e) => setStatusPengirimanSearch(e.target.value)}
                                                             className="mb-2"
-                                                            disabled={showAddStatusPengiriman}
                                                         />
                                                         <Button
-                                                            type="button"
                                                             variant="outline"
                                                             size="sm"
                                                             className="mb-2 w-full"
                                                             onClick={() => setShowAddStatusPengiriman(true)}
-                                                            disabled={showAddStatusPengiriman}
                                                         >
                                                             + Tambahkan Status Pengiriman
                                                         </Button>
                                                     </>
                                                 )}
                                             </div>
-                                            {showAddStatusPengiriman
-                                                ? null
-                                                : (
-                                                    <>
-                                                        {statusPengirimanOptions.length === 0 ? (
-                                                            <SelectItem value="__loading" disabled>
-                                                                Memuat...
-                                                            </SelectItem>
-                                                        ) : (
-                                                            statusPengirimanOptions
-                                                                .filter((opt: any) =>
-                                                                    opt.status_pengiriman
-                                                                        .toLowerCase()
-                                                                        .includes(statusPengirimanSearch.toLowerCase())
-                                                                )
-                                                                .map((opt: any) => (
-                                                                    <div
-                                                                        key={opt.id_statusPengiriman}
-                                                                        className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
-                                                                    >
-                                                                        {editStatusPengirimanId === String(opt.id_statusPengiriman) ? (
-                                                                            <>
-                                                                                <Input
-                                                                                    value={editStatusPengirimanValue}
-                                                                                    onChange={(e) =>
-                                                                                        setEditStatusPengirimanValue(e.target.value)
-                                                                                    }
-                                                                                    className="w-[90px] h-7 text-xs"
-                                                                                    disabled={showAddStatusPengiriman}
-                                                                                />
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    className="px-2 py-1 text-xs bg-primary text-white"
-                                                                                    onClick={() =>
-                                                                                        handleEditStatusPengiriman(String(opt.id_statusPengiriman))
-                                                                                    }
-                                                                                    disabled={showAddStatusPengiriman}
-                                                                                >
-                                                                                    Simpan
-                                                                                </Button>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    variant="outline"
-                                                                                    className="px-2 py-1 text-xs"
-                                                                                    onClick={() => {
-                                                                                        setEditStatusPengirimanId(null);
-                                                                                        setEditStatusPengirimanValue("");
-                                                                                    }}
-                                                                                    disabled={showAddStatusPengiriman}
-                                                                                >
-                                                                                    Batal
-                                                                                </Button>
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <SelectItem
-                                                                                    key={opt.id_statusPengiriman}
-                                                                                    value={String(opt.id_statusPengiriman)}
-                                                                                    className="flex-1"
-                                                                                    disabled={showAddStatusPengiriman}
-                                                                                >
-                                                                                    {opt.status_pengiriman}
-                                                                                </SelectItem>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    className="text-xs text-blue-600 px-1 py-0.5"
-                                                                                    onClick={() => {
-                                                                                        setEditStatusPengirimanId(String(opt.id_statusPengiriman));
-                                                                                        setEditStatusPengirimanValue(opt.status_pengiriman);
-                                                                                    }}
-                                                                                    disabled={showAddStatusPengiriman}
-                                                                                >
-                                                                                    Edit
-                                                                                </Button>
-                                                                                <Button
-                                                                                    type="button"
-                                                                                    size="sm"
-                                                                                    variant="ghost"
-                                                                                    className="text-xs text-red-600 px-1 py-0.5"
-                                                                                    onClick={() =>
-                                                                                        handleDeleteStatusPengiriman(String(opt.id_statusPengiriman))
-                                                                                    }
-                                                                                    disabled={showAddStatusPengiriman}
-                                                                                >
-                                                                                    Hapus
-                                                                                </Button>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                ))
-                                                        )}
-                                                        {statusPengirimanOptions.length > 0 &&
-                                                            statusPengirimanOptions.filter((opt: any) =>
+                                            {!showAddStatusPengiriman && (
+                                                <>
+                                                    {statusPengirimanOptions.length === 0 ? (
+                                                        <SelectItem value="__loading" disabled>Memuat...</SelectItem>
+                                                    ) : (
+                                                        statusPengirimanOptions
+                                                            .filter((opt: any) =>
                                                                 opt.status_pengiriman
                                                                     .toLowerCase()
                                                                     .includes(statusPengirimanSearch.toLowerCase())
-                                                            ).length === 0 && (
-                                                                <SelectItem value="__notfound" disabled>
-                                                                    Data tidak ditemukan
-                                                                </SelectItem>
-                                                            )}
-                                                    </>
-                                                )
-                                            }
+                                                            )
+                                                            .map((opt: any) => (
+                                                                <div
+                                                                    key={opt.id_statusPengiriman}
+                                                                    className="flex items-center gap-2 px-2 py-1 group hover:bg-gray-50"
+                                                                >
+                                                                    {editStatusPengirimanId === String(opt.id_statusPengiriman) ? (
+                                                                        <>
+                                                                            <Input
+                                                                                value={editStatusPengirimanValue}
+                                                                                onChange={(e) => setEditStatusPengirimanValue(e.target.value)}
+                                                                                className="w-[90px] h-7 text-xs"
+                                                                            />
+                                                                            <Button
+                                                                                size="sm"
+                                                                                className="px-2 py-1 text-xs bg-primary text-white"
+                                                                                onClick={() => handleEditStatusPengiriman(String(opt.id_statusPengiriman))}
+                                                                            >
+                                                                                Simpan
+                                                                            </Button>
+                                                                            <Button
+                                                                                size="sm"
+                                                                                variant="outline"
+                                                                                className="px-2 py-1 text-xs"
+                                                                                onClick={() => {
+                                                                                    setEditStatusPengirimanId(null);
+                                                                                    setEditStatusPengirimanValue("");
+                                                                                }}
+                                                                            >
+                                                                                Batal
+                                                                            </Button>
+                                                                        </>
+                                                                    ) : (
+                                                                        <>
+                                                                            <SelectItem value={String(opt.id_statusPengiriman)} className="flex-1">
+                                                                                {opt.status_pengiriman}
+                                                                            </SelectItem>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                className="text-xs text-blue-600 px-1 py-0.5"
+                                                                                onClick={() => {
+                                                                                    setEditStatusPengirimanId(String(opt.id_statusPengiriman));
+                                                                                    setEditStatusPengirimanValue(opt.status_pengiriman);
+                                                                                }}
+                                                                            >
+                                                                                Edit
+                                                                            </Button>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                className="text-xs text-red-600 px-1 py-0.5"
+                                                                                onClick={() => handleDeleteStatusPengiriman(String(opt.id_statusPengiriman))}
+                                                                            >
+                                                                                Hapus
+                                                                            </Button>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            ))
+                                                    )}
+                                                </>
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
 
-                                {/* Nama Pembeli (ganti Skema) */}
                                 <div className="space-y-2">
-                                    <Label htmlFor="namaPembeli">
-                                        Nama Pembeli
-                                    </Label>
+                                    <Label>Nama Pembeli</Label>
                                     <Input
-                                        id="namaPembeli"
+                                        placeholder="Nama Pembeli"
                                         value={poFormData.namaPembeli}
-                                        onChange={(e) =>
-                                            setPoFormData({ ...poFormData, namaPembeli: e.target.value })
-                                        }
-                                        placeholder="Masukkan nama pembeli"
-                                        required
-                                        className="border-border focus:border-primary/50 bg-white"
+                                        onChange={(e) => setPoFormData({ ...poFormData, namaPembeli: e.target.value })}
                                     />
                                 </div>
                             </div>
-
-
-                            {/* Items Table - CLONED FROM INPUT (Styled) */}
-                            <div>
-                                <h3 className="text-lg font-semibold mb-3">Detail Barang</h3>
-                                <div className="border rounded-lg overflow-x-auto">
-                                    <Table className="text-xs">
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="py-2 h-8">NO. PR</TableHead>
-                                                <TableHead className="py-2 h-8">NAMA BARANG</TableHead>
-                                                <TableHead className="py-2 h-8">KUANTITAS</TableHead>
-                                                <TableHead className="py-2 h-8">SATUAN</TableHead>
-                                                <TableHead className="py-2 h-8">HARGA SATUAN</TableHead>
-                                                <TableHead className="py-2 h-8">DISKON (%)</TableHead>
-                                                <TableHead className="py-2 h-8">DISKON (RP)</TableHead>
-                                                <TableHead className="py-2 h-8">SUB (SETELAH DISKON)</TableHead>
-                                                <TableHead className="py-2 h-8">PPN (%)</TableHead>
-                                                <TableHead className="py-2 h-8">PPN (RP)</TableHead>
-                                                <TableHead className="py-2 h-8">TOTAL PER ITEM</TableHead>
-                                                <TableHead className="py-2 h-8">KETERANGAN</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {poItems.map(poItem => (
-                                                <React.Fragment key={poItem.prId}>
-                                                    {poItem.items.map((item) => {
-                                                        const harga = typeof item.hargaSatuan === "string" ? parseFloat(item.hargaSatuan.replace(/\./g, "").replace(",", ".")) : Number(item.hargaSatuan) || 0;
-                                                        const qty = Number(item.jumlahPO) || 0;
-                                                        const ppn = Number(item.ppnItem) || 0;
-                                                        const itemSubtotal = harga * qty;
-
-                                                        // Logic diskon (mirror calculateTotal)
-                                                        const diskonKey = item.id + (item.id_POItem || "");
-                                                        let diskonAmount = 0;
-
-                                                        // Determine calculation method based on last change or existing data
-                                                        const isPersen =
-                                                            lastDiskonChanged[diskonKey] === "persen" ||
-                                                            (!lastDiskonChanged[diskonKey] && item.diskonPersen && item.diskonPersen.includes("%"));
-
-                                                        if (isPersen) {
-                                                            let currentAmount = itemSubtotal;
-                                                            const diskonPersenArr = (item.diskonPersen || "")
-                                                                .split("+")
-                                                                .map((d) => d.trim())
-                                                                .filter((d) => d.endsWith("%"))
-                                                                .map((d) => parseFloat(d.replace("%", "").replace(",", ".")))
-                                                                .filter((v) => !isNaN(v));
-
-                                                            diskonPersenArr.forEach(p => {
-                                                                const amt = currentAmount * (p / 100);
-                                                                diskonAmount += amt;
-                                                                currentAmount -= amt;
-                                                            });
-                                                        } else {
-                                                            diskonAmount = parseFloat(String(item.diskonNominal || "0").replace(",", ".")) || 0;
-                                                        }
-
-                                                        const afterDiskon = Math.max(0, itemSubtotal - diskonAmount);
-                                                        let ppnAmount = afterDiskon * (ppn / 100);
-                                                        let subtotalItem = afterDiskon;
-                                                        let total = 0;
-
-                                                        if (ppnIncluded) {
-                                                            subtotalItem = afterDiskon;
-                                                            total = afterDiskon; // PPN is inside
-                                                        } else {
-                                                            subtotalItem = afterDiskon;
-                                                            total = afterDiskon + ppnAmount;
-                                                        }
-
-                                                        const totalPerItem = subtotalItem + (ppnIncluded ? 0 : ppnAmount);
-
-                                                        // Helper to clean and format percentage for display
-                                                        const formatPersenDisplay = (val: string) => {
-                                                            if (!val) return "";
-                                                            return val.replace(/(\d+(\.\d+)?)/g, (match) => {
-                                                                const n = parseFloat(match);
-                                                                return n % 1 === 0 ? n.toFixed(0) : n.toFixed(2).replace(/\.?0+$/, "");
-                                                            });
-                                                        };
-
-                                                        return (
-                                                            <TableRow key={item.id}>
-                                                                <TableCell className="uppercase p-1 text-xs">{poItem.noPR}</TableCell>
-                                                                <TableCell className="uppercase p-1 text-xs">{item.namaBarang}</TableCell>
-                                                                <TableCell className="p-1">
-                                                                    <Input
-                                                                        type="number"
-                                                                        value={Number(item.jumlahPO) % 1 === 0 ? parseInt(String(item.jumlahPO)) : item.jumlahPO}
-                                                                        max={item.jumlahAsli}
-                                                                        onChange={(e) => handleQtyChange(poItem.prId, item.id, e.target.value)}
-                                                                        className="w-16 h-7 text-xs px-2"
-                                                                    />
-                                                                    <span className="text-[10px] text-muted-foreground ml-2">Max: {item.jumlahAsli}</span>
-                                                                </TableCell>
-                                                                <TableCell className="uppercase p-1 text-xs">{item.satuanLabel || item.id_satuan}</TableCell>
-                                                                <TableCell className="p-1">
-                                                                    <Input
-                                                                        type="text"
-                                                                        inputMode="decimal"
-                                                                        value={item.hargaSatuan ? `Rp. ${parseFloat(String(item.hargaSatuan).replace(/\./g, "").replace(",", ".")).toLocaleString("id-ID")}` : ""}
-                                                                        onChange={(e) => handleHargaSatuanChange(poItem.prId, item.id, e.target.value)}
-                                                                        className="w-24 h-7 text-xs text-right px-2"
-                                                                        placeholder="Rp. 0"
-                                                                        autoComplete="off"
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell className="p-1">
-                                                                    <Input
-                                                                        value={formatPersenDisplay(item.diskonPersen || "")}
-                                                                        onChange={(e) => handleDiskonPersenChange(poItem.prId, item.id, e.target.value)}
-                                                                        className="w-16 h-7 text-xs text-right px-2"
-                                                                        placeholder="10%+5%"
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell className="p-1">
-                                                                    <Input
-                                                                        value={item.diskonNominal ? `Rp. ${Number(item.diskonNominal).toLocaleString("id-ID")}` : ""}
-                                                                        onChange={(e) => {
-                                                                            const raw = e.target.value.replace(/[^0-9]/g, "");
-                                                                            handleDiskonNominalChange(poItem.prId, item.id, raw);
-                                                                        }}
-                                                                        className="w-20 h-7 text-xs text-right px-2"
-                                                                        placeholder="Rp. 0"
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell className="p-1 text-xs px-2 text-right">
-                                                                    Rp. {afterDiskon.toLocaleString("id-ID")}
-                                                                </TableCell>
-                                                                <TableCell className="p-1">
-                                                                    <Input
-                                                                        type="text"
-                                                                        value={item.ppnItem || ""}
-                                                                        onChange={(e) => {
-                                                                            const val = e.target.value.replace(/[^0-9.]/g, "");
-                                                                            handlePPNItemChange(poItem.prId, item.id, val);
-                                                                        }}
-                                                                        className="w-12 h-7 text-xs text-right px-2"
-                                                                        placeholder="0"
-                                                                    />
-                                                                </TableCell>
-                                                                <TableCell className="p-1 text-xs px-2 text-right">
-                                                                    Rp. {ppnAmount.toLocaleString("id-ID")}
-                                                                </TableCell>
-                                                                <TableCell className="p-1 text-xs px-2 text-right">
-                                                                    Rp. {totalPerItem.toLocaleString("id-ID")}
-                                                                </TableCell>
-                                                                <TableCell className="p-1 text-xs">
-                                                                    <div className="text-muted-foreground max-w-xs truncate uppercase" title={item.keterangan}>
-                                                                        {item.keterangan}
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )
-                                                    })}
-                                                </React.Fragment>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2 mt-4">
-                                <Checkbox id="ppn-included" checked={ppnIncluded} onCheckedChange={(c) => setPpnIncluded(!!c)} />
-                                <Label htmlFor="ppn-included">Harga Sudah Termasuk PPN</Label>
-                            </div>
-
-                            {/* Summary */}
-                            <div className="mt-4 border p-4 rounded-lg">
-                                <h3 className="font-semibold mb-2">Ringkasan</h3>
-                                <div className="flex justify-between">
-                                    <span>Subtotal:</span>
-                                    <span>Rp. {discountBreakdown.reduce((acc, curr) => acc + curr.subtotal, 0).toLocaleString("id-ID") || calculateTotal().subtotal.toLocaleString("id-ID")}</span>
-                                </div>
-                                <div className="flex justify-between text-red-500">
-                                    <span>Diskon:</span>
-                                    <span>- Rp. {calculateTotal().totalDiskon.toLocaleString("id-ID")}</span>
-                                </div>
-                                <div className="flex justify-between text-green-600">
-                                    <span>PPN:</span>
-                                    <span>+ Rp. {calculateTotal().totalPPN.toLocaleString("id-ID")}</span>
-                                </div>
-                                <hr className="my-2" />
-                                <div className="flex justify-between font-bold text-lg">
-                                    <span>Total:</span>
-                                    <span>Rp. {calculateTotal().totalPayment.toLocaleString("id-ID")}</span>
-                                </div>
-                            </div>
-
-                            <Button onClick={handleUpdatePO} className="w-full bg-primary text-white mt-4">Simpan Perubahan</Button>
-
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Items Table */}
+                <Card className="bg-card border-border shadow-md rounded-md">
+                    <CardHeader>
+                        <CardTitle>Item Purchase Order</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Table className="relative min-w-full">
+                            <TableHeader className="bg-slate-50">
+                                <TableRow>
+                                    <TableHead className="w-[180px]">No. PR / Barang</TableHead>
+                                    <TableHead className="w-[120px]">Qty PO</TableHead>
+                                    <TableHead className="w-[150px]">Harga Satuan</TableHead>
+                                    <TableHead className="w-[180px]">Diskon (%)</TableHead>
+                                    <TableHead className="w-[150px]">Diskon (Rp)</TableHead>
+                                    <TableHead className="w-[100px]">PPN (%)</TableHead>
+                                    <TableHead className="w-[150px] text-right text-primary font-bold">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {poItems.map((poGroup) => (
+                                    <React.Fragment key={poGroup.prId}>
+                                        <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                                            <TableCell colSpan={7} className="py-2 font-semibold text-slate-700">
+                                                {poGroup.noPR}
+                                            </TableCell>
+                                        </TableRow>
+                                        {poGroup.items.map((item) => {
+                                            const subtotalCalculated = discountBreakdown.find((b) => b.namaBarang === item.namaBarang)?.subtotal || 0;
+                                            const totalCalculated = discountBreakdown.find((b) => b.namaBarang === item.namaBarang)?.total || 0;
+                                            return (
+                                                <TableRow key={item.id} className="hover:bg-slate-50">
+                                                    <TableCell>
+                                                        <div className="space-y-1">
+                                                            <div className="font-medium text-foreground">{item.namaBarang}</div>
+                                                            <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                                                <Badge variant="outline" className="text-[10px] py-0 px-1 font-normal">
+                                                                    {item.satuanLabel}
+                                                                </Badge>
+                                                                <span>Sisa PR: {(item.jumlahAsli - item.jumlahPO)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="number"
+                                                            value={item.jumlahPO}
+                                                            onChange={(e) => handleQtyChange(poGroup.prId, item.id, e.target.value)}
+                                                            className="h-8 w-20 text-center"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            value={item.hargaSatuan}
+                                                            onChange={(e) => handleHargaSatuanChange(poGroup.prId, item.id, e.target.value)}
+                                                            className="h-8 w-32"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            placeholder="Ex: 5+2%"
+                                                            value={item.diskonPersen || ""}
+                                                            onChange={(e) => handleDiskonPersenChange(poGroup.prId, item.id, e.target.value)}
+                                                            className="h-8"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="number"
+                                                            value={item.diskonNominal || ""}
+                                                            onChange={(e) => handleDiskonNominalChange(poGroup.prId, item.id, e.target.value)}
+                                                            className="h-8"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="number"
+                                                            value={item.ppnItem}
+                                                            onChange={(e) => handlePPNItemChange(poGroup.prId, item.id, e.target.value)}
+                                                            className="h-8 w-16"
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-medium text-primary">
+                                                        Rp {totalCalculated.toLocaleString("id-ID")}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+
+                {/* Footer / Summary */}
+                <Card className="bg-primary text-white shadow-xl border-none">
+                    <CardContent className="p-6">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div className="space-y-1 border-r border-white/20">
+                                <p className="text-white/70 text-xs uppercase font-semibold">Subtotal</p>
+                                <p className="text-xl font-bold">
+                                    Rp {calculateTotal().subtotal.toLocaleString("id-ID")}
+                                </p>
+                            </div>
+                            <div className="space-y-1 border-r border-white/20 px-2 lg:px-4">
+                                <p className="text-white/70 text-xs uppercase font-semibold">Total Diskon</p>
+                                <p className="text-xl font-bold italic">
+                                    - Rp {calculateTotal().totalDiskon.toLocaleString("id-ID")}
+                                </p>
+                            </div>
+                            <div className="space-y-1 border-r border-white/20 px-2 lg:px-4">
+                                <p className="text-white/70 text-xs uppercase font-semibold">PPN</p>
+                                <p className="text-xl font-bold">+ Rp {calculateTotal().totalPPN.toLocaleString("id-ID")}</p>
+                            </div>
+                            <div className="space-y-1 px-2 lg:px-4">
+                                <p className="text-white/30 text-xs uppercase font-semibold bg-white/10 px-2 py-0.5 rounded w-fit mb-1">Total Pembayaraan</p>
+                                <p className="text-2xl font-black">
+                                    Rp {calculateTotal().totalPayment.toLocaleString("id-ID")}
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <div className="flex justify-end gap-3 pb-10">
+                    <Button
+                        onClick={() => router.push("/po/monitoring")}
+                        variant="outline"
+                        className="w-32"
+                    >
+                        Batal
+                    </Button>
+                    <Button
+                        onClick={handleUpdatePO}
+                        className="w-48 bg-primary hover:bg-primary/90 text-white font-bold"
+                    >
+                        Perbarui PO
+                    </Button>
+                </div>
             </div>
         </MainLayout>
     );

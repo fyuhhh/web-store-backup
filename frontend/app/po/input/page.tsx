@@ -106,6 +106,14 @@ function InputPOContent() {
   const [userSkema, setUserSkema] = useState("");
   const [openPR, setOpenPR] = useState(false);
 
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem("userData") || "{}");
+    const userIdNum = Number(userData.id_user || userData.id || 0);
+    if ([112, 113, 168, 169].includes(userIdNum)) {
+      window.location.href = "/po/status";
+    }
+  }, []);
+
   const searchParams = useSearchParams();
   const editPoId = searchParams.get("id");
   const isEditing = !!editPoId;
@@ -1251,6 +1259,7 @@ function InputPOContent() {
               skema: poData.id_skema,
               namaPembeli: "", // Don't use orderedBy (account name), wait for item data
               termin: poData.id_termin ? String(poData.id_termin) : "", // <-- Set termin for edit
+              is_ppn_included: Boolean((poData as any).is_ppn_included),
             });
             // If calculations match, good. For now assume user can set it.
             // Actually, we can check if totalPembayaran == subtotal (ppnIncluded) or > subtotal.
