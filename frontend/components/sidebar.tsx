@@ -47,6 +47,7 @@ const menuItems = [
     icon: ShoppingCart,
     submenu: [
       { title: "Input PO", href: "/po/status" },
+      { title: "Daily Monitoring", href: "/po/daily" },
       { title: "Monitoring PO", href: "/po/monitoring" },
     ],
   },
@@ -195,6 +196,7 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
           title: "PO (Purchase Order)",
           icon: ShoppingCart,
           submenu: [
+            { title: "Daily Monitoring", href: "/po/daily" },
             { title: "Monitoring PO", href: "/po/monitoring" },
           ],
         },
@@ -234,6 +236,7 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
           icon: ShoppingCart,
           submenu: [
             { title: "Input PO", href: "/po/status" },
+            { title: "Daily Monitoring", href: "/po/daily" },
             { title: "Monitoring PO", href: "/po/monitoring" },
           ],
         },
@@ -305,6 +308,7 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
           icon: ShoppingCart,
           submenu: [
             { title: "Input PO", href: "/po/status" },
+            { title: "Daily Monitoring", href: "/po/daily" },
             { title: "Monitoring PO", href: "/po/monitoring" },
           ],
         },

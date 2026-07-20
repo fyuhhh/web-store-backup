@@ -186,9 +186,9 @@ io.on("connection", (socket) => {
 app.set("io", io);
 
 // jalankan server
-httpServer.listen(5000, () => {
-  console.log("Server berjalan di http://192.168.10.10:5000");
-  console.log("Debug routes: http://192.168.10.10:5000/api/debug/routes");
+httpServer.listen(5001, () => {
+  console.log("Server berjalan di http://localhost:5001");
+  console.log("Debug routes: http://localhost:5001/api/debug/routes");
   console.log("Socket.io initialized");
 });
 

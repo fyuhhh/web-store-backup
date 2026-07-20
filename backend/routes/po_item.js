@@ -263,14 +263,17 @@ router.put("/:id", async (req, res, next) => {
     };
 
     // --- Check if item is processed to BTB ---
-    const [btbItems] = await db.query(
-      "SELECT id_btb_item FROM btb_item WHERE id_POItem = ?",
-      [id]
-    );
-    if (btbItems.length > 0) {
-      return res.status(400).json({
-        message: "Tidak dapat mengedit item PO yang sudah diproses ke BTB.",
-      });
+    const isOnlyAlasan = Object.keys(payload).every(key => key === "alasan_keterlambatan");
+    if (!isOnlyAlasan) {
+      const [btbItems] = await db.query(
+        "SELECT id_btb_item FROM btb_item WHERE id_POItem = ?",
+        [id]
+      );
+      if (btbItems.length > 0) {
+        return res.status(400).json({
+          message: "Tidak dapat mengedit item PO yang sudah diproses ke BTB.",
+        });
+      }
     }
 
     if (payload.hargaSatuan) payload.hargaSatuan = cleanCurrency(payload.hargaSatuan);
@@ -295,7 +298,8 @@ router.put("/:id", async (req, res, next) => {
     const validColumns = [
       "id_PO", "id_PRItem", "hargaSatuan", "jumlahPO", "jumlahAsli",
       "diskonPersen", "diskonRupiah", "ppnPersen", "ppnRupiah",
-      "totalPerItem", "namaPembeli", "keterangan", "id_satuan", "statusTerima", "status_po"
+      "totalPerItem", "namaPembeli", "keterangan", "id_satuan", "statusTerima", "status_po",
+      "alasan_keterlambatan"
     ];
 
     const fields = Object.keys(payload).filter(key => validColumns.includes(key));
