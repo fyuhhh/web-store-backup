@@ -1,5 +1,5 @@
 {
   "isActive": false,
-  "endTime": "2026-02-04T06:23:00.000Z",
-  "message": "Aplikasi telah update untuk:\n| Perbaikan penamaan kolom dan pemindahan nama \"DIORDER OLEH\" dan \"DIBUAT OLEH\" | \"NAMA PENERIMA\" pada export excell di halaman monitoiring BKB telah ada | Export Excell kini memiliki tampilan yang baru | Kini input PR, PO, BTB dan BKB sudah otomtatis akan terisi nomornya sesuai dengan urutan namun perlu diperahtikan kepada pihak PURCHASING & STORE untuk selalu cek dua kali sebelum input."
+  "endTime": "2026-06-04T15:25:00.000Z",
+  "message": "Mulai sekarang, Anda tidak perlu lagi menggunakan akun terpisah untuk melihat data E-Walk maupun Pentacity.\n\nCukup login satu kali dengan akun Divisi Anda, lalu gunakan pilihan Skema yang tersedia di pojok kanan atas halaman untuk beralih antara:\n\n🏢 Pentacity\n🏬 E-Walk\nSemua data — Dashboard, Pesanan, Monitoring Stok, dan Rekap — akan otomatis menyesuaikan berdasarkan skema yang Anda pilih.\n\nPilihan skema akan tersimpan selama sesi Anda, dan akan direset otomatis ketika Anda logout."
 }

@@ -1,20 +1,19 @@
+import pool from './config/database.js';
 
-import db from "./config/database.js";
-
-async function checkColumns() {
-    try {
-        const [rows] = await db.query("SHOW COLUMNS FROM mr_item");
-        console.log("Columns in mr_item:");
-        rows.forEach(r => console.log(r.Field));
-        
-        const [rows2] = await db.query("SHOW COLUMNS FROM mr");
-        console.log("\nColumns in mr:");
-        rows2.forEach(r => console.log(r.Field));
-        
-    } catch (err) {
-        console.error(err);
-    }
+async function checkData() {
+  try {
+    const [cols] = await pool.query('SHOW COLUMNS FROM po');
+    console.log('PO Columns:', cols.map(c => c.Field).join(', '));
+    
+    // Also pr columns
+    const [prCols] = await pool.query('SHOW COLUMNS FROM pr');
+    console.log('PR Columns:', prCols.map(c => c.Field).join(', '));
+    
+  } catch (e) {
+    console.error(e);
+  } finally {
     process.exit();
+  }
 }
 
-checkColumns();
+checkData();
