@@ -129,38 +129,45 @@ function sortPOList(filteredPOData: any[]) {
   });
 }
 
-// Calculate delay in days helper
-function calculateKeterlambatan(estimasiTgl: string, status: string, btbItems: any[], btbMap: any) {
-  if (!estimasiTgl) return "-";
-  const estDate = dayjs(estimasiTgl).startOf('day');
-  if (!estDate.isValid()) return "-";
+// Calculate delay in days helper from PO date to today/last BTB date
+function calculateKeterlambatan(tanggalPO: string, jumlahBelumTerkirim: number, btbItems: any[], btbMap: any) {
+  if (!tanggalPO) return "0 Hari";
+  
+  let poDate = dayjs(tanggalPO).startOf('day');
+  if (!poDate.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(tanggalPO)) {
+    const [d, m, y] = tanggalPO.split("-");
+    poDate = dayjs(`${y}-${m}-${d}`).startOf('day');
+  }
+  if (!poDate.isValid()) return "0 Hari";
 
-  const isCompleted = status === "Completed" || status === "Telah dibuat BTB" || status === "Telah Selesai" || status === "PART COMPLETE";
-
-  if (isCompleted) {
-    // Find latest BTB date
+  if (jumlahBelumTerkirim > 0) {
+    // Still open (belum terkirim > 0), calculate delay up to today
+    const today = dayjs().startOf('day');
+    const diffDays = today.diff(poDate, 'day');
+    return diffDays > 0 ? `${diffDays} Hari` : "0 Hari";
+  } else {
+    // Completed (belum terkirim === 0), stop calculation at the latest BTB date
     if (btbItems && btbItems.length > 0) {
       let maxBtbDate = dayjs('1970-01-01');
       btbItems.forEach(bi => {
         const btbInfo = btbMap[bi.id_btb];
         if (btbInfo && btbInfo.tanggal_btb) {
-          const tglBtb = dayjs(btbInfo.tanggal_btb).startOf('day');
+          let tglBtb = dayjs(btbInfo.tanggal_btb).startOf('day');
+          if (!tglBtb.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(btbInfo.tanggal_btb)) {
+            const [d, m, y] = btbInfo.tanggal_btb.split("-");
+            tglBtb = dayjs(`${y}-${m}-${d}`).startOf('day');
+          }
           if (tglBtb.isValid() && tglBtb.isAfter(maxBtbDate)) {
             maxBtbDate = tglBtb;
           }
         }
       });
       if (maxBtbDate.isAfter(dayjs('1970-01-01'))) {
-        const diffDays = maxBtbDate.diff(estDate, 'day');
+        const diffDays = maxBtbDate.diff(poDate, 'day');
         return diffDays > 0 ? `${diffDays} Hari` : "0 Hari";
       }
     }
     return "0 Hari";
-  } else {
-    // Not completed yet, compare with today
-    const today = dayjs().startOf('day');
-    const diffDays = today.diff(estDate, 'day');
-    return diffDays > 0 ? `${diffDays} Hari` : "0 Hari";
   }
 }
 
@@ -171,6 +178,26 @@ export default function DailyMonitoringPage() {
   const [poData, setPoData] = useState<any[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [hiddenNotes, setHiddenNotes] = useState<string[]>([]);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem("daily_monitoring_hidden_notes");
+    if (saved) {
+      try {
+        setHiddenNotes(JSON.parse(saved));
+      } catch (e) {}
+    }
+  }, []);
+
+  const toggleHideNote = (id: string | number) => {
+    const strId = String(id);
+    setHiddenNotes(prev => {
+      const next = prev.includes(strId) ? prev.filter(x => x !== strId) : [...prev, strId];
+      localStorage.setItem("daily_monitoring_hidden_notes", JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Filters
   const [filterStartDate, setFilterStartDate] = useState<Date | null>(null);
@@ -358,16 +385,21 @@ export default function DailyMonitoringPage() {
           // BTB details
           const relatedBtbItems = btbItemsByPOItem[String(pi.id_POItem)] || [];
           const totalReceived = relatedBtbItems.reduce((sum, bi) => sum + (Number(bi.jumlah_diterima) || 0), 0);
-          const totalRemaining = Math.max(0, (Number(pi.jumlahPO) || Number(pi.jumlahAsli) || 0) - totalReceived);
+          
+          const originalPOQuantity = Math.round(Number(pi.jumlahAsli) || (Number(pi.jumlahPO) + totalReceived) || 0);
+          const totalReceivedRounded = Math.round(totalReceived);
+          const totalRemaining = Math.max(0, originalPOQuantity - totalReceivedRounded);
 
-          const delay = calculateKeterlambatan(po.estimasiTanggalTerima, pi.status || po.status, relatedBtbItems, btbMap);
+          const delayText = calculateKeterlambatan(po.tanggalPO, totalRemaining, relatedBtbItems, btbMap);
+
+          const itemSatuan = prItem.satuanLabel || prItem.satuan || prItem.id_satuan || pi.id_satuan || "";
 
           const item = {
             id_POItem: pi.id_POItem,
             id_PRItem: prItem.id_PRItem ?? prItem.id ?? pi.id_PRItem ?? null,
             namaBarang: prItem.namaBarang ?? prItem.namabarang ?? pi.namaBarang ?? "",
-            jumlahPO: Number(pi.jumlahPO) || Number(pi.jumlahAsli) || 0,
-            satuan: prItem.satuanLabel || prItem.satuan || prItem.id_satuan || pi.id_satuan || "",
+            jumlahPO: originalPOQuantity,
+            satuan: itemSatuan,
             hargaSatuan: Number(pi.hargaSatuan) || 0,
             keterangan: pi.keterangan || prItem.keterangan || "",
             divisi: prDivisiMap[prId] || "-",
@@ -381,11 +413,17 @@ export default function DailyMonitoringPage() {
             tanggalPR: prDateMap[prId] || "",
             
             // BTB & Delay calculations
-            jumlahSudahTerkirim: "",
-            jumlahBelumTerkirim: "",
-            keterlambatan: "",
-            alasan_keterlambatan: "",
-            status: pi.status_po || "",
+            jumlahSudahTerkirim: totalReceivedRounded,
+            jumlahBelumTerkirim: totalRemaining,
+            keterlambatan: delayText,
+            alasan_keterlambatan: pi.alasan_keterlambatan || "",
+            status: totalRemaining > 0 ? "OPEN" : "CLOSED",
+            autoKeteranganLines: relatedBtbItems.map((bi: any) => {
+              const btbInfo = btbMap[bi.id_btb];
+              const tgl = btbInfo?.tanggal_btb ? formatTanggal(btbInfo.tanggal_btb) : "-";
+              const qtyDiterima = Math.round(Number(bi.jumlah_diterima) || 0);
+              return `Barang telah diterima ${qtyDiterima} ${itemSatuan} dan telah terbit BTB pada ${tgl}`;
+            })
           };
 
           const key = String(noPR || prId || "__noPR__");
@@ -463,7 +501,7 @@ export default function DailyMonitoringPage() {
   const openEditReason = (item: any, noPO: string) => {
     if (isReadOnly) return;
     setEditingItem({ ...item, noPO });
-    setNewReason(item.alasan_keterlambatan || "");
+    setNewReason(item.alasan_keterlambatan || (item.autoKeteranganLines || []).join("\n"));
     setEditReasonOpen(true);
   };
 
@@ -677,10 +715,10 @@ export default function DailyMonitoringPage() {
             po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "",
             formatTanggal(po.estimasiTanggalTerima),
             item.keterangan ? item.keterangan.toUpperCase() : "",
-            "",
-            "",
-            "",
-            "",
+            item.jumlahSudahTerkirim,
+            item.jumlahBelumTerkirim,
+            item.keterlambatan,
+            (item.alasan_keterlambatan || (item.autoKeteranganLines || []).join("\n")).toUpperCase(),
             po.termin ? po.termin.toUpperCase() : "",
             item.status ? item.status.toUpperCase() : "",
           ];
@@ -701,7 +739,11 @@ export default function DailyMonitoringPage() {
           po.totalPembayaran || 0,
           po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "",
           formatTanggal(po.estimasiTanggalTerima),
-          "", "", "", "", "",
+          "", 
+          0,
+          0,
+          "0 HARI",
+          "",
           po.termin ? po.termin.toUpperCase() : "",
           po.status ? po.status.toUpperCase() : "",
         ];
@@ -769,24 +811,18 @@ export default function DailyMonitoringPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    if (status === "Completed" || status === "Telah dibuat BTB" || status === "PART COMPLETE" || status === "Telah Selesai" || status === "Selesai") {
+    const s = (status || "").toUpperCase();
+    if (s === "CLOSED" || s === "COMPLETED" || s === "TELAH DIBUAT BTB" || s === "PART COMPLETE" || s === "TELAH SELESAI" || s === "SELESAI") {
       return (
-        <Badge className="bg-success/10 text-success border-success/20">
-          Selesai
+        <Badge className="bg-success/10 text-success border-success/20 font-bold">
+          CLOSED
         </Badge>
       );
     }
-    if (status === "PARTIAL PART" || status === "Gantung" || status === "PARTIAL PO" || status === "PARTIAL") {
+    if (s === "OPEN" || s === "PARTIAL PART" || s === "GANTUNG" || s === "PARTIAL PO" || s === "PARTIAL" || s === "MENUNGGU" || s === "WAITING PART" || s === "WAITING PO") {
       return (
-        <Badge className="bg-warning/10 text-warning border-warning/20">
-          Partial
-        </Badge>
-      );
-    }
-    if (status === "Menunggu" || status === "WAITING PART" || status === "WAITING PO") {
-      return (
-        <Badge className="bg-destructive/10 text-destructive border-destructive/20">
-          Waiting
+        <Badge className="bg-destructive/10 text-destructive border-destructive/20 font-bold">
+          OPEN
         </Badge>
       );
     }
@@ -984,10 +1020,10 @@ export default function DailyMonitoringPage() {
                     <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NAMA PURCHASING</TableHead>
                     <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>ESTIMASI PENERIMAAN</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERANGAN PO</TableHead>
-                    <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH SUDAH TERKIRIM</TableHead>
-                    <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH BELUM TERKIRIM</TableHead>
-                    <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERLAMBATAN</TableHead>
-                    <TableHead className="min-w-[220px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERANGAN/ALASAN KETERLAMBATAN</TableHead>
+                    <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH SUDAH TERKIRIM</TableHead>
+                    <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH BELUM TERKIRIM</TableHead>
+                    <TableHead className="min-w-[130px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERLAMBATAN</TableHead>
+                    <TableHead className="min-w-[400px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERANGAN/ALASAN KETERLAMBATAN</TableHead>
                     <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>TERMIN PEMBAYARAN</TableHead>
                     <TableHead className="min-w-[100px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>STATUS</TableHead>
                   </TableRow>
@@ -1080,12 +1116,71 @@ export default function DailyMonitoringPage() {
                               {item.keterangan}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
+                              {item.jumlahSudahTerkirim}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
+                              {item.jumlahBelumTerkirim}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
+                              {item.keterlambatan}
                             </TableCell>
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[220px]">
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[400px]">
+                              {(() => {
+                                const isNoteHidden = hiddenNotes.includes(String(item.id_POItem));
+                                const hasCustomReason = !!item.alasan_keterlambatan;
+                                const displayLines = hasCustomReason
+                                  ? [item.alasan_keterlambatan]
+                                  : (item.autoKeteranganLines || []);
+
+                                return (
+                                  <div className="flex items-start justify-between gap-3">
+                                    {/* Note Text on Left */}
+                                    <div className="flex-1 min-w-0 space-y-1">
+                                      {displayLines.map((line: string, idx: number) => (
+                                        <div
+                                          key={idx}
+                                          className={`text-xs font-semibold whitespace-nowrap ${
+                                            isNoteHidden 
+                                              ? "text-red-500 font-bold" 
+                                              : hasCustomReason 
+                                                ? "text-slate-800" 
+                                                : "text-slate-600"
+                                          }`}
+                                        >
+                                          {line}
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {/* Action Buttons on Right */}
+                                    {!isReadOnly && (
+                                      <div className="flex flex-col gap-1.5 shrink-0 items-end">
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => openEditReason(item, po.noPO)}
+                                          className="h-6 w-20 px-1 text-[10px] text-blue-600 border-blue-200 hover:bg-blue-50/50 hover:text-blue-700 font-semibold flex items-center justify-center gap-1 rounded-md"
+                                        >
+                                          <Edit className="h-2.5 w-2.5" />
+                                          Edit
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => toggleHideNote(item.id_POItem)}
+                                          className={`h-6 w-20 px-1 text-[10px] font-semibold flex items-center justify-center gap-1 rounded-md ${
+                                            isNoteHidden
+                                              ? "text-green-600 border-green-200 hover:bg-green-50/50 hover:text-green-700"
+                                              : "text-red-600 border-red-200 hover:bg-red-50/50 hover:text-red-700"
+                                          }`}
+                                        >
+                                          {isNoteHidden ? "Tampilkan" : "Sembunyikan"}
+                                        </Button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </TableCell>
 
                             {itemIndex === 0 ? (
