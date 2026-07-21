@@ -379,6 +379,7 @@ export default function DailyMonitoringPage() {
   const [isDivisi, setIsDivisi] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [userSkema, setUserSkema] = useState("");
+  const [filterItemStatus, setFilterItemStatus] = useState<string>("ALL");
 
   const tableWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -1158,6 +1159,18 @@ export default function DailyMonitoringPage() {
               isClearable
             />
           </div>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-muted-foreground">Status:</span>
+            <select
+              value={filterItemStatus}
+              onChange={(e) => setFilterItemStatus(e.target.value)}
+              className="h-9 w-28 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary cursor-pointer hover:bg-slate-50 font-medium text-slate-700"
+            >
+              <option value="ALL">Semua</option>
+              <option value="OPEN">Open</option>
+              <option value="CLOSED">Closed</option>
+            </select>
+          </div>
         </div>
 
         {/* Table container */}
@@ -1272,9 +1285,16 @@ export default function DailyMonitoringPage() {
                       }))
                     );
 
+                    const filteredItems = allItems.filter((item: any) => {
+                      if (filterItemStatus === "ALL") return true;
+                      return (item.status || "").toUpperCase() === filterItemStatus.toUpperCase();
+                    });
+
+                    if (filteredItems.length === 0) return null;
+
                     return (
                       <React.Fragment key={po.id}>
-                        {allItems.map((item: any, itemIndex: number) => (
+                        {filteredItems.map((item: any, itemIndex: number) => (
                           <TableRow
                             key={`${po.id}-item-${itemIndex}`}
                             id={itemIndex === 0 ? po.noPO : undefined}
@@ -1282,7 +1302,7 @@ export default function DailyMonitoringPage() {
                           >
                             {itemIndex === 0 ? (
                               <>
-                                <TableCell rowSpan={allItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
+                                <TableCell rowSpan={filteredItems.length} className="border border-gray-300 px-3 py-1 text-center align-middle">
                                   <Checkbox
                                     checked={selectedPOs.includes(po.id)}
                                     onCheckedChange={(checked) => handleSelectPO(po.id, checked as boolean)}
@@ -1293,13 +1313,13 @@ export default function DailyMonitoringPage() {
                                     }}
                                   />
                                 </TableCell>
-                                <TableCell rowSpan={allItems.length} className="font-semibold px-3 py-1 border border-gray-300 align-middle text-center uppercase text-blue-600">
+                                <TableCell rowSpan={filteredItems.length} className="font-semibold px-3 py-1 border border-gray-300 align-middle text-center uppercase text-blue-600">
                                   {po.noPO}
                                 </TableCell>
-                                <TableCell rowSpan={allItems.length} className="text-center border border-gray-300 align-middle min-w-[120px] uppercase">
+                                <TableCell rowSpan={filteredItems.length} className="text-center border border-gray-300 align-middle min-w-[120px] uppercase">
                                   {formatTanggal(po.tanggalPO)}
                                 </TableCell>
-                                <TableCell rowSpan={allItems.length} className="text-left border border-gray-300 align-middle min-w-[140px] uppercase">
+                                <TableCell rowSpan={filteredItems.length} className="text-left border border-gray-300 align-middle min-w-[140px] uppercase">
                                   {po.supplier}
                                 </TableCell>
                               </>
@@ -1342,10 +1362,10 @@ export default function DailyMonitoringPage() {
 
                             {itemIndex === 0 ? (
                               <>
-                                <TableCell rowSpan={allItems.length} className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[120px] uppercase font-bold">
+                                <TableCell rowSpan={filteredItems.length} className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[120px] uppercase font-bold">
                                   Rp {po.totalPembayaran.toLocaleString("id-ID", { minimumFractionDigits: 2 })}
                                 </TableCell>
-                                 <TableCell rowSpan={allItems.length} className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
+                                 <TableCell rowSpan={filteredItems.length} className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
                                   {po.orderedBy ?? ""}
                                 </TableCell>
                               </>
@@ -1432,7 +1452,7 @@ export default function DailyMonitoringPage() {
                             </TableCell>
 
                             {itemIndex === 0 ? (
-                              <TableCell rowSpan={allItems.length} className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
+                              <TableCell rowSpan={filteredItems.length} className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
                                 {po.termin || "-"}
                               </TableCell>
                             ) : null}
