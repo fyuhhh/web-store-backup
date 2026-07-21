@@ -53,14 +53,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSearchParams } from "next/navigation";
 import { API_BASE_URL } from "@/lib/config";
 
+// Robust date parser helper
+function parseDateStringToDayjs(tgl: string) {
+  if (!tgl) return dayjs(null);
+  const cleanTgl = String(tgl).trim();
+  if (!cleanTgl) return dayjs(null);
+
+  let dObj = dayjs(cleanTgl);
+  if (dObj.isValid()) {
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(cleanTgl)) {
+      const [d, m, y] = cleanTgl.substring(0, 10).split("/");
+      const manualObj = dayjs(`${y}-${m}-${d}`);
+      if (manualObj.isValid()) return manualObj;
+    }
+    return dObj;
+  }
+
+  if (/^\d{2}-\d{2}-\d{4}/.test(cleanTgl)) {
+    const [d, m, y] = cleanTgl.substring(0, 10).split("-");
+    const manualObj = dayjs(`${y}-${m}-${d}`);
+    if (manualObj.isValid()) return manualObj;
+  }
+
+  if (/^\d{2}\/\d{2}\/\d{4}/.test(cleanTgl)) {
+    const [d, m, y] = cleanTgl.substring(0, 10).split("/");
+    const manualObj = dayjs(`${y}-${m}-${d}`);
+    if (manualObj.isValid()) return manualObj;
+  }
+
+  return dayjs(null);
+}
+
 // Format date helper
 function formatTanggal(tgl: string) {
   if (!tgl) return "";
-  let dateObj = dayjs(tgl);
-  if (!dateObj.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(tgl)) {
-    const [d, m, y] = tgl.split("-");
-    dateObj = dayjs(`${y}-${m}-${d}`);
-  }
+  const dateObj = parseDateStringToDayjs(tgl);
   if (dateObj.isValid()) {
     return dateObj.format("DD/MM/YYYY");
   }
@@ -133,11 +160,7 @@ function sortPOList(filteredPOData: any[]) {
 function calculateKeterlambatan(estimasiTgl: string, jumlahBelumTerkirim: number, btbItems: any[], btbMap: any) {
   if (!estimasiTgl) return "0 Hari";
   
-  let estDate = dayjs(estimasiTgl).startOf('day');
-  if (!estDate.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(estimasiTgl)) {
-    const [d, m, y] = estimasiTgl.split("-");
-    estDate = dayjs(`${y}-${m}-${d}`).startOf('day');
-  }
+  const estDate = parseDateStringToDayjs(estimasiTgl).startOf('day');
   if (!estDate.isValid()) return "0 Hari";
 
   if (jumlahBelumTerkirim > 0) {
@@ -158,11 +181,7 @@ function calculateKeterlambatan(estimasiTgl: string, jumlahBelumTerkirim: number
       btbItems.forEach(bi => {
         const btbInfo = btbMap[bi.id_btb];
         if (btbInfo && btbInfo.tanggal_btb) {
-          let tglBtb = dayjs(btbInfo.tanggal_btb).startOf('day');
-          if (!tglBtb.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(btbInfo.tanggal_btb)) {
-            const [d, m, y] = btbInfo.tanggal_btb.split("-");
-            tglBtb = dayjs(`${y}-${m}-${d}`).startOf('day');
-          }
+          const tglBtb = parseDateStringToDayjs(btbInfo.tanggal_btb).startOf('day');
           if (tglBtb.isValid() && tglBtb.isAfter(maxBtbDate)) {
             maxBtbDate = tglBtb;
           }
