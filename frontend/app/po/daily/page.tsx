@@ -207,13 +207,7 @@ function calculateKeterlambatan(estimasiTgl: string, jumlahBelumTerkirim: number
     // Still open (belum terkirim > 0), calculate delay up to today
     const today = dayjs().startOf('day');
     const diffDays = today.diff(estDate, 'day');
-    if (diffDays > 0) {
-      return `${diffDays} Hari Terlambat`;
-    } else if (diffDays < 0) {
-      return `${diffDays} Hari`;
-    } else {
-      return "0 Hari";
-    }
+    return `${diffDays} Hari`;
   } else {
     // Completed (belum terkirim === 0), stop calculation at the latest BTB date
     if (btbItems && btbItems.length > 0) {
@@ -229,13 +223,7 @@ function calculateKeterlambatan(estimasiTgl: string, jumlahBelumTerkirim: number
       });
       if (maxBtbDate.isAfter(dayjs('1970-01-01'))) {
         const diffDays = maxBtbDate.diff(estDate, 'day');
-        if (diffDays > 0) {
-          return `${diffDays} Hari Terlambat`;
-        } else if (diffDays < 0) {
-          return `${diffDays} Hari`;
-        } else {
-          return "0 Hari";
-        }
+        return `${diffDays} Hari`;
       }
     }
     return "0 Hari";
@@ -390,6 +378,7 @@ export default function DailyMonitoringPage() {
 
   const [isDivisi, setIsDivisi] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [userSkema, setUserSkema] = useState("");
 
   const tableWrapperRef = useRef<HTMLDivElement>(null);
 
@@ -522,6 +511,8 @@ export default function DailyMonitoringPage() {
       if ([112, 113, 168, 169].includes(userId)) {
         setIsReadOnly(true);
       }
+
+      setUserSkema(userDataObj.skema || "");
 
       // Helper maps
       const prMap = Object.fromEntries(prList.map((p: any) => [String(p.id_PR), p.noPR]));
@@ -727,6 +718,17 @@ export default function DailyMonitoringPage() {
           poItem.items.some((item: any) => item.namaBarang.toLowerCase().includes(searchLower))
         );
 
+      // Filter by schema based on PO number prefix
+      let matchesSkema = true;
+      if (userSkema) {
+        const skemaUpper = userSkema.toUpperCase();
+        if (skemaUpper === "EWALK") {
+          matchesSkema = po.noPO.toUpperCase().includes("E-WALK") || po.noPO.toUpperCase().includes("EWALK");
+        } else if (skemaUpper === "PENTACITY" || skemaUpper === "PENTA") {
+          matchesSkema = po.noPO.toUpperCase().includes("PSV");
+        }
+      }
+
       const matchesNamaBarang =
         !filterNamaBarang ||
         po.poItems.some((poItem: any) =>
@@ -759,6 +761,7 @@ export default function DailyMonitoringPage() {
       }
 
       return (
+        matchesSkema &&
         matchesSearch &&
         matchesNamaBarang &&
         matchesSupplier &&
