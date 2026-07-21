@@ -1210,8 +1210,8 @@ export default function DailyMonitoringPage() {
                               </>
                             ) : null}
 
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-pre-line break-words max-w-[360px] min-w-[180px] uppercase">
-                              {wrapTextAtCharLimit(item.namaBarang, 55)}
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[180px] uppercase whitespace-nowrap">
+                              {item.namaBarang}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[90px] uppercase">
                               {item.jumlahPO}
@@ -1252,8 +1252,8 @@ export default function DailyMonitoringPage() {
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
                               {formatTanggal(po.estimasiTanggalTerima)}
                             </TableCell>
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-pre-line break-words max-w-[360px] min-w-[160px] uppercase">
-                              {wrapTextAtCharLimit(item.keterangan, 55)}
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[160px] uppercase whitespace-nowrap">
+                              {item.keterangan}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
                               {item.divisi || "-"}
