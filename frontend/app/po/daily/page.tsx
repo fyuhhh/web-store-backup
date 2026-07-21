@@ -202,51 +202,80 @@ function calculateKeterlambatan(estimasiTgl: string, jumlahBelumTerkirim: number
   }
 }
 
-// Parse note text into segments separating bracketed hidden contents from normal text
-function parseNoteText(text: string) {
-  if (!text) return [];
-  const lines = text.split("\n");
-  const result: { text: string; isHidden: boolean }[] = [];
+interface TextSegment {
+  text: string;
+  isRed: boolean;
+}
 
-  lines.forEach(line => {
-    // Find text inside [...] brackets
+interface DisplayLine {
+  segments: TextSegment[];
+  isHidden: boolean;
+}
+
+// Parse note text into segments separating bracketed hidden contents from normal text, stripping formatting characters and coloring star contents
+function parseNoteText(text: string): DisplayLine[] {
+  if (!text) return [];
+  const rawLines = text.split("\n");
+  const displayLines: DisplayLine[] = [];
+
+  rawLines.forEach(line => {
+    // Regex to match square brackets
     const regex = /\[(.*?)\]/g;
     let lastIndex = 0;
     let match;
-    let parts: { text: string; isHidden: boolean }[] = [];
+    
+    // Helper function to split a string by asterisks into segments
+    const splitByStars = (str: string): TextSegment[] => {
+      const parts = str.split("*");
+      return parts.map((part, idx) => ({
+        text: part,
+        isRed: idx % 2 === 1
+      })).filter(seg => seg.text !== "");
+    };
 
-    // Find all matches on the current line
     while ((match = regex.exec(line)) !== null) {
       const matchIndex = match.index;
-      const bracketContent = match[0]; // e.g. "[some text]"
-      
-      // Text before the brackets
+      const bracketContent = match[1]; // Extract contents inside brackets (brackets stripped!)
+
+      // Text before brackets
       const textBefore = line.substring(lastIndex, matchIndex).trim();
       if (textBefore) {
-        parts.push({ text: textBefore, isHidden: false });
+        displayLines.push({
+          segments: splitByStars(textBefore),
+          isHidden: false
+        });
       }
-      
+
       // Bracket content
-      parts.push({ text: bracketContent, isHidden: true });
+      if (bracketContent) {
+        displayLines.push({
+          segments: splitByStars(bracketContent),
+          isHidden: true
+        });
+      }
+
       lastIndex = regex.lastIndex;
     }
 
-    // Remaining text after the last match
+    // Remaining text after last bracket
     const textAfter = line.substring(lastIndex).trim();
     if (textAfter) {
-      parts.push({ text: textAfter, isHidden: false });
+      displayLines.push({
+        segments: splitByStars(textAfter),
+        isHidden: false
+      });
     }
 
-    if (parts.length === 0 && line.trim()) {
-      parts.push({ text: line, isHidden: false });
+    // If no brackets matched and line is not empty
+    if (lastIndex === 0 && line.trim()) {
+      displayLines.push({
+        segments: splitByStars(line),
+        isHidden: false
+      });
     }
-
-    parts.forEach(part => {
-      result.push(part);
-    });
   });
 
-  return result;
+  return displayLines;
 }
 
 export default function DailyMonitoringPage() {
@@ -716,6 +745,7 @@ export default function DailyMonitoringPage() {
       "NAMA PURCHASING",
       "ESTIMASI PENERIMAAN",
       "KETERANGAN PO",
+      "DEPARTEMENT",
       "JUMLAH SUDAH TERKIRIM",
       "JUMLAH BELUM TERKIRIM",
       "KETERLAMBATAN",
@@ -773,10 +803,16 @@ export default function DailyMonitoringPage() {
             po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "",
             formatTanggal(po.estimasiTanggalTerima),
             item.keterangan ? item.keterangan.toUpperCase() : "",
+            item.divisi ? item.divisi.toUpperCase() : "",
             item.jumlahSudahTerkirim,
             item.jumlahBelumTerkirim,
             item.keterlambatan,
-            (item.alasan_keterlambatan || (item.autoKeteranganLines || []).join("\n")).toUpperCase(),
+            (() => {
+              const rawNoteText = item.alasan_keterlambatan || (item.autoKeteranganLines || []).join("\n");
+              const parsed = parseNoteText(rawNoteText);
+              const textOnly = parsed.map(line => line.segments.map(s => s.text).join("")).join("\n");
+              return textOnly.toUpperCase();
+            })(),
             po.termin ? po.termin.toUpperCase() : "",
             item.status ? item.status.toUpperCase() : "",
           ];
@@ -798,6 +834,7 @@ export default function DailyMonitoringPage() {
           po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "",
           formatTanggal(po.estimasiTanggalTerima),
           "", 
+          "", 
           0,
           0,
           "0 HARI",
@@ -814,7 +851,7 @@ export default function DailyMonitoringPage() {
       // Merge PO specific headers
       const poEndRow = currentRowIdx - 1;
       if (poEndRow > poStartRow) {
-        const mergeCols = [1, 2, 3, 13, 14, 21];
+        const mergeCols = [1, 2, 3, 13, 14, 15, 22];
         mergeCols.forEach((col) => {
           try {
             worksheet.mergeCells(poStartRow, col, poEndRow, col);
@@ -830,8 +867,8 @@ export default function DailyMonitoringPage() {
     worksheet.getColumn(11).numFmt = currencyFmt; // PPN Rp
     worksheet.getColumn(12).numFmt = currencyFmt; // Total
     worksheet.getColumn(13).numFmt = currencyFmt; // Grand Total
-    worksheet.getColumn(17).numFmt = '#,##0'; // Sudah Terkirim
-    worksheet.getColumn(18).numFmt = '#,##0'; // Belum Terkirim
+    worksheet.getColumn(18).numFmt = '#,##0'; // Sudah Terkirim
+    worksheet.getColumn(19).numFmt = '#,##0'; // Belum Terkirim
 
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
@@ -1078,6 +1115,7 @@ export default function DailyMonitoringPage() {
                     <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NAMA PURCHASING</TableHead>
                     <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>ESTIMASI PENERIMAAN</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERANGAN PO</TableHead>
+                    <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>DEPARTEMENT</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH SUDAH TERKIRIM</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH BELUM TERKIRIM</TableHead>
                     <TableHead className="min-w-[130px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERLAMBATAN</TableHead>
@@ -1128,7 +1166,7 @@ export default function DailyMonitoringPage() {
                               </>
                             ) : null}
 
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[180px] uppercase">
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-normal break-words max-w-[360px] min-w-[180px] uppercase">
                               {item.namaBarang}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[90px] uppercase">
@@ -1170,8 +1208,11 @@ export default function DailyMonitoringPage() {
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
                               {formatTanggal(po.estimasiTanggalTerima)}
                             </TableCell>
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[160px] uppercase">
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-normal break-words max-w-[360px] min-w-[160px] uppercase">
                               {item.keterangan}
+                            </TableCell>
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
+                              {item.divisi || "-"}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[120px] uppercase">
                               {item.jumlahSudahTerkirim}
@@ -1198,7 +1239,7 @@ export default function DailyMonitoringPage() {
                                       {parsedLines.map((lineObj: any, idx: number) => (
                                         <div
                                           key={idx}
-                                          className={`text-xs font-semibold whitespace-nowrap ${
+                                          className={`text-xs font-semibold whitespace-nowrap flex flex-wrap items-center gap-0.5 ${
                                             lineObj.isHidden 
                                               ? "text-slate-400 italic" 
                                               : hasCustomReason 
@@ -1206,7 +1247,14 @@ export default function DailyMonitoringPage() {
                                                 : "text-slate-600"
                                           }`}
                                         >
-                                          {lineObj.text}
+                                          {lineObj.segments.map((seg: any, segIdx: number) => (
+                                            <span
+                                              key={segIdx}
+                                              className={seg.isRed ? "text-red-500 font-bold" : ""}
+                                            >
+                                              {seg.text}
+                                            </span>
+                                          ))}
                                         </div>
                                       ))}
                                     </div>
