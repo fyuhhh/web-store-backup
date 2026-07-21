@@ -512,7 +512,16 @@ export default function DailyMonitoringPage() {
         setIsReadOnly(true);
       }
 
-      setUserSkema(userDataObj.skema || "");
+      const savedSkemaId = localStorage.getItem("selectedSkemaId");
+      const activeSkema = savedSkemaId || String(userDataObj.id_skema ?? userDataObj.skema ?? "");
+      const rawSkema = (activeSkema || "").toLowerCase();
+      let skemaName = "";
+      if (rawSkema === "2" || rawSkema.includes("ewalk")) {
+        skemaName = "EWALK";
+      } else if (rawSkema === "1" || rawSkema.includes("pentacity") || rawSkema.includes("penta")) {
+        skemaName = "PENTACITY";
+      }
+      setUserSkema(skemaName);
 
       // Helper maps
       const prMap = Object.fromEntries(prList.map((p: any) => [String(p.id_PR), p.noPR]));
