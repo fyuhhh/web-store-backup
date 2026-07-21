@@ -129,22 +129,28 @@ function sortPOList(filteredPOData: any[]) {
   });
 }
 
-// Calculate delay in days helper from PO date to today/last BTB date
-function calculateKeterlambatan(tanggalPO: string, jumlahBelumTerkirim: number, btbItems: any[], btbMap: any) {
-  if (!tanggalPO) return "0 Hari";
+// Calculate delay in days helper from Estimasi Diterima date to today/last BTB date
+function calculateKeterlambatan(estimasiTgl: string, jumlahBelumTerkirim: number, btbItems: any[], btbMap: any) {
+  if (!estimasiTgl) return "0 Hari";
   
-  let poDate = dayjs(tanggalPO).startOf('day');
-  if (!poDate.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(tanggalPO)) {
-    const [d, m, y] = tanggalPO.split("-");
-    poDate = dayjs(`${y}-${m}-${d}`).startOf('day');
+  let estDate = dayjs(estimasiTgl).startOf('day');
+  if (!estDate.isValid() && /^\d{2}-\d{2}-\d{4}$/.test(estimasiTgl)) {
+    const [d, m, y] = estimasiTgl.split("-");
+    estDate = dayjs(`${y}-${m}-${d}`).startOf('day');
   }
-  if (!poDate.isValid()) return "0 Hari";
+  if (!estDate.isValid()) return "0 Hari";
 
   if (jumlahBelumTerkirim > 0) {
     // Still open (belum terkirim > 0), calculate delay up to today
     const today = dayjs().startOf('day');
-    const diffDays = today.diff(poDate, 'day');
-    return diffDays > 0 ? `${diffDays} Hari` : "0 Hari";
+    const diffDays = today.diff(estDate, 'day');
+    if (diffDays > 0) {
+      return `${diffDays} Hari Terlambat`;
+    } else if (diffDays < 0) {
+      return `${diffDays} Hari`;
+    } else {
+      return "0 Hari";
+    }
   } else {
     // Completed (belum terkirim === 0), stop calculation at the latest BTB date
     if (btbItems && btbItems.length > 0) {
@@ -163,12 +169,65 @@ function calculateKeterlambatan(tanggalPO: string, jumlahBelumTerkirim: number, 
         }
       });
       if (maxBtbDate.isAfter(dayjs('1970-01-01'))) {
-        const diffDays = maxBtbDate.diff(poDate, 'day');
-        return diffDays > 0 ? `${diffDays} Hari` : "0 Hari";
+        const diffDays = maxBtbDate.diff(estDate, 'day');
+        if (diffDays > 0) {
+          return `${diffDays} Hari Terlambat`;
+        } else if (diffDays < 0) {
+          return `${diffDays} Hari`;
+        } else {
+          return "0 Hari";
+        }
       }
     }
     return "0 Hari";
   }
+}
+
+// Parse note text into segments separating bracketed hidden contents from normal text
+function parseNoteText(text: string) {
+  if (!text) return [];
+  const lines = text.split("\n");
+  const result: { text: string; isHidden: boolean }[] = [];
+
+  lines.forEach(line => {
+    // Find text inside [...] brackets
+    const regex = /\[(.*?)\]/g;
+    let lastIndex = 0;
+    let match;
+    let parts: { text: string; isHidden: boolean }[] = [];
+
+    // Find all matches on the current line
+    while ((match = regex.exec(line)) !== null) {
+      const matchIndex = match.index;
+      const bracketContent = match[0]; // e.g. "[some text]"
+      
+      // Text before the brackets
+      const textBefore = line.substring(lastIndex, matchIndex).trim();
+      if (textBefore) {
+        parts.push({ text: textBefore, isHidden: false });
+      }
+      
+      // Bracket content
+      parts.push({ text: bracketContent, isHidden: true });
+      lastIndex = regex.lastIndex;
+    }
+
+    // Remaining text after the last match
+    const textAfter = line.substring(lastIndex).trim();
+    if (textAfter) {
+      parts.push({ text: textAfter, isHidden: false });
+    }
+
+    if (parts.length === 0 && line.trim()) {
+      parts.push({ text: line, isHidden: false });
+    }
+
+    parts.forEach(part => {
+      result.push(part);
+    });
+  });
+
+  return result;
 }
 
 export default function DailyMonitoringPage() {
@@ -178,26 +237,6 @@ export default function DailyMonitoringPage() {
   const [poData, setPoData] = useState<any[]>([]);
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [hiddenNotes, setHiddenNotes] = useState<string[]>([]);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("daily_monitoring_hidden_notes");
-    if (saved) {
-      try {
-        setHiddenNotes(JSON.parse(saved));
-      } catch (e) {}
-    }
-  }, []);
-
-  const toggleHideNote = (id: string | number) => {
-    const strId = String(id);
-    setHiddenNotes(prev => {
-      const next = prev.includes(strId) ? prev.filter(x => x !== strId) : [...prev, strId];
-      localStorage.setItem("daily_monitoring_hidden_notes", JSON.stringify(next));
-      return next;
-    });
-  };
 
   // Filters
   const [filterStartDate, setFilterStartDate] = useState<Date | null>(null);
@@ -390,7 +429,7 @@ export default function DailyMonitoringPage() {
           const totalReceivedRounded = Math.round(totalReceived);
           const totalRemaining = Math.max(0, originalPOQuantity - totalReceivedRounded);
 
-          const delayText = calculateKeterlambatan(po.tanggalPO, totalRemaining, relatedBtbItems, btbMap);
+          const delayText = calculateKeterlambatan(po.estimasiTanggalTerima, totalRemaining, relatedBtbItems, btbMap);
 
           const itemSatuan = prItem.satuanLabel || prItem.satuan || prItem.id_satuan || pi.id_satuan || "";
 
@@ -1126,35 +1165,36 @@ export default function DailyMonitoringPage() {
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[400px]">
                               {(() => {
-                                const isNoteHidden = hiddenNotes.includes(String(item.id_POItem));
                                 const hasCustomReason = !!item.alasan_keterlambatan;
-                                const displayLines = hasCustomReason
-                                  ? [item.alasan_keterlambatan]
-                                  : (item.autoKeteranganLines || []);
+                                const rawNoteText = hasCustomReason
+                                  ? item.alasan_keterlambatan
+                                  : (item.autoKeteranganLines || []).join("\n");
+                                
+                                const parsedLines = parseNoteText(rawNoteText);
 
                                 return (
                                   <div className="flex items-start justify-between gap-3">
                                     {/* Note Text on Left */}
                                     <div className="flex-1 min-w-0 space-y-1">
-                                      {displayLines.map((line: string, idx: number) => (
+                                      {parsedLines.map((lineObj: any, idx: number) => (
                                         <div
                                           key={idx}
                                           className={`text-xs font-semibold whitespace-nowrap ${
-                                            isNoteHidden 
-                                              ? "text-red-500 font-bold" 
+                                            lineObj.isHidden 
+                                              ? "text-slate-400 italic" 
                                               : hasCustomReason 
                                                 ? "text-slate-800" 
                                                 : "text-slate-600"
                                           }`}
                                         >
-                                          {line}
+                                          {lineObj.text}
                                         </div>
                                       ))}
                                     </div>
 
-                                    {/* Action Buttons on Right */}
+                                    {/* Edit Button on Right */}
                                     {!isReadOnly && (
-                                      <div className="flex flex-col gap-1.5 shrink-0 items-end">
+                                      <div className="shrink-0">
                                         <Button
                                           variant="outline"
                                           size="sm"
@@ -1163,18 +1203,6 @@ export default function DailyMonitoringPage() {
                                         >
                                           <Edit className="h-2.5 w-2.5" />
                                           Edit
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => toggleHideNote(item.id_POItem)}
-                                          className={`h-6 w-20 px-1 text-[10px] font-semibold flex items-center justify-center gap-1 rounded-md ${
-                                            isNoteHidden
-                                              ? "text-green-600 border-green-200 hover:bg-green-50/50 hover:text-green-700"
-                                              : "text-red-600 border-red-200 hover:bg-red-50/50 hover:text-red-700"
-                                          }`}
-                                        >
-                                          {isNoteHidden ? "Tampilkan" : "Sembunyikan"}
                                         </Button>
                                       </div>
                                     )}
