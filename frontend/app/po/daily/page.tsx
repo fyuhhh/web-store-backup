@@ -327,6 +327,53 @@ export default function DailyMonitoringPage() {
   const highlight = searchParams.get("highlight");
 
   const [poData, setPoData] = useState<any[]>([]);
+
+  // Column Widths for resizable columns
+  const [columnWidths, setColumnWidths] = useState<{ namaBarang: number; keteranganPO: number }>({
+    namaBarang: 180,
+    keteranganPO: 160,
+  });
+
+  // Load saved column widths on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("daily_po_column_widths");
+      if (saved) {
+        try {
+          setColumnWidths(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to load saved column widths", e);
+        }
+      }
+    }
+  }, []);
+
+  const startResize = (columnKey: "namaBarang" | "keteranganPO", e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = columnWidths[columnKey];
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(100, startWidth + (moveEvent.clientX - startX));
+      setColumnWidths((prev) => ({
+        ...prev,
+        [columnKey]: newWidth,
+      }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      // Save to localStorage
+      setColumnWidths((latest) => {
+        localStorage.setItem("daily_po_column_widths", JSON.stringify(latest));
+        return latest;
+      });
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
   const [selectedPOs, setSelectedPOs] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -1146,7 +1193,25 @@ export default function DailyMonitoringPage() {
                     <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NO. PO</TableHead>
                     <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>TANGGAL PO</TableHead>
                     <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NAMA SUPPLIER</TableHead>
-                    <TableHead className="min-w-[180px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NAMA/JENIS BARANG</TableHead>
+                    <TableHead 
+                      className="border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase select-none relative group" 
+                      style={{ 
+                        position: "sticky", 
+                        top: 0, 
+                        zIndex: 10, 
+                        background: "#f3f4f6", 
+                        borderBottom: "2px solid #d1d5db",
+                        width: columnWidths.namaBarang,
+                        minWidth: columnWidths.namaBarang,
+                        maxWidth: columnWidths.namaBarang,
+                      }}
+                    >
+                      NAMA/JENIS BARANG
+                      <div 
+                        onMouseDown={(e) => startResize("namaBarang", e)}
+                        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-500 bg-transparent active:bg-blue-600 transition-colors z-20"
+                      />
+                    </TableHead>
                     <TableHead className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH</TableHead>
                     <TableHead className="min-w-[90px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>SATUAN</TableHead>
                     <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>HARGA SATUAN</TableHead>
@@ -1158,7 +1223,25 @@ export default function DailyMonitoringPage() {
                     <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>GRAND TOTAL</TableHead>
                     <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NAMA PURCHASING</TableHead>
                     <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>ESTIMASI PENERIMAAN</TableHead>
-                    <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>KETERANGAN PO</TableHead>
+                    <TableHead 
+                      className="border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase select-none relative group" 
+                      style={{ 
+                        position: "sticky", 
+                        top: 0, 
+                        zIndex: 10, 
+                        background: "#f3f4f6", 
+                        borderBottom: "2px solid #d1d5db",
+                        width: columnWidths.keteranganPO,
+                        minWidth: columnWidths.keteranganPO,
+                        maxWidth: columnWidths.keteranganPO,
+                      }}
+                    >
+                      KETERANGAN PO
+                      <div 
+                        onMouseDown={(e) => startResize("keteranganPO", e)}
+                        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-500 bg-transparent active:bg-blue-600 transition-colors z-20"
+                      />
+                    </TableHead>
                     <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>DEPARTEMENT</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH SUDAH TERKIRIM</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH BELUM TERKIRIM</TableHead>
@@ -1210,7 +1293,14 @@ export default function DailyMonitoringPage() {
                               </>
                             ) : null}
 
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[180px] uppercase whitespace-nowrap">
+                            <TableCell 
+                              className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-normal break-words uppercase"
+                              style={{
+                                width: columnWidths.namaBarang,
+                                minWidth: columnWidths.namaBarang,
+                                maxWidth: columnWidths.namaBarang,
+                              }}
+                            >
                               {item.namaBarang}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[90px] uppercase">
@@ -1252,7 +1342,14 @@ export default function DailyMonitoringPage() {
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
                               {formatTanggal(po.estimasiTanggalTerima)}
                             </TableCell>
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left min-w-[160px] uppercase whitespace-nowrap">
+                            <TableCell 
+                              className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-normal break-words uppercase"
+                              style={{
+                                width: columnWidths.keteranganPO,
+                                minWidth: columnWidths.keteranganPO,
+                                maxWidth: columnWidths.keteranganPO,
+                              }}
+                            >
                               {item.keterangan}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
