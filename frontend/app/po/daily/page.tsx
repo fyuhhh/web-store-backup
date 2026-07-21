@@ -94,6 +94,46 @@ function formatTanggal(tgl: string) {
   return tgl ?? "";
 }
 
+// Helper to wrap text at a hard limit of characters per line
+function wrapTextAtCharLimit(text: string, limit: number = 55): string {
+  if (!text) return "";
+  const lines = text.split("\n");
+  const wrappedLines: string[] = [];
+
+  lines.forEach(line => {
+    let currentLine = "";
+    const words = line.split(" ");
+    
+    words.forEach(word => {
+      if (word.length > limit) {
+        if (currentLine) {
+          wrappedLines.push(currentLine);
+          currentLine = "";
+        }
+        let remaining = word;
+        while (remaining.length > limit) {
+          wrappedLines.push(remaining.substring(0, limit));
+          remaining = remaining.substring(limit);
+        }
+        currentLine = remaining;
+      } else {
+        if ((currentLine + (currentLine ? " " : "") + word).length > limit) {
+          wrappedLines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine += (currentLine ? " " : "") + word;
+        }
+      }
+    });
+
+    if (currentLine) {
+      wrappedLines.push(currentLine);
+    }
+  });
+
+  return wrappedLines.join("\n");
+}
+
 // Parse PO Number for sorting
 function parseNoPO(noPO: string | null | undefined) {
   if (!noPO || typeof noPO !== "string") return { year: 0, month: 0, urut: 0 };
@@ -223,6 +263,7 @@ function parseNoteText(text: string): DisplayLine[] {
     const regex = /\[(.*?)\]/g;
     let lastIndex = 0;
     let match;
+    let hasMatch = false;
     
     // Helper function to split a string by asterisks into segments
     const splitByStars = (str: string): TextSegment[] => {
@@ -234,6 +275,7 @@ function parseNoteText(text: string): DisplayLine[] {
     };
 
     while ((match = regex.exec(line)) !== null) {
+      hasMatch = true;
       const matchIndex = match.index;
       const bracketContent = match[1]; // Extract contents inside brackets (brackets stripped!)
 
@@ -257,21 +299,23 @@ function parseNoteText(text: string): DisplayLine[] {
       lastIndex = regex.lastIndex;
     }
 
-    // Remaining text after last bracket
-    const textAfter = line.substring(lastIndex).trim();
-    if (textAfter) {
-      displayLines.push({
-        segments: splitByStars(textAfter),
-        isHidden: false
-      });
-    }
-
-    // If no brackets matched and line is not empty
-    if (lastIndex === 0 && line.trim()) {
-      displayLines.push({
-        segments: splitByStars(line),
-        isHidden: false
-      });
+    if (hasMatch) {
+      // Remaining text after last bracket
+      const textAfter = line.substring(lastIndex).trim();
+      if (textAfter) {
+        displayLines.push({
+          segments: splitByStars(textAfter),
+          isHidden: false
+        });
+      }
+    } else {
+      // If no brackets matched and line is not empty
+      if (line.trim()) {
+        displayLines.push({
+          segments: splitByStars(line),
+          isHidden: false
+        });
+      }
     }
   });
 
@@ -1166,8 +1210,8 @@ export default function DailyMonitoringPage() {
                               </>
                             ) : null}
 
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-normal break-words max-w-[360px] min-w-[180px] uppercase">
-                              {item.namaBarang}
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-pre-line break-words max-w-[360px] min-w-[180px] uppercase">
+                              {wrapTextAtCharLimit(item.namaBarang, 55)}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[90px] uppercase">
                               {item.jumlahPO}
@@ -1208,8 +1252,8 @@ export default function DailyMonitoringPage() {
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
                               {formatTanggal(po.estimasiTanggalTerima)}
                             </TableCell>
-                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-normal break-words max-w-[360px] min-w-[160px] uppercase">
-                              {item.keterangan}
+                            <TableCell className="px-3 py-1 border border-gray-300 align-middle text-left text-justify whitespace-pre-line break-words max-w-[360px] min-w-[160px] uppercase">
+                              {wrapTextAtCharLimit(item.keterangan, 55)}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
                               {item.divisi || "-"}
