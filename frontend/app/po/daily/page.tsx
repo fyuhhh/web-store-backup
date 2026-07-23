@@ -725,7 +725,11 @@ export default function DailyMonitoringPage() {
         po.noPO.toLowerCase().includes(searchLower) ||
         po.supplier.toLowerCase().includes(searchLower) ||
         po.poItems.some((poItem: any) =>
-          poItem.items.some((item: any) => item.namaBarang.toLowerCase().includes(searchLower))
+          poItem.items.some(
+            (item: any) =>
+              item.namaBarang.toLowerCase().includes(searchLower) ||
+              (item.noPR && String(item.noPR).toLowerCase().includes(searchLower))
+          )
         );
 
       // Filter by schema based on PO number prefix
@@ -849,6 +853,7 @@ export default function DailyMonitoringPage() {
       "NAMA PURCHASING",
       "ESTIMASI PENERIMAAN",
       "KETERANGAN PO",
+      "NO. PR",
       "DEPARTEMENT",
       "JUMLAH SUDAH TERKIRIM",
       "JUMLAH BELUM TERKIRIM",
@@ -907,6 +912,7 @@ export default function DailyMonitoringPage() {
             po.orderedBy ? po.orderedBy.replace(/_/g, " ").toUpperCase() : "",
             formatTanggal(po.estimasiTanggalTerima),
             item.keterangan ? item.keterangan.toUpperCase() : "",
+            item.noPR ? String(item.noPR).toUpperCase() : "",
             item.divisi ? item.divisi.toUpperCase() : "",
             item.jumlahSudahTerkirim,
             item.jumlahBelumTerkirim,
@@ -1267,6 +1273,7 @@ export default function DailyMonitoringPage() {
                         className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-blue-500 bg-transparent active:bg-blue-600 transition-colors z-20"
                       />
                     </TableHead>
+                    <TableHead className="min-w-[120px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>NO. PR</TableHead>
                     <TableHead className="min-w-[140px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>DEPARTEMENT</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH SUDAH TERKIRIM</TableHead>
                     <TableHead className="min-w-[160px] border border-gray-300 px-3 py-1 text-center sticky top-0 z-10 bg-gray-100 uppercase whitespace-nowrap" style={{ position: "sticky", top: 0, zIndex: 10, background: "#f3f4f6", borderBottom: "2px solid #d1d5db" }}>JUMLAH BELUM TERKIRIM</TableHead>
@@ -1383,6 +1390,16 @@ export default function DailyMonitoringPage() {
                               }}
                             >
                               {item.keterangan}
+                            </TableCell>
+                            <TableCell 
+                              className="px-3 py-1 border border-gray-300 align-middle text-center font-medium min-w-[120px] uppercase text-blue-600 cursor-pointer hover:underline"
+                              onClick={() => {
+                                if (item.noPR) {
+                                  window.location.href = `/pr/monitoring?highlight=${encodeURIComponent(item.noPR)}`;
+                                }
+                              }}
+                            >
+                              {item.noPR || ""}
                             </TableCell>
                             <TableCell className="px-3 py-1 border border-gray-300 align-middle text-center min-w-[140px] uppercase">
                               {item.divisi || "-"}
