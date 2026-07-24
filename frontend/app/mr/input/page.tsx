@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { API_BASE_URL } from "@/lib/config";
 import {
     Table,
@@ -40,24 +39,7 @@ interface MRItem {
     satuan: string;
     spesifikasi: string;
     keterangan: string;
-    harga_satuan: number | "";
-    diskon_persen: string;
-    diskon_rp: number | "";
-    ppn_persen: number | "";
-    ppn_rp: number | "";
-    total: number;
 }
-
-const formatRupiah = (value: number | string) => {
-    if (value === "" || value === 0 || value === "0") return "";
-    const num = Number(value);
-    if (isNaN(num)) return "";
-    return "Rp. " + num.toLocaleString("id-ID");
-};
-
-const parseRupiah = (value: string) => {
-    return value.replace(/[^0-9]/g, "");
-};
 
 export default function InputMRPage() {
     const [loading, setLoading] = useState(false);
@@ -76,8 +58,6 @@ export default function InputMRPage() {
     const [editDivisiId, setEditDivisiId] = useState<string | null>(null);
     const [editDivisiValue, setEditDivisiValue] = useState("");
 
-    const [ppnIncluded, setPpnIncluded] = useState(false);
-
     // Satuan State
     const [satuanOptions, setSatuanOptions] = useState<any[]>([]);
     const [satuanSearch, setSatuanSearch] = useState("");
@@ -95,16 +75,10 @@ export default function InputMRPage() {
             satuan: "",
             spesifikasi: "",
             keterangan: "",
-            harga_satuan: "",
-            diskon_persen: "",
-            diskon_rp: "",
-            ppn_persen: "",
-            ppn_rp: "",
-            total: 0,
         },
     ]);
 
-    // Fetch Divisi & Satuan
+    // Fetch Initial Data
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
@@ -147,12 +121,6 @@ export default function InputMRPage() {
                                 satuan: item.satuan,
                                 spesifikasi: item.spesifikasi || "",
                                 keterangan: item.keterangan || "",
-                                harga_satuan: item.harga_satuan,
-                                diskon_persen: item.diskon_persen || "",
-                                diskon_rp: item.diskon_rp,
-                                ppn_persen: item.ppn_persen || "",
-                                ppn_rp: item.ppn_rp,
-                                total: Number(item.total)
                             })));
                         }
                     }
@@ -165,6 +133,7 @@ export default function InputMRPage() {
         fetchInitialData();
     }, []);
 
+    // Auto-generate No MR
     useEffect(() => {
         if (tanggalMR && !isEditMode) {
             const yyyy = tanggalMR.getFullYear();
@@ -286,93 +255,16 @@ export default function InputMRPage() {
         } catch (err) { }
     };
 
-    // Calculations
-    const calculateItemTotal = (item: MRItem, ppnInc: boolean): number => {
-        const qty = Number(item.quantity) || 0;
-        const harga = Number(item.harga_satuan) || 0;
-        const subtotal = qty * harga;
-        let diskonVal = Number(item.diskon_rp) || 0;
-        const netObj = subtotal - diskonVal;
-
-        if (ppnInc) {
-            return netObj;
-        } else {
-            let ppnVal = Number(item.ppn_rp) || 0;
-            return netObj + ppnVal;
-        }
-    };
-
     const updateItem = (id: string, field: keyof MRItem, value: any) => {
         setItems((prev) =>
             prev.map((item) => {
                 if (item.id === id) {
-                    let updated = { ...item, [field]: value };
-                    const qty = Number(updated.quantity) || 0;
-                    const harga = Number(updated.harga_satuan) || 0;
-                    const subtotal = qty * harga;
-
-                    if (field === "diskon_persen" || field === "quantity" || field === "harga_satuan") {
-                        if (updated.diskon_persen) {
-                            const persen = parseFloat(updated.diskon_persen.replace("%", "")) || 0;
-                            updated.diskon_rp = (subtotal * persen) / 100;
-                        }
-                    } else if (field === "diskon_rp") {
-                        const rp = Number(value) || 0;
-                        updated.diskon_persen = subtotal > 0 ? ((rp / subtotal) * 100).toFixed(2) + "%" : "0%";
-                    }
-
-                    const diskonRp = Number(updated.diskon_rp) || 0;
-                    const afterDiskon = subtotal - diskonRp;
-
-                    if (field === "ppn_persen" || field === "quantity" || field === "harga_satuan" || field === "diskon_persen" || field === "diskon_rp") {
-                        if (updated.ppn_persen) {
-                            const persen = Number(updated.ppn_persen) || 0;
-                            if (ppnIncluded) {
-                                const dpp = afterDiskon / (1 + (persen / 100));
-                                updated.ppn_rp = afterDiskon - dpp;
-                            } else {
-                                updated.ppn_rp = afterDiskon * (persen / 100);
-                            }
-                        }
-                    } else if (field === "ppn_rp") {
-                        const ppnVal = Number(value) || 0;
-                        if (ppnIncluded) {
-                            const dpp = afterDiskon - ppnVal;
-                            updated.ppn_persen = dpp > 0 ? ((ppnVal / dpp) * 100) : 0;
-                        } else {
-                            const dpp = afterDiskon;
-                            updated.ppn_persen = dpp > 0 ? ((ppnVal / dpp) * 100) : 0;
-                        }
-                    }
-
-                    updated.total = calculateItemTotal(updated, ppnIncluded);
-                    return updated;
+                    return { ...item, [field]: value };
                 }
                 return item;
             })
         );
     };
-
-    useEffect(() => {
-        setItems(prev => prev.map(item => {
-            let updated = { ...item };
-            const qty = Number(updated.quantity) || 0;
-            const harga = Number(updated.harga_satuan) || 0;
-            const subtotal = qty * harga;
-            const diskonRp = Number(updated.diskon_rp) || 0;
-            const afterDiskon = subtotal - diskonRp;
-            const ppnPersen = Number(updated.ppn_persen) || 0;
-
-            if (ppnIncluded) {
-                const dpp = afterDiskon / (1 + (ppnPersen / 100));
-                updated.ppn_rp = afterDiskon - dpp;
-            } else {
-                updated.ppn_rp = afterDiskon * (ppnPersen / 100);
-            }
-            updated.total = calculateItemTotal(updated, ppnIncluded);
-            return updated;
-        }));
-    }, [ppnIncluded]);
 
     const addItem = () => {
         setItems((prev) => [
@@ -384,12 +276,6 @@ export default function InputMRPage() {
                 satuan: "",
                 spesifikasi: "",
                 keterangan: "",
-                harga_satuan: "",
-                diskon_persen: "",
-                diskon_rp: "",
-                ppn_persen: "",
-                ppn_rp: "",
-                total: 0,
             },
         ]);
     };
@@ -419,12 +305,12 @@ export default function InputMRPage() {
                     satuan: i.satuan || null,
                     spesifikasi: i.spesifikasi || "",
                     keterangan: i.keterangan || "",
-                    harga_satuan: Number(i.harga_satuan) || 0,
-                    diskon_persen: i.diskon_persen || "",
-                    diskon_rp: Number(i.diskon_rp) || 0,
-                    ppn_persen: Number(i.ppn_persen) || 0,
-                    ppn_rp: Number(i.ppn_rp) || 0,
-                    total: Number(i.total) || 0
+                    harga_satuan: 0,
+                    diskon_persen: "",
+                    diskon_rp: 0,
+                    ppn_persen: 0,
+                    ppn_rp: 0,
+                    total: 0
                 }));
 
             const payload = {
@@ -507,6 +393,7 @@ export default function InputMRPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* HEADER INFORMATION CARD */}
                     <div className="lg:col-span-3 space-y-6">
                         <Card className="border-none shadow-sm bg-white ring-1 ring-gray-200/50">
                             <CardHeader className="pb-4 border-b border-gray-100">
@@ -515,7 +402,7 @@ export default function InputMRPage() {
                                     <h3 className="font-semibold text-lg text-gray-800">Informasi Dasar</h3>
                                 </div>
                             </CardHeader>
-                            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {/* No MR */}
                                 <div className="space-y-2">
                                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">No. MR</Label>
@@ -613,34 +500,18 @@ export default function InputMRPage() {
                                     <h3 className="font-semibold text-lg text-gray-800">Daftar Barang</h3>
                                     <p className="text-sm text-muted-foreground">Isi detail barang yang ingin direquest.</p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                     <div className="flex items-center gap-2 mr-4">
-                                         <Checkbox 
-                                             id="ppn-toggle" 
-                                             checked={ppnIncluded} 
-                                             onCheckedChange={(checked) => setPpnIncluded(checked as boolean)}
-                                         />
-                                         <Label htmlFor="ppn-toggle" className="text-sm cursor-pointer select-none">Harga Sudah Termasuk PPN?</Label>
-                                     </div>
-                                </div>
                             </CardHeader>
                             <CardContent className="p-0">
                                 <div className="overflow-x-auto">
                                     <Table>
                                         <TableHeader className="bg-gray-50/80">
                                             <TableRow className="hover:bg-gray-50/80 border-b border-gray-200">
-                                                <TableHead className="w-[240px] font-semibold text-gray-700 py-4 pl-6">Nama Barang</TableHead>
-                                                <TableHead className="w-[90px] font-semibold text-gray-700 text-center">Qty</TableHead>
-                                                <TableHead className="w-[100px] font-semibold text-gray-700 text-center">Satuan</TableHead>
-                                                <TableHead className="w-[180px] font-semibold text-gray-700">Spesifikasi</TableHead>
-                                                <TableHead className="w-[180px] font-semibold text-gray-700">Keterangan</TableHead>
-                                                <TableHead className="w-[150px] font-semibold text-gray-700 text-right">Harga (Rp)</TableHead>
-                                                <TableHead className="w-[90px] font-semibold text-gray-700 text-center">Disc (%)</TableHead>
-                                                <TableHead className="w-[130px] font-semibold text-gray-700 text-right">Disc (Rp)</TableHead>
-                                                <TableHead className="w-[90px] font-semibold text-gray-700 text-center">PPN (%)</TableHead>
-                                                <TableHead className="w-[130px] font-semibold text-gray-700 text-right">PPN (Rp)</TableHead>
-                                                <TableHead className="w-[160px] font-semibold text-gray-700 text-right pr-6">Total</TableHead>
-                                                <TableHead className="w-[50px]"></TableHead>
+                                                <TableHead className="w-[300px] font-semibold text-gray-700 py-4 pl-6">Nama Barang</TableHead>
+                                                <TableHead className="w-[120px] font-semibold text-gray-700 text-center">Qty</TableHead>
+                                                <TableHead className="w-[140px] font-semibold text-gray-700 text-center">Satuan</TableHead>
+                                                <TableHead className="w-[280px] font-semibold text-gray-700">Spesifikasi</TableHead>
+                                                <TableHead className="w-[280px] font-semibold text-gray-700">Keterangan</TableHead>
+                                                <TableHead className="w-[60px]"></TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -778,55 +649,6 @@ export default function InputMRPage() {
                                                             className="h-9 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 text-muted-foreground"
                                                         />
                                                     </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.harga_satuan ? "Rp. " + Number(item.harga_satuan).toLocaleString("id-ID") : ""}
-                                                            onChange={(e) => updateItem(item.id, "harga_satuan", parseRupiah(e.target.value))}
-                                                            className="h-9 text-right font-mono text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="Rp. 0"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.diskon_persen ? (item.diskon_persen.endsWith('%') ? item.diskon_persen : item.diskon_persen + "%") : ""}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value.replace(/[^0-9.]/g, '');
-                                                                updateItem(item.id, "diskon_persen", val ? val + "%" : "");
-                                                            }}
-                                                            className="h-9 text-center text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="0%"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.diskon_rp ? "Rp. " + Number(item.diskon_rp).toLocaleString("id-ID") : ""}
-                                                            onChange={(e) => updateItem(item.id, "diskon_rp", parseRupiah(e.target.value))}
-                                                            className="h-9 text-right font-mono text-sm text-red-600 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="Rp. 0"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.ppn_persen ? (String(item.ppn_persen).endsWith('%') ? item.ppn_persen : item.ppn_persen + "%") : ""}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value.replace(/[^0-9.]/g, '');
-                                                                updateItem(item.id, "ppn_persen", val);
-                                                            }}
-                                                            className="h-9 text-center text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="0%"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.ppn_rp ? "Rp. " + Number(item.ppn_rp).toLocaleString("id-ID") : ""}
-                                                            onChange={(e) => updateItem(item.id, "ppn_rp", parseRupiah(e.target.value))}
-                                                            className="h-9 text-right font-mono text-sm text-green-600 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="Rp. 0"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3 pr-6 text-right font-semibold text-gray-900">
-                                                        {formatRupiah(item.total)}
-                                                    </TableCell>
                                                     <TableCell className="py-3 text-center">
                                                         <Button
                                                             size="icon"
@@ -842,74 +664,41 @@ export default function InputMRPage() {
                                         </TableBody>
                                     </Table>
                                 </div>
-                                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                                <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
                                     <Button 
                                         variant="outline" 
                                         onClick={addItem}
-                                        className="w-full border-dashed border-gray-300 text-muted-foreground hover:text-primary hover:border-primary hover:bg-blue-50"
+                                        className="border-dashed border-gray-300 text-muted-foreground hover:text-primary hover:border-primary hover:bg-blue-50"
                                     >
                                         <Plus className="h-4 w-4 mr-2" /> Tambah Baris Barang
                                     </Button>
+
+                                    <div className="flex gap-3">
+                                        <Button 
+                                            variant="outline" 
+                                            size="lg" 
+                                            className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                            onClick={() => window.location.reload()}
+                                        >
+                                            Batal
+                                        </Button>
+                                        <Button 
+                                            size="lg" 
+                                            className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                                            disabled={loading} 
+                                            onClick={handleSave}
+                                        >
+                                            {loading ? "Menyimpan..." : (
+                                                <>
+                                                    <Save className="h-4 w-4 mr-2" />
+                                                    {isEditMode ? "Simpan Perubahan" : "Simpan MR Baru"}
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
-                    </div>
-
-                    {/* SUMMARY SECTION */}
-                    <div className="lg:col-span-3">
-                        <div className="flex flex-col lg:flex-row gap-8 justify-end">
-                            <div className="w-full lg:w-1/3 space-y-4">
-                                <Card className="border shadow-lg bg-gray-900 text-white">
-                                    <CardContent className="p-6 space-y-6">
-                                        <div className="flex justify-between items-center text-gray-300 text-sm">
-                                            <span>Subtotal</span>
-                                            <span className="font-mono">{formatRupiah(items.reduce((acc, item) => acc + ((Number(item.quantity) || 0) * (Number(item.harga_satuan) || 0)), 0))}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-red-300 text-sm">
-                                            <span>Total Diskon</span>
-                                            <span className="font-mono">- {formatRupiah(items.reduce((acc, item) => acc + (Number(item.diskon_rp) || 0), 0))}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-green-300 text-sm">
-                                            <span>Total PPN</span>
-                                            <span className="font-mono">+ {formatRupiah(items.reduce((acc, item) => acc + (Number(item.ppn_rp) || 0), 0))}</span>
-                                        </div>
-                                        <div className="h-px bg-gray-700 my-4" />
-                                        <div className="flex justify-between items-end">
-                                            <div className="space-y-1">
-                                                <span className="text-gray-400 text-xs uppercase tracking-wider">TOTAL BAYAR</span>
-                                                <div className="text-3xl font-bold tracking-tight text-white">
-                                                    {formatRupiah(items.reduce((acc, item) => acc + (Number(item.total) || 0), 0))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                <div className="flex gap-3 pt-2">
-                                    <Button 
-                                        variant="outline" 
-                                        size="lg" 
-                                        className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-100"
-                                        onClick={() => window.location.reload()}
-                                    >
-                                        Batal
-                                    </Button>
-                                    <Button 
-                                        size="lg" 
-                                        className="flex-1 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-                                        disabled={loading} 
-                                        onClick={handleSave}
-                                    >
-                                        {loading ? "Menyimpan..." : (
-                                            <>
-                                                <Save className="h-4 w-4 mr-2" />
-                                                {isEditMode ? "Simpan Perubahan" : "Simpan MR Baru"}
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

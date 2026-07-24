@@ -24,7 +24,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Trash2, Plus, Save, Edit2, ArrowLeft, Calendar, FileText } from "lucide-react";
+import { Trash2, Plus, Save, Edit2, ArrowLeft, FileText } from "lucide-react";
 import {
     Select,
     SelectTrigger,
@@ -59,22 +59,21 @@ const parseRupiah = (value: string) => {
     return value.replace(/[^0-9]/g, "");
 };
 
-export default function InputMRDetailPage() {
+export default function PembelianMRPage() {
     const [loading, setLoading] = useState(false);
     const [notif, setNotif] = useState<{ type: "success" | "error"; message: string } | null>(null);
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [editId, setEditId] = useState<string | null>(null);
 
-    // Header State
+    // List of all MRs for dropdown
+    const [mrList, setMrList] = useState<any[]>([]);
+    const [selectedMRId, setSelectedMRId] = useState<string>("");
+    const [selectedMR, setSelectedMR] = useState<any>(null);
+    const [mrSearch, setMrSearch] = useState("");
+
+    // Selected MR Header Info
     const [noMR, setNoMR] = useState("");
-    const [tanggalMR, setTanggalMR] = useState<Date | null>(new Date());
+    const [tanggalMR, setTanggalMR] = useState<Date | null>(null);
     const [idDivisi, setIdDivisi] = useState("");
     const [divisiOptions, setDivisiOptions] = useState<any[]>([]);
-    const [divisiSearch, setDivisiSearch] = useState("");
-    const [showAddDivisi, setShowAddDivisi] = useState(false);
-    const [newDivisi, setNewDivisi] = useState("");
-    const [editDivisiId, setEditDivisiId] = useState<string | null>(null);
-    const [editDivisiValue, setEditDivisiValue] = useState("");
 
     // Supplier State
     const [supplierId, setSupplierId] = useState("");
@@ -97,24 +96,9 @@ export default function InputMRDetailPage() {
     const [editSatuanValue, setEditSatuanValue] = useState("");
 
     // Items State
-    const [items, setItems] = useState<MRItem[]>([
-        {
-            id: Date.now().toString(),
-            nama_barang: "",
-            quantity: "",
-            satuan: "",
-            spesifikasi: "",
-            keterangan: "",
-            harga_satuan: "",
-            diskon_persen: "",
-            diskon_rp: "",
-            ppn_persen: "",
-            ppn_rp: "",
-            total: 0,
-        },
-    ]);
+    const [items, setItems] = useState<MRItem[]>([]);
 
-    // Fetch Divisi & Suppliers
+    // Fetch MR list, Divisi, Suppliers, Satuan
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
@@ -125,16 +109,19 @@ export default function InputMRDetailPage() {
                     return;
                 }
 
-                const [divisiRes, supplierRes, satuanRes] = await Promise.all([
+                const [mrRes, divisiRes, supplierRes, satuanRes] = await Promise.all([
+                    fetch(`${API_BASE_URL}/api/mr`),
                     fetch(`${API_BASE_URL}/api/divisi`),
                     fetch(`${API_BASE_URL}/api/supplier`),
                     fetch(`${API_BASE_URL}/api/satuan`),
                 ]);
                 
+                const mrData = await mrRes.json();
                 const divisiData = await divisiRes.json();
                 const supplierData = await supplierRes.json();
                 const satuanData = await satuanRes.json();
 
+                setMrList(Array.isArray(mrData) ? mrData : []);
                 setDivisiOptions(divisiData);
                 setSupplierOptions(supplierData);
                 setSatuanOptions(satuanData);
@@ -142,37 +129,7 @@ export default function InputMRDetailPage() {
                 const params = new URLSearchParams(window.location.search);
                 const id = params.get("id");
                 if (id && id !== "null") {
-                    setIsEditMode(true);
-                    setEditId(id);
-                    const mrRes = await fetch(`${API_BASE_URL}/api/mr/${id}`);
-                    if (mrRes.ok) {
-                        const mrData = await mrRes.json();
-                        
-                        setNoMR(mrData.no_mr);
-                        if (mrData.tanggal_mr) setTanggalMR(new Date(mrData.tanggal_mr));
-                        if (mrData.tanggal_pembelian) setTanggalPembelian(new Date(mrData.tanggal_pembelian));
-                        setIdDivisi(String(mrData.id_divisi || ""));
-                        
-                        const supplier = supplierData.find((s: any) => s.namaSupplier === mrData.nama_supplier);
-                        if (supplier) setSupplierId(String(supplier.id_supplier));
-
-                        if (mrData.items && mrData.items.length > 0) {
-                            setItems(mrData.items.map((item: any) => ({
-                                id: String(item.id_mr_item),
-                                nama_barang: item.nama_barang,
-                                quantity: item.quantity,
-                                satuan: item.satuan,
-                                spesifikasi: item.spesifikasi || "",
-                                keterangan: item.keterangan || "",
-                                harga_satuan: item.harga_satuan,
-                                diskon_persen: item.diskon_persen || "",
-                                diskon_rp: item.diskon_rp,
-                                ppn_persen: item.ppn_persen || "",
-                                ppn_rp: item.ppn_rp,
-                                total: Number(item.total)
-                            })));
-                        }
-                    }
+                    loadMRDetails(id, supplierData, divisiData);
                 }
             } catch (err) {
                 console.error("Failed to fetch initial data", err);
@@ -182,21 +139,53 @@ export default function InputMRDetailPage() {
         fetchInitialData();
     }, []);
 
-    useEffect(() => {
-        if (tanggalMR && !isEditMode) {
-            const yyyy = tanggalMR.getFullYear();
-            const mm = String(tanggalMR.getMonth() + 1).padStart(2, "0");
-            const dd = String(tanggalMR.getDate()).padStart(2, "0");
-            const dateStr = `${yyyy}-${mm}-${dd}`;
+    // Load MR Details when an MR is selected from dropdown
+    const loadMRDetails = async (id: string, currentSuppliers = supplierOptions, currentDivisis = divisiOptions) => {
+        if (!id) return;
+        try {
+            setLoading(true);
+            setSelectedMRId(id);
+            const res = await fetch(`${API_BASE_URL}/api/mr/${id}`);
+            if (res.ok) {
+                const mrData = await res.json();
+                setSelectedMR(mrData);
+                setNoMR(mrData.no_mr);
+                if (mrData.tanggal_mr) setTanggalMR(new Date(mrData.tanggal_mr));
+                if (mrData.tanggal_pembelian) setTanggalPembelian(new Date(mrData.tanggal_pembelian));
+                setIdDivisi(String(mrData.id_divisi || ""));
 
-            fetch(`${API_BASE_URL}/api/mr/next-number?tanggal_mr=${dateStr}`)
-                .then((res) => res.json())
-                .then((data) => {
-                    if (data.nextNoMR) setNoMR(data.nextNoMR);
-                })
-                .catch((err) => console.error("Failed to fetch next MR number", err));
+                // Find Supplier
+                if (mrData.nama_supplier) {
+                    const supp = currentSuppliers.find((s: any) => s.namaSupplier === mrData.nama_supplier);
+                    if (supp) setSupplierId(String(supp.id_supplier));
+                }
+
+                // Items
+                if (mrData.items && mrData.items.length > 0) {
+                    setItems(mrData.items.map((item: any) => ({
+                        id: String(item.id_mr_item || Date.now() + Math.random()),
+                        nama_barang: item.nama_barang,
+                        quantity: item.quantity,
+                        satuan: item.satuan,
+                        spesifikasi: item.spesifikasi || "",
+                        keterangan: item.keterangan || "",
+                        harga_satuan: item.harga_satuan || "",
+                        diskon_persen: item.diskon_persen || "",
+                        diskon_rp: item.diskon_rp || "",
+                        ppn_persen: item.ppn_persen || "",
+                        ppn_rp: item.ppn_rp || "",
+                        total: Number(item.total) || 0
+                    })));
+                } else {
+                    setItems([]);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to load MR details", err);
+        } finally {
+            setLoading(false);
         }
-    }, [tanggalMR, isEditMode]);
+    };
 
     // Supplier Handlers
     const handleAddSupplier = async () => {
@@ -247,59 +236,6 @@ export default function InputMRDetailPage() {
             if (res.ok) {
                 setSupplierOptions((prev) => prev.filter(s => String(s.id_supplier) !== id));
                 if (supplierId === id) setSupplierId("");
-            }
-        } catch (err) { }
-    };
-
-    // Divisi Handlers
-    const handleAddDivisi = async () => {
-        if (!newDivisi.trim()) return;
-        try {
-            const res = await fetch(API_BASE_URL + "/api/divisi", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ divisi: newDivisi }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setDivisiOptions((prev) => [...prev, data]);
-                setIdDivisi(String(data.id_divisi));
-                setShowAddDivisi(false);
-                setNewDivisi("");
-            }
-        } catch (err) {
-            console.error("Failed to add divisi", err);
-        }
-    };
-
-    const handleEditDivisi = async (id: string) => {
-        if (!editDivisiValue.trim()) return;
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ divisi: editDivisiValue }),
-            });
-            if (res.ok) {
-                fetch(`${API_BASE_URL}/api/divisi`)
-                    .then((res) => res.json())
-                    .then((data) => setDivisiOptions(data));
-                setEditDivisiId(null);
-                setEditDivisiValue("");
-            }
-        } catch (err) { }
-    };
-
-    const handleDeleteDivisi = async (id: string) => {
-        if (!id) return;
-        if (!window.confirm("Yakin ingin menghapus divisi ini?")) return;
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/divisi/${id}`, {
-                method: "DELETE",
-            });
-            if (res.ok) {
-                setDivisiOptions((prev) => prev.filter(d => String(d.id_divisi) !== id));
-                if (idDivisi === id) setIdDivisi("");
             }
         } catch (err) { }
     };
@@ -471,8 +407,8 @@ export default function InputMRDetailPage() {
     };
 
     const handleSave = async () => {
-        if (!noMR) {
-            setNotif({ type: "error", message: "Mohon isi No MR" });
+        if (!selectedMRId) {
+            setNotif({ type: "error", message: "Mohon pilih No. MR terlebih dahulu" });
             return;
         }
 
@@ -510,29 +446,20 @@ export default function InputMRDetailPage() {
                 items: filteredItems
             };
 
-            const url = isEditMode && editId 
-                ? `${API_BASE_URL}/api/mr/${editId}`
-                : `${API_BASE_URL}/api/mr`;
-            
-            const method = isEditMode ? "PUT" : "POST";
+            const url = `${API_BASE_URL}/api/mr/${selectedMRId}`;
 
             const res = await fetch(url, {
-                method: method,
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
 
-            if (!res.ok) throw new Error(isEditMode ? "Gagal memperbarui MR Detail" : "Gagal menyimpan MR Detail");
+            if (!res.ok) throw new Error("Gagal memperbarui data Pembelian MR");
 
-            const data = await res.json();
-            setNotif({ type: "success", message: isEditMode ? "MR Detail Berhasil diperbarui!" : `MR Detail Berhasil disimpan! ID: ${data.id_mr}` });
+            setNotif({ type: "success", message: "Data Pembelian MR Berhasil Disimpan!" });
 
             setTimeout(() => {
-                if (isEditMode) {
-                     window.location.href = "/mr/monitoring";
-                } else {
-                     window.location.reload();
-                }
+                 window.location.href = "/mr/monitoring";
             }, 1500);
 
         } catch (err: any) {
@@ -541,6 +468,10 @@ export default function InputMRDetailPage() {
             setLoading(false);
         }
     };
+
+    const filteredMRList = mrList.filter(mr => 
+        mr.no_mr.toLowerCase().includes(mrSearch.toLowerCase())
+    );
 
     return (
         <MainLayout>
@@ -561,116 +492,58 @@ export default function InputMRDetailPage() {
                             <ArrowLeft className="h-4 w-4 mr-2" /> Kembali ke Monitoring
                         </Button>
                         <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                            {isEditMode ? "Edit Material Request (Detail)" : "Input Material Request Detail"}
+                            Pembelian Material Request
                         </h1>
                         <p className="text-muted-foreground">
-                            Input data Material Request lengkap dengan supplier, tanggal pembelian, dan spesifikasi barang.
+                            Pilih No. MR yang sudah diajukan untuk melengkapi data Supplier, Tanggal Pembelian, dan Rincian Harga.
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        {isEditMode && (
-                            <div className="px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-full border border-blue-200">
-                                Editing Mode
-                            </div>
-                        )}
-                        <div className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full border border-gray-200">
-                            MR Detail
+                        <div className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full border border-blue-200">
+                            Tahap Pembelian / Purchasing
                         </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    {/* HEADER INFORMATION CARD */}
                     <div className="lg:col-span-3 space-y-6">
                         <Card className="border-none shadow-sm bg-white ring-1 ring-gray-200/50">
                             <CardHeader className="pb-4 border-b border-gray-100">
                                 <div className="flex items-center gap-2 text-primary">
                                     <FileText className="h-5 w-5" />
-                                    <h3 className="font-semibold text-lg text-gray-800">Informasi Dasar</h3>
+                                    <h3 className="font-semibold text-lg text-gray-800">Informasi Pembelian</h3>
                                 </div>
                             </CardHeader>
-                            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {/* No MR */}
+                            <CardContent className="pt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* No MR Select Dropdown */}
                                 <div className="space-y-2">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">No. MR</Label>
-                                    <div className="relative">
-                                        <div className="absolute left-3 top-2.5 text-gray-400">
-                                            <FileText className="h-4 w-4" />
-                                        </div>
-                                        <Input 
-                                            value={noMR} 
-                                            onChange={(e) => setNoMR(e.target.value)} 
-                                            placeholder="MR/YYYY/MM/XXXX" 
-                                            className="pl-9 font-medium bg-gray-50/50 border-gray-200 focus:bg-white transition-all"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Tanggal MR */}
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tanggal MR</Label>
-                                    <div className="relative">
-                                        <div className="absolute left-3 top-2.5 text-gray-400 z-10 pointer-events-none">
-                                            <Calendar className="h-4 w-4" />
-                                        </div>
-                                        <div className="relative">
-                                             <DatePicker
-                                                selected={tanggalMR}
-                                                onChange={(date) => setTanggalMR(date)}
-                                                dateFormat="dd MMM yyyy"
-                                                className="w-full pl-9 h-10 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                                                wrapperClassName="w-full"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Divisi */}
-                                <div className="space-y-2">
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Divisi</Label>
-                                    <Select value={idDivisi} onValueChange={setIdDivisi}>
-                                        <SelectTrigger className="w-full bg-white border-gray-200">
-                                            <SelectValue placeholder="Pilih Divisi" />
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pilih No. MR</Label>
+                                    <Select 
+                                        value={selectedMRId} 
+                                        onValueChange={(val) => loadMRDetails(val)}
+                                    >
+                                        <SelectTrigger className="w-full bg-white border-gray-200 h-10 font-medium">
+                                            <SelectValue placeholder="-- Pilih No. MR --" />
                                         </SelectTrigger>
                                         <SelectContent className="bg-white max-h-[300px]">
-                                             <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100 mb-1">
-                                                 {showAddDivisi ? (
-                                                     <div className="flex items-center gap-2">
-                                                         <Input
-                                                             placeholder="Nama divisi baru"
-                                                             value={newDivisi}
-                                                             onChange={(e) => setNewDivisi(e.target.value)}
-                                                             className="h-8"
-                                                             autoFocus
-                                                         />
-                                                         <Button size="sm" onClick={handleAddDivisi} className="h-8">Simpan</Button>
-                                                         <Button size="sm" variant="ghost" onClick={() => setShowAddDivisi(false)} className="h-8">Batal</Button>
-                                                     </div>
-                                                 ) : (
-                                                     <div className="space-y-2">
-                                                         <Input placeholder="Cari divisi..." value={divisiSearch} onChange={(e) => setDivisiSearch(e.target.value)} className="h-8 bg-gray-50" />
-                                                         <Button size="sm" variant="secondary" className="w-full h-8 text-xs" onClick={() => setShowAddDivisi(true)}>+ Tambah</Button>
-                                                     </div>
-                                                 )}
-                                             </div>
-                                             {!showAddDivisi && divisiOptions.filter(d => d.divisi.toLowerCase().includes(divisiSearch.toLowerCase())).map(d => (
-                                                  <div key={d.id_divisi} className="flex items-center justify-between group px-2 py-1.5 hover:bg-gray-50 rounded-sm">
-                                                      {editDivisiId === String(d.id_divisi) ? (
-                                                          <div className="flex items-center gap-1 w-full">
-                                                              <Input value={editDivisiValue} onChange={(e) => setEditDivisiValue(e.target.value)} className="h-7 text-xs" />
-                                                              <Button size="sm" onClick={() => handleEditDivisi(String(d.id_divisi))} className="h-7 px-2">OK</Button>
-                                                              <Button size="sm" variant="ghost" onClick={() => setEditDivisiId(null)} className="h-7 px-2">X</Button>
-                                                          </div>
-                                                      ) : (
-                                                          <>
-                                                              <SelectItem value={String(d.id_divisi)} className="flex-1">{d.divisi}</SelectItem>
-                                                              <div className="flex items-center opacity-0 group-hover:opacity-100">
-                                                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-blue-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditDivisiId(String(d.id_divisi)); setEditDivisiValue(d.divisi); }}><Edit2 className="h-3 w-3" /></Button>
-                                                                  <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteDivisi(String(d.id_divisi)); }}><Trash2 className="h-3 w-3" /></Button>
-                                                              </div>
-                                                          </>
-                                                      )}
-                                                  </div>
-                                             ))}
+                                            <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100 mb-1">
+                                                <Input 
+                                                    placeholder="Cari No. MR..." 
+                                                    value={mrSearch} 
+                                                    onChange={(e) => setMrSearch(e.target.value)} 
+                                                    className="h-8 text-xs bg-gray-50" 
+                                                />
+                                            </div>
+                                            {filteredMRList.length === 0 ? (
+                                                <div className="p-3 text-xs text-center text-muted-foreground">Tidak ada No MR ditemukan.</div>
+                                            ) : (
+                                                filteredMRList.map((mr) => (
+                                                    <SelectItem key={mr.id_mr} value={String(mr.id_mr)}>
+                                                        {mr.no_mr} {mr.tanggal_mr ? `(${new Date(mr.tanggal_mr).toLocaleDateString("id-ID")})` : ""}
+                                                    </SelectItem>
+                                                ))
+                                            )}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -680,7 +553,7 @@ export default function InputMRDetailPage() {
                                     <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Supplier</Label>
                                     <div className="relative">
                                         <Select value={supplierId} onValueChange={setSupplierId}>
-                                            <SelectTrigger className="w-full pl-3 bg-white border-gray-200">
+                                            <SelectTrigger className="w-full pl-3 bg-white border-gray-200 h-10">
                                                 <SelectValue placeholder="Pilih Supplier" />
                                             </SelectTrigger>
                                             <SelectContent className="bg-white max-h-[300px]">
@@ -773,8 +646,8 @@ export default function InputMRDetailPage() {
                         <Card className="border-none shadow-sm bg-white ring-1 ring-gray-200/50">
                             <CardHeader className="pb-4 border-b border-gray-100 flex flex-row items-center justify-between">
                                 <div className="space-y-1">
-                                    <h3 className="font-semibold text-lg text-gray-800">Daftar Barang</h3>
-                                    <p className="text-sm text-muted-foreground">Isi detail barang yang ingin direquest.</p>
+                                    <h3 className="font-semibold text-lg text-gray-800">Daftar Barang & Rincian Harga</h3>
+                                    <p className="text-sm text-muted-foreground">Lengkapi rincian harga untuk setiap barang yang diajukan.</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                      <div className="flex items-center gap-2 mr-4">
@@ -807,213 +680,223 @@ export default function InputMRDetailPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {items.map((item) => (
-                                                <TableRow key={item.id} className="group hover:bg-blue-50/30 transition-colors border-b border-gray-100">
-                                                    <TableCell className="pl-6 py-3">
-                                                        <Input 
-                                                            placeholder="Nama Barang..."
-                                                            value={item.nama_barang}
-                                                            onChange={(e) => updateItem(item.id, "nama_barang", e.target.value)}
-                                                            className="h-9 font-medium bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20" 
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            type="number"
-                                                            value={item.quantity}
-                                                            onChange={(e) => updateItem(item.id, "quantity", e.target.value)}
-                                                            className="h-9 text-center bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Select 
-                                                            value={item.satuan} 
-                                                            onValueChange={(val) => updateItem(item.id, "satuan", val)}
-                                                        >
-                                                            <SelectTrigger className="w-full h-9 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 px-2 text-center">
-                                                                <SelectValue placeholder="Pilih" />
-                                                            </SelectTrigger>
-                                                            <SelectContent className="bg-white max-h-[300px] min-w-[140px]">
-                                                                <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100 mb-1">
-                                                                    {showAddSatuan ? (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Input
-                                                                                placeholder="Baru..."
-                                                                                value={newSatuan}
-                                                                                onChange={(e) => setNewSatuan(e.target.value)}
-                                                                                className="h-7 text-xs"
-                                                                                autoFocus
-                                                                            />
-                                                                            <Button size="sm" onClick={handleAddSatuan} className="h-7 px-2 text-xs">OK</Button>
-                                                                            <Button size="sm" variant="ghost" onClick={() => setShowAddSatuan(false)} className="h-7 px-2 text-xs">X</Button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="space-y-2">
-                                                                            <Input 
-                                                                                placeholder="Cari..." 
-                                                                                value={satuanSearch} 
-                                                                                onChange={(e) => setSatuanSearch(e.target.value)} 
-                                                                                className="h-7 text-xs bg-gray-50" 
-                                                                            />
-                                                                            <Button 
-                                                                                size="sm" 
-                                                                                variant="secondary" 
-                                                                                className="w-full h-7 text-xs" 
-                                                                                onClick={(e) => {
-                                                                                    e.preventDefault();
-                                                                                    setShowAddSatuan(true);
-                                                                                }}
-                                                                            >
-                                                                                <Plus className="h-3 w-3 mr-1"/> Tambah
-                                                                            </Button>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                                {!showAddSatuan && (
-                                                                    satuanOptions.length === 0 ? (
-                                                                        <div className="p-2 text-center text-xs text-muted-foreground">Kosong</div>
-                                                                    ) : (
-                                                                        satuanOptions.filter(s => s.satuan.toLowerCase().includes(satuanSearch.toLowerCase())).map(s => (
-                                                                            <div key={s.id_satuan} className="flex items-center justify-between group px-2 py-1.5 hover:bg-gray-50 rounded-sm">
-                                                                                {editSatuanId === String(s.id_satuan) ? (
-                                                                                    <div className="flex items-center gap-1 w-full">
-                                                                                        <Input 
-                                                                                            value={editSatuanValue} 
-                                                                                            onChange={(e) => setEditSatuanValue(e.target.value)} 
-                                                                                            className="h-7 text-xs" 
-                                                                                            onClick={(e) => e.stopPropagation()}
-                                                                                        />
-                                                                                        <Button size="sm" onClick={(e) => { e.stopPropagation(); handleEditSatuan(String(s.id_satuan)); }} className="h-7 px-2 text-xs">OK</Button>
-                                                                                        <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditSatuanId(null); }} className="h-7 px-2 text-xs">X</Button>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <>
-                                                                                        <SelectItem value={s.satuan} className="flex-1 text-xs">{s.satuan}</SelectItem>
-                                                                                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                            <Button 
-                                                                                                size="icon" 
-                                                                                                variant="ghost" 
-                                                                                                className="h-5 w-5 text-muted-foreground hover:text-blue-500" 
-                                                                                                onClick={(e) => { 
-                                                                                                    e.preventDefault(); 
-                                                                                                    e.stopPropagation(); 
-                                                                                                    setEditSatuanId(String(s.id_satuan)); 
-                                                                                                    setEditSatuanValue(s.satuan); 
-                                                                                                }}
-                                                                                            >
-                                                                                                <Edit2 className="h-3 w-3" />
-                                                                                            </Button>
-                                                                                            <Button 
-                                                                                                size="icon" 
-                                                                                                variant="ghost" 
-                                                                                                className="h-5 w-5 text-muted-foreground hover:text-red-500" 
-                                                                                                onClick={(e) => { 
-                                                                                                    e.preventDefault(); 
-                                                                                                    e.stopPropagation(); 
-                                                                                                    handleDeleteSatuan(String(s.id_satuan)); 
-                                                                                                }}
-                                                                                            >
-                                                                                                <Trash2 className="h-3 w-3" />
-                                                                                            </Button>
-                                                                                        </div>
-                                                                                    </>
-                                                                                )}
-                                                                            </div>
-                                                                        ))
-                                                                    )
-                                                                )}
-                                                            </SelectContent>
-                                                        </Select>
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            placeholder="Spesifikasi..."
-                                                            value={item.spesifikasi}
-                                                            onChange={(e) => updateItem(item.id, "spesifikasi", e.target.value)}
-                                                            className="h-9 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 text-muted-foreground"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            placeholder="Keterangan..."
-                                                            value={item.keterangan}
-                                                            onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
-                                                            className="h-9 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 text-muted-foreground"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.harga_satuan ? "Rp. " + Number(item.harga_satuan).toLocaleString("id-ID") : ""}
-                                                            onChange={(e) => updateItem(item.id, "harga_satuan", parseRupiah(e.target.value))}
-                                                            className="h-9 text-right font-mono text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="Rp. 0"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.diskon_persen ? (item.diskon_persen.endsWith('%') ? item.diskon_persen : item.diskon_persen + "%") : ""}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value.replace(/[^0-9.]/g, '');
-                                                                updateItem(item.id, "diskon_persen", val ? val + "%" : "");
-                                                            }}
-                                                            className="h-9 text-center text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="0%"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.diskon_rp ? "Rp. " + Number(item.diskon_rp).toLocaleString("id-ID") : ""}
-                                                            onChange={(e) => updateItem(item.id, "diskon_rp", parseRupiah(e.target.value))}
-                                                            className="h-9 text-right font-mono text-sm text-red-600 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="Rp. 0"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.ppn_persen ? (String(item.ppn_persen).endsWith('%') ? item.ppn_persen : item.ppn_persen + "%") : ""}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value.replace(/[^0-9.]/g, '');
-                                                                updateItem(item.id, "ppn_persen", val);
-                                                            }}
-                                                            className="h-9 text-center text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="0%"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3">
-                                                        <Input 
-                                                            value={item.ppn_rp ? "Rp. " + Number(item.ppn_rp).toLocaleString("id-ID") : ""}
-                                                            onChange={(e) => updateItem(item.id, "ppn_rp", parseRupiah(e.target.value))}
-                                                            className="h-9 text-right font-mono text-sm text-green-600 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
-                                                            placeholder="Rp. 0"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell className="py-3 pr-6 text-right font-semibold text-gray-900">
-                                                        {formatRupiah(item.total)}
-                                                    </TableCell>
-                                                    <TableCell className="py-3 text-center">
-                                                        <Button
-                                                            size="icon"
-                                                            variant="ghost"
-                                                            className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
-                                                            onClick={() => removeItem(item.id)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
+                                            {items.length === 0 ? (
+                                                <TableRow>
+                                                    <TableCell colSpan={12} className="h-32 text-center text-muted-foreground">
+                                                        {selectedMRId ? "Tidak ada barang dalam MR ini." : "Silakan pilih No. MR terlebih dahulu."}
                                                     </TableCell>
                                                 </TableRow>
-                                            ))}
+                                            ) : (
+                                                items.map((item) => (
+                                                    <TableRow key={item.id} className="group hover:bg-blue-50/30 transition-colors border-b border-gray-100">
+                                                        <TableCell className="pl-6 py-3">
+                                                            <Input 
+                                                                placeholder="Nama Barang..."
+                                                                value={item.nama_barang}
+                                                                onChange={(e) => updateItem(item.id, "nama_barang", e.target.value)}
+                                                                className="h-9 font-medium bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20" 
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                type="number"
+                                                                value={item.quantity}
+                                                                onChange={(e) => updateItem(item.id, "quantity", e.target.value)}
+                                                                className="h-9 text-center bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Select 
+                                                                value={item.satuan} 
+                                                                onValueChange={(val) => updateItem(item.id, "satuan", val)}
+                                                            >
+                                                                <SelectTrigger className="w-full h-9 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 px-2 text-center">
+                                                                    <SelectValue placeholder="Pilih" />
+                                                                </SelectTrigger>
+                                                                <SelectContent className="bg-white max-h-[300px] min-w-[140px]">
+                                                                    <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100 mb-1">
+                                                                        {showAddSatuan ? (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Input
+                                                                                    placeholder="Baru..."
+                                                                                    value={newSatuan}
+                                                                                    onChange={(e) => setNewSatuan(e.target.value)}
+                                                                                    className="h-7 text-xs"
+                                                                                    autoFocus
+                                                                                />
+                                                                                <Button size="sm" onClick={handleAddSatuan} className="h-7 px-2 text-xs">OK</Button>
+                                                                                <Button size="sm" variant="ghost" onClick={() => setShowAddSatuan(false)} className="h-7 px-2 text-xs">X</Button>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="space-y-2">
+                                                                                <Input 
+                                                                                    placeholder="Cari..." 
+                                                                                    value={satuanSearch} 
+                                                                                    onChange={(e) => setSatuanSearch(e.target.value)} 
+                                                                                    className="h-7 text-xs bg-gray-50" 
+                                                                                />
+                                                                                <Button 
+                                                                                    size="sm" 
+                                                                                    variant="secondary" 
+                                                                                    className="w-full h-7 text-xs" 
+                                                                                    onClick={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        setShowAddSatuan(true);
+                                                                                    }}
+                                                                                >
+                                                                                    <Plus className="h-3 w-3 mr-1"/> Tambah
+                                                                                </Button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                    {!showAddSatuan && (
+                                                                        satuanOptions.length === 0 ? (
+                                                                            <div className="p-2 text-center text-xs text-muted-foreground">Kosong</div>
+                                                                        ) : (
+                                                                            satuanOptions.filter(s => s.satuan.toLowerCase().includes(satuanSearch.toLowerCase())).map(s => (
+                                                                                <div key={s.id_satuan} className="flex items-center justify-between group px-2 py-1.5 hover:bg-gray-50 rounded-sm">
+                                                                                    {editSatuanId === String(s.id_satuan) ? (
+                                                                                        <div className="flex items-center gap-1 w-full">
+                                                                                            <Input 
+                                                                                                value={editSatuanValue} 
+                                                                                                onChange={(e) => setEditSatuanValue(e.target.value)} 
+                                                                                                className="h-7 text-xs" 
+                                                                                                onClick={(e) => e.stopPropagation()}
+                                                                                            />
+                                                                                            <Button size="sm" onClick={(e) => { e.stopPropagation(); handleEditSatuan(String(s.id_satuan)); }} className="h-7 px-2 text-xs">OK</Button>
+                                                                                            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setEditSatuanId(null); }} className="h-7 px-2 text-xs">X</Button>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <>
+                                                                                            <SelectItem value={s.satuan} className="flex-1 text-xs">{s.satuan}</SelectItem>
+                                                                                            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                                <Button 
+                                                                                                    size="icon" 
+                                                                                                    variant="ghost" 
+                                                                                                    className="h-5 w-5 text-muted-foreground hover:text-blue-500" 
+                                                                                                    onClick={(e) => { 
+                                                                                                        e.preventDefault(); 
+                                                                                                        e.stopPropagation(); 
+                                                                                                        setEditSatuanId(String(s.id_satuan)); 
+                                                                                                        setEditSatuanValue(s.satuan); 
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <Edit2 className="h-3 w-3" />
+                                                                                                </Button>
+                                                                                                <Button 
+                                                                                                    size="icon" 
+                                                                                                    variant="ghost" 
+                                                                                                    className="h-5 w-5 text-muted-foreground hover:text-red-500" 
+                                                                                                    onClick={(e) => { 
+                                                                                                        e.preventDefault(); 
+                                                                                                        e.stopPropagation(); 
+                                                                                                        handleDeleteSatuan(String(s.id_satuan)); 
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <Trash2 className="h-3 w-3" />
+                                                                                                </Button>
+                                                                                            </div>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            ))
+                                                                        )
+                                                                    )}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                placeholder="Spesifikasi..."
+                                                                value={item.spesifikasi}
+                                                                onChange={(e) => updateItem(item.id, "spesifikasi", e.target.value)}
+                                                                className="h-9 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 text-muted-foreground"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                placeholder="Keterangan..."
+                                                                value={item.keterangan}
+                                                                onChange={(e) => updateItem(item.id, "keterangan", e.target.value)}
+                                                                className="h-9 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 text-muted-foreground"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                value={item.harga_satuan ? "Rp. " + Number(item.harga_satuan).toLocaleString("id-ID") : ""}
+                                                                onChange={(e) => updateItem(item.id, "harga_satuan", parseRupiah(e.target.value))}
+                                                                className="h-9 text-right font-mono text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20 font-semibold"
+                                                                placeholder="Rp. 0"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                value={item.diskon_persen ? (item.diskon_persen.endsWith('%') ? item.diskon_persen : item.diskon_persen + "%") : ""}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                                    updateItem(item.id, "diskon_persen", val ? val + "%" : "");
+                                                                }}
+                                                                className="h-9 text-center text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                                                placeholder="0%"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                value={item.diskon_rp ? "Rp. " + Number(item.diskon_rp).toLocaleString("id-ID") : ""}
+                                                                onChange={(e) => updateItem(item.id, "diskon_rp", parseRupiah(e.target.value))}
+                                                                className="h-9 text-right font-mono text-sm text-red-600 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                                                placeholder="Rp. 0"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                value={item.ppn_persen ? (String(item.ppn_persen).endsWith('%') ? item.ppn_persen : item.ppn_persen + "%") : ""}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                                    updateItem(item.id, "ppn_persen", val);
+                                                                }}
+                                                                className="h-9 text-center text-sm bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                                                placeholder="0%"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3">
+                                                            <Input 
+                                                                value={item.ppn_rp ? "Rp. " + Number(item.ppn_rp).toLocaleString("id-ID") : ""}
+                                                                onChange={(e) => updateItem(item.id, "ppn_rp", parseRupiah(e.target.value))}
+                                                                className="h-9 text-right font-mono text-sm text-green-600 bg-white border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+                                                                placeholder="Rp. 0"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="py-3 pr-6 text-right font-bold text-gray-900">
+                                                            {formatRupiah(item.total)}
+                                                        </TableCell>
+                                                        <TableCell className="py-3 text-center">
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                                                                onClick={() => removeItem(item.id)}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
                                         </TableBody>
                                     </Table>
                                 </div>
-                                <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                                    <Button 
-                                        variant="outline" 
-                                        onClick={addItem}
-                                        className="w-full border-dashed border-gray-300 text-muted-foreground hover:text-primary hover:border-primary hover:bg-blue-50"
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" /> Tambah Baris Barang
-                                    </Button>
-                                </div>
+                                {selectedMRId && (
+                                    <div className="p-4 border-t border-gray-100 bg-gray-50/50">
+                                        <Button 
+                                            variant="outline" 
+                                            onClick={addItem}
+                                            className="w-full border-dashed border-gray-300 text-muted-foreground hover:text-primary hover:border-primary hover:bg-blue-50"
+                                        >
+                                            <Plus className="h-4 w-4 mr-2" /> Tambah Baris Barang
+                                        </Button>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
@@ -1060,13 +943,13 @@ export default function InputMRDetailPage() {
                                     <Button 
                                         size="lg" 
                                         className="flex-1 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-                                        disabled={loading} 
+                                        disabled={loading || !selectedMRId} 
                                         onClick={handleSave}
                                     >
                                         {loading ? "Menyimpan..." : (
                                             <>
                                                 <Save className="h-4 w-4 mr-2" />
-                                                {isEditMode ? "Simpan Perubahan" : "Simpan MR Detail"}
+                                                Simpan Pembelian
                                             </>
                                         )}
                                     </Button>

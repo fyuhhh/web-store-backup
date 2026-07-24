@@ -159,7 +159,7 @@ export function Sidebar({ collapsed: externalCollapsed, setCollapsed: setExterna
       icon: ClipboardList,
       submenu: [
         { title: "Input MR", href: "/mr/input" },
-        { title: "Input MR Detail", href: "/mr/input-detail" },
+        { title: "Pembelian", href: "/mr/input-detail" },
         { title: "Monitoring MR", href: "/mr/monitoring" },
       ],
     };
