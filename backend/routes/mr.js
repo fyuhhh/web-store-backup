@@ -153,6 +153,7 @@ router.post("/", async (req, res, next) => {
                 item.nama_barang,
                 item.quantity || 0,
                 item.satuan || null,
+                item.spesifikasi || null,
                 item.keterangan || null,
                 item.harga_satuan || 0,
                 item.diskon_persen || null,
@@ -163,7 +164,7 @@ router.post("/", async (req, res, next) => {
             ]);
 
             await connection.query(
-                `INSERT INTO mr_item (id_mr, nama_barang, quantity, satuan, keterangan, harga_satuan, diskon_persen, diskon_rp, ppn_persen, ppn_rp, total)
+                `INSERT INTO mr_item (id_mr, nama_barang, quantity, satuan, spesifikasi, keterangan, harga_satuan, diskon_persen, diskon_rp, ppn_persen, ppn_rp, total)
          VALUES ?`,
                 [values]
             );
@@ -252,6 +253,7 @@ router.put("/:id", async (req, res, next) => {
                 item.nama_barang,
                 item.quantity || 0,
                 item.satuan || null,
+                item.spesifikasi || null,
                 item.keterangan || null,
                 item.harga_satuan || 0,
                 item.diskon_persen || null,
@@ -262,7 +264,7 @@ router.put("/:id", async (req, res, next) => {
             ]);
 
             await connection.query(
-                `INSERT INTO mr_item (id_mr, nama_barang, quantity, satuan, keterangan, harga_satuan, diskon_persen, diskon_rp, ppn_persen, ppn_rp, total)
+                `INSERT INTO mr_item (id_mr, nama_barang, quantity, satuan, spesifikasi, keterangan, harga_satuan, diskon_persen, diskon_rp, ppn_persen, ppn_rp, total)
                  VALUES ?`,
                 [values]
             );

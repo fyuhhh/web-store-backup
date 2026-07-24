@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `mr_item` (
   `nama_barang` varchar(255) NOT NULL,
   `quantity` decimal(10,2) DEFAULT 0.00,
   `satuan` varchar(50) DEFAULT NULL,
+  `spesifikasi` text DEFAULT NULL,
   `keterangan` text DEFAULT NULL,
   `harga_satuan` decimal(15,2) DEFAULT 0.00,
   `diskon_persen` varchar(50) DEFAULT NULL,

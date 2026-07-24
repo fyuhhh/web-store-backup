@@ -59,7 +59,7 @@ const parseRupiah = (value: string) => {
     return value.replace(/[^0-9]/g, "");
 };
 
-export default function InputMRPage() {
+export default function InputMRDetailPage() {
     const [loading, setLoading] = useState(false);
     const [notif, setNotif] = useState<{ type: "success" | "error"; message: string } | null>(null);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -76,6 +76,16 @@ export default function InputMRPage() {
     const [editDivisiId, setEditDivisiId] = useState<string | null>(null);
     const [editDivisiValue, setEditDivisiValue] = useState("");
 
+    // Supplier State
+    const [supplierId, setSupplierId] = useState("");
+    const [supplierOptions, setSupplierOptions] = useState<any[]>([]);
+    const [supplierSearch, setSupplierSearch] = useState("");
+    const [showAddSupplier, setShowAddSupplier] = useState(false);
+    const [newSupplier, setNewSupplier] = useState("");
+    const [editSupplierId, setEditSupplierId] = useState<string | null>(null);
+    const [editSupplierValue, setEditSupplierValue] = useState("");
+
+    const [tanggalPembelian, setTanggalPembelian] = useState<Date | null>(new Date());
     const [ppnIncluded, setPpnIncluded] = useState(false);
 
     // Satuan State
@@ -104,7 +114,7 @@ export default function InputMRPage() {
         },
     ]);
 
-    // Fetch Divisi & Satuan
+    // Fetch Divisi & Suppliers
     useEffect(() => {
         const fetchInitialData = async () => {
             try {
@@ -115,15 +125,18 @@ export default function InputMRPage() {
                     return;
                 }
 
-                const [divisiRes, satuanRes] = await Promise.all([
+                const [divisiRes, supplierRes, satuanRes] = await Promise.all([
                     fetch(`${API_BASE_URL}/api/divisi`),
+                    fetch(`${API_BASE_URL}/api/supplier`),
                     fetch(`${API_BASE_URL}/api/satuan`),
                 ]);
                 
                 const divisiData = await divisiRes.json();
+                const supplierData = await supplierRes.json();
                 const satuanData = await satuanRes.json();
 
                 setDivisiOptions(divisiData);
+                setSupplierOptions(supplierData);
                 setSatuanOptions(satuanData);
 
                 const params = new URLSearchParams(window.location.search);
@@ -137,7 +150,11 @@ export default function InputMRPage() {
                         
                         setNoMR(mrData.no_mr);
                         if (mrData.tanggal_mr) setTanggalMR(new Date(mrData.tanggal_mr));
+                        if (mrData.tanggal_pembelian) setTanggalPembelian(new Date(mrData.tanggal_pembelian));
                         setIdDivisi(String(mrData.id_divisi || ""));
+                        
+                        const supplier = supplierData.find((s: any) => s.namaSupplier === mrData.nama_supplier);
+                        if (supplier) setSupplierId(String(supplier.id_supplier));
 
                         if (mrData.items && mrData.items.length > 0) {
                             setItems(mrData.items.map((item: any) => ({
@@ -180,6 +197,59 @@ export default function InputMRPage() {
                 .catch((err) => console.error("Failed to fetch next MR number", err));
         }
     }, [tanggalMR, isEditMode]);
+
+    // Supplier Handlers
+    const handleAddSupplier = async () => {
+        if (!newSupplier.trim()) return;
+        try {
+            const res = await fetch(API_BASE_URL + "/api/supplier", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ namaSupplier: newSupplier }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setSupplierOptions((prev) => [...prev, data]);
+                setSupplierId(String(data.id_supplier));
+                setShowAddSupplier(false);
+                setNewSupplier("");
+            }
+        } catch (err) {
+            console.error("Failed to add supplier", err);
+        }
+    };
+
+    const handleEditSupplier = async (id: string) => {
+        if (!editSupplierValue.trim()) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/supplier/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ namaSupplier: editSupplierValue }),
+            });
+            if (res.ok) {
+                fetch(`${API_BASE_URL}/api/supplier`)
+                    .then((res) => res.json())
+                    .then((data) => setSupplierOptions(data));
+                setEditSupplierId(null);
+                setEditSupplierValue("");
+            }
+        } catch (err) { }
+    };
+
+    const handleDeleteSupplier = async (id: string) => {
+        if (!id) return;
+        if (!window.confirm("Yakin ingin menghapus supplier ini?")) return;
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/supplier/${id}`, {
+                method: "DELETE",
+            });
+            if (res.ok) {
+                setSupplierOptions((prev) => prev.filter(s => String(s.id_supplier) !== id));
+                if (supplierId === id) setSupplierId("");
+            }
+        } catch (err) { }
+    };
 
     // Divisi Handlers
     const handleAddDivisi = async () => {
@@ -411,6 +481,9 @@ export default function InputMRPage() {
             const userData = JSON.parse(localStorage.getItem("userData") || "{}");
             const idSkema = userData.id_skema || userData.skema || null;
 
+            const selectedSupplier = supplierOptions.find(s => String(s.id_supplier) === supplierId);
+            const namaSupplierToSave = selectedSupplier ? selectedSupplier.namaSupplier : null;
+
             const filteredItems = items
                 .filter(i => i.nama_barang && i.nama_barang.trim() !== "")
                 .map(i => ({
@@ -431,8 +504,8 @@ export default function InputMRPage() {
                 no_mr: noMR,
                 tanggal_mr: tanggalMR ? tanggalMR.toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
                 id_divisi: idDivisi || null,
-                nama_supplier: null,
-                tanggal_pembelian: null,
+                nama_supplier: namaSupplierToSave,
+                tanggal_pembelian: tanggalPembelian ? tanggalPembelian.toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
                 id_skema: idSkema,
                 items: filteredItems
             };
@@ -449,10 +522,10 @@ export default function InputMRPage() {
                 body: JSON.stringify(payload),
             });
 
-            if (!res.ok) throw new Error(isEditMode ? "Gagal memperbarui MR" : "Gagal menyimpan MR");
+            if (!res.ok) throw new Error(isEditMode ? "Gagal memperbarui MR Detail" : "Gagal menyimpan MR Detail");
 
             const data = await res.json();
-            setNotif({ type: "success", message: isEditMode ? "MR Berhasil diperbarui!" : `MR Berhasil disimpan! ID: ${data.id_mr}` });
+            setNotif({ type: "success", message: isEditMode ? "MR Detail Berhasil diperbarui!" : `MR Detail Berhasil disimpan! ID: ${data.id_mr}` });
 
             setTimeout(() => {
                 if (isEditMode) {
@@ -488,10 +561,10 @@ export default function InputMRPage() {
                             <ArrowLeft className="h-4 w-4 mr-2" /> Kembali ke Monitoring
                         </Button>
                         <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                            {isEditMode ? "Edit Material Request" : "Input New Material Request"}
+                            {isEditMode ? "Edit Material Request (Detail)" : "Input Material Request Detail"}
                         </h1>
                         <p className="text-muted-foreground">
-                            {isEditMode ? "Perbarui data request material yang sudah ada." : "Buat request material baru untuk divisi Anda."}
+                            Input data Material Request lengkap dengan supplier, tanggal pembelian, dan spesifikasi barang.
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -501,7 +574,7 @@ export default function InputMRPage() {
                             </div>
                         )}
                         <div className="px-3 py-1 bg-gray-100 text-gray-600 text-sm font-medium rounded-full border border-gray-200">
-                            Closing Cashier
+                            MR Detail
                         </div>
                     </div>
                 </div>
@@ -600,6 +673,96 @@ export default function InputMRPage() {
                                              ))}
                                         </SelectContent>
                                     </Select>
+                                </div>
+
+                                {/* Supplier */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Supplier</Label>
+                                    <div className="relative">
+                                        <Select value={supplierId} onValueChange={setSupplierId}>
+                                            <SelectTrigger className="w-full pl-3 bg-white border-gray-200">
+                                                <SelectValue placeholder="Pilih Supplier" />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-white max-h-[300px]">
+                                                <div className="sticky top-0 z-20 bg-white px-2 py-2 border-b border-gray-100 mb-1">
+                                                  {showAddSupplier ? (
+                                                      <div className="flex items-center gap-2">
+                                                          <Input
+                                                              placeholder="Nama supplier baru"
+                                                              value={newSupplier}
+                                                              onChange={(e) => setNewSupplier(e.target.value)}
+                                                              className="h-8"
+                                                              autoFocus
+                                                          />
+                                                          <Button size="sm" onClick={handleAddSupplier} className="h-8">Simpan</Button>
+                                                          <Button size="sm" variant="ghost" onClick={() => setShowAddSupplier(false)} className="h-8">Batal</Button>
+                                                      </div>
+                                                  ) : (
+                                                      <div className="space-y-2">
+                                                          <Input
+                                                              placeholder="Cari supplier..."
+                                                              value={supplierSearch}
+                                                              onChange={(e) => setSupplierSearch(e.target.value)}
+                                                              className="h-8 bg-gray-50"
+                                                          />
+                                                          <Button size="sm" variant="secondary" className="w-full h-8 text-xs" onClick={() => setShowAddSupplier(true)}>
+                                                              <Plus className="h-3 w-3 mr-1"/> Tambah
+                                                          </Button>
+                                                      </div>
+                                                  )}
+                                                </div>
+                                                {!showAddSupplier && (
+                                                   supplierOptions.length === 0 ? (
+                                                       <div className="p-4 text-center text-sm text-muted-foreground">Tidak ada data.</div>
+                                                   ) : (
+                                                       supplierOptions.filter((s) => s.namaSupplier.toLowerCase().includes(supplierSearch.toLowerCase())).map((s) => (
+                                                           <div key={s.id_supplier} className="flex items-center justify-between group px-2 py-1.5 hover:bg-gray-50 rounded-sm cursor-default">
+                                                               {editSupplierId === String(s.id_supplier) ? (
+                                                                  <div className="flex items-center gap-1 w-full">
+                                                                     <Input
+                                                                         value={editSupplierValue}
+                                                                         onChange={(e) => setEditSupplierValue(e.target.value)}
+                                                                         className="h-7 text-xs"
+                                                                     />
+                                                                     <Button size="sm" onClick={() => handleEditSupplier(String(s.id_supplier))} className="h-7 px-2">OK</Button>
+                                                                     <Button size="sm" variant="ghost" onClick={() => setEditSupplierId(null)} className="h-7 px-2">X</Button>
+                                                                  </div>
+                                                               ) : (
+                                                                  <>
+                                                                     <SelectItem value={String(s.id_supplier)} className="flex-1 cursor-pointer">
+                                                                         {s.namaSupplier}
+                                                                     </SelectItem>
+                                                                     <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                         <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-blue-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditSupplierId(String(s.id_supplier)); setEditSupplierValue(s.namaSupplier); }}>
+                                                                             <Edit2 className="h-3 w-3" />
+                                                                         </Button>
+                                                                         <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-500" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteSupplier(String(s.id_supplier)); }}>
+                                                                             <Trash2 className="h-3 w-3" />
+                                                                         </Button>
+                                                                     </div>
+                                                                  </>
+                                                               )}
+                                                           </div>
+                                                       ))
+                                                   )
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
+
+                                {/* Tanggal Pembelian */}
+                                <div className="space-y-2">
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tanggal Pembelian</Label>
+                                    <div className="relative">
+                                         <DatePicker
+                                            selected={tanggalPembelian}
+                                            onChange={(date) => setTanggalPembelian(date)}
+                                            dateFormat="dd MMM yyyy"
+                                            className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
+                                            wrapperClassName="w-full"
+                                        />
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
@@ -903,7 +1066,7 @@ export default function InputMRPage() {
                                         {loading ? "Menyimpan..." : (
                                             <>
                                                 <Save className="h-4 w-4 mr-2" />
-                                                {isEditMode ? "Simpan Perubahan" : "Simpan MR Baru"}
+                                                {isEditMode ? "Simpan Perubahan" : "Simpan MR Detail"}
                                             </>
                                         )}
                                     </Button>

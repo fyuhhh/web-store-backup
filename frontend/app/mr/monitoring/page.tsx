@@ -265,7 +265,7 @@ export default function MonitoringMRPage() {
 
         const headers = [
             "NO. MR", "TANGGAL MR", 
-            "NAMA BARANG", "QUANTITY", "SATUAN", "KETERANGAN",
+            "NAMA BARANG", "QUANTITY", "SATUAN", "SPESIFIKASI", "KETERANGAN",
             "HARGA SATUAN", "DISKON (%)", "DISKON (RP.)", "SUB", "PPN (%)", "PPN (RP.)", "TOTAL",
             "NAMA SUPPLIER", "TANGGAL PEMBELIAN", "DIVISI"
         ];
@@ -321,6 +321,7 @@ export default function MonitoringMRPage() {
                     item.nama_barang,
                     qty,
                     item.satuan,
+                    item.spesifikasi || "-",
                     item.keterangan,
                     harga,
                     item.diskon_persen,
@@ -773,6 +774,7 @@ export default function MonitoringMRPage() {
                                         </TableHead>
                                         <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>QTY</TableHead>
                                         <TableHead className="w-[80px] text-center border font-bold uppercase" style={headerStyle}>SATUAN</TableHead>
+                                        <TableHead className="w-[180px] text-center border font-bold uppercase" style={headerStyle}>SPESIFIKASI</TableHead>
                                         <TableHead className="w-[200px] text-center border font-bold uppercase" style={headerStyle}>KETERANGAN</TableHead>
                                         <TableHead className="w-[300px] text-center border font-bold uppercase" style={headerStyle}>SUPPLIER</TableHead>
                                         <TableHead className="w-[120px] text-center border font-bold uppercase" style={headerStyle}>TGL BELI</TableHead>
@@ -797,11 +799,11 @@ export default function MonitoringMRPage() {
                                 <TableBody>
                                     {loading ? (
                                         <TableRow>
-                                            <TableCell colSpan={16} className="h-24 text-center">Loading...</TableCell>
+                                            <TableCell colSpan={17} className="h-24 text-center">Loading...</TableCell>
                                         </TableRow>
                                     ) : uniqueMRs.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={16} className="h-24 text-center text-muted-foreground">Tidak ada data.</TableCell>
+                                            <TableCell colSpan={17} className="h-24 text-center text-muted-foreground">Tidak ada data.</TableCell>
                                         </TableRow>
                                     ) : (
                                         uniqueMRs.map((noMR) => {
@@ -841,6 +843,9 @@ export default function MonitoringMRPage() {
                                                         </TableCell>
                                                         <TableCell className="text-center border p-2">{formatNumber(qty)}</TableCell>
                                                         <TableCell className="text-center border p-2">{item.satuan}</TableCell>
+                                                        <TableCell className="border text-xs text-muted-foreground p-2">
+                                                            <TruncatedText text={item.spesifikasi} />
+                                                        </TableCell>
                                                         <TableCell className="border text-xs text-muted-foreground p-2">
                                                             <TruncatedText text={item.keterangan} />
                                                         </TableCell>
